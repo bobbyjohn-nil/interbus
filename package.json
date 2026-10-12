@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "e2e": "playwright test",
+    "measure:bundle": "node scripts/measure/bundle.mjs",
     "check": "npm run typecheck && npm run lint && npm test && npm run test:scripts && node scripts/changelog.mjs check"
   },
   "dependencies": {
