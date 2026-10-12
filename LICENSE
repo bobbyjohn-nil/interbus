@@ -1,0 +1,15 @@
+Copyright (c) 2026 Miticept Studios. All rights reserved.
+
+The source code in this repository is not open source. It is published so it can be read; no
+licence is granted to copy, modify, distribute or use it, except as the law allows (D14, D20 in
+docs/DECISIONS.md).
+
+Parts of the repository carry their own licences:
+
+- The artist's models and art (art/) are under an open licence named in art/LICENSE.md once it
+  is chosen (D20).
+- City map data is derived from OpenStreetMap, (c) OpenStreetMap contributors, available under the
+  Open Database License (ODbL) 1.0; the baked city files are published under the ODbL.
+- The Afacad Flux font, built by scripts/fonts/, is (c) 2023 The Afacad Project Authors under the
+  SIL Open Font License 1.1; its licence text ships with the game.
+- Third-party libraries keep their own licences (see package.json and node_modules).

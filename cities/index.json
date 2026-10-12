@@ -1,0 +1,11 @@
+{
+  "cities": [
+    {
+      "id": "boston",
+      "name": "Boston",
+      "extent": [-71.16, 42.315, -70.98, 42.405],
+      "view": { "center": [-71.085, 42.35], "zoom": 14 },
+      "tiles": null
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+# Every merge to main deploys the preview, always (D12). Tags never publish anything.
+# The gates that must hold for this to work are in CLAUDE.md, "GitHub Pages deploy gates".
+name: Deploy preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  LIVE_URL: https://bobbyjohn-nil.github.io/interbus
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+      - run: npm run fonts
+
+      - name: Fetch and verify city files (fails on any missing or mismatched file)
+        run: npm run cities -- --require
+
+      - name: Build
+        run: npm run build
+        env:
+          BUILD_SHA: ${{ github.sha }}
+
+      - name: Keep the last two deploys' files (deploy gate 6)
+        run: node scripts/deploy/retain-assets.mjs dist
+        env:
+          BUILD_SHA: ${{ github.sha }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  live-check:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: The live preview shows this commit (deploy gate 5)
+        run: node scripts/deploy/live-check.mjs "$LIVE_URL/" "${{ github.sha }}" "${{ github.run_id }}"

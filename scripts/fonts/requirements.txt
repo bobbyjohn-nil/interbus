@@ -1,0 +1,8 @@
+# Pinned with hashes (pip install --require-hashes). fontTools 4.66.0 was published 2026-09-23,
+# the newest release at least two weeks old on 2026-10-12.
+fonttools==4.66.0 \
+    --hash=sha256:bc7b7ddc1a1f46c363354304e9a8dd93722e4a6a24f785015650898dacf40df9
+brotli==1.1.0 \
+    --hash=sha256:a469274ad18dc0e4d316eefa616d1d0c2ff9da369af19fa6f3daa4f09671fd61 \
+    --hash=sha256:d0c5516f0aed654134a2fc936325cc2e642f8a0e096d075209672eb321cff408 \
+    --hash=sha256:a93dde851926f4f2678e704fadeb39e16c35d8baebd5252c9fd94ce8ce68c4a0

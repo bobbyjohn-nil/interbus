@@ -449,7 +449,6 @@ function git(root, args, { trim = true } = {}) {
 
 const fileAt = (root, rev) => git(root, ['show', `${rev}:./${FILE}`], { trim: false });
 const hasVersion = (text, v) => !!text && versionsIn(text).includes(v);
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Exactly "Release v1.2.3". Squash and rebase merges are off, so the release commit keeps its own subject. */
 export function isReleaseSubject(subject, version) {
