@@ -34,6 +34,16 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
   page.on('response', (r) => {
     if (r.status() >= 400) errors.push(`HTTP ${r.status()} ${r.url()}`);
   });
+  page.on('requestfailed', (r) => {
+    // The city-file probe and MapLibre cancel requests on purpose; anything else is a failure.
+    if (r.failure()?.errorText !== 'net::ERR_ABORTED') errors.push(`${r.failure()?.errorText} ${r.url()}`);
+  });
+  // The game loads only its own files: no live APIs, third-party tiles or fonts (WD-01).
+  const origins = new Set<string>();
+  page.on('request', (r) => {
+    const url = new URL(r.url());
+    if (url.protocol === 'http:' || url.protocol === 'https:') origins.add(url.origin);
+  });
 
   await page.goto('./');
 
@@ -61,12 +71,16 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
       expect(box?.width).toBeGreaterThanOrEqual(viewport.width * 0.99);
       expect(box?.height).toBeGreaterThanOrEqual(viewport.height * 0.99);
     }
-    const colours = await distinctColours(page, await page.screenshot());
+    // The corner's antialiased 12 px text alone gives about 120 colours, so it is masked: a map
+    // that draws only its background then counts 2, the real one thousands.
+    const colours = await distinctColours(page, await page.screenshot({ mask: [page.locator('.corner')] }));
     expect(colours, 'distinct colours in the drawn map').toBeGreaterThan(50);
+    expect(Number(await map.getAttribute('data-features')), 'features drawn on the first idle frame').toBeGreaterThan(0);
   } else {
     await expect(map).toHaveAttribute('data-status', 'no-city-file');
   }
 
   await expect(page.getByTestId('replaced-card')).toHaveCount(0);
   expect(errors).toEqual([]);
+  expect([...origins]).toEqual([new URL(page.url()).origin]);
 });
