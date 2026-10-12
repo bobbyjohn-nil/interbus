@@ -32,7 +32,7 @@
 8. **Versions only on your say:** only `/ship <version>`, typed by you, creates one; CI fails any other, and your yes inside `/ship` is the guard ([PR-15](docs/history/lessons-ledger.md)).
 9. **Triggers cut scope first; only the M5 and RC triggers move the target, and never past Feb 28** (§10).
 
-**How.** One Claude session owns `main`; no agent crew; ≤150-line specs; PR checks within 8 minutes ([PR-04](docs/history/lessons-ledger.md), [PR-08](docs/history/lessons-ledger.md)).
+**How.** One Claude session owns `main` and merges its own pull requests on green checks (D23); no agent crew; ≤150-line specs; PR checks within 8 minutes ([PR-04](docs/history/lessons-ledger.md), [PR-08](docs/history/lessons-ledger.md)).
 
 **This week:** Claude gets read access to the three earlier repos; you protect `main` (§14 item 2) and commit `art/LICENSE.md` naming Miticept Studios by Oct 18, then pick the art's open licence with the artist by Oct 25 (D20); the artist reviews [docs/art/MODELS.md](docs/art/MODELS.md) §3, §3.1, §5, §6 and §10; the V1 baseline (§14).
 
@@ -477,7 +477,7 @@ Weeks run Monday to Sunday; checks use the deployed build.
 
 Answers go in [docs/DECISIONS.md](docs/DECISIONS.md), with how to reverse each. Until answered, the plan assumes the recommendation, except the art's open licence, which waits for an answer (top of this file).
 
-**Decided 2026-10-12:** D1–D18, D20 in part, and CL, with reasons and reversals in DECISIONS. The newest: **D18** Next Fest in June 2027, not February (D15's macOS-then-Windows and your accounts stand); **D20, first part** open-licensed art, all-rights-reserved code; **D19** deferred until the game is under way.
+**Decided 2026-10-12:** D1–D18, D20 in part, D23 and CL, with reasons and reversals in DECISIONS. The newest: **D23** Claude opens and merges its own pull requests into `main`, merge commits only, on green checks; **D18** Next Fest in June 2027, not February (D15's macOS-then-Windows and your accounts stand); **D20, first part** open-licensed art, all-rights-reserved code; **D19** deferred until the game is under way.
 
 **Still open:** listed at the top of this file.
 
