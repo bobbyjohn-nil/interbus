@@ -14,16 +14,18 @@ This repo starts fresh and reuses what worked. "interbus" is the game's title (d
 
 ## Status
 
-**Planning.** As of 2026-10-12 there is no game code yet. The owner decided on 2026-10-12: real cities first with Boston as the test city, a flat 2D map that tilts into 3D in light and dark themes, a GitHub Pages preview now and Steam (about US$10) as the only release, a free demo for macOS and Windows at Steam Next Fest in February 2027, copyright held by Miticept Studios (its two members jointly), and versions only on the owner's say ([docs/DECISIONS.md](docs/DECISIONS.md)).
+**Planning.** As of 2026-10-12 there is no game code yet. The owner decided on 2026-10-12: real cities first with Boston as the test city, a flat 2D map that tilts into 3D in light and dark themes, a GitHub Pages preview now and Steam (about US$10) as the only release, a free demo for macOS and Windows at Steam Next Fest in June 2027, copyright held by Miticept Studios (its two members jointly) with the art under an open licence and the code all rights reserved, and versions only on the owner's say ([docs/DECISIONS.md](docs/DECISIONS.md)).
 
 | Date | Target |
 |---|---|
+| Sun Oct 18 2026 | Coding under way: Boston's map opens on the preview |
 | Sun Nov 1 2026 | First fare dollar, on a Back Bay–Longwood clip of Boston |
-| Mon Dec 14 2026 | Steam store page submitted for review; Coming Soon by Jan 3 (Jan 8 at the latest) |
-| Sun Dec 20 2026 | Playable prototype (milestone tag `prototype`, not a version); February or June fest decided |
-| Mon Feb 1 2027 | Free Steam demo for macOS and Windows (the first two quarters of Boston); Next Fest Feb 22–Mar 1 |
-| Sun Feb 7 2027 | v1.0 complete on the preview (the owner may `/ship 1.0.0`); hard deadline Feb 21 (Feb 28 if the fest moves to June) |
-| After Mon Mar 1 2027 | Steam, the only public release, about US$10 (proposed Tue Apr 13 2027; if the fest moves to June, Tue Jul 27 2027, after the Summer Sale) |
+| Sun Nov 8 2026 | First line the owner draws and runs |
+| Sun Dec 20 2026 | Playable prototype (milestone tag `prototype`, not a version) |
+| Sun Feb 7 2027 | v1.0 complete on the preview (the owner may `/ship 1.0.0`); hard deadline Feb 28 |
+| Sun Mar 21 2027 | Steam Coming Soon page public (Apr 11 at the latest) |
+| Mon May 24 2027 | Free Steam demo for macOS and Windows; Next Fest Jun 14–21 |
+| Tue Jul 27 2027 (proposed) | Steam, the only public release, about US$10, after the Summer Sale |
 
 **Where to play:** the web build is a preview for the owner and the artist to look at the game and test the work. Every merge to `main` deploys it to GitHub Pages, and an on-screen chip shows the commit it was built from. It has no offline mode, and when the save format changes, older saves are set aside and a new game starts. The game will be released on Steam for macOS and Windows, built from the same game and city files, after a free demo at Next Fest.
 
@@ -31,8 +33,8 @@ This repo starts fresh and reuses what worked. "interbus" is the game's title (d
 
 | Document | What it is | Read it when |
 |---|---|---|
-| [PLAN.md](PLAN.md) | The plan the studio works from: scope, stack, calendar, cut list and the decisions still open. Its §0 is a one-page summary | First |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Every decision the owner has made (what, why, when, how to reverse it) and the open questions with their deadlines | Before changing scope, look or platform |
+| [PLAN.md](PLAN.md) | The plan the studio works from: the decisions still open (at the top), scope, stack, calendar and cut list. Its §0 is a one-page summary | First |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | The open questions with their deadlines (first), then every decision the owner has made (what, why, when, how to reverse it) | Before changing scope, look or platform |
 | [CHANGELOG.md](CHANGELOG.md) | What changed for players. A numbered version exists only when the owner types `/ship <version>`; CI fails any version not added by its own `Release v<version>` commit | When something a player would notice changes |
 | [docs/art/MODELS.md](docs/art/MODELS.md) | The model contract for the artist: format, axes, material slots, budgets, Blender export settings, delivery dates (the Steam store art included) and licensing | Before making or checking a 3D model |
 | [CLAUDE.md](CLAUDE.md) | Working rules for Claude sessions in this repo | At the start of every Claude session |
@@ -44,4 +46,4 @@ The three `docs/history/` files are a frozen record of the review done on 2026-1
 
 ## Data and licences
 
-Boston's map and demand are built from OpenStreetMap (© OpenStreetMap contributors, [ODbL](https://www.openstreetmap.org/copyright)) and U.S. Census Bureau data (2020 Census; LODES 8.4). The plan publishes the baked city files under the ODbL, with the recipe that builds them in this repo. The interface font is Afacad Flux, © 2023 The Afacad Project Authors, under the SIL Open Font License 1.1 ([google/fonts](https://github.com/google/fonts/tree/main/ofl/afacadflux), whose `METADATA.pb` and `OFL.txt` were checked 2026-10-12). Copyright in the game, art included, is held by Miticept Studios, its two members jointly (decision D14); the art carries `art/LICENSE.md`, and the code's licence is still to be chosen (D20). Until then, all rights are reserved.
+Boston's map and demand are built from OpenStreetMap (© OpenStreetMap contributors, [ODbL](https://www.openstreetmap.org/copyright)) and U.S. Census Bureau data (2020 Census; LODES 8.4). The plan publishes the baked city files under the ODbL, with the recipe that builds them in this repo. The interface font is Afacad Flux, © 2023 The Afacad Project Authors, under the SIL Open Font License 1.1 ([google/fonts](https://github.com/google/fonts/tree/main/ofl/afacadflux), whose `METADATA.pb` and `OFL.txt` were checked 2026-10-12). Copyright in the game, art included, is held by Miticept Studios, its two members jointly (decision D14). The code is all rights reserved and not open source: while the repo is public, its source is visible, and GitHub's Terms of Service let other GitHub users view and fork it on GitHub ([§D.5](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service), checked 2026-10-12 through search excerpts; check before relying on it), but no other use is licensed (D20). The studio's own art (the artist's models under `art/models/`, the icons generated from them and the Steam store art under `art/store/`) goes under an open licence, recommended CC BY 4.0, named in `art/LICENSE.md` once chosen; until then it is all rights reserved too. Reference images in `art/refs/` and anything listed in `art/CREDITS.md` keep their own licences and credits (D20).
