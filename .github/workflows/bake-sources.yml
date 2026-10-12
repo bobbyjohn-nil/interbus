@@ -1,0 +1,100 @@
+# The bake's only contact with the source servers (PLAN §5): downloads every source named in
+# cities/<city>/city.json, locks each file's size and SHA-256, runs gate G4 on the blocks, cuts the
+# mini fixture, and (when publish is on) mirrors the files to a release that every later bake reads.
+# Dispatch only. After a published run, commit the lock and the fixture in a PR: download them from
+# the release with `npm run bake:sources` and `npm run bake:fixture`, which must give the same bytes.
+name: Bake sources (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: City id in cities/index.json
+        required: true
+        default: boston
+      publish:
+        description: Create the mirror release (off = download, hash and check only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      BAKE_PYTHON: python
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # pyosmium (a compiled wheel) runs below; keep the write token out of .git/config.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install pyosmium (pinned, hashed)
+        run: pip install --require-hashes --no-deps -r tools/bake/requirements.txt
+
+      - name: Check the city id
+        id: city
+        env:
+          CITY: ${{ inputs.city }}
+        run: |
+          if ! [[ "$CITY" =~ ^[a-z][a-z0-9-]*$ ]] || [ ! -f "cities/$CITY/city.json" ]; then
+            echo "::error::no cities/$CITY/city.json"
+            exit 1
+          fi
+          echo "id=$CITY" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch, check and lock every source
+        env:
+          CITY: ${{ steps.city.outputs.id }}
+        run: node tools/bake/fetch.mjs "$CITY" "$(date -u +%F)"
+
+      - name: Gate G4 and the mini fixture, from the fetched files
+        env:
+          CITY: ${{ steps.city.outputs.id }}
+        run: |
+          node tools/bake/fixture.mjs "$CITY" cut
+          node tools/bake/plan.mjs "$CITY"
+
+      - name: Report
+        env:
+          CITY: ${{ steps.city.outputs.id }}
+        run: |
+          fixture=$(jq -r .fixture.id "cities/$CITY/city.json")
+          {
+            echo "### cities/$CITY/sources.lock.json"
+            echo '```json'
+            cat "cities/$CITY/sources.lock.json"
+            echo '```'
+            echo "### tools/bake/fixtures/$fixture/fixture.json"
+            echo '```json'
+            cat "tools/bake/fixtures/$fixture/fixture.json"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Mirror the sources to a release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CITY: ${{ steps.city.outputs.id }}
+        run: |
+          lock="cities/$CITY/sources.lock.json"
+          tag=$(jq -r .mirror.tag "$lock")
+          fixture=$(jq -r .fixture.id "cities/$CITY/city.json")
+          mapfile -t files < <(jq -r '.sources[].asset' "$lock" | sed "s|^|.cache/bake/$CITY/sources/|")
+          # The CI-cut fixture rides along, so a local cut can be compared byte for byte (G8 in small).
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -C tools/bake/fixtures -cf - "$fixture" | gzip -n > "$fixture-fixture.tar.gz"
+          gh release create "$tag" "${files[@]}" "$lock" "$fixture-fixture.tar.gz" \
+            --title "${CITY^} bake sources $(jq -r .retrieved "$lock")" \
+            --notes "The pinned inputs of ${CITY}'s bake, as fetched on $(jq -r .retrieved "$lock") by the Bake sources workflow (run ${GITHUB_RUN_ID}); sizes and SHA-256 in sources.lock.json. OpenStreetMap data © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright), from Geofabrik. U.S. Census Bureau: TIGER/Line 2020 and LEHD Origin-Destination Employment Statistics (LODES 8.4, 2023)."

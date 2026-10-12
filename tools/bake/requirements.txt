@@ -1,0 +1,9 @@
+# The bake's Python side (tools/bake/osm.py), pinned with hashes; install with
+#   pip install --require-hashes --no-deps -r tools/bake/requirements.txt
+# --no-deps: pyosmium needs `requests` only for replication updates, which the bake never uses.
+# osmium (pyosmium) 4.3.1 was published 2026-04-02, the newest release at least two weeks old on
+# 2026-10-12 (https://pypi.org/project/osmium/#history, checked 2026-10-12). Wheels for CPython 3.12
+# (CI) and 3.13, manylinux x86_64.
+osmium==4.3.1 \
+    --hash=sha256:2ca8d9ab7595b17cc0eba608a5de66ee346ee1eacb32634688aa808f5b3bdbc7 \
+    --hash=sha256:08ce36ce104dbc7c4ea9601fd3d58fce6de61f4d42c5d6d9fe5149d50f909d60

@@ -31,20 +31,27 @@ This repo starts fresh and reuses what worked. "interbus" is the game's title (d
 
 ## Develop
 
-Node 22 and Python 3 are needed (Python builds the font).
+Node 22 and Python 3 are needed (Python builds the font and clips the bake's map data).
 
 ```bash
 npm ci             # install the pinned dependencies
+pip install --require-hashes --no-deps -r tools/bake/requirements.txt   # pyosmium, for the bake
 npm run fonts      # build Afacad Flux and the map glyphs into public/fonts/ (pinned, cached)
 npm run cities     # download each city's tile file named in cities/index.json, checking its hash
 npm run dev        # the game at http://localhost:5173
 npm run check      # typecheck, lint, unit tests, script tests, changelog check
 npm run build && npm run e2e   # production build, then the browser tests
+npm run bake:plan  # what Boston's bake reads, writes and checks; no network
+npm run bake:fixture           # re-cut mini-Boston from the mirrored sources (downloads ~0.5 GB once)
 ```
 
 Every merge to `main` deploys the preview to GitHub Pages; the build chip in the bottom-right
 corner shows which commit you are looking at. City tiles come from the dispatch-only
-**City tiles (manual)** workflow, never from players' browsers.
+**City tiles (manual)** workflow, never from players' browsers. The bake's inputs (OpenStreetMap,
+2020 census blocks, LODES commutes) are fetched once by the dispatch-only **Bake sources (manual)**
+workflow, which records their hashes in `cities/<city>/sources.lock.json` and mirrors them to a
+release; every bake reads only that mirror. `tools/bake/fixtures/mini-boston/` is every input
+clipped to Back Bay–Longwood, committed so tests never wait for the full bake.
 
 ## Documents
 

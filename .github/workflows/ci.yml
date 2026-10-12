@@ -31,6 +31,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Install pyosmium for the bake tests (pinned, hashed)
+        run: pip install --require-hashes --no-deps -r tools/bake/requirements.txt
+
       - name: Restore fonts
         uses: actions/cache@v6
         with:
