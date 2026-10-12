@@ -41,6 +41,9 @@ export default defineConfig({
     __BUILD_SHA__: JSON.stringify(info.sha),
     __BUILD_VERSION__: JSON.stringify(info.version),
   },
+  worker: {
+    format: 'es',
+  },
   build: {
     target: 'es2022',
     sourcemap: true,

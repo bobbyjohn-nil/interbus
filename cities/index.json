@@ -3,9 +3,27 @@
     {
       "id": "boston",
       "name": "Boston",
-      "extent": [-71.16, 42.315, -70.98, 42.405],
-      "view": { "center": [-71.085, 42.35], "zoom": 14 },
-      "tiles": null
+      "extent": [
+        -71.16,
+        42.315,
+        -70.98,
+        42.405
+      ],
+      "view": {
+        "center": [
+          -71.085,
+          42.35
+        ],
+        "zoom": 14
+      },
+      "tiles": {
+        "file": "boston-20261012-57ac68da.pmtiles",
+        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-tiles-20261012-57ac68da/boston-20261012-57ac68da.pmtiles",
+        "sha256": "57ac68da9fd7c0796cde5dc8722e883d0238dc0a84be92b1765b9701854376e2",
+        "bytes": 15560031,
+        "source": "Protomaps daily build 20261012",
+        "maxzoom": 15
+      }
     }
   ]
 }

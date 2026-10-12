@@ -1,5 +1,24 @@
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/** Distinct colours in a PNG, counted inside the page so no image library is needed. */
+async function distinctColours(page: Page, png: Buffer): Promise<number> {
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 0;
+    ctx.drawImage(img, 0, 0);
+    const { data } = ctx.getImageData(0, 0, img.width, img.height);
+    const seen = new Set<number>();
+    for (let i = 0; i < data.length; i += 16) seen.add((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!);
+    return seen.size;
+  }, png.toString('base64'));
+}
 
 const built = JSON.parse(readFileSync('dist/version.json', 'utf8')) as { sha: string };
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown }[] };
@@ -35,7 +54,15 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
   const map = page.getByTestId('map');
   if (boston?.tiles) {
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-    await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
+    // The map must fill the window and actually draw the city, not merely exist (TS-07: a test
+    // that passed while the thing drawn was invisible).
+    const viewport = page.viewportSize()!;
+    for (const box of [await map.boundingBox(), await page.locator('canvas.maplibregl-canvas').boundingBox()]) {
+      expect(box?.width).toBeGreaterThanOrEqual(viewport.width * 0.99);
+      expect(box?.height).toBeGreaterThanOrEqual(viewport.height * 0.99);
+    }
+    const colours = await distinctColours(page, await page.screenshot());
+    expect(colours, 'distinct colours in the drawn map').toBeGreaterThan(50);
   } else {
     await expect(map).toHaveAttribute('data-status', 'no-city-file');
   }

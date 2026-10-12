@@ -34,7 +34,9 @@ body,
   overflow: hidden;
 }
 
-.map {
+/* .app > .map outranks maplibre-gl.css's .maplibregl-map { position: relative }, which loads later
+   with the map chunk and otherwise collapses the map to zero height. */
+.app > .map {
   position: absolute;
   inset: 0;
 }

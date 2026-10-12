@@ -1,6 +1,9 @@
 // The lazy map chunk: MapLibre, PMTiles and the style generator load only when the board opens,
 // so the menu stays small (PLAN §6, I14).
-import { addProtocol, Map as MapLibreMap, type ErrorEvent } from 'maplibre-gl';
+import { addProtocol, Map as MapLibreMap, setWorkerUrl, type ErrorEvent } from 'maplibre-gl';
+// MapLibre 6 finds its worker beside its own module, which bundling moves; Vite builds the worker
+// as its own file and gives us its URL instead (it is a module worker, hence worker.format 'es').
+import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FileSource, PMTiles, Protocol } from 'pmtiles';
 import { assetBase, openCityFile, reportReplaced } from '../../platform';
@@ -12,6 +15,7 @@ let protocol: Protocol | null = null;
 
 function pmtilesProtocol(): Protocol {
   if (!protocol) {
+    setWorkerUrl(mapWorkerUrl);
     protocol = new Protocol();
     addProtocol('pmtiles', protocol.tile);
   }
