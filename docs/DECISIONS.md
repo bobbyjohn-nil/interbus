@@ -222,6 +222,13 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **Why:** The owner's call.
 - **How to reverse:** Opening the code later is a `LICENSE` change. The art's licence cannot be withdrawn from copies already shared; only files published afterwards could carry other terms.
 
+### D23 · Claude opens and merges pull requests into `main`
+
+- **Decided:** 2026-10-12, by the owner: "yes to your question", answering "May I open and merge pull requests into `main` myself, merge commits only and only when CI passes?"
+- **What it means:** The session that owns `main` (CLAUDE.md) opens a pull request from its branch and merges it itself, with a merge commit, once every check on the pull request's head is green (CI, and the required "Versions only via /ship"). It never squashes, rebases or force-pushes `main`, never merges during a playtest freeze, and calls a change done only when the deploy's live check passes on the merged commit (CLAUDE.md "Done"). Three kinds of pull request stay the owner's to merge: a `/ship` release, a rebake after the Jan 17 content freeze, and anything that changes who can publish (the deploy's triggers, its environments or their secrets). The owner can revert any merge, and a revert is merged the same way.
+- **Why:** Every merge to `main` deploys the preview (D12), so without this nothing reaches the preview between the owner's visits; CLAUDE.md's "one session owns `main`" assumed it ([PR-07](history/lessons-ledger.md), [PR-08](history/lessons-ledger.md)).
+- **How to reverse:** Say so; Claude then opens pull requests and leaves every merge to the owner.
+
 ### CL · Versions only on the owner's say
 
 - **Decided:** 2026-10-12, by the owner: "create a changelog that will only make versions with my say."

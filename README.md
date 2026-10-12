@@ -14,7 +14,7 @@ This repo starts fresh and reuses what worked. "interbus" is the game's title (d
 
 ## Status
 
-**Planning.** As of 2026-10-12 there is no game code yet. The owner decided on 2026-10-12: real cities first with Boston as the test city, a flat 2D map that tilts into 3D in light and dark themes, a GitHub Pages preview now and Steam (about US$10) as the only release, a free demo for macOS and Windows at Steam Next Fest in June 2027, copyright held by Miticept Studios (its two members jointly) with the art under an open licence and the code all rights reserved, and versions only on the owner's say ([docs/DECISIONS.md](docs/DECISIONS.md)).
+**Week 1 of coding.** Since 2026-10-12 the game opens on Boston's map, flat, in the light theme, with its build number on screen; the rest of week 1 is in PLAN §14. The owner decided on 2026-10-12: real cities first with Boston as the test city, a flat 2D map that tilts into 3D in light and dark themes, a GitHub Pages preview now and Steam (about US$10) as the only release, a free demo for macOS and Windows at Steam Next Fest in June 2027, copyright held by Miticept Studios (its two members jointly) with the art under an open licence and the code all rights reserved, and versions only on the owner's say ([docs/DECISIONS.md](docs/DECISIONS.md)).
 
 | Date | Target |
 |---|---|
