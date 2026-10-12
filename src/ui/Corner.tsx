@@ -1,16 +1,12 @@
-import { build } from '../platform';
+import { build, externalLink } from '../platform';
 
 /** OSM attribution and the build chip share the bottom-right corner (CLAUDE.md "The build chip"). */
 export function Corner() {
   return (
     <footer className="corner">
-      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
-        © OpenStreetMap contributors
-      </a>
+      <a {...externalLink('https://www.openstreetmap.org/copyright')}>© OpenStreetMap contributors</a>
       <span aria-hidden="true">·</span>
-      <a href="https://protomaps.com" target="_blank" rel="noopener noreferrer">
-        Protomaps
-      </a>
+      <a {...externalLink('https://protomaps.com/')}>Protomaps</a>
       <span
         className="build-chip"
         data-testid="build-chip"

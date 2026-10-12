@@ -56,6 +56,9 @@ jobs:
 
       - run: npm run build
 
+      - name: Menu critical path within 200 KiB (I14)
+        run: npm run measure:bundle
+
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 

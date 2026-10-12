@@ -24,6 +24,11 @@ describe('map style', () => {
     for (const font of fonts) expect(FONT_STACKS).toContain(font);
   });
 
+  it('asks for no font but Afacad Flux anywhere, format overrides included', () => {
+    const all = style.layers.flatMap((l) => strings((l as { layout?: unknown }).layout));
+    expect(all.filter((s) => s.includes('Noto'))).toEqual([]);
+  });
+
   it('loads glyphs from this build, never from a third party', () => {
     expect(style.glyphs).toBe(`${ASSET_BASE}fonts/{fontstack}/{range}.pbf`);
     expect(style.sprite).toBeUndefined();

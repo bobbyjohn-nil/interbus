@@ -6,7 +6,8 @@ import { addProtocol, Map as MapLibreMap, setWorkerUrl, type ErrorEvent } from '
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FileSource, PMTiles, Protocol } from 'pmtiles';
-import { assetBase, openCityFile, reportReplaced } from '../../platform';
+import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platform';
+import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
 import { buildStyle } from './style';
 import { LIGHT } from './tokens';
@@ -30,9 +31,16 @@ export interface MountedMap {
 
 export async function mountMap(container: HTMLElement, city: City): Promise<MountedMap> {
   if (!city.tiles) throw new Error(`${city.name} has no tile file in this build`);
+  // MapLibre only logs a worker that fails to load and then waits forever; check it exists first.
+  if (await assetGone(mapWorkerUrl)) {
+    reportReplaced('worker');
+    throw new Error('map worker gone');
+  }
   const file = await openCityFile(`cities/${city.tiles.file}`);
   const tiles =
-    file.kind === 'range' ? new PMTiles(file.url) : new PMTiles(new FileSource(new File([file.blob], city.tiles.file)));
+    file.kind === 'range'
+      ? new PMTiles(new CityFetchSource(file.url))
+      : new PMTiles(new FileSource(new File([file.blob], city.tiles.file)));
   pmtilesProtocol().add(tiles);
 
   const [w, s, e, n] = paddedBounds(city.extent);
@@ -56,8 +64,9 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
   map.keyboard.disableRotation();
 
   map.on('error', (event: ErrorEvent) => {
+    // Tile 404s are reported by CityFetchSource; glyph and other file 404s land here.
     const status = (event.error as { status?: number } | undefined)?.status;
-    if (status === 404) reportReplaced('city-file');
+    if (status === 404 || status === 410) reportReplaced('city-file');
   });
 
   return {

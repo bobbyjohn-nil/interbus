@@ -30,6 +30,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Third-party Go code builds and runs below; keep the write token out of .git/config.
+          persist-credentials: false
 
       - uses: actions/setup-go@v7
         with:
@@ -44,14 +47,22 @@ jobs:
         env:
           WANTED: ${{ inputs.build }}
         run: |
+          curl -fsSL https://build-metadata.protomaps.dev/builds.json -o builds.json
           if [ -n "$WANTED" ]; then
             date="$WANTED"
           else
-            date=$(curl -fsSL https://build-metadata.protomaps.dev/builds.json | python3 -c 'import json,sys; b=[x["key"] for x in json.load(sys.stdin) if x["key"].endswith(".pmtiles")]; print(sorted(b)[-1].removesuffix(".pmtiles"))')
+            date=$(python3 -c 'import json; b=[x["key"] for x in json.load(open("builds.json")) if x["key"].endswith(".pmtiles")]; print(sorted(b)[-1].removesuffix(".pmtiles"))')
           fi
+          if ! [[ "$date" =~ ^[0-9]{8}$ ]]; then
+            echo "::error::build must be a date like 20261012, got '$date'"
+            exit 1
+          fi
+          # Record what the source build was, so the release names its input as well as its output.
+          source=$(python3 -c 'import json,sys; m=[x for x in json.load(open("builds.json")) if x["key"]==sys.argv[1]+".pmtiles"]; print(json.dumps(m[0], sort_keys=True) if m else "not listed in builds.json")' "$date")
           echo "date=$date" >> "$GITHUB_OUTPUT"
           echo "url=https://build.protomaps.com/$date.pmtiles" >> "$GITHUB_OUTPUT"
-          echo "Using Protomaps build $date"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+          echo "Using Protomaps build $date: $source"
 
       - name: Extract Inner Boston
         env:
@@ -66,7 +77,9 @@ jobs:
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           DATE: ${{ steps.pick.outputs.date }}
+          SOURCE: ${{ steps.pick.outputs.source }}
         run: |
           sha=$(sha256sum boston.pmtiles | cut -d' ' -f1)
           bytes=$(stat -c %s boston.pmtiles)
@@ -74,7 +87,7 @@ jobs:
           tag="city-boston-tiles-${DATE}-${sha:0:8}"
           mv boston.pmtiles "$file"
           gh release create "$tag" "$file" --title "Boston tiles ${DATE}" \
-            --notes "Cut from Protomaps build ${DATE} (https://build.protomaps.com/${DATE}.pmtiles) with go-pmtiles ${PMTILES_VERSION}, bbox ${BBOX}, maxzoom ${MAXZOOM}. Map data © OpenStreetMap contributors (ODbL); Protomaps basemap."
+            --notes "Cut from Protomaps build ${DATE} (https://build.protomaps.com/${DATE}.pmtiles) with go-pmtiles ${PMTILES_VERSION}, bbox ${BBOX}, maxzoom ${MAXZOOM}. Source build as listed by build-metadata.protomaps.dev: ${SOURCE}. Map data © OpenStreetMap contributors (ODbL); Protomaps basemap."
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${file}"
           {
             echo "### cities/index.json entry"

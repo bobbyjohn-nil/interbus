@@ -44,8 +44,19 @@ async function checkChip() {
     await chip.waitFor({ timeout: 30_000 });
     const shown = await chip.getAttribute('data-sha');
     if (shown !== sha) throw new Error(`live-check: the build chip shows ${shown}, expected ${sha}`);
-    const status = await page.getByTestId('map').getAttribute('data-status');
-    console.log(`live-check: build chip shows ${sha.slice(0, 7)}; map status ${status}`);
+    const { cities } = JSON.parse(readFileSync('cities/index.json', 'utf8'));
+    if (cities.some((c) => c.tiles)) {
+      // A deploy is not live until the map draws: the week-1 bugs (a worker that 404'd, a map 0 px
+      // tall) both left the chip correct and the map blank.
+      const map = page.getByTestId('map');
+      await page.waitForSelector('[data-testid=map][data-status=ready]', { state: 'attached', timeout: 90_000 });
+      const box = await map.boundingBox();
+      const viewport = page.viewportSize();
+      if (!box || !viewport || box.width < viewport.width * 0.99 || box.height < viewport.height * 0.99) {
+        throw new Error(`live-check: the map is ${box?.width}x${box?.height}, not the full window`);
+      }
+    }
+    console.log(`live-check: build chip shows ${sha.slice(0, 7)}; the map is ready and fills the window`);
   } finally {
     await browser.close();
   }

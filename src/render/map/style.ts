@@ -101,13 +101,19 @@ function flavorFrom(t: MapTokens): Flavor {
   };
 }
 
-/** Replaces any Noto font name, however deeply nested in an expression, with an Afacad stack. */
+/**
+ * Replaces any Noto font name with an Afacad stack, however deeply nested: text-font, and the
+ * per-script text-font overrides inside text-field's format expressions.
+ */
 function afacad(value: unknown): unknown {
   if (typeof value === 'string') {
     if (!value.startsWith('Noto Sans')) return value;
     return /Medium|Bold/.test(value) ? FONT_SEMIBOLD : FONT_REGULAR;
   }
   if (Array.isArray(value)) return value.map(afacad);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, afacad(v)]));
+  }
   return value;
 }
 
@@ -118,7 +124,7 @@ function adjust(layer: LayerSpecification, t: MapTokens): LayerSpecification {
     paint?: Record<string, unknown>;
   };
   if (out.layout) {
-    if ('text-font' in out.layout) out.layout['text-font'] = afacad(out.layout['text-font']);
+    out.layout = afacad(out.layout) as Record<string, unknown>;
     // Town dots and every other icon need a sprite this style does not ship.
     delete out.layout['icon-image'];
   }

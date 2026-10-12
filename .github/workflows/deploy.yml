@@ -19,6 +19,8 @@ env:
 
 jobs:
   build:
+    # Only main ever publishes, even when the workflow is dispatched by hand from another branch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

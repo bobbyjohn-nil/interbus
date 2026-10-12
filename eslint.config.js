@@ -1,23 +1,32 @@
 // Lint rules that fence the architecture (CLAUDE.md "Architecture guardrails").
+// scripts/lint-fences.test.mjs proves each fence flags the thing it fences.
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
-// Only src/platform/ may touch browser storage, the service worker, reloads, fullscreen or
-// version.json, so the Steam build stays a packaging job (D3, D15).
-const PLATFORM_ONLY_GLOBALS = [
-  { name: 'localStorage', message: 'Only src/platform/ touches browser storage.' },
-  { name: 'sessionStorage', message: 'Only src/platform/ touches browser storage.' },
-  { name: 'indexedDB', message: 'Only src/platform/ touches browser storage.' },
-  { name: 'caches', message: 'The web preview keeps no Cache Storage (D12).' },
+// Only src/platform/ may touch browser storage, the network, the service worker, reloads,
+// fullscreen, external links or version.json, so the Steam build stays a packaging job (D3, D15).
+const PLATFORM = 'Only src/platform/ does this (CLAUDE.md "Architecture guardrails").';
+const PLATFORM_GLOBALS = ['localStorage', 'sessionStorage', 'indexedDB', 'caches', 'fetch'].map((name) => ({
+  name,
+  message: PLATFORM,
+}));
+const PLATFORM_SYNTAX = [
+  // By property name, whatever object it is reached through (window.location.reload, globalThis.localStorage …).
+  {
+    selector: 'MemberExpression[property.name=/^(localStorage|sessionStorage|indexedDB|caches|serviceWorker|reload|requestFullscreen|exitFullscreen|fetch)$/]',
+    message: PLATFORM,
+  },
+  { selector: "MemberExpression[object.name='navigator'][property.name='storage']", message: PLATFORM },
+  { selector: "MemberExpression[object.name=/^(window|globalThis|self)$/][property.name='open']", message: PLATFORM },
+  { selector: 'Literal[value=/version\\.json/]', message: PLATFORM },
+  { selector: "JSXAttribute[name.name='href'] > Literal[value=/^https?:/]", message: 'External links go through src/platform (externalLink).' },
 ];
-const PLATFORM_ONLY_PROPERTIES = [
-  { object: 'navigator', property: 'serviceWorker', message: 'The web preview registers no service worker (D12).' },
-  { object: 'navigator', property: 'storage', message: 'Only src/platform/ touches browser storage.' },
-  { object: 'location', property: 'reload', message: 'Only src/platform/ reloads the page.' },
-  { object: 'window', property: 'localStorage', message: 'Only src/platform/ touches browser storage.' },
-  { object: 'window', property: 'open', message: 'External links go through the src/platform/ allowlist.' },
-  { object: 'document', property: 'requestFullscreen', message: 'Only src/platform/ handles fullscreen.' },
+const SIM_SYNTAX = [
+  { selector: "NewExpression[callee.name='Date']", message: 'No Date in src/sim: time comes from the sim clock.' },
+  { selector: "CallExpression[callee.name='Date']", message: 'No Date in src/sim: time comes from the sim clock.' },
+  { selector: "MemberExpression[object.name='Date']", message: 'No Date in src/sim: time comes from the sim clock.' },
+  { selector: "MemberExpression[object.name='Math'][property.name='random']", message: 'No Math.random in src/sim: use the seeded RNG.' },
 ];
 
 export default tseslint.config(
@@ -43,8 +52,8 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/platform/**'],
     rules: {
-      'no-restricted-globals': ['error', ...PLATFORM_ONLY_GLOBALS],
-      'no-restricted-properties': ['error', ...PLATFORM_ONLY_PROPERTIES],
+      'no-restricted-globals': ['error', ...PLATFORM_GLOBALS],
+      'no-restricted-syntax': ['error', ...PLATFORM_SYNTAX],
     },
   },
   {
@@ -56,7 +65,9 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/sim/**', '!**/sim/rules', '!**/sim/rules/**', '!**/sim/types', '!**/sim/types/**'],
+              // sim itself or anything under it, except sim/rules and sim/types (a gitignore-style
+              // group cannot re-include a child once "**/sim" excludes the directory).
+              regex: '(^|/)sim(/(?!(rules|types)(/|$)).*)?$',
               message: 'ui/ and render/ import only sim/rules and sim/types.',
             },
           ],
@@ -65,21 +76,22 @@ export default tseslint.config(
     },
   },
   {
-    // Sim truth is deterministic: no DOM, React, MapLibre, clock or randomness (AR-04, AR-06, AR-09).
+    // Sim truth is deterministic: no DOM, React, MapLibre, clock or randomness, and none of the
+    // platform's powers either (AR-04, AR-06, AR-09). Flat config replaces a rule per file, so the
+    // platform lists are repeated here.
     files: ['src/sim/**/*.ts'],
     languageOptions: { globals: {} },
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: ['react', 'react-dom', 'maplibre-gl'], patterns: ['**/ui/**', '**/render/**', '**/platform/**'] },
+        { paths: ['react', 'react-dom', 'maplibre-gl'], patterns: ['**/ui', '**/ui/**', '**/render', '**/render/**', '**/platform', '**/platform/**'] },
       ],
-      'no-restricted-globals': ['error', 'window', 'document', 'navigator', 'performance'],
-      'no-restricted-syntax': [
+      'no-restricted-globals': [
         'error',
-        { selector: "NewExpression[callee.name='Date']", message: 'No Date in src/sim: time comes from the sim clock.' },
-        { selector: "MemberExpression[object.name='Date']", message: 'No Date in src/sim: time comes from the sim clock.' },
-        { selector: "MemberExpression[object.name='Math'][property.name='random']", message: 'No Math.random in src/sim: use the seeded RNG.' },
+        ...PLATFORM_GLOBALS,
+        ...['window', 'document', 'navigator', 'performance', 'location'].map((name) => ({ name, message: 'src/sim has no DOM.' })),
       ],
+      'no-restricted-syntax': ['error', ...PLATFORM_SYNTAX, ...SIM_SYNTAX],
     },
   },
 );
