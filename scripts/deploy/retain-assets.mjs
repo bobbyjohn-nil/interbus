@@ -7,7 +7,7 @@
 //
 // Best-effort by design: the first deploy has nothing to keep, and a file already gone from the live
 // site is dropped from the manifest. It never fails the deploy.
-import { createWriteStream, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -21,18 +21,33 @@ function filesIn(dist, dir) {
   return existsSync(full) ? readdirSync(full).filter((f) => !f.endsWith('.map')).map((f) => `${dir}/${f}`) : [];
 }
 
-export async function retain({ dist, live, id, log = console.log }) {
-  const current = [...filesIn(dist, 'assets'), ...filesIn(dist, 'cities')];
-  let prior = [];
-  try {
-    const res = await fetch(`${live}/asset-manifest.json?run=${encodeURIComponent(id)}`, { cache: 'no-store' });
-    if (res.ok) {
-      const manifest = await res.json();
-      if (Array.isArray(manifest.builds)) prior = manifest.builds;
+/**
+ * The live site's manifest. A 404 means nothing was deployed with one yet (the first deploy); any
+ * other failure is retried, because treating a passing 5xx as "first deploy" would drop both
+ * earlier builds and break every open tab.
+ */
+async function liveManifest(live, id, log, tries, delayMs) {
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      const res = await fetch(`${live}/asset-manifest.json?run=${encodeURIComponent(id)}-${attempt}`, { cache: 'no-store' });
+      if (res.status === 404) return [];
+      if (res.ok) {
+        const manifest = await res.json();
+        return Array.isArray(manifest.builds) ? manifest.builds : [];
+      }
+      log(`retain-assets: manifest HTTP ${res.status} (try ${attempt} of ${tries})`);
+    } catch (error) {
+      log(`retain-assets: manifest unreachable, ${error.message} (try ${attempt} of ${tries})`);
     }
-  } catch (error) {
-    log(`retain-assets: no previous manifest reachable (${error.message})`);
+    if (attempt < tries) await new Promise((done) => setTimeout(done, delayMs));
   }
+  log('::warning::retain-assets: the previous manifest stayed unavailable; earlier builds are not retained, so tabs open on them will show the replaced-build card');
+  return [];
+}
+
+export async function retain({ dist, live, id, log = console.log, tries = 3, delayMs = 3000 }) {
+  const current = [...filesIn(dist, 'assets'), ...filesIn(dist, 'cities')];
+  let prior = await liveManifest(live, id, log, tries, delayMs);
   prior = prior.filter((b) => b && b.id !== id && Array.isArray(b.files)).slice(0, KEEP_BUILDS - 1);
 
   const have = new Set(current);
@@ -49,6 +64,8 @@ export async function retain({ dist, live, id, log = console.log }) {
         await pipeline(Readable.fromWeb(res.body), createWriteStream(join(dist, file)));
         fetched++;
       } catch {
+        // A copy cut off mid-stream must not ship: a clean 404 shows the card, a truncated file breaks.
+        rmSync(join(dist, file), { force: true });
         missed++;
         build.files = build.files.filter((f) => f !== file);
       }

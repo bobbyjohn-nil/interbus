@@ -64,9 +64,10 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
   map.keyboard.disableRotation();
 
   map.on('error', (event: ErrorEvent) => {
-    // Tile 404s are reported by CityFetchSource; glyph and other file 404s land here. Listening
-    // stops MapLibre logging its errors, so everything else is logged here for the console and
-    // the e2e tests to see.
+    // Tile 404s are reported by CityFetchSource, and a whole-file read reports its own; a 404 that
+    // reaches here is another of this build's files. (MapLibre 6 never raises glyph 404s: it draws
+    // those labels with a local font.) Listening stops MapLibre logging its errors, so everything
+    // else is logged here for the console and the e2e tests to see.
     const status = (event.error as { status?: number } | undefined)?.status;
     if (status === 404 || status === 410) reportReplaced('city-file');
     else console.error(event.error);

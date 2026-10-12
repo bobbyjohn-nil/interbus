@@ -36,6 +36,9 @@ const info = buildInfo();
 export default defineConfig({
   // Relative, so the same build runs under /interbus/ on Pages and later from app:// in the desktop shell.
   base: './',
+  // No single-page fallback: a missing file answers 404 in `vite preview`, as on Pages, so the
+  // e2e tests see it instead of a 200 index.html.
+  appType: 'mpa',
   plugins: [react(), versionJson(info)],
   define: {
     __BUILD_SHA__: JSON.stringify(info.sha),

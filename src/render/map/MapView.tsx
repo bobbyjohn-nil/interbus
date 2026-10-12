@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { onReplaced } from '../../platform';
 import { CITIES } from '../../cities';
+import { afterIdle, afterMountError, afterTimeout, type MapStatus as Status } from './status';
 
-type Status = 'loading' | 'ready' | 'empty' | 'no-city-file' | 'failed' | 'replaced';
 
 /** A map still loading after this long has failed; MapLibre does not always say why. */
 const LOAD_TIMEOUT_MS = 60_000;
@@ -25,7 +25,7 @@ export function MapView() {
 
   useEffect(() => {
     if (status !== 'loading') return;
-    const timer = window.setTimeout(() => setStatus('failed'), LOAD_TIMEOUT_MS);
+    const timer = window.setTimeout(() => setStatus(afterTimeout), LOAD_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, [status]);
 
@@ -41,16 +41,16 @@ export function MapView() {
         dispose = mounted.dispose;
         setTileReads(mounted.tileReads);
         // 'idle' also fires when nothing was drawn (a style that names layers the tiles lack), so
-        // ready means the first idle frame holds at least one feature.
+        // ready means the first idle frame holds at least one feature (status.ts).
         mounted.map.once('idle', () => {
           const drawn = mounted.map.queryRenderedFeatures().length;
           setFeatures(drawn);
-          setStatus((now) => (now === 'loading' ? (drawn > 0 ? 'ready' : 'empty') : now));
+          setStatus((now) => afterIdle(now, drawn));
         });
       })
       .catch((error: unknown) => {
         console.error(error);
-        if (!disposed) setStatus((now) => (now === 'replaced' ? now : 'failed'));
+        if (!disposed) setStatus(afterMountError);
       });
     return () => {
       disposed = true;

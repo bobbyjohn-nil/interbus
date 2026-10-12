@@ -23,9 +23,12 @@ const STAMP = join(OUT, '.stamp');
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 const range = promisify(fontnik.range);
 
+// fontnik draws the glyph ranges, so its installed version is part of what was built.
+const FONTNIK_PACKAGE = join(ROOT, 'node_modules/fontnik/package.json');
+
 function stampOf() {
   const h = createHash('sha256');
-  for (const f of [LOCK_PATH, REQUIREMENTS, fileURLToPath(import.meta.url)]) h.update(readFileSync(f));
+  for (const f of [LOCK_PATH, REQUIREMENTS, FONTNIK_PACKAGE, fileURLToPath(import.meta.url)]) h.update(readFileSync(f));
   return h.digest('hex');
 }
 
@@ -40,15 +43,19 @@ async function download(url, expectedSha) {
   return buf;
 }
 
+/** A venv holding exactly the pinned tools; rebuilt whenever requirements.txt changes. */
 function python() {
   const venv = join(CACHE, 'venv');
   const bin = join(venv, 'bin');
-  if (!existsSync(join(bin, 'pyftsubset'))) {
-    execFileSync('python3', ['-m', 'venv', venv], { stdio: 'inherit' });
-    execFileSync(join(bin, 'pip'), ['install', '--quiet', '--require-hashes', '--only-binary=:all:', '-r', REQUIREMENTS], {
-      stdio: 'inherit',
-    });
-  }
+  const pinned = join(venv, '.requirements-sha256');
+  const want = sha256(readFileSync(REQUIREMENTS));
+  if (existsSync(join(bin, 'pyftsubset')) && existsSync(pinned) && readFileSync(pinned, 'utf8') === want) return bin;
+  rmSync(venv, { recursive: true, force: true });
+  execFileSync('python3', ['-m', 'venv', venv], { stdio: 'inherit' });
+  execFileSync(join(bin, 'pip'), ['install', '--quiet', '--require-hashes', '--only-binary=:all:', '-r', REQUIREMENTS], {
+    stdio: 'inherit',
+  });
+  writeFileSync(pinned, want);
   return bin;
 }
 

@@ -180,7 +180,7 @@ test('osm.py clips whole ways, transit and area members to the box, and drops me
   const probe = spawnSync(PYTHON, ['-I', '-c', 'import osmium'], { encoding: 'utf8' });
   if (probe.status !== 0) {
     if (process.env.CI) assert.fail(`pyosmium is not installed for ${PYTHON}: ${probe.stderr}`);
-    t.skip(`pyosmium not installed for ${PYTHON}; pip install --require-hashes --no-deps -r tools/bake/requirements.txt`);
+    t.skip(`pyosmium not installed for ${PYTHON}; pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt`);
     return;
   }
   const dir = mkdtempSync(join(tmpdir(), 'bake-osm-'));

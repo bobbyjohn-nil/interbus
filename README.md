@@ -35,7 +35,7 @@ Node 22 and Python 3 are needed (Python builds the font and clips the bake's map
 
 ```bash
 npm ci             # install the pinned dependencies
-pip install --require-hashes --no-deps -r tools/bake/requirements.txt   # pyosmium, for the bake
+pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt   # pyosmium, for the bake
 npm run fonts      # build Afacad Flux and the map glyphs into public/fonts/ (pinned, cached)
 npm run cities     # download each city's tile file named in cities/index.json, checking its hash
 npm run dev        # the game at http://localhost:5173

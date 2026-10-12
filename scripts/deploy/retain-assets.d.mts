@@ -4,4 +4,6 @@ export function retain(options: {
   live: string;
   id: string;
   log?: (message: string) => void;
+  tries?: number;
+  delayMs?: number;
 }): Promise<{ builds: { id: string; files: string[] }[] }>;

@@ -32,7 +32,8 @@ jobs:
       - run: npm ci
 
       - name: Install pyosmium for the bake tests (pinned, hashed)
-        run: pip install --require-hashes --no-deps -r tools/bake/requirements.txt
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt
 
       - name: Restore fonts
         uses: actions/cache@v6
@@ -40,7 +41,8 @@ jobs:
           path: |
             public/fonts
             .cache/fonts
-          key: fonts-${{ hashFiles('scripts/fonts/**') }}
+          # fontnik draws the glyph ranges, so its installed version is part of the key.
+          key: fonts-${{ hashFiles('scripts/fonts/**', 'node_modules/fontnik/package.json') }}
 
       - run: npm run fonts
 

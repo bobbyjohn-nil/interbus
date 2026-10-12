@@ -10,8 +10,10 @@ on:
 permissions:
   contents: read
 
+# One group per branch: main's deploys queue behind each other and never cancel (deploy gate 3), and
+# a hand dispatch from another branch, whose build job is skipped, cannot replace a pending main run.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 env:
