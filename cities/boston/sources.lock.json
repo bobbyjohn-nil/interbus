@@ -1,0 +1,69 @@
+{
+  "about": "Written by tools/bake/fetch.mjs; the bake reads these files only from the mirror release, never from the source servers (PLAN §5).",
+  "city": "boston",
+  "retrieved": "2026-10-12",
+  "mirror": {
+    "tag": "city-boston-sources-20261012",
+    "base": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-sources-20261012/"
+  },
+  "sources": [
+    {
+      "id": "osm",
+      "url": "https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf",
+      "bytes": 310967666,
+      "sha256": "f8262e627c32887278ff9d71cfa73491ee19770b1e7b7da999b12f51a78ac884",
+      "md5": "d9167eb4498ea13dd47f20e92093dbf3",
+      "osmTimestamp": "2026-10-11T20:21:06Z",
+      "asset": "massachusetts-20261011.osm.pbf"
+    },
+    {
+      "id": "blocks",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2020/TABBLOCK20/tl_2020_25_tabblock20.zip",
+      "bytes": 106898194,
+      "sha256": "06fc2e4c3249cbe253981cb9056d7f71f9d9a56e91b680481101caed9165e1d3",
+      "asset": "tl_2020_25_tabblock20.zip"
+    },
+    {
+      "id": "cousub",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2020/COUSUB/tl_2020_25_cousub.zip",
+      "bytes": 1918536,
+      "sha256": "a9d6c3151e3b8f50bb9821e2b065387fa8e36b2112e3ad7eceaae304c6d56614",
+      "asset": "tl_2020_25_cousub.zip"
+    },
+    {
+      "id": "lodes-od-main",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/od/ma_od_main_JT00_2023.csv.gz",
+      "bytes": 17463033,
+      "sha256": "e7440d6de58d3fe43cda1bd2769d68ba2819b7ff691c52c9e514d12a055c11ef",
+      "asset": "ma_od_main_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-od-aux",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/od/ma_od_aux_JT00_2023.csv.gz",
+      "bytes": 2170558,
+      "sha256": "a856fb780489771ab0afdc9aa58d1240793e493ee2e8ed5a5a2ebe818cb7e204",
+      "asset": "ma_od_aux_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-rac",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/rac/ma_rac_S000_JT00_2023.csv.gz",
+      "bytes": 2593510,
+      "sha256": "2300cf201b978ba95b313584ae971718410cb34e3e1e2d94145ad62ad1a3b835",
+      "asset": "ma_rac_S000_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-wac",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/wac/ma_wac_S000_JT00_2023.csv.gz",
+      "bytes": 1245230,
+      "sha256": "2238c49c44e088208a1176e02313087aef41c11ac08d4fe3b90008a03d58f4f2",
+      "asset": "ma_wac_S000_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-xwalk",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/ma_xwalk.csv.gz",
+      "bytes": 1875594,
+      "sha256": "99fad44d8782c73b0b44f45e740a869329d3524d46fd67a3205782fa4aa73f96",
+      "asset": "ma_xwalk.csv.gz"
+    }
+  ]
+}

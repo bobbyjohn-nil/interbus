@@ -26,7 +26,7 @@ export function planProblems({ entry, config }) {
   if (!(extent[0] < extent[2] && extent[1] < extent[3])) problems.push(`extent ${JSON.stringify(extent)} is not west,south,east,north`);
   if (!boxInside(config.fixture.box, extent)) problems.push(`the fixture box ${JSON.stringify(config.fixture.box)} is not inside the extent`);
   const ids = config.sources.map((s) => s.id);
-  for (const needed of ['osm', 'blocks', 'lodes-od-main', 'lodes-od-aux', 'lodes-rac', 'lodes-wac', 'lodes-xwalk']) {
+  for (const needed of ['osm', 'blocks', 'cousub', 'lodes-od-main', 'lodes-od-aux', 'lodes-rac', 'lodes-wac', 'lodes-xwalk']) {
     if (!ids.includes(needed)) problems.push(`city.json names no "${needed}" source`);
   }
   if (new Set(ids).size !== ids.length) problems.push('city.json names a source twice');

@@ -170,6 +170,7 @@ Inner Boston keeps the crossings, Longwood, Kendall, Logan and downtown, with 20
 |---|---|---|
 | Residents | 2020 block counts (`POP20`) in TIGER/Line `tabblock20` ([files](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.2020.html)) | Residents and dot sub-points |
 | Workers, jobs, commutes | LODES 8.4, year 2023, on the same 2020 blocks ([LODES8](https://lehd.ces.census.gov/data/lodes/LODES8/)) | Jobs by sector, inbound commuters, the gravity β fit |
+| Municipalities | TIGER/Line 2020 county subdivisions, the boundaries the 2020 counts are tabulated on; the LODES crosswalk's municipality codes are not 2020's (DECISIONS, measured) | Each block's municipality for G4; the extent polygon |
 | Streets, depot land, lane tags | One dated Geofabrik Massachusetts `.osm.pbf`, ~292–296 MB ([page](https://download.geofabrik.de/north-america/us/massachusetts.html)), via osmium | The sim graph, and from week 3 the tiles |
 | Map | Week 1 a cut of a pinned Protomaps build; from week 3 Planetiler on the same extract ([docs](https://docs.protomaps.com/basemaps/build)) | The 2D/3D map |
 | Heights | OSM height, else levels × 3.2 m + 1 m, else a type default; Overture's lidar heights (93–95% coverage, measured) join r1 if under about half the buildings carry tags (week-2 count) | Extrusions |

@@ -10,8 +10,18 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { blocksCsv, clipBlocks, clipLodes, controlTotals, readBlocks, readCrosswalk } from './census.mjs';
-import { readCity, ROOT, sha256 } from './lib.mjs';
+import {
+  assignMunicipalities,
+  blocksCsv,
+  clipBlocks,
+  clipLodes,
+  controlTotals,
+  crosswalkDisagreements,
+  readBlocks,
+  readCrosswalk,
+  readMunicipalities,
+} from './census.mjs';
+import { inBox, readCity, ROOT, sha256 } from './lib.mjs';
 import { ensureSource } from './sources.mjs';
 
 const PYTHON = process.env.BAKE_PYTHON ?? 'python3';
@@ -31,13 +41,26 @@ async function cut(cityId) {
   const src = {};
   for (const s of lock.sources) src[s.id] = await ensureSource(cityId, lock, s.id);
 
-  // Gate G4 on the whole state, before anything is written.
+  // Gate G4 on the play area's counties, before anything is written: each block's municipality
+  // from the 2020 boundaries, its people from POP20.
   const blocks = readBlocks(src.blocks);
-  const crosswalk = await readCrosswalk(src['lodes-xwalk']);
-  const g4 = controlTotals(blocks, crosswalk, config.municipalities.list);
+  const playArea = new Set(config.municipalities.list.map((m) => m.ctycsub));
+  const counties = new Set([...playArea].map((c) => c.slice(0, 5)));
+  const assigned = assignMunicipalities(
+    blocks,
+    readMunicipalities(src.cousub),
+    (b) => counties.has(b.geoid.slice(0, 5)) || inBox(box, b.lon, b.lat),
+  );
+  const g4 = controlTotals(
+    blocks.filter((b) => assigned.has(b.geoid)),
+    assigned,
+    config.municipalities.list,
+  );
   for (const r of g4.rows) console.log(`fixture: G4 ${r.name} Σ POP20 ${r.sum} (census ${r.pop20}) ${r.ok ? 'ok' : 'MISMATCH'}`);
+  const disagreements = crosswalkDisagreements(blocks, assigned, await readCrosswalk(src['lodes-xwalk']));
+  console.log(`fixture: the LODES crosswalk disagrees with the 2020 boundaries on ${disagreements.length} populated blocks (${disagreements.reduce((n, d) => n + d.pop20, 0)} people)`);
   if (!g4.ok) {
-    throw new Error(`fixture: gate G4 failed${g4.unknown.length ? `; ${g4.unknown.length} blocks missing from the crosswalk` : ''}`);
+    throw new Error(`fixture: gate G4 failed${g4.unknown.length ? `; ${g4.unknown.length} blocks in no municipality` : ''}`);
   }
 
   const work = `${fixtureDir(id)}.part`;
@@ -49,7 +72,7 @@ async function cut(cityId) {
     files[name] = { bytes: Buffer.byteLength(text), sha256: sha256(text), rows };
   };
 
-  const clipped = clipBlocks(blocks, crosswalk, box);
+  const clipped = clipBlocks(blocks, assigned, box);
   write('blocks.csv', blocksCsv(clipped), clipped.length);
   const inside = new Set(clipped.map((b) => b.geoid));
   for (const [sourceId, kind] of LODES) {
@@ -72,6 +95,12 @@ async function cut(cityId) {
     sources: Object.fromEntries(lock.sources.map((s) => [s.id, s.sha256])),
     pyosmium: execFileSync(PYTHON, ['-I', '-c', 'import osmium.version as v; print(v.pyosmium_release)'], { encoding: 'utf8' }).trim(),
     g4: g4.rows.map(({ name, sum }) => ({ name, sum })),
+    crosswalk: {
+      about: 'Populated blocks the LODES crosswalk puts in another municipality than the 2020 boundaries do; the bake follows the boundaries (census.mjs).',
+      blocks: disagreements.length,
+      people: disagreements.reduce((n, d) => n + d.pop20, 0),
+      inPlayArea: disagreements.filter((d) => playArea.has(d.boundary) || playArea.has(d.crosswalk)),
+    },
     osm: counts,
     residents: clipped.reduce((sum, b) => sum + b.pop20, 0),
     files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1))),

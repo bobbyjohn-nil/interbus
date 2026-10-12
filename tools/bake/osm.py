@@ -7,8 +7,9 @@
 file by it. `clip` keeps what the bake reads (drivable streets, depot land, water, the places that
 become gateways and POIs) and every public-transport feature, which the bake later strips and gate
 G10 checks (D17). A way is kept whole if any of its nodes lies in the box; a relation is kept if it
-matches and any member it points to was kept. Output is sorted by type and id, with no metadata,
-so the same input and box always give the same bytes.
+matches and any member it points to was kept, and it lists only the members the clip holds (a bus
+route's hundreds of stops elsewhere would otherwise be half the fixture). Output is sorted by type
+and id, with no metadata, so the same input and box always give the same bytes.
 
 Only pyosmium (pinned in requirements.txt) and the standard library; run with python -I.
 """
@@ -130,7 +131,10 @@ def clip(src, box, out):
                     writer.add_way(obj)
                     counts['ways'] += 1
             elif obj.is_relation() and obj.id in kept_relations:
-                writer.add_relation(obj)
+                held = {'n': lambda ref: ref in nodes or ref in way_nodes, 'w': lambda ref: ref in ways,
+                        'r': lambda ref: ref in kept_relations}
+                members = [(m.type, m.ref, m.role) for m in obj.members if held[m.type](m.ref)]
+                writer.add_relation(obj.replace(members=members))
                 counts['relations'] += 1
     finally:
         writer.close()

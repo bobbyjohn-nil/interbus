@@ -1,0 +1,121 @@
+{
+  "about": "Written by `node tools/bake/fixture.mjs <city> cut`; `check` verifies it in PR CI. Do not edit by hand.",
+  "city": "boston",
+  "fixture": "mini-boston",
+  "box": [
+    -71.11,
+    42.335,
+    -71.07,
+    42.36
+  ],
+  "sources": {
+    "osm": "f8262e627c32887278ff9d71cfa73491ee19770b1e7b7da999b12f51a78ac884",
+    "blocks": "06fc2e4c3249cbe253981cb9056d7f71f9d9a56e91b680481101caed9165e1d3",
+    "cousub": "a9d6c3151e3b8f50bb9821e2b065387fa8e36b2112e3ad7eceaae304c6d56614",
+    "lodes-od-main": "e7440d6de58d3fe43cda1bd2769d68ba2819b7ff691c52c9e514d12a055c11ef",
+    "lodes-od-aux": "a856fb780489771ab0afdc9aa58d1240793e493ee2e8ed5a5a2ebe818cb7e204",
+    "lodes-rac": "2300cf201b978ba95b313584ae971718410cb34e3e1e2d94145ad62ad1a3b835",
+    "lodes-wac": "2238c49c44e088208a1176e02313087aef41c11ac08d4fe3b90008a03d58f4f2",
+    "lodes-xwalk": "99fad44d8782c73b0b44f45e740a869329d3524d46fd67a3205782fa4aa73f96"
+  },
+  "pyosmium": "4.3.1",
+  "g4": [
+    {
+      "name": "Boston",
+      "sum": 675647
+    },
+    {
+      "name": "Cambridge",
+      "sum": 118403
+    },
+    {
+      "name": "Somerville",
+      "sum": 81045
+    },
+    {
+      "name": "Brookline",
+      "sum": 63191
+    }
+  ],
+  "crosswalk": {
+    "about": "Populated blocks the LODES crosswalk puts in another municipality than the 2020 boundaries do; the bake follows the boundaries (census.mjs).",
+    "blocks": 399,
+    "people": 37019,
+    "inPlayArea": [
+      {
+        "geoid": "250173572001005",
+        "pop20": 155,
+        "boundary": "2501705070",
+        "crosswalk": "2501711000"
+      },
+      {
+        "geoid": "250173572001023",
+        "pop20": 114,
+        "boundary": "2501705070",
+        "crosswalk": "2501711000"
+      },
+      {
+        "geoid": "250173394004014",
+        "pop20": 26,
+        "boundary": "2501739835",
+        "crosswalk": "2501762535"
+      },
+      {
+        "geoid": "250173394004009",
+        "pop20": 95,
+        "boundary": "2501739835",
+        "crosswalk": "2501762535"
+      },
+      {
+        "geoid": "250173572001021",
+        "pop20": 106,
+        "boundary": "2501705070",
+        "crosswalk": "2501711000"
+      },
+      {
+        "geoid": "250173395001028",
+        "pop20": 332,
+        "boundary": "2501739835",
+        "crosswalk": "2501762535"
+      }
+    ]
+  },
+  "osm": {
+    "nodes": 16054,
+    "relations": 218,
+    "ways": 1744
+  },
+  "residents": 105620,
+  "files": {
+    "blocks.csv": {
+      "bytes": 46029,
+      "sha256": "cd231f367d0c477b22f3bfccc77e3d5c94e3db0079a1af5914981d30a2b20d0f",
+      "rows": 729
+    },
+    "lodes-od-aux.csv": {
+      "bytes": 81,
+      "sha256": "9ccbe3a0be5ee9938abb4bb4776c007b9032b431dcff6cfdfbc135917b5b9e42",
+      "rows": 0
+    },
+    "lodes-od-main.csv": {
+      "bytes": 362907,
+      "sha256": "6d4adc1c57925a7b074fcc81fc36cdbf86f3f903f2ce5790521765109f4ef540",
+      "rows": 5946
+    },
+    "lodes-rac.csv": {
+      "bytes": 58648,
+      "sha256": "3ffa3608e33b28f39a503c70c977d54926deed1b237fdd338300a181b56c6c21",
+      "rows": 478
+    },
+    "lodes-wac.csv": {
+      "bytes": 65202,
+      "sha256": "3e89cff2d1caed05792712332a8d9e127960b534ba24c8ba8c0298afb9e9ab51",
+      "rows": 458
+    },
+    "osm.opl": {
+      "bytes": 1955630,
+      "sha256": "64e1c45844f5ce023f23c4c04e0fb8a6cd2feccb07aa9ce2d66880176180df2d",
+      "rows": 18016
+    }
+  }
+}

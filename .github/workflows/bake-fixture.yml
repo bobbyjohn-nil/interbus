@@ -1,0 +1,68 @@
+# Re-cuts a city's committed fixture on a GitHub runner from the mirrored sources and fails if a
+# single byte differs from the committed copy: the bake is deterministic across machines (gate G8,
+# in small). Dispatch only; it reads the mirror release, never the source servers (PLAN §5).
+name: Bake fixture check (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: City id in cities/index.json
+        required: true
+        default: boston
+
+permissions:
+  contents: read
+
+jobs:
+  recut:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BAKE_PYTHON: python
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install pyosmium (pinned, hashed)
+        run: pip install --require-hashes --no-deps -r tools/bake/requirements.txt
+
+      - name: Check the city id
+        id: city
+        env:
+          CITY: ${{ inputs.city }}
+        run: |
+          if ! [[ "$CITY" =~ ^[a-z][a-z0-9-]*$ ]] || [ ! -f "cities/$CITY/sources.lock.json" ]; then
+            echo "::error::no cities/$CITY/sources.lock.json"
+            exit 1
+          fi
+          echo "id=$CITY" >> "$GITHUB_OUTPUT"
+
+      - name: Download the mirrored sources (hash-checked)
+        env:
+          CITY: ${{ steps.city.outputs.id }}
+        run: node tools/bake/sources.mjs "$CITY"
+
+      - name: Re-cut the fixture
+        env:
+          CITY: ${{ steps.city.outputs.id }}
+        run: node tools/bake/fixture.mjs "$CITY" cut
+
+      - name: The re-cut is byte for byte the committed fixture
+        run: |
+          git status --porcelain -- tools/bake/fixtures
+          if [ -n "$(git status --porcelain -- tools/bake/fixtures)" ]; then
+            git diff --stat -- tools/bake/fixtures
+            echo "::error::the fixture cut on this runner differs from the committed one"
+            exit 1
+          fi
+          echo "The fixture re-cut on this runner matches the committed copy byte for byte."

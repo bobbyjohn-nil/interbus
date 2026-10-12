@@ -3,7 +3,7 @@
   "about": "What the bake needs to know about Boston (PLAN §5). The play extent lives in cities/index.json, the one list the game and the bake both read (K18).",
   "cellMetres": 350,
   "municipalities": {
-    "about": "The play area is these four municipalities inside the extent (D11). pop20 is each one's 2020 census count; gate G4 sums POP20 over its blocks, joined on full 15-digit block ids, and must match exactly. Counts from census.gov QuickFacts (Boston, https://census.gov/quickfacts/fact/table/bostoncitymassachusetts/PST120223) and UMass Boston's 2020 table (https://www.umb.edu/iaas/census/pop-of-asian-americans-alone-in-massachusetts-2020/), both checked 2026-10-12 through search excerpts.",
+    "about": "The play area is these four municipalities inside the extent (D11). pop20 is each one's 2020 census count; gate G4 sums POP20 over the blocks whose internal point lies inside the municipality's 2020 boundary (TIGER/Line county subdivisions), joined on full 15-digit block ids, and must match exactly. Counts from census.gov QuickFacts (Boston, https://census.gov/quickfacts/fact/table/bostoncitymassachusetts/PST120223) and UMass Boston's 2020 table (https://www.umb.edu/iaas/census/pop-of-asian-americans-alone-in-massachusetts-2020/), both checked 2026-10-12 through search excerpts.",
     "list": [
       { "name": "Boston", "ctycsub": "2502507000", "pop20": 675647 },
       { "name": "Cambridge", "ctycsub": "2501711000", "pop20": 118403 },
@@ -31,7 +31,7 @@
     },
     {
       "id": "cousub",
-      "about": "TIGER/Line 2020 county subdivisions for Massachusetts; the municipal boundaries the extent polygon is cut from (week 2).",
+      "about": "TIGER/Line 2020 county subdivisions for Massachusetts: each block's municipality for gate G4, and the boundaries the extent polygon is cut from (week 2).",
       "url": "https://www2.census.gov/geo/tiger/TIGER2020/COUSUB/tl_2020_25_cousub.zip"
     },
     {
@@ -56,7 +56,7 @@
     },
     {
       "id": "lodes-xwalk",
-      "about": "LODES 8.4 block crosswalk: each 2020 block's municipality (ctycsub) and place.",
+      "about": "LODES 8.4 block crosswalk. A cross-check only: its municipality codes are not 2020's (it puts six populated border blocks, 828 people, in Cambridge and Somerville that 2020's boundaries put in Belmont and Medford), so the bake takes municipalities from the cousub boundaries and reports where the two disagree.",
       "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/ma_xwalk.csv.gz"
     }
   ]

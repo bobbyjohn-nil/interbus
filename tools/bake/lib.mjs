@@ -83,6 +83,52 @@ export function splitCsv(line) {
 }
 
 /**
+ * The polygons of an ESRI shapefile (.shp), in record order: each record is a list of rings of
+ * [lon, lat], with its bounding box. Other shape types come back as null, so indexes still line up
+ * with the .dbf rows.
+ */
+export function parseShpPolygons(buf) {
+  if (buf.readInt32BE(0) !== 9994) throw new Error('shp: not a shapefile');
+  const out = [];
+  for (let at = 100; at + 8 <= buf.length; ) {
+    const content = at + 8;
+    const length = buf.readInt32BE(at + 4) * 2;
+    const type = buf.readInt32LE(content);
+    if (type === 5) {
+      const bbox = [0, 1, 2, 3].map((k) => buf.readDoubleLE(content + 4 + 8 * k));
+      const parts = buf.readInt32LE(content + 36);
+      const points = buf.readInt32LE(content + 40);
+      const starts = Array.from({ length: parts }, (_, p) => buf.readInt32LE(content + 44 + 4 * p));
+      const xy = content + 44 + 4 * parts;
+      const rings = starts.map((start, p) => {
+        const end = p + 1 < parts ? starts[p + 1] : points;
+        const ring = [];
+        for (let k = start; k < end; k++) ring.push([buf.readDoubleLE(xy + 16 * k), buf.readDoubleLE(xy + 16 * k + 8)]);
+        return ring;
+      });
+      out.push({ bbox, rings });
+    } else {
+      out.push(null);
+    }
+    at = content + length;
+  }
+  return out;
+}
+
+/** Even-odd test over every ring, so holes (lakes, enclaves) are outside. */
+export function inRings(rings, x, y) {
+  let inside = false;
+  for (const ring of rings) {
+    for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) {
+      const [xa, ya] = ring[a];
+      const [xb, yb] = ring[b];
+      if (ya > y !== yb > y && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
  * Reads a dBASE III table (the .dbf inside a TIGER/Line zip): the field list and every record as
  * an object of trimmed strings. Deleted records are skipped.
  */

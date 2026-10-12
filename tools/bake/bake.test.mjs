@@ -5,9 +5,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { blocksCsv, blocksFromDbf, clipBlocks, clipLodes, controlTotals } from './census.mjs';
+import { assignMunicipalities, blocksCsv, blocksFromDbf, clipBlocks, clipLodes, controlTotals, crosswalkDisagreements } from './census.mjs';
 import { checkFixture } from './fixture.mjs';
-import { inBox, parseDbf, readCity, ROOT, splitCsv } from './lib.mjs';
+import { inBox, inRings, parseDbf, parseShpPolygons, readCity, ROOT, splitCsv } from './lib.mjs';
 import { planProblems } from './plan.mjs';
 
 const PYTHON = process.env.BAKE_PYTHON ?? 'python3';
@@ -142,7 +142,7 @@ test('LODES clips keep OD rows only when home and workplace are both inside', as
 });
 
 // A street crossing the box edge, a building, a bus stop and its route, a bus lane, industrial
-// land drawn by an untagged ring, and a road wholly outside.
+// land drawn by an untagged ring, and a road wholly outside that the route also uses.
 const OPL_IN = `n1 v1 x-71.09 y42.34
 n2 v1 Thighway=traffic_signals x-71.08 y42.345
 n3 v1 x-71.2 y42.4
@@ -158,7 +158,7 @@ w11 v1 Tbuilding=yes Nn1,n2
 w12 v1 Thighway=residential Nn5,n6
 w13 v1 T Nn8,n9,n10,n8
 w14 v1 Thighway=footway Nn1,n2
-r20 v1 Ttype=route,route=bus,ref=39 Mw10@,n4@stop
+r20 v1 Ttype=route,route=bus,ref=39 Mw10@,n4@stop,w12@,n5@stop
 r21 v1 Ttype=route,route=bus,ref=9 Mw12@
 r22 v1 Ttype=multipolygon,landuse=industrial Mw13@outer
 r23 v1 Ttype=route,route=bicycle Mw10@
@@ -176,7 +176,7 @@ r20 Ttype=route,route=bus,ref=39 Mw10@,n4@stop
 r22 Ttype=multipolygon,landuse=industrial Mw13@outer
 `;
 
-test('osm.py clips whole ways, transit and area members to the box, deterministically', (t) => {
+test('osm.py clips whole ways, transit and area members to the box, and drops members outside it', (t) => {
   const probe = spawnSync(PYTHON, ['-I', '-c', 'import osmium'], { encoding: 'utf8' });
   if (probe.status !== 0) {
     if (process.env.CI) assert.fail(`pyosmium is not installed for ${PYTHON}: ${probe.stderr}`);
@@ -207,4 +207,82 @@ test("Boston's bake settings plan cleanly and the committed fixture matches its 
   // Before the first cut the fixture does not exist; once it does it must match exactly.
   if (city.lock) assert.deepEqual(problems, []);
   else assert.deepEqual(problems, ['mini-boston has not been cut yet']);
+});
+
+/** An ESRI shapefile of polygons, built in memory (enough of the format for parseShpPolygons). */
+function shp(records) {
+  const bodies = records.map((rings) => {
+    const points = rings.flat();
+    const body = Buffer.alloc(44 + 4 * rings.length + 16 * points.length);
+    body.writeInt32LE(5, 0);
+    const xs = points.map((p) => p[0]);
+    const ys = points.map((p) => p[1]);
+    [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].forEach((v, k) => body.writeDoubleLE(v, 4 + 8 * k));
+    body.writeInt32LE(rings.length, 36);
+    body.writeInt32LE(points.length, 40);
+    let start = 0;
+    rings.forEach((ring, r) => {
+      body.writeInt32LE(start, 44 + 4 * r);
+      start += ring.length;
+    });
+    const xy = 44 + 4 * rings.length;
+    points.forEach(([x, y], k) => {
+      body.writeDoubleLE(x, xy + 16 * k);
+      body.writeDoubleLE(y, xy + 16 * k + 8);
+    });
+    return body;
+  });
+  const header = Buffer.alloc(100);
+  header.writeInt32BE(9994, 0);
+  const parts = [header];
+  bodies.forEach((body, i) => {
+    const rec = Buffer.alloc(8);
+    rec.writeInt32BE(i + 1, 0);
+    rec.writeInt32BE(body.length / 2, 4);
+    parts.push(rec, body);
+  });
+  return Buffer.concat(parts);
+}
+
+// Two towns in one county: A is a square with a lake (a hole), B is the square east of it.
+const SQUARE_A = [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]];
+const LAKE = [[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]];
+const SQUARE_B = [[10, 0], [10, 10], [20, 10], [20, 0], [10, 0]];
+
+test('municipalities come from the 2020 boundaries, holes and all, not the crosswalk', () => {
+  const shapes = parseShpPolygons(shp([[SQUARE_A, LAKE], [SQUARE_B]]));
+  assert.equal(shapes.length, 2);
+  assert.deepEqual(shapes[0].bbox, [0, 0, 10, 10]);
+  assert.equal(inRings(shapes[0].rings, 2, 2), true);
+  assert.equal(inRings(shapes[0].rings, 5, 5), false, 'a point in the lake is outside the town');
+  const towns = [
+    { ctycsub: '2501700001', name: 'A', ...shapes[0] },
+    { ctycsub: '2501700002', name: 'B', ...shapes[1] },
+  ];
+  const blocks = [
+    { geoid: '250170000001000', lon: 2, lat: 2, pop20: 10 },
+    { geoid: '250170000001001', lon: 15, lat: 5, pop20: 7 },
+    { geoid: '250170000001002', lon: 5, lat: 5, pop20: 0 },
+    { geoid: '250250000001000', lon: 2, lat: 2, pop20: 3 },
+  ];
+  const assigned = assignMunicipalities(blocks, towns);
+  assert.equal(assigned.get('250170000001000'), '2501700001');
+  assert.equal(assigned.get('250170000001001'), '2501700002');
+  assert.equal(assigned.get('250170000001002'), '', 'in the lake: no town');
+  assert.equal(assigned.get('250250000001000'), '', "another county's towns are never tried");
+  // The crosswalk puts the B block in A, as LODES does with six border blocks around Cambridge and Somerville.
+  const crosswalk = new Map([
+    ['250170000001000', '2501700001'],
+    ['250170000001001', '2501700001'],
+  ]);
+  assert.deepEqual(crosswalkDisagreements(blocks, assigned, crosswalk), [
+    { geoid: '250170000001001', pop20: 7, boundary: '2501700002', crosswalk: '2501700001' },
+  ]);
+  const munis = [
+    { name: 'A', ctycsub: '2501700001', pop20: 10 },
+    { name: 'B', ctycsub: '2501700002', pop20: 7 },
+  ];
+  const inCounty = blocks.filter((b) => b.pop20 > 0 && b.geoid.startsWith('25017'));
+  assert.equal(controlTotals(inCounty, assigned, munis).ok, true);
+  assert.equal(controlTotals(inCounty, crosswalk, munis).ok, false, 'joined through the crosswalk, G4 fails');
 });
