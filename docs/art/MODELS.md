@@ -21,7 +21,7 @@ One model drives both views, so 2D and 3D always match:
 | 1 | Standard bus "Metro 40" (70 riders) | `metro-40` | 12.2 m long (40 ft), 2.55–2.6 m wide, ≤ 3.4 m tall | v1.0 |
 | 2 | Minibus "Sparrow" (28 seats) | `sparrow` | 8.5 m, 2.35–2.5 m, ≤ 3.0 m | v1.0 |
 | 2 | Articulated "Goliath" (115 riders) | `goliath` | 18.3 m (60 ft), 2.55–2.6 m, ≤ 3.4 m | v1.0 |
-| 3 | Depot | `depot` | ≈ 40 × 25 m footprint | v1.0 if the buses are done, else 1.1 |
+| 3 | Depot | `depot` | ≈ 40 × 25 m footprint | 1.1, unless the buses and the Steam store art (§10.1) are done by Jan 10 |
 | later | Stop shelter | `shelter` | ≈ 4 × 1.5 × 2.6 m | 1.1 |
 | later | Boston landmarks, replacing their extruded block | `landmark-<osm id>-<slug>` | real footprint | 1.1+ |
 | never | People, interiors, a station diorama, Mk tiers | — | — | Out ([SC-05](../history/lessons-ledger.md), PLAN §2) |
@@ -151,6 +151,7 @@ bpy.ops.export_scene.gltf(
 ```
 art/models/<class>/<id>.glb   the artist's deliveries (Git LFS); class = vehicles, depots, shelters, landmarks
 art/refs/                     reference images, each with its source and licence
+art/store/                    Steam capsule and library art (§10.1, Git LFS)
 art/LICENSE.md                the art licence, separate from the code licence (§11)
 art/CREDITS.md                any third-party texture, kit or font used, with its licence
 tools/models/                 check.mjs and icon.mjs (§5, §8)
@@ -163,7 +164,7 @@ models.html                   the viewer page (dev server and Pages; never in th
 - **Git LFS ([DP-11](../history/lessons-ledger.md)):** `.gitattributes` tracks `*.glb *.blend *.png *.jpg *.webp *.ktx2` before the first binary lands, as V3 did (`Intralines_City@dc63602:.gitattributes`). Anyone pushing art runs `git lfs install` once. A CI step fails if a file under `art/` is not an LFS pointer.
   - GitHub's included LFS quota for a Free account is 10 GiB of storage and 10 GiB of bandwidth a month; every pushed version counts toward storage, and Actions downloads count toward bandwidth ([GitHub docs](https://docs.github.com/en/billing/concepts/product-billing/git-lfs), checked 2026-10-12; check before relying on it).
   - The Pages deploy checks out with `lfs: true` and caches LFS objects, so a run re-downloads only changed files. Expected use is a few MB, far under the quota.
-- **The viewer** (`models.html`, week 9, up to 1.5 sessions with the map preview). Drop a `.glb` and see:
+- **The viewer** (`models.html`, week 9, up to 1.5 sessions with the map preview; the first item PLAN §10's December lever cuts, in which case it moves to January). Drop a `.glb` and see:
   - the CI verdict, from the same module;
   - a turntable at true scale on a 1 m grid, with a 1.8 m figure and the class's target length marked;
   - back faces shown in red;
@@ -182,31 +183,55 @@ models.html                   the viewer page (dev server and Pages; never in th
 | Nov 8 | `sparrow` and `goliath` blockouts, from the kit | 2–3 | All three icons in week 5, and I12 on real silhouettes |
 | **Nov 29** | **`metro-40` final** | 6–10 | The first full model; the owner reviews it in the CI summary |
 | Dec 6 | `sparrow` final | 4–7 | — |
-| Dec 13 | — | — | The viewer, with the Boston-map preview, is live (week 9) |
+| **Thu Dec 10** | **Steam capsule set** (§10.1), built around the `metro-40` final | 4–8 | The store page goes into review Mon Dec 14 |
+| Dec 13 | — | — | The viewer, with the Boston-map preview, is live (week 9), unless the December lever cuts it |
 | Dec 20 | `goliath` final, started only once the Goliath is in the sim (week 5) | 4–7 | All families final with the prototype |
-| Jan 10 | Fixes after seeing them on the map; `depot` if the buses are done | 2–6 | Buses in 3D at near zoom (the model path, week 13) |
+| **Jan 10** | Fixes after seeing them on the map; **Steam library art and the demo app's art** (§10.1); `depot` only if all of that is done | 4–10 | Buses in 3D at near zoom (the model path, week 13); the store page complete before Next Fest registration closes |
 | Jan 17 | — | — | **Content freeze (M6).** Nothing new after this |
 
-No delivery falls on a playtest date (P1 on Nov 22, P2 on Dec 12–13). Total: about 20–35 hours from the artist across October to January (estimates for sizing only, D6), for the artist to correct. Art is never a "system" in PLAN §4's sense, so it may land after the Dec 6 system cutoff, but never after the Jan 17 freeze.
+No delivery falls on a playtest date (P1 on Nov 22, P2 on Dec 12–13, P3 on Jan 22). Total: about 26–48 hours from the artist across October to January, 6–12 of them store art (estimates for sizing only, D6), for the artist to correct; the order inside each week is the artist's call. Art is never a "system" in PLAN §4's sense, so it may land after the Dec 6 system cutoff, but never after the Jan 17 freeze.
 
 **Fallbacks.** The game always has something to draw:
 - **No `metro-40` blockout by Sun Nov 1:** no pipeline is built ([RN-07](../history/lessons-ledger.md)). The bus layer uses a code-drawn top-down glyph (PLAN §8), and the pipeline is built the week a file arrives; with none by Sun Nov 22, not before week 13.
 - **A family's final misses its date:** its latest passing file (even the blockout, if the owner accepts it) is the icon and the 3D model. With no file at all, a built-in procedural box bus is used, generated in code at this contract with the same slots (V1's `Intralines@7af45b1:scripts/make-sample-model.mjs` idea).
-- **No passing `metro-40` final by Sun Dec 13:** the owner decides cut 3 with the prototype on Dec 20. Under cut 3, 3D models move to the Steam build, 3D shows icons, three.js never ships, and the models still draw the 2D icons.
+- **No passing `metro-40` final by Sun Dec 13:** the owner decides cut 3 with the prototype on Dec 20. Under cut 3, 3D models move to the full Steam release, 3D shows icons, three.js never ships, and the models still draw the 2D icons.
 - **No passing `sparrow` or `goliath` final by Sun Jan 10:** that family keeps its blockout (if the owner accepts it) or the procedural box.
-- **The depot misses Jan 10:** it stays a drawn symbol in 2D and an extruded block in 3D, and moves to 1.1.
+- **The depot misses Jan 10:** it stays a drawn symbol in 2D and an extruded block in 3D, and moves to 1.1 (the expected case since D15 moved the store art into the same weeks).
+- **The capsules miss Thu Dec 10:** they must be in by Sun Dec 13, as part of PLAN §10's Steam gate; otherwise June becomes the Dec 20 recommendation, unless the owner accepts a simpler capsule that goes into review on Mon Dec 14.
+
+### 10.1 Steam store art (D15)
+
+The store page needs capsule art before it goes into review on Mon Dec 14, and the library art, with the demo app's own art, before Next Fest registration closes on Sun Jan 10 2027. Sizes are from Valve's [standard assets page](https://partner.steamgames.com/doc/store/assets/standard), read only through search excerpts on 2026-10-12; Valve changed them in August 2024 and refuses old sizes, so check each before relying on it.
+
+| Asset | Size (px) | Due |
+|---|---|---|
+| Header capsule | 920 × 430 | Thu Dec 10 |
+| Small capsule | 462 × 174 | Thu Dec 10 |
+| Main capsule | 1232 × 706 | Thu Dec 10 |
+| Vertical capsule | 748 × 896 | Thu Dec 10 |
+| Library capsule | 600 × 900 | Sun Jan 10 |
+| Library hero | 3840 × 1240, `.png` | Sun Jan 10 |
+| Library logo | 1280 wide and/or 720 tall, `.png` | Sun Jan 10 |
+| Page background (optional) | 1438 × 810 | — |
+| The demo app's capsules, and library art if the demo app needs its own (check in Steamworks) | as above | Sun Jan 10 |
+
+- **What it shows.** The game's name, legible at the small capsule's size, and the artist's buses in Boston. The store page may show only what the game will have at launch ([review process](https://partner.steamgames.com/doc/store/review_process), search excerpt, checked 2026-10-12), so the art shows the artist's buses and the real-city look, never a feature the plan has cut. No real logos or liveries (§11); Valve's capsule rules on the assets page apply.
+- **Screenshots are Claude's:** at least five gameplay-only 1920 × 1080 captures from deterministic replays, by a committed script written in week 8, approved by the owner on Wed Dec 9, and refreshed from the M5 build, tilted views included, by Sun Jan 10.
+- **Delivery:** a pull request under `art/store/` through Git LFS, like the models (the art goes on a public store page anyway); layered source files stay with the artist. The owner uploads the files to Steamworks.
+- **Hours:** 6–12 for the set (estimate), about two-thirds by Dec 10.
 
 ## 11. Ownership and licensing: write it down before Steam
 
 The repo is public, so every committed `.glb` and icon can be downloaded by anyone.
-- **By Oct 18, before the first `.glb` lands on Oct 25:** add `art/LICENSE.md`. For example: "All files under `art/` and the generated `public/models/` are © [holder], all rights reserved; they are not covered by the code licence." The owner and the artist choose the holder.
-- **Before the Steam store page is submitted (Sun Mar 21 2027):** the owner and the artist write down, and both sign, a short agreement that covers:
-  - who owns the models' copyright;
+- **By Oct 18, before the first `.glb` lands on Oct 25:** add `art/LICENSE.md`. The holder is decided (D14, 2026-10-12): Miticept Studios, its two members jointly. In substance: "All files under `art/` and the generated `public/models/` are © Miticept Studios (its two members jointly), all rights reserved; they are not covered by the code licence."
+- **By Sun Dec 6 2026, a week before the Steam store page is submitted (D15 moved it from Mar 21 2027):** the owner and the artist write down, and both sign, a short agreement that covers:
+  - joint copyright in the models and the store art (D14);
+  - that the Steamworks and Apple accounts are held by the owner until a transfer to a company, and what happens to the game and its revenue then (D15);
   - that the studio may use, change and sell them in the game, its updates and its marketing on every platform, Steam included, permanently, even if either person later leaves;
   - the credit line, and any payment or revenue share;
   - who keeps the source `.blend` files.
 
-  Steam's onboarding expects the entity that signs the Steam Distribution Agreement to own or have the right to publish everything in the game ([Steamworks onboarding](https://partner.steamgames.com/doc/gettingstarted/onboarding), seen via search 2026-10-12; check before relying on it). If either person is unsure, ask someone qualified before the Steam release.
+  Steam's onboarding expects the entity that signs the Steam Distribution Agreement to own or have the right to publish everything in the game ([Steamworks onboarding](https://partner.steamgames.com/doc/gettingstarted/onboarding), seen via search 2026-10-12; check before relying on it). If either person is unsure, ask someone qualified before signing (by Sun Dec 6).
 - **Third-party material:** log anything not made from scratch in `art/CREDITS.md` with its licence. CC0 is fine and CC-BY needs a credit. **No "non-commercial" licences, no ripped assets, no AI-generated meshes or textures unless the owner agrees and the store disclosure says so** (PLAN §11).
 - **Real-world designs:** buses are fictional designs. No real manufacturer badges, no MBTA "T" logo or livery, no brand signage on landmarks. US law generally allows pictures of buildings visible from public places ([17 U.S.C. §120(a)](https://law.justia.com/codes/us/title-17/chapter-1/sec-120/), checked 2026-10-12). Whether that covers 3D game models is not settled, and trademarks such as famous signs are separate, so check before relying on it.
 
@@ -216,7 +241,7 @@ The repo is public, so every committed `.glb` and icon can be downloaded by anyo
 2. Are the dates in §10 realistic? Change them here. The hours are for sizing only and are not tracked (D6).
 3. Do the five bus models V3's docs describe (about 31k triangles, 2.5–3.1 MB) exist ([X-15](../history/lessons-ledger.md))? If so, one can be the Oct 25 file, as-is, to measure.
 4. Delivery route: answered 2026-10-12 (D6): a pull request under `art/models/` with Git LFS.
-5. Licence holder, credit line and where the `.blend` backups live (§11, §9).
+5. Licence holder: answered 2026-10-12 (D14: Miticept Studios, both members jointly). Still open: the credit line and where the `.blend` backups live (§11, §9).
 6. Is a roof stripe acceptable (§5)? The alternative is a line-colour outline drawn by the game, which reads worse at icon size (20–32 px).
 7. Bus look references (two or three images) that fit "sleek but detailed".
 
@@ -228,5 +253,5 @@ The repo is public, so every committed `.glb` and icon can be downloaded by anyo
 - glTF-Validator: <https://github.com/KhronosGroup/glTF-Validator>. glTF Transform: <https://gltf-transform.dev/>. meshoptimizer: <https://github.com/zeux/meshoptimizer>. Versions and publish dates from the npm registry: `gltf-validator` 2.0.0-dev.3.10 (2024-10-22), `@gltf-transform/*` 4.5.1 (2026-09-28), `meshoptimizer` 1.3.0 (2026-09-25), `three` 0.186.1 (2026-09-24)
 - three.js 0.186.1 `GLTFLoader` reads `EXT_meshopt_compression`, `KHR_mesh_quantization`, `KHR_materials_emissive_strength` and `EXT_texture_webp` (read in the package source)
 - Git LFS billing and quotas: <https://docs.github.com/en/billing/concepts/product-billing/git-lfs>
-- Steamworks onboarding (seen through search results, not read in full): <https://partner.steamgames.com/doc/gettingstarted/onboarding>. 17 U.S.C. §120: <https://law.justia.com/codes/us/title-17/chapter-1/sec-120/>
+- Steamworks onboarding, standard store assets and the review process (seen through search results, not read in full): <https://partner.steamgames.com/doc/gettingstarted/onboarding>, <https://partner.steamgames.com/doc/store/assets/standard>, <https://partner.steamgames.com/doc/store/review_process>. 17 U.S.C. §120: <https://law.justia.com/codes/us/title-17/chapter-1/sec-120/>
 - Prior work: `Intralines@7af45b1:{docs/MODELS.md, src/map/customModels.ts, scripts/check-models.mjs, scripts/make-sample-model.mjs}`; `Intralines_City@dc63602:{scripts/models/build.ts, src/render/three/modelBudgets.ts, studio/assets/incoming/README.md, studio/viewer/main.ts, studio/docs/design/renderer-3d.md, .gitattributes}`

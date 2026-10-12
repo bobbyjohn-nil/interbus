@@ -64,5 +64,6 @@ The repo's `.claude/settings.json` makes `git tag`, tag pushes and `changelog.mj
 
 - Move, delete or re-push an existing `v*` tag, or reuse a number. A bad release is followed by a fix release; `[YANKED]` goes on its heading only when the owner says so.
 - Create a GitHub Release, upload a build, publish to a store, or run any deploy beyond the one the merge triggers: the release PR's merge redeploys the preview like any merge, no other deploy runs, and the tag publishes nothing. Those are separate requests.
+- Upload to Steam or set a Steam branch live. Uploading or setting live a Steam build never creates a version, and `/ship` never uploads to Steam. Every Steam build is identified by its SHA and shows whatever version `CHANGELOG.md` holds at that commit. The demo is never given its own version heading or `v*` tag. The full release is normally built from a commit the owner has `/ship`ped.
 
 Report the version, date, the release commit SHA, the pull request, the tag, and what was pushed.
