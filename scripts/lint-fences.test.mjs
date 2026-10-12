@@ -26,6 +26,12 @@ const OUTSIDE_PLATFORM = [
   ['navigator.storage', 'void navigator.storage.estimate();'],
   ['window.open()', "window.open('https://example.com');"],
   ['version.json', "export const v = './version.json';"],
+  ['window.location.href = …', "window.location.href = 'https://example.com';"],
+  ['location.assign()', 'location.assign(location.href);'],
+  ['destructured localStorage', "const { localStorage: store } = window;\nstore.setItem('a', 'b');"],
+  ['destructured fetch', "const { fetch: get } = globalThis;\nvoid get('x');"],
+  ['window.navigator.storage', 'void window.navigator.storage.persist();'],
+  ['bare open()', "open('https://example.com');"],
 ];
 
 for (const [name, code] of OUTSIDE_PLATFORM) {
@@ -37,9 +43,21 @@ for (const [name, code] of OUTSIDE_PLATFORM) {
   });
 }
 
-test('src/ui may not hard-code an external link', async () => {
-  const code = "export const A = () => <a href=\"https://example.com\">x</a>;";
-  assert.notEqual((await problems(code, 'src/ui/Fence.tsx')).length, 0);
+test('src/ui links only through externalLink, or to a #place on the page', async () => {
+  for (const code of [
+    'export const A = () => <a href="https://example.com">x</a>;',
+    "const STEAM = 'https://store.steampowered.com/';\nexport const A = () => <a href={STEAM}>x</a>;",
+    "export const A = () => <a href={'https://example.com'}>x</a>;",
+    'export const A = () => <a href={`https://example.com`}>x</a>;',
+  ]) {
+    assert.notEqual((await problems(code, 'src/ui/Fence.tsx')).length, 0, code);
+  }
+  for (const code of [
+    'export const A = () => <a href="#top">x</a>;',
+    "import { externalLink } from '../platform';\nexport const A = () => <a {...externalLink('https://www.openstreetmap.org/copyright')}>x</a>;",
+  ]) {
+    assert.deepEqual(await problems(code, 'src/ui/Fence.tsx'), [], code);
+  }
 });
 
 test('ui and render import the sim only through rules and types', async () => {
@@ -48,6 +66,11 @@ test('ui and render import the sim only through rules and types', async () => {
   }
   for (const path of ['../sim/rules', '../sim/rules/depots', '../sim/types']) {
     assert.deepEqual(await problems(`import { x } from '${path}';\nexport { x };`, 'src/ui/Fence.ts'), [], path);
+  }
+  // import() too: a lazy chunk is still an import.
+  assert.notEqual((await problems("export const m = import('../sim/economy');", 'src/render/map/Fence.ts')).length, 0);
+  for (const path of ['../sim/rules/depots', './loadMap']) {
+    assert.deepEqual(await problems(`export const m = import('${path}');`, 'src/render/map/Fence.ts'), [], path);
   }
 });
 
@@ -62,8 +85,17 @@ test('src/sim has no clock, randomness, DOM or platform powers', async () => {
     "void fetch('x');",
     "import React from 'react';\nexport { React };",
     "import { x } from '../ui/App';\nexport { x };",
+    'export const id = crypto.randomUUID();',
+    'export const r = globalThis.crypto.getRandomValues(new Uint8Array(4));',
+    "export const m = import('react');",
+    "export const m = import('../render/map/loadMap');",
+    "import { jsx } from 'react/jsx-runtime';\nexport { jsx };",
   ]) {
     assert.notEqual((await problems(code, 'src/sim/economy/Fence.ts')).length, 0, code);
+  }
+  // A .tsx file in the sim is fenced the same way.
+  for (const code of ["import React from 'react';\nexport { React };", 'export const t = Date.now();', 'export const r = Math.random();', 'export const w = window.innerWidth;']) {
+    assert.notEqual((await problems(code, 'src/sim/economy/Fence.tsx')).length, 0, code);
   }
   assert.deepEqual(await problems('export const ok = Math.floor(1.5);', 'src/sim/economy/Fence.ts'), []);
 });
