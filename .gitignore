@@ -1,0 +1,4 @@
+# Machine-local Claude Code settings can hold local paths; never commit them.
+.claude/settings.local.json
+node_modules/
+dist/

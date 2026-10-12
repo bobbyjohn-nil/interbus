@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(git tag *)",
+      "Bash(git push * v*)",
+      "Bash(git push * refs/tags/*)",
+      "Bash(git push *--tags*)",
+      "Bash(git push *--follow-tags*)",
+      "Bash(node scripts/changelog.mjs release *)"
+    ]
+  }
+}
