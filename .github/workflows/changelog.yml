@@ -34,7 +34,9 @@ jobs:
         with:
           node-version: 22
       - name: Test the changelog tool
-        run: node --test "scripts/*.test.mjs"
+        # Only its own tests: they need no npm install, which keeps this required check small. The
+        # other script tests (lint fences, the bake) need node_modules and run in CI.
+        run: node --test scripts/changelog.test.mjs
       - name: Check CHANGELOG.md
         env:
           EVENT: ${{ github.event_name }}

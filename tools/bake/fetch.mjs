@@ -55,7 +55,8 @@ async function main() {
   const tag = `city-${cityId}-sources-${retrieved.replaceAll('-', '')}`;
   const sources = [];
   for (const source of config.sources) {
-    const tmp = join(dir, `${source.id}.download`);
+    // Keep the file's own name while downloading: pyosmium tells formats apart by extension.
+    const tmp = join(dir, `incoming.${basename(new URL(source.url).pathname)}`);
     rmSync(tmp, { force: true });
     console.log(`fetch: ${source.id} ← ${source.url}`);
     const got = await download(source.url, tmp);
