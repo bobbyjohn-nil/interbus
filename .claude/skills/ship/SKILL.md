@@ -32,7 +32,7 @@ Run `node scripts/changelog.mjs release <version>`. It dates the release with th
 
 ## 4. The owner's last look
 
-Show the owner, verbatim, the output of `node scripts/changelog.mjs notes <version>`, the branch and `git diff --stat`. Ask: "Push this as v<version>? It goes to the default branch through a release pull request. After launch, the tag also publishes it to the public site." Wait for a clear yes.
+Show the owner, verbatim, the output of `node scripts/changelog.mjs notes <version>`, the branch and `git diff --stat`. Ask: "Push this as v<version>? It goes to the default branch through a release pull request; merging it redeploys the preview like any merge, and the tag itself publishes nothing." Wait for a clear yes.
 
 - Wording changes: edit only the new version's section, run `check`, show it again. A one- or two-sentence summary may go under the heading, above the first `###`.
 - No: `git restore` the files the script changed (CHANGELOG.md, and package.json or package-lock.json if listed). Nothing else.
@@ -63,6 +63,6 @@ The repo's `.claude/settings.json` makes `git tag`, tag pushes and `changelog.mj
 ## Never
 
 - Move, delete or re-push an existing `v*` tag, or reuse a number. A bad release is followed by a fix release; `[YANKED]` goes on its heading only when the owner says so.
-- Create a GitHub Release, upload a build or publish to a store as part of this, and run no deploy other than the one the tag push triggers. Those are separate requests.
+- Create a GitHub Release, upload a build, publish to a store, or run any deploy beyond the one the merge triggers: the release PR's merge redeploys the preview like any merge, no other deploy runs, and the tag publishes nothing. Those are separate requests.
 
 Report the version, date, the release commit SHA, the pull request, the tag, and what was pushed.

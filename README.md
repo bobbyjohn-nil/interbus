@@ -1,6 +1,6 @@
 # interbus
 
-interbus is the final version of the Intralines bus game by Miticept Studios (the owner and a co-developer, who is the studio's 3D artist). It is a calm bus-company tycoon on real Boston: the city's streets, buildings, river and harbour are drawn from real data with no existing buses, trains or ferries (you build the network from zero), and people live and work where the 2020 census and real commute records put them. You draw lines between them, set how often buses run and what each line charges, and keep the company solvent while the city offers contracts and grades you every quarter. The map reads flat and crisp in 2D and tilts into 3D on the same camera, where the artist's buses glide between real buildings.
+interbus is the final version of the Intralines bus game by Miticept Studios (the owner and a co-developer, who is the studio's 3D artist). It is a calm bus-company tycoon on real Boston: the city's streets, buildings, river and harbour are drawn from real data with no existing buses, trains or ferries (you build the network from zero), and people live and work where the 2020 census and real commute records put them. You draw lines between them, set how often buses run and what each line charges, and keep the company solvent while the city offers contracts and grades you every quarter. The map reads flat and crisp in 2D, in light or dark, and tilts into 3D on the same camera, where the artist's buses glide between real buildings.
 
 The game has been built three times before, all in August 2026 and mostly by Claude at the owner's direction:
 
@@ -10,21 +10,20 @@ The game has been built three times before, all in August 2026 and mostly by Cla
 | V2 "Intralines City" | `bobbyjohn-nil/Intralines_City_dep` (branch `archive/intralines-city-v1`) | A debugged economy with goals, on a screen that was too busy |
 | V3 "Intralines_City" | `bobbyjohn-nil/Intralines_City` | Solid engineering, but the game never produced income |
 
-This repo starts fresh and reuses what worked. "interbus" is the repo, package and save-key name; the game's title is still open, and the plan recommends keeping "Intralines" (decision D5).
+This repo starts fresh and reuses what worked. "interbus" is the game's title (decision D5) as well as the repo, package and save-key name; "Intralines" remains the name of the three earlier versions.
 
 ## Status
 
-**Planning.** As of 2026-10-12 there is no game code yet. The owner decided on 2026-10-12: real cities first with Boston as the test city, a flat 2D map that tilts into 3D, GitHub Pages now and Steam later, and versions only on the owner's say ([docs/DECISIONS.md](docs/DECISIONS.md)).
+**Planning.** As of 2026-10-12 there is no game code yet. The owner decided on 2026-10-12: real cities first with Boston as the test city, a flat 2D map that tilts into 3D in light and dark themes, a GitHub Pages preview now and Steam (about US$10) as the only release, and versions only on the owner's say ([docs/DECISIONS.md](docs/DECISIONS.md)).
 
 | Date | Target |
 |---|---|
 | Sun Nov 1 2026 | First fare dollar, on a Back Bay–Longwood clip of Boston |
 | Sun Dec 20 2026 | Playable prototype (milestone tag `prototype`) |
-| Fri Jan 22 2027 | Soft launch on an unlisted Pages URL |
-| Sun Feb 7 2027 | v1.0.0 on GitHub Pages, free, when the owner ships it; hard deadline Feb 28 |
-| From Mon Mar 1 2027, or two weeks after v1.0 ships if later | Steam workstream (a proposal: release Tue Jul 13 2027, decided by Jan 31) |
+| Sun Feb 7 2027 | v1.0 complete on the preview (the owner may `/ship 1.0.0`); hard deadline Feb 28 |
+| From Mon Mar 1 2027 at the earliest | Steam, the only public release, about US$10 (a proposal: release Tue Jul 13 2027; timing is decided before Steam work starts) |
 
-**Where to play:** the play link appears here when the owner ships v1.0. Until then the build is unlisted and shared only with playtesters. The web build will be free on GitHub Pages and work offline after the first visit. A Steam build comes later and reuses the same game and city files.
+**Where to play:** the web build is a preview for the owner and the artist to look at the game and test the work. Every merge to `main` deploys it to GitHub Pages, and an on-screen chip shows the commit it was built from. It has no offline mode, and when the save format changes, older saves are set aside and a new game starts. The game will be released on Steam, built from the same game and city files.
 
 ## Documents
 
@@ -43,4 +42,4 @@ The three `docs/history/` files are a frozen record of the review done on 2026-1
 
 ## Data and licences
 
-Boston's map and demand are built from OpenStreetMap (© OpenStreetMap contributors, [ODbL](https://www.openstreetmap.org/copyright)) and U.S. Census Bureau data (2020 Census; LODES 8.4). The plan publishes the baked city files under the ODbL, with the recipe that builds them in this repo. The code and the art get their own licences (both are decision D14); until then, all rights are reserved.
+Boston's map and demand are built from OpenStreetMap (© OpenStreetMap contributors, [ODbL](https://www.openstreetmap.org/copyright)) and U.S. Census Bureau data (2020 Census; LODES 8.4). The plan publishes the baked city files under the ODbL, with the recipe that builds them in this repo. The interface font is Afacad Flux, © 2023 The Afacad Project Authors, under the SIL Open Font License 1.1 ([google/fonts](https://github.com/google/fonts/tree/main/ofl/afacadflux), whose `METADATA.pb` and `OFL.txt` were checked 2026-10-12). The code and the art get their own licences (both are decision D14); until then, all rights are reserved.

@@ -81,6 +81,7 @@ CI renders each model orthographically from straight above, front at the top, in
 - **Why:** on the test bus, a side-only stripe showed **0%** from above, so the 2D map would have lost the line colour. With a roof band at half the bus's width it showed 27.6%.
 - Roof detail (an AC pod, hatches) shows as ink, which is good; wheels and side windows do not show.
 - The icon is drawn at least 20 px long for the Sparrow, 24 for the Metro 40 and 32 for the Goliath (about 2 px per metre), flat to the screen even when the map tilts, so the silhouette and the stripe read; small details become a few pixels.
+- The game picks the ink colour per theme (light and dark, PLAN §8 rule 8); nothing changes for the artist.
 - The depot gets its 2D symbol the same way.
 - Rendering takes about 0.3 s per model in plain Node (measured), with no browser or GPU, so it runs on every build.
 
@@ -186,7 +187,7 @@ models.html                   the viewer page (dev server and Pages; never in th
 | Jan 10 | Fixes after seeing them on the map; `depot` if the buses are done | 2–6 | Buses in 3D at near zoom (the model path, week 13) |
 | Jan 17 | — | — | **Content freeze (M6).** Nothing new after this |
 
-No delivery falls on a playtest date (P1 on Nov 22, P2 on Dec 12–13). Total: about 20–35 hours from the artist across October to January. These are estimates for the artist to correct. Art is never a "system" in PLAN §4's sense, so it may land after the Dec 6 system cutoff, but never after the Jan 17 freeze.
+No delivery falls on a playtest date (P1 on Nov 22, P2 on Dec 12–13). Total: about 20–35 hours from the artist across October to January (estimates for sizing only, D6), for the artist to correct. Art is never a "system" in PLAN §4's sense, so it may land after the Dec 6 system cutoff, but never after the Jan 17 freeze.
 
 **Fallbacks.** The game always has something to draw:
 - **No `metro-40` blockout by Sun Nov 1:** no pipeline is built ([RN-07](../history/lessons-ledger.md)). The bus layer uses a code-drawn top-down glyph (PLAN §8), and the pipeline is built the week a file arrives; with none by Sun Nov 22, not before week 13.
@@ -212,9 +213,9 @@ The repo is public, so every committed `.glb` and icon can be downloaded by anyo
 ## 12. Questions for the artist (answer by Sun Oct 18)
 
 1. Which tool and version: Blender 4.5 LTS or 5.2 LTS? Which OS, and what is the slowest laptop available for testing?
-2. Are the dates and hours in §10 realistic? Change them here.
+2. Are the dates in §10 realistic? Change them here. The hours are for sizing only and are not tracked (D6).
 3. Do the five bus models V3's docs describe (about 31k triangles, 2.5–3.1 MB) exist ([X-15](../history/lessons-ledger.md))? If so, one can be the Oct 25 file, as-is, to measure.
-4. Delivery route: open a PR with Git LFS, or drop files in a shared folder for the owner to commit?
+4. Delivery route: answered 2026-10-12 (D6): a pull request under `art/models/` with Git LFS.
 5. Licence holder, credit line and where the `.blend` backups live (§11, §9).
 6. Is a roof stripe acceptable (§5)? The alternative is a line-colour outline drawn by the game, which reads worse at icon size (20–32 px).
 7. Bus look references (two or three images) that fit "sleek but detailed".
