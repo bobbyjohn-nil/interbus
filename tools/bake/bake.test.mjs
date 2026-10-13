@@ -286,3 +286,41 @@ test('municipalities come from the 2020 boundaries, holes and all, not the cross
   assert.equal(controlTotals(inCounty, assigned, munis).ok, true);
   assert.equal(controlTotals(inCounty, crosswalk, munis).ok, false, 'joined through the crosswalk, G4 fails');
 });
+
+test('the height-tag count lists buildings in the box and sums them per municipality (PLAN §5)', async (t) => {
+  const probe = spawnSync(PYTHON, ['-I', '-c', 'import osmium'], { encoding: 'utf8' });
+  if (probe.status !== 0) {
+    if (process.env.CI) assert.fail(`pyosmium is not installed for ${PYTHON}: ${probe.stderr}`);
+    t.skip(`pyosmium not installed for ${PYTHON}`);
+    return;
+  }
+  const { countHeights } = await import('./heights.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'bake-heights-'));
+  try {
+    writeFileSync(
+      join(dir, 'in.opl'),
+      [
+        'n1 T x-71.08 y42.35',
+        'n2 T x-71.079 y42.35',
+        'n3 T x-71.079 y42.351',
+        'n4 T x-71.20 y42.35',
+        'w10 Tbuilding=yes,height=24 Nn1,n2,n3,n1',
+        'w11 Tbuilding=apartments,building:levels=5 Nn2,n3,n1,n2',
+        'w12 Tbuilding=yes Nn3,n1,n2,n3',
+        'w13 Tbuilding=no Nn1,n2,n3,n1',
+        'w14 Tbuilding=yes,height=9 Nn4,n1,n2,n4',
+        '',
+      ].join('\n'),
+    );
+    const out = execFileSync(PYTHON, ['-I', join(ROOT, 'tools/bake/osm.py'), 'heights', join(dir, 'in.opl'), '-71.16,42.315,-70.98,42.405', join(dir, 'b.csv')], { encoding: 'utf8' });
+    assert.deepEqual(JSON.parse(out), { buildings: 3, relationsNotCounted: 0 });
+    const csv = readFileSync(join(dir, 'b.csv'), 'utf8');
+    assert.equal(csv, 'way,lon,lat,height,levels\n10,-71.0800000,42.3500000,1,0\n11,-71.0790000,42.3500000,0,1\n12,-71.0790000,42.3510000,0,0\n');
+    const square = { name: 'Test', bbox: [-71.1, 42.3, -71.0, 42.4], rings: [[[-71.1, 42.3], [-71.0, 42.3], [-71.0, 42.4], [-71.1, 42.4]]] };
+    const result = countHeights(csv, [square]);
+    assert.deepEqual(result.total, { buildings: 3, either: 2, height: 1, levels: 1 });
+    assert.ok(Math.abs(result.share - 2 / 3) < 1e-12);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
