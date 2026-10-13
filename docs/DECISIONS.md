@@ -253,10 +253,22 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`e2e/heap.spec.ts`, nightly on the shipped build): **PLAN §6's heap budget, at most 10% growth over 30 minutes.** The slow-laptop run's busy scene ran at 2× after a 2-minute warm-up: 209 buses on Inner Boston, game days 2.6 to 39.9. Each heap was read after a garbage collection:
+
+  | Heap | After the warm-up | After 30 minutes |
+  |---|---|---|
+  | The page | 22.6 MB | 22.7 MB |
+  | The sim worker | 12.0 MB | 12.5 MB |
+  | MapLibre's worker | 41.0 MB | 41.1 MB |
+  | **All three** | **75.6 MB** | **76.3 MB (1.0%)** |
+
+  - **A 5-minute run** saw the page's heap rise 21.2 → 23.7 MB. The 30 minutes show that was its warm-up, not a leak.
+  - **Where it runs:** nightly on GitHub's runner (`HEAP_MINUTES=30`). The PR checks skip it, since it takes as long as it measures.
+  - **TS-04:** with the page keeping every snapshot, three minutes grew its heap from 1,247 to 3,134 MB (145%), and the test failed.
 - **2026-10-13** (`e2e/first-frame.spec.ts`, on the shipped build in CI's smoke step): **I14's first frame on software GL** (PLAN §6; the first map frame, above).
   - **On Inner Boston**, in this container's SwiftShader, four runs of three cold loads: MapLibre's first visually complete frame (its 'load') came at **1.23–1.47 s** from the page's start, under I14's 2.5 s. The board was ready, every overlay drawn and idle, at 2.21–2.68 s. On the fixture, two runs: 1.13–1.34 s, the board ready at 1.97–2.58 s.
   - **Where the time goes**, in one run with a mark at each stage: the map's code was in by about 0.3 s, and a first frame before the style's tiles by about 0.5 s. The overlays added at 'load' (the demand dots, lines, depots and buses) took about a second more to the board ready.
-  - **On GitHub's runner**, sharing it with the busy scene's test: 2.48, 1.99 and 1.57 s (median 1.99), the board ready at 2.46–3.82 s. So it runs in a step of its own. The check job took 7.1 of its 8 minutes.
+  - **On GitHub's runner**, sharing it with the busy scene's test: 2.48, 1.99 and 1.57 s (median 1.99), the board ready at 2.46–3.82 s. So it runs in a step of its own: there, 1.17, 1.40 and 1.07 s (median 1.17), the board ready at 1.96–2.02 s. The check job took 7.0 of its 8 minutes.
   - **The test** takes the median of three cold loads, and prints both times in CI's log. The two moments are performance marks (`interbus:map-load`, `interbus:map-ready`), so a browser's performance panel shows them too.
   - **TS-04:** with a 1.5 s wait before the map mounts, the median was 2.68 s and the test failed. With a 1.2 s wait it held, at 2.39 s.
 - **2026-10-13** (`npm run bench scene`; `src/sim/scene.test.ts`, `src/render/map/vehicles.test.ts`, `e2e/scene.spec.ts` on both builds): **a busy scene for the slow-laptop run, and the vehicle draw-call budget** (the M5 spec, item 9; PLAN §6's budgets on real laptops).
