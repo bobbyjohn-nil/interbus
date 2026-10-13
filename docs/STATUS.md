@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 4ca2c6f (contracts), with M3 step 10's Export session in review; step 7 (r1, due Nov 15) is next, then step 11.
+**Updated:** 2026-10-13, at `main` a6a95c2 (β fitted), with r1's Inner Boston calibration in review; r1's switch of the preview to Inner Boston is next, then its heights and step 11.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4ca2c6f. Deploy preview run 38394336541's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 8044552. Deploy preview run 38395355345's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -25,6 +25,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a report card on each quarter's last day card, paying a grant or a fine;
   - a credit line to -$150k with daily interest, a countdown chip below it, and Restart this quarter when the lender calls in the loan;
   - HEADWAY contracts at landmarks, taken from the checklist's last step or the Contracts chip, with rings on the map, paid as a Contracts row;
+  - Export session in Saves, a file that replays to the same game for a bug report;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
@@ -186,7 +187,8 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
    - [x] **Slots, export and import** (2026-10-13): a Saves panel in the dock with the autosave and three slots, export and import of a save file through `src/platform`; a file the game cannot read is refused and the game and its autosave kept. The shell at rest is now up to 5.5% of I13's 6%, so no sixth dock button (DECISIONS, Measured).
 7. [ ] **`city-boston-r1`** by Sun Nov 15 (next): β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.
    - [x] **β fitted to LODES** (2026-10-13): 3,260 m on Inner Boston (V1's 4 km), the fixture taking the same; `sim.json` carries `calib.gravityBetaM`. The debug line carries 614.4 riders a day, inside the band, so the fixture keeps 111‰ (DECISIONS, Measured).
-   - [ ] Inner Boston's `tripScale`, so the debug line carries there what it does on the fixture; starting cash derived on Inner Boston; Overture heights in the map file; then `cities/index.json` points the preview at Inner Boston.
+   - [x] **Inner Boston's `tripScale` and the starting cash** (2026-10-13): 279‰, so the debug line carries 613.9 there as on the fixture; 16 of 19 starters along T03's corridors fit the founding capital and four pay on day 2, the best Washington Street at +$2,267; at calibrated demand almost no one is turned away (DECISIONS, Measured).
+   - [ ] Overture heights in the map file; then publish Inner Boston's `sim.json` and point the preview at it (`cities/index.json`), with the e2e on the fixture.
 8. [x] **The report card** (item 9, done before step 7 because r1's bake work is not needed for it; 2026-10-13): Coverage, Reliability, Comfort and Money on the quarter's last day card, paid or fined as a Report card row. Ten seeded opening companies grade 53.7–63.8 (median 57.9), so V1's bars stay at 55 and 35; the card pays the debug line 3.9 times its quarter's net, for week 9 (DECISIONS, Measured).
 9. [x] **The failure floor** (item 10, also before step 7; 2026-10-13): cash may go to −$150k on a credit line, at 0.06% a day as an Interest row; a countdown chip from the first close below it, and on the fifth the run ends with **Restart this quarter**, from a save the game writes by itself at each quarter's start (save format 8; DECISIONS, Measured).
 10. [x] **HEADWAY contracts** (item 11, I11), checklist step 5 and **Export session** (item 12).
