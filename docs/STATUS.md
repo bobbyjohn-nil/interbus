@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 6aed609, with the graph, router and geo port in review.
+**Updated:** 2026-10-13, at `main` a9f242c, with the error bus port in review.
 
 ## Live now
 
@@ -29,7 +29,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 
 PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where Back Bay to Longwood lives and works; "people within a walk"; does it look like Boston?
 
-- [ ] **Item 10, ports.** Each port's tests pass, I7 and the schema hash pass, and each is shown failing on the old bug. A port counts as done once the worker host uses it (SC-09).
+- [x] **Item 10, ports** (all landed 2026-10-13). Each port's tests pass, I7 and the schema hash pass, and each is shown failing on the old bug. A port counts as done once the worker host uses it (SC-09).
   - [x] The sim core (2026-10-13), in `src/sim/{config,core,rules,economy}`:
     - branded ids minted from saved counters;
     - one `{ok, reason}` result type;
@@ -46,7 +46,7 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - CSR on typed arrays, in whole decimetres and centiseconds;
     - A* over directed half-edges, so a turn cost never closes a node on the wrong arrival (K13);
     - one geo frame per city, held to the WGS 84 ellipsoid to within 1 m per degree.
-  - [ ] V3's error bus, kept outside the sim with an injected clock, and wired at boot.
+  - [x] V3's error bus, in `src/ui/errors`, outside the sim with an injected clock, catching the page's uncaught errors from boot.
 - [ ] **Item 11, the city on the fixture:**
   - worker host;
   - V1's pipeline and fixtures ported;
@@ -64,7 +64,7 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
 
 ## Next
 
-1. Week 2 as above: the ports (item 10), then the city on the fixture (item 11), with the fare-row signal by **Sun Oct 25**. Items 12 and 13 are done. Each port PR cites the V1–V3 lines it ports and the defects it fixes on the way in.
+1. Week 2: the city on the fixture (item 11), with the fare-row signal by **Sun Oct 25**. Items 10, 12 and 13 are done. Each port PR cites the V1–V3 lines it ports and the defects it fixes on the way in.
 2. Week 3, **M1 first dollar by Sun Nov 1**. Money before presentation: from week 3 no look work starts until the first dollar.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
