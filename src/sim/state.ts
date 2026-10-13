@@ -35,6 +35,8 @@ export interface Line {
   headways: Headways;
   /** Thousandths of a boarding carried so far, so fares bank in whole boardings and no cent is lost between hours or across a save. */
   boardedMilli: number;
+  /** Buses the line owns (Sparrows until week 5's models); with fewer than its headways need, it runs every cycle ÷ buses. */
+  buses: number;
 }
 
 export interface SimState {

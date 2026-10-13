@@ -21,6 +21,9 @@ export interface LineView {
   /** The streets it drives, stop to stop. */
   readonly route: readonly LngLatPair[];
   readonly ridersPerDay: number;
+  readonly buses: number;
+  /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
+  readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
 }
 
 export interface DepotView {
@@ -42,6 +45,8 @@ export interface Snapshot {
   readonly speed: Speed;
   readonly cashCents: number;
   readonly ridersPerDay: number;
+  /** Every line's forecast and every depot's upkeep for a whole day, in cents. */
+  readonly costsPerDayCents: number;
   readonly lines: readonly LineView[];
   /** Changes whenever `lines` does, so the map redraws them only then (RN-04). */
   readonly linesVersion: number;

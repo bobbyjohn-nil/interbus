@@ -47,12 +47,19 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ name: 'Debug line' });
     expect(last('snapshot')!.snapshot.linesVersion).toBe(last('ready')!.snapshot.linesVersion + 1);
     expect(last('snapshot')!.snapshot.lines[0]!.route.length).toBeGreaterThan(10);
+    // Two Sparrows, no depot yet: the day's costs are its running and wages, and the card's rows meet them (I6).
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    expect(line.buses).toBe(2);
+    expect(line.forecastCents.deadhead).toBe(0);
+    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages);
     host.handle({ type: 'speed', speed: 3 });
     for (let t = 0; out.every((m) => m.type !== 'day-card'); t += 250) host.tick(t);
     const card = last('day-card')!.card;
     expect(card.day).toBe(1);
     expect(card.rows.some((r) => r.kind === 'fares' && r.amountCents > 0)).toBe(true);
     expect(card.rows.reduce((s, r) => s + r.amountCents, 0)).toBe(card.cashAfterCents - card.cashBeforeCents);
+    const costs = card.rows.filter((r) => r.kind === 'running' || r.kind === 'wages').reduce((s, r) => s + r.amountCents, 0);
+    expect(costs).toBe(-last('snapshot')!.snapshot.costsPerDayCents);
   });
 
   it('refuses a second debug line, and answers a probe with the people within a walk', () => {
@@ -80,6 +87,9 @@ describe('the sim host', () => {
     host.handle({ type: 'place-depot', at });
     expect(last('snapshot')!.snapshot.depots).toEqual([{ id: 1, at }]);
     expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000);
+    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(30_000); // $300 a day of upkeep
+    host.handle({ type: 'add-debug-line' });
+    expect(last('snapshot')!.snapshot.lines[0]!.forecastCents.deadhead).toBeGreaterThan(0);
     host.handle({ type: 'depot-site', id: 4, at });
     expect(last('depot-site')).toMatchObject({ id: 4, site: { ok: false, reason: 'too_close_to_depot', limitM: 120 } });
     host.handle({ type: 'place-depot', at: [-71.0776, 42.3496] }); // Copley Square

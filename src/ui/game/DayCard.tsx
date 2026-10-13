@@ -14,7 +14,7 @@ export function DayCard({ sim }: { sim: Sim }) {
       <table>
         <tbody>
           {[...byKind].map(([kind, cents]) => (
-            <tr key={kind}>
+            <tr key={kind} data-kind={kind} data-cents={cents}>
               <th scope="row">{ROW_NAMES[kind] ?? kind}</th>
               <td>{usd(cents, { cents: true })}</td>
             </tr>

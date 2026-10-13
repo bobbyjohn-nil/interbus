@@ -27,4 +27,8 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   subsidy: 'City subsidy',
   purchase: 'Purchases',
   refund: 'Refunds',
+  running: 'Running (per km)',
+  wages: 'Driver wages',
+  deadhead: 'Deadhead',
+  upkeep: 'Depot upkeep',
 };

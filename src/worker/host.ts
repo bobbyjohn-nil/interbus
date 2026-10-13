@@ -5,9 +5,11 @@
 import { addDebugLine } from '../sim/commands/debugLine';
 import { placeDepot } from '../sim/commands/placeDepot';
 import { loadCity, type City } from '../sim/city/simfile';
+import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
 import { STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
+import { forecastDay } from '../sim/economy/costs';
 import { peopleWithinWalk } from '../sim/rules/catchment';
 import { checkDepotSite } from '../sim/rules/depot';
 import { newGame } from '../sim/state';
@@ -47,7 +49,17 @@ function lineViews(world: World): LineView[] {
         for (const p of route.length ? pts.slice(1) : pts) route.push([...toLngLat(city.frame, p as XY)] as [number, number]);
       });
     }
-    return { id: line.id, name: line.name, colour: line.colour, stops, route, ridersPerDay: world.assignment.lines.get(line.id)?.perDay ?? 0 };
+    const service = world.services.get(line.id);
+    return {
+      id: line.id,
+      name: line.name,
+      colour: line.colour,
+      stops,
+      route,
+      ridersPerDay: world.assignment.lines.get(line.id)?.perDay ?? 0,
+      buses: line.buses,
+      forecastCents: service ? forecastDay(service.costs) : { running: 0, wages: 0, deadhead: 0 },
+    };
   });
 }
 
@@ -88,6 +100,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       speed,
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
+      costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS,
       lines,
       linesVersion,
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
@@ -126,6 +139,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'place-depot') {
         const result = placeDepot(world, message.at);
         if (!result.ok) post({ type: 'refused', command: message.type, reason: result.reason, ...(result.shortCents === undefined ? {} : { shortCents: result.shortCents }) });
+        else refreshLines(); // a line's deadhead now runs from the depot
         post({ type: 'snapshot', snapshot: snapshot() });
       }
     },
