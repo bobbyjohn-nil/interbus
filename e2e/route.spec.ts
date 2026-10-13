@@ -48,8 +48,12 @@ test.describe('route edits', () => {
     const placed = await stops();
     expect(placed).toHaveLength(4);
     const [sx, sy] = await toScreen(page, [placed[1]![1], placed[1]![2]]);
-    await page.mouse.click(sx, sy);
     const card = page.getByTestId('stop-card');
+    // A click finds the stop once the map has drawn it, a frame or two after Create.
+    await expect(async () => {
+      await page.mouse.click(sx, sy);
+      await expect(card).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
     await card.getByRole('button', { name: 'Remove from Line 1 · $2k back' }).click();
     await expect(panel).toHaveAttribute('data-cash', '7320000');
     await expect(card).toHaveCount(0); // the stop is gone, and its card with it

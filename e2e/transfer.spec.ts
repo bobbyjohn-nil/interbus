@@ -59,9 +59,12 @@ test.describe('a change of line', () => {
     const placed = (await map.getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number) as [number, number, number]);
     expect(placed).toHaveLength(3);
     const [sx, sy] = await toScreen(page, [placed[1]![1], placed[1]![2]]);
-    await page.mouse.click(sx, sy);
     const card = page.getByTestId('stop-card');
-    await expect(card).toBeVisible();
+    // A click finds the stop once the map has drawn it, a frame or two after Create.
+    await expect(async () => {
+      await page.mouse.click(sx, sy);
+      await expect(card).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
     await expect(card.getByRole('button', { name: 'Line 1', exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Line 2', exact: true })).toBeVisible();
     await expect(card).toContainText('of them change here from another line, on the fare they paid');
