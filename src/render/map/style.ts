@@ -1,9 +1,13 @@
 // Builds the MapLibre style for a city from a token set: "quiet base, loud data" (PLAN §8).
-// Layers come from @protomaps/basemaps; this module re-colours them, swaps in Afacad Flux and
-// removes what interbus never draws.
+// Layers come from @protomaps/basemaps; this module re-colours them, swaps in Afacad Flux, removes
+// what interbus never draws, and adds the 3D buildings and the board mask.
 import { layers, namedFlavor, type Flavor } from '@protomaps/basemaps';
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
+import type { Bbox } from '../../cities';
+import { BUILDINGS_2D, BUILDINGS_3D } from './tilt';
 import type { MapTokens } from './tokens';
+
+export { BUILDINGS_2D, BUILDINGS_3D };
 
 export const FONT_REGULAR = 'Afacad Flux Regular';
 export const FONT_SEMIBOLD = 'Afacad Flux SemiBold';
@@ -11,6 +15,20 @@ export const FONT_STACKS: readonly string[] = [FONT_REGULAR, FONT_SEMIBOLD];
 
 /** The tile source id inside the style. */
 export const SOURCE = 'city';
+/** The board mask's source: inline GeoJSON built from the play area, so it fetches nothing. */
+export const BOARD = 'board';
+
+/**
+ * A building with no height in the tiles stands about three storeys tall in 3D. The bake replaces
+ * this with OSM height, else levels × 3.2 m + 1 m, else a type default (PLAN §5), and week 2 counts
+ * how many of Inner Boston's buildings carry a height at all (DECISIONS.md).
+ */
+export const DEFAULT_HEIGHT_M = 10;
+
+/** V1's board mask: the grey beyond the play area and its dashed edge, drawn over everything. */
+export const MASK_LAYERS: readonly string[] = ['board-mask', 'board-edge'];
+/** How far the mask's panels reach past the play area, in degrees: far beyond any camera the bounds allow. */
+const MASK_REACH = 4;
 
 /**
  * Layers interbus never draws:
@@ -136,16 +154,101 @@ function adjust(layer: LayerSpecification, t: MapTokens): LayerSpecification {
   return out as unknown as LayerSpecification;
 }
 
+/**
+ * The 3D buildings: the flat layer's buildings, extruded to their height. Hidden until `T` tilts the
+ * board (tilt.ts); the two layers swap once per mode change, never per frame (RN-04).
+ */
+function extrusions(flat: LayerSpecification, t: MapTokens): LayerSpecification {
+  return {
+    id: BUILDINGS_3D,
+    type: 'fill-extrusion',
+    source: SOURCE,
+    'source-layer': 'buildings',
+    minzoom: 13,
+    ...('filter' in flat && flat.filter ? { filter: flat.filter } : {}),
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-extrusion-color': t.buildingFill,
+      'fill-extrusion-height': ['coalesce', ['get', 'height'], DEFAULT_HEIGHT_M],
+      'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+    },
+  };
+}
+
+type Ring = [number, number][];
+const panel = (w: number, s: number, e: number, n: number) => ({
+  type: 'Feature' as const,
+  properties: { kind: 'mask' },
+  geometry: { type: 'Polygon' as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]] as Ring] },
+});
+
+/**
+ * Four panels around the play area and its edge (V1, `Intralines@7af45b1:src/map/overlays.ts:55-114`):
+ * a world polygon with the play area as a hole tessellates unreliably, V1 found.
+ */
+export function boardFeatures(extent: Bbox) {
+  const [w, s, e, n] = extent;
+  const m = MASK_REACH;
+  return {
+    type: 'FeatureCollection' as const,
+    features: [
+      panel(w - m, n, e + m, n + m), // north
+      panel(w - m, s - m, e + m, s), // south
+      panel(w - m, s, w, n), // west
+      panel(e, s, e + m, n), // east
+      {
+        type: 'Feature' as const,
+        properties: { kind: 'edge' },
+        geometry: { type: 'LineString' as const, coordinates: [[w, s], [e, s], [e, n], [w, n], [w, s]] as Ring },
+      },
+    ],
+  };
+}
+
+function boardMask(t: MapTokens): LayerSpecification[] {
+  return [
+    {
+      id: 'board-mask',
+      type: 'fill',
+      source: BOARD,
+      filter: ['==', ['get', 'kind'], 'mask'],
+      // Unsmoothed, so the panels' shared edges leave no darker seam.
+      paint: { 'fill-color': t.mask, 'fill-opacity': 0.62, 'fill-antialias': false },
+    },
+    {
+      id: 'board-edge',
+      type: 'line',
+      source: BOARD,
+      filter: ['==', ['get', 'kind'], 'edge'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': t.maskEdge,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.6, 16, 4],
+        'line-dasharray': [2.5, 2],
+        'line-opacity': 0.75,
+      },
+    },
+  ];
+}
+
 export interface StyleOptions {
   /** pmtiles:// URL of the city's tile file. */
   readonly tilesUrl: string;
   /** Absolute URL prefix of this build's files, ending in "/". */
   readonly assetBase: string;
   readonly tokens: MapTokens;
+  /** The play area; the board mask greys everything beyond it. */
+  readonly extent: Bbox;
 }
 
-export function buildStyle({ tilesUrl, assetBase, tokens }: StyleOptions): StyleSpecification {
-  const all = layers(SOURCE, flavorFrom(tokens), { lang: 'en' });
+export function buildStyle({ tilesUrl, assetBase, tokens, extent }: StyleOptions): StyleSpecification {
+  const base = layers(SOURCE, flavorFrom(tokens), { lang: 'en' })
+    .filter((l) => !DROPPED_LAYERS.includes(l.id))
+    .map((l) => adjust(l, tokens));
+  // Extrusions go above every ground layer, so no street draws over a building, and below the labels.
+  const firstLabel = base.findIndex((l) => l.type === 'symbol');
+  const flat = base.find((l) => l.id === BUILDINGS_2D);
+  if (firstLabel < 0 || !flat) throw new Error('the basemap has no labels or no buildings layer');
   return {
     version: 8,
     glyphs: `${assetBase}fonts/{fontstack}/{range}.pbf`,
@@ -155,7 +258,9 @@ export function buildStyle({ tilesUrl, assetBase, tokens }: StyleOptions): Style
         url: tilesUrl,
         attribution: '© OpenStreetMap contributors · Protomaps',
       },
+      [BOARD]: { type: 'geojson', data: boardFeatures(extent) },
     },
-    layers: all.filter((l) => !DROPPED_LAYERS.includes(l.id)).map((l) => adjust(l, tokens)),
+    // The mask goes over everything, labels included, as in V1; the game's own layers will draw above it.
+    layers: [...base.slice(0, firstLabel), extrusions(flat, tokens), ...base.slice(firstLabel), ...boardMask(tokens)],
   };
 }

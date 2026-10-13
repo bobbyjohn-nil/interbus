@@ -15,3 +15,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The preview opens on real Boston: streets, buildings, the Charles, parks and neighbourhood names from Back Bay to Cambridge, drawn flat in the light theme and set in Afacad Flux. Zoom in to see individual buildings.
 - The build number of the version you are looking at sits in the bottom-right corner, beside the map credits.
+- Press T to tilt the map into 3D, with Boston's buildings standing up from its streets; press T again to lay it flat. Buildings whose height isn't on record stand about three storeys for now.
+- Everything beyond the play area is greyed out behind a dashed edge, so you can see where the board ends.
