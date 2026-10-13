@@ -6,7 +6,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 7a20198. Deploy preview run 38377940934's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` d11357f. Deploy preview run 38380736185's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -14,6 +14,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - the calm shell: a chip row, a dock with **Place a depot**, **Draw a line** and **Lines**, the line inspector with its headways and a day's forecast, and notices in one corner;
   - a bus model per line, Sparrow or Metro 40, picked on the new-line card and swapped on the line card, each drawn at its own length;
   - V2's waits: riders leave a line that comes once an hour;
+  - full buses turning riders away half-hour by half-hour, and "Full at 17:00" on the line card when they do;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
