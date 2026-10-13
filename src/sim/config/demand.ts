@@ -26,10 +26,22 @@ export const MODE_TAU_MIN = 9;
 export const MAX_SHARE = 0.9;
 /** Nobody takes a bus trip longer than this, door to door (demand.worker.ts:482). */
 export const MAX_TRANSIT_MIN = 75;
-/** Waits: 70% of riders time the stop and wait 2 min; 30% turn up and wait half a headway; neither waits more than 15 (constants.ts:132, EC-08). */
+/**
+ * Waits, V2's model (EC-08: `Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:
+ * 250-319, 2549-2607`). Up to a 12-minute headway, 70% of riders time the stop and wait 2 min (V1's
+ * figure, constants.ts:132); past it the share halves as the headway doubles, down to 5%, since a
+ * timetable no one can fit a day around is one they drive instead. A timed wait is never more than
+ * half a headway, the rest wait half a headway, and 90 min is only a guard rail. V1 capped every wait
+ * at 15 minutes, which made long headways nearly free.
+ */
 export const TIMED_RIDER_SHARE = 0.7;
 export const TIMED_WAIT_MIN = 2;
-export const MAX_WAIT_MIN = 15;
+export const SCHEDULE_AWARE_REF_MIN = 12;
+export const SCHEDULE_AWARE_FLOOR = 0.05;
+export const WAIT_CEILING_MIN = 90;
+/** A wait up to 10 minutes costs what it says; past it, ref × (wait ÷ ref)^1.5 (V2: a long wait is a hole in the day, and the plan instead is a car). */
+export const WAIT_PAIN_REF_MIN = 10;
+export const WAIT_PAIN_EXPONENT = 1.5;
 /** The reference fare and the minutes a dollar is worth (constants.ts:418-420): each boarding's fare beyond $2.25 feels like extra ride time (K05). */
 export const REFERENCE_FARE_CENTS = 225;
 export const CENTS_PER_MINUTE = 18;

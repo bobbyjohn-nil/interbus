@@ -55,8 +55,17 @@ describe('I3, the strategies (EC-03)', () => {
     expect(results.find((r) => r.h.overnight !== null)!.overnightRiders).toBeGreaterThan(0);
   });
 
-  it('finds its best headway inside the range, not at either end (an interior optimum)', () => {
-    expect(best.h.peak).toBeGreaterThan(STEPS[0]!);
-    expect(best.h.peak).toBeLessThan(STEPS.at(-1)!);
+  it('finds its best headways inside the range, not at either end (an interior optimum)', () => {
+    for (const period of ['peak', 'offpeak'] as const) {
+      expect(best.h[period], period).toBeGreaterThan(STEPS[0]!);
+      expect(best.h[period], period).toBeLessThan(STEPS.at(-1)!);
+    }
+  });
+
+  it('earns 60% of the best or less from a starved line: hourly all day on one bus (I3, K28)', () => {
+    // With V1's waits (70% of riders timed at every headway, every wait capped at 15 min) this was
+    // 98.5% of the best; V2's waits (EC-08) make a long headway cost riders.
+    const starved = results.find((r) => r.h.peak === 3_600 && r.h.offpeak === 3_600 && r.h.overnight === null)!;
+    expect(starved.netCents).toBeLessThanOrEqual(0.6 * best.netCents);
   });
 });

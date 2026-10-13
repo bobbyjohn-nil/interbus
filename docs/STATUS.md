@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 67d2c9c (the landmarks), with M3 step 2a, the bus models, in review.
+**Updated:** 2026-10-13, at `main` 8f5ea83 (the bus models), with M3 step 2b, V2's waits, in review.
 
 ## Live now
 
@@ -36,6 +36,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §3, §3.1, §5, §6 and §10 and answer §12; commit `art/LICENSE.md`.
 - [ ] **D20, by Sun Oct 25:** the art's open licence (recommended CC BY 4.0).
 - [ ] **Week 2 check:** "Does this look like Boston?" (PLAN §14 item 14).
+- [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare the costs on **day 2's** card: day 1 opens at 05:00, after the first bus left the depot, so its wages and deadhead fall a little short of a whole day's forecast.
 
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13
@@ -159,7 +160,8 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
      - each family drawn at its own length, I12 passing for all three (DECISIONS, Measured).
 
      The starter cannot afford Metro 40s: the debug line's two cost $520k against $71,200 left after the starter.
-   - [ ] **Crowding per period**, then the sweep re-run. The demand model has 70% of riders "timed", waiting 2 minutes whatever the headway (V1's EC-08 rule), which may be why a starved line keeps its riders; if crowding alone does not bring a starved line under 60%, V2's convex wait (EC-08) is the measured next step.
+   - [x] **V2's waits** (EC-08's verdict; 2026-10-13): riders time the stop only at a headway they can plan around, and a long wait counts convexly. A starved line (hourly, one bus) now loses $72.10 a day against the best's +$1,905.82 (it earned 98.5% of the best), and both daytime optima are inside the range. The debug line carries 636.3 riders and nets +$798.97 on day 2 (DECISIONS, Measured). I2's stop clause is now held with the dwell at zero, and the owner's call is under DECISIONS, Open.
+   - [ ] **Crowding per period**: seats per hour against the busiest leg, shed in that period only.
 3. [ ] **The fare band** (item 4): per-line fares, perceived once per trip, the subsidy taper, the printed band; I3's fare optimum and I4.
 4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).
 5. [ ] **Undo while paused** (item 7, I9).

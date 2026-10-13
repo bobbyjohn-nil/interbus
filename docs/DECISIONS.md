@@ -15,6 +15,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 | D21 (b) | Which Windows PC plays the demo builds from the April round trip on | The owner's, the artist's, or one bought or borrowed | **The artist's PC if it runs Windows, else one bought or borrowed** | **Sun Feb 21 2027**; the PC in hand by Sun Mar 28 | The demo's Windows checks |
 | D22 | The full Steam release date | After the fest ends Mon Jun 21 and clear of a seasonal sale: Summer Sale reported Jun 24–Jul 8 2027 ([GamingOnLinux](https://www.gamingonlinux.com/2026/07/valve-announced-the-themed-sale-events-for-the-first-half-of-2027/page=1/), [Notebookcheck](https://www.notebookcheck.net/Valve-announces-Steam-Sales-and-Festivals-for-first-half-of-2027.1344181.0.html), search excerpts, checked 2026-10-12; check before relying on them) | **Tue Jul 27 2027**, 19 days after the Summer Sale ends (Jul 13, the first proposal, would fall five days after it); the release build in review by Mon Jul 12 | **Mon Jun 21 2027**, as the fest closes | PLAN §4, §10, §11 |
 | D19 | **Deferred** (2026-10-12, entry below): the demo's scope and any trailer | Two quarters of Inner Boston then a wishlist card (PLAN §4); shorter (one quarter); longer (three quarters, medals in). A 30–60 s gameplay trailer from the deterministic replay and screenshot scripts, about 0.5–1 session, on the page by registration (Apr 18) so Valve can consider it for its fest marketing (the June trailer date is not recorded; check); it moves that 0.5–1 from the full release's estimate into PLAN §10's weeks 25–30, so the Steam total stays about 12–15. Or none | None until it comes back; the plan's starting point is two quarters, about 40 minutes | Revisit **Sun Dec 20**, with the prototype; decide by **Sun Feb 28 2027**, before the store page | The demo flag (from Mar 29); the store page; the full release's trailer |
+| — | I2's stop clause with a stop's dwell (measured 2026-10-13, below) | Hold I2's 0.1% for a stop with the dwell at zero, and bound the dwell's own cost (1% of trips; 0.68% measured for a stop in the Fens few walk to); or hold the 0.1% with the dwell, which needs buses that skip a stop nobody uses (request stops) or a smaller dwell | **The first.** The dwell is the stop's real price, paid by every rider riding through it, and the QUIET flag (the M3 spec, item 5) shows the player which stops cost more than they bring; EC-02, the bug I2 was written against, is about the assignment, which still never loses riders to a new stop | **Sun Oct 25**, with D20 | `src/sim/demand/invariants*.test.ts`; PLAN §6's I2 wording |
 | — | A GitHub tag ruleset on `v*` that blocks update and deletion | On or off | **On**, in week 1 (PLAN §14 item 2). It cannot tell who pushes; it keeps a released tag from being moved or deleted, which `/ship` already forbids | **Sun Oct 18** | Released tags stay where they were made |
 
 ---
@@ -251,6 +252,23 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench strategies`, `npm run bench day`; `src/sim/demand/assign.ts`): **V2's wait model (EC-08's verdict) is ported, and a starved line no longer pays.**
+  - **The model.** M1 had ported V1's waits: 70% of riders timed the stop and waited 2 minutes at every headway, and no wait counted past 15 minutes. Now:
+    - 70% time the stop up to a 12-minute headway, and the share halves as the headway doubles, down to 5%;
+    - a timed wait is never more than half a headway;
+    - a wait past 10 minutes is felt as 10 × (wait ÷ 10)^1.5 (`Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:250-319, 2549-2607`).
+  - **The debug line's sweep**, before → after:
+
+    | Setting | Riders a day | Net a day |
+    |---|---|---|
+    | The best (was 15, 60, off; now 10, 15, off on 3 buses) | 767.4 → 855.0 | $2,354.45 → $1,905.82 |
+    | Starved: hourly all day, one bus | 681.0 → 59.6 | $2,318.75 → −$72.10 |
+    | The starter, every 20 min by day | 795.3 → 636.3 | $2,163.01 → $1,550.86 |
+
+    A starved line now earns less than nothing, against PLAN I3's 60% of the best, and both daytime headways' optima sit inside the range. `strategies.test.ts` holds both, and both fail with V1's waits restored.
+  - **The debug line's whole day** (day 2): 636.3 boardings, net +$798.97 (was 795.3 and +$1,411.12), so a first line still pays. `tripScale` stays 111‰: the line sits inside the 600–1,000 band.
+  - **I2 and the dwell.** A stop inserted between the MFA and Longwood, in the Fens, now cuts linked trips 0.68%: every rider riding through it pays its 20 s dwell, and few new riders walk to it. The other two insertions add 19.27% and 10.24%. With the dwell held at zero the cut vanishes, so the assignment itself still never loses riders to a stop (EC-02). `invariants-stop.test.ts` holds I2's 0.1% that way, and `invariants.test.ts` bounds a stop's dwell at 1% of trips; the owner's call is under Open.
+  - **Recompute** is unchanged within the bench's noise: Inner Boston's p95 was 39.0–107.5 ms over four runs, and 59.3 ms on `main`'s code.
 - **2026-10-13** (`e2e/i12.spec.ts`): **I12 passes for all three families.** Each line runs one model (the M3 spec, item 2), and each family's glyph has its own length, carried per bus into the one instanced draw. Fifty buses of each family, heading away from the camera at 1366×768, shortest of each:
 
   | Camera | Sparrow (needs 20 px) | Metro 40 (24 px) | Goliath (32 px) |

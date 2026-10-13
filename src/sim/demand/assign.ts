@@ -23,12 +23,16 @@ import {
   LOGIT_SCALE,
   MAX_SHARE,
   MAX_TRANSIT_MIN,
-  MAX_WAIT_MIN,
   MAX_WALK_M,
   MODE_TAU_MIN,
   REFERENCE_FARE_CENTS,
+  SCHEDULE_AWARE_FLOOR,
+  SCHEDULE_AWARE_REF_MIN,
   TIMED_RIDER_SHARE,
   TIMED_WAIT_MIN,
+  WAIT_CEILING_MIN,
+  WAIT_PAIN_EXPONENT,
+  WAIT_PAIN_REF_MIN,
   WALK_MIN_PER_KM,
 } from '../config/demand';
 import { SpatialGrid, type XY } from '../core/geo';
@@ -66,9 +70,23 @@ export interface Assignment {
   readonly tripsPerDay: number;
 }
 
-/** Minutes the average rider waits, for a headway in seconds (V1 demand.worker.ts:258-260, no delay). */
+/** The share of riders who time their arrival, for a headway in minutes (V2's scheduleAwareShare). */
+export function scheduleAwareShare(headwayMin: number): number {
+  const decay = SCHEDULE_AWARE_REF_MIN / Math.max(headwayMin, SCHEDULE_AWARE_REF_MIN);
+  return SCHEDULE_AWARE_FLOOR + (TIMED_RIDER_SHARE - SCHEDULE_AWARE_FLOOR) * decay;
+}
+
+/** Minutes the average rider waits on the clock, for a headway in seconds (V2's waitMinutes, no lateness until congestion). */
 export function waitMin(headwaySeconds: number): number {
-  return TIMED_RIDER_SHARE * Math.min(TIMED_WAIT_MIN, MAX_WAIT_MIN) + (1 - TIMED_RIDER_SHARE) * Math.min(headwaySeconds / 60 / 2, MAX_WAIT_MIN);
+  const headwayMin = headwaySeconds / 60;
+  const share = scheduleAwareShare(headwayMin);
+  const timed = Math.min(TIMED_WAIT_MIN, headwayMin / 2);
+  return Math.min(share * timed + (1 - share) * (headwayMin / 2), WAIT_CEILING_MIN);
+}
+
+/** What a wait is worth against a minute of riding: itself up to 10 minutes, convex past it (V2's perceivedWaitMin). */
+export function perceivedWaitMin(wait: number): number {
+  return wait <= WAIT_PAIN_REF_MIN ? wait : WAIT_PAIN_REF_MIN * (wait / WAIT_PAIN_REF_MIN) ** WAIT_PAIN_EXPONENT;
 }
 
 /** The bus's share of a trip, given its door-to-door bus minutes and straight-line km (V1 demand.worker.ts:481-491). */
@@ -210,7 +228,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   plans.forEach((plan, line) =>
     PERIODS.forEach((period, k) => {
       const h = period === 'overnight' ? plan.headways.overnight : plan.headways[period];
-      wait[line * 3 + k] = runsIn(plan.headways, period) && h !== null ? waitMin(h) : Infinity;
+      wait[line * 3 + k] = runsIn(plan.headways, period) && h !== null ? perceivedWaitMin(waitMin(h)) : Infinity;
     }),
   );
   const fareMin = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);

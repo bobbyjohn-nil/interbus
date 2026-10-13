@@ -6,7 +6,7 @@ import { distXY, SpatialGrid } from '../../core/geo';
 import type { City, SubPoint } from '../../city/simfile';
 import { PERIODS, runsIn, type Period } from '../../rules/periods';
 import type { Commuters } from '../commuters';
-import { busShare, waitMin, type LinePlan } from '../assign';
+import { busShare, perceivedWaitMin, waitMin, type LinePlan } from '../assign';
 
 interface Reach {
   readonly line: number;
@@ -32,7 +32,7 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
   const wait = plans.map((plan) =>
     Object.fromEntries(PERIODS.map((period) => {
       const h = period === 'overnight' ? plan.headways.overnight : plan.headways[period];
-      return [period, runsIn(plan.headways, period) && h !== null ? waitMin(h) : Infinity];
+      return [period, runsIn(plan.headways, period) && h !== null ? perceivedWaitMin(waitMin(h)) : Infinity];
     })) as Record<Period, number>,
   );
   const fareMin = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
