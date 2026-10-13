@@ -1,0 +1,122 @@
+# Gives the map file Overture's building heights (PLAN §5's height row; city-boston-r1): queries one
+# pinned Overture release's buildings for the tiles' box (tools/bake/overture.py), then joins their
+# heights onto the buildings OSM gives none in the map file cities/index.json names, checked by its
+# sha256 (tools/bake/tiles.mjs heights, which re-runs G10). Dispatch only. With publish on, the
+# Overture extract is mirrored as a release asset (the input, pinned and hashed) and the joined map
+# file published beside it; then copy the printed entry into cities/index.json in a PR.
+name: City heights (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      overture_release:
+        description: Overture Maps release, as in s3://overturemaps-us-west-2/release/
+        required: true
+        default: 2026-09-23.1
+      expect_heights_sha256:
+        description: The Overture extract's sha256 when re-running a release already mirrored (blank = record whatever it is)
+        required: false
+        default: ''
+      publish:
+        description: Publish the extract and the joined map file as releases (off = query, join and report only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  # The tiles' box: Inner Boston (D11) plus 1.5 km on every side, as in the City tiles workflow.
+  BBOX: '-71.17823,42.30153,-70.96177,42.41847'
+
+jobs:
+  join:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Third-party wheels run below; keep the write token out of .git/config.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install pyarrow and shapely (pinned, hashed)
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements-overture.txt
+
+      - name: Query Overture's heights for the box
+        id: overture
+        env:
+          RELEASE: ${{ inputs.overture_release }}
+          EXPECT: ${{ inputs.expect_heights_sha256 }}
+        run: |
+          if ! [[ "$RELEASE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]+$ ]]; then
+            echo "::error::the release must look like 2026-09-23.1, got '$RELEASE'"
+            exit 1
+          fi
+          file="overture-heights-boston-${RELEASE}.csv.gz"
+          python -I tools/bake/overture.py heights "$RELEASE" "$BBOX" "$file"
+          sha=$(sha256sum "$file" | cut -d' ' -f1)
+          echo "Overture extract: $(stat -c %s "$file") B, sha256 $sha"
+          if [ -n "$EXPECT" ] && [ "$sha" != "$EXPECT" ]; then
+            echo "::error::the extract's sha256 is $sha, not $EXPECT"
+            exit 1
+          fi
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch the map file cities/index.json names, checked by its sha256
+        id: tiles
+        run: |
+          read -r name url sha < <(jq -r '.cities[] | select(.id == "boston") | .tiles | "\(.file) \(.url) \(.sha256)"' cities/index.json)
+          curl -fsSL "$url" -o in.pmtiles
+          got=$(sha256sum in.pmtiles | cut -d' ' -f1)
+          if [ "$got" != "$sha" ]; then
+            echo "::error::$name is sha256 $got, not $sha"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "Map file $name: $(stat -c %s in.pmtiles) B, sha256 $got"
+
+      - name: Join the heights, and check no transit is left (G10)
+        env:
+          HEIGHTS: ${{ steps.overture.outputs.file }}
+        run: node tools/bake/tiles.mjs heights in.pmtiles "$HEIGHTS" out.pmtiles | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the extract and the joined map file
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE: ${{ inputs.overture_release }}
+          HEIGHTS: ${{ steps.overture.outputs.file }}
+          HEIGHTS_SHA: ${{ steps.overture.outputs.sha }}
+          FROM: ${{ steps.tiles.outputs.name }}
+        run: |
+          input_tag="city-boston-overture-${RELEASE}"
+          if ! gh release view "$input_tag" >/dev/null 2>&1; then
+            gh release create "$input_tag" "$HEIGHTS" --title "Boston: Overture heights ${RELEASE}" \
+              --notes "Each building with a height in Overture Maps release ${RELEASE} (s3://overturemaps-us-west-2/release/${RELEASE}/theme=buildings/type=building/) whose bounding box meets ${BBOX}: a point inside its footprint and its height, sorted by id (tools/bake/overture.py at ${GITHUB_SHA}; sha256 ${HEIGHTS_SHA}). Overture buildings are ODbL 1.0: © OpenStreetMap contributors, Microsoft, Esri Community Maps contributors, Google Open Buildings; some heights from USGS 3DEP lidar."
+          fi
+          date=$(echo "$FROM" | sed -E 's/^boston-([0-9]{8})-.*/\1/')
+          sha=$(sha256sum out.pmtiles | cut -d' ' -f1)
+          bytes=$(stat -c %s out.pmtiles)
+          file="boston-${date}-${sha:0:8}.pmtiles"
+          tag="city-boston-tiles-${date}-${sha:0:8}"
+          mv out.pmtiles "$file"
+          gh release create "$tag" "$file" --title "Boston tiles ${date}, with Overture heights" \
+            --notes "${FROM} (as cities/index.json names it) with Overture Maps ${RELEASE}'s heights on the buildings OSM gives none (tools/bake/tiles.mjs heights at ${GITHUB_SHA}; the heights are release ${input_tag}, sha256 ${HEIGHTS_SHA}); G10 re-run. Map data © OpenStreetMap contributors (ODbL); Protomaps basemap; building heights from Overture Maps (ODbL: © OpenStreetMap contributors, Microsoft, Esri Community Maps contributors, Google Open Buildings)."
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${file}"
+          {
+            echo "### cities/index.json entry"
+            echo '```json'
+            echo "\"tiles\": { \"file\": \"$file\", \"url\": \"$url\", \"sha256\": \"$sha\", \"bytes\": $bytes, \"source\": \"Protomaps daily build ${date}, with Overture ${RELEASE} heights\", \"maxzoom\": 15 }"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

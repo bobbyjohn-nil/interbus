@@ -53,7 +53,8 @@ node tools/bake/tiles.mjs check public/cities/<file>.pmtiles   # G10 on a map fi
 Every merge to `main` deploys the preview to GitHub Pages; the build chip in the bottom-right
 corner shows which commit you are looking at. City tiles come from the dispatch-only
 **City tiles (manual)** workflow, never from players' browsers; it strips every transit feature
-from the cut (D17) and fails if any is left (G10). The bake's inputs (OpenStreetMap,
+from the cut (D17) and fails if any is left (G10). The dispatch-only **City heights (manual)** workflow
+gives that map file's buildings Overture Maps' heights where OpenStreetMap has none. The bake's inputs (OpenStreetMap,
 2020 census blocks, LODES commutes) are fetched once by the dispatch-only **Bake sources (manual)**
 workflow, which records their hashes in `cities/<city>/sources.lock.json` and mirrors them to a
 release; every bake reads only that mirror. `tools/bake/fixtures/mini-boston/` is every input

@@ -95,10 +95,46 @@ export function decodeValue(buf) {
 
 const stringValue = (s) => lengthDelimited(1, Buffer.from(s, 'utf8'));
 
+/** A double Value (field 3, 64-bit), for numbers such as a building's height. */
+function doubleValue(n) {
+  const b = Buffer.alloc(9);
+  b[0] = 3 * 8 + 1;
+  b.writeDoubleLE(n, 1);
+  return b;
+}
+
+const zigzag = (n) => (n >>> 1) ^ -(n & 1);
+
 /**
- * Rewrites one tile. `decide(layer, props)` returns 'drop', 'keep', or an object of string
- * properties to set on the feature. Layers left with no feature are removed. Returns the new tile
- * and what happened, as counts by `${layer}:${kind}`.
+ * A feature's geometry commands (spec §4.3) as parts of [x, y] in the tile's own units: each
+ * MoveTo starts a part (a ring, a line or a point); ClosePath leaves the ring implicitly closed.
+ */
+export function decodeGeometry(commands) {
+  const parts = [];
+  let x = 0;
+  let y = 0;
+  let part = null;
+  for (let i = 0; i < commands.length; ) {
+    const command = commands[i++];
+    const id = command & 7;
+    const count = command >>> 3;
+    if (id === 7) continue;
+    for (let k = 0; k < count; k++) {
+      x += zigzag(commands[i++]);
+      y += zigzag(commands[i++]);
+      if (id === 1) parts.push((part = [[x, y]]));
+      else part.push([x, y]);
+    }
+  }
+  return parts;
+}
+
+/**
+ * Rewrites one tile. `decide(layer, props, feature)` returns 'drop', 'keep', or an object of
+ * properties (strings or numbers) to set on the feature; `feature` gives its id (or null), its
+ * geometry type (1 point, 2 line, 3 polygon), the layer's extent, and `parts()`, its geometry
+ * decoded. Layers left with no feature are removed. Returns the new tile and what happened, as
+ * counts by `${layer}:${kind}`.
  */
 export function rewriteTile(tile, decide) {
   const dropped = new Map();
@@ -114,13 +150,14 @@ export function rewriteTile(tile, decide) {
     const name = Buffer.from(parts.find((p) => p.field === 1).body).toString('utf8');
     const keys = parts.filter((p) => p.field === 3).map((p) => Buffer.from(p.body).toString('utf8'));
     const values = parts.filter((p) => p.field === 4).map((p) => decodeValue(p.body));
+    const extent = parts.find((p) => p.field === 5)?.value ?? 4096;
     const addedKeys = [];
     const addedValues = [];
     const valueIndex = (s) => {
       const at = values.findIndex((v) => v === s);
       if (at >= 0) return at;
       values.push(s);
-      addedValues.push(lengthDelimited(4, stringValue(s)));
+      addedValues.push(lengthDelimited(4, typeof s === 'number' ? doubleValue(s) : stringValue(s)));
       return values.length - 1;
     };
     const keyIndex = (k) => {
@@ -142,7 +179,13 @@ export function rewriteTile(tile, decide) {
       const tags = tagsField ? packedVarints(tagsField.body) : [];
       const props = {};
       for (let t = 0; t + 1 < tags.length; t += 2) props[keys[tags[t]]] = values[tags[t + 1]];
-      const verdict = decide(name, props);
+      const geometry = feature.find((f) => f.field === 4);
+      const verdict = decide(name, props, {
+        id: feature.find((f) => f.field === 1)?.value ?? null,
+        type: feature.find((f) => f.field === 3)?.value ?? 0,
+        extent,
+        parts: () => (geometry ? decodeGeometry(packedVarints(geometry.body)) : []),
+      });
       const label = `${name}:${props.kind ?? ''}${props.kind_detail ? `/${props.kind_detail}` : ''}`;
       if (verdict === 'drop') {
         count(dropped, label);
