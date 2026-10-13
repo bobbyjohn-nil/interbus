@@ -8,10 +8,12 @@ import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
 import { BUS_MODELS, LAYOVER_SECONDS } from './config/fleet';
 import { STOP_TIERS } from './config/stops';
+import { toCalendarTime } from './core/calendar';
 import type { DepotId, LineId } from './core/ids';
 import { driveSeconds, type LineCostInputs } from './economy/costs';
-import { cycleSeconds, cyclesOf } from './rules/cycle';
+import { cycleSeconds, cyclesOf, slowedM } from './rules/cycle';
 import type { DepotSiteContext } from './rules/depot';
+import { worksOn } from './rules/event';
 import type { FleetContext, Leg, LineDraftContext } from './rules/line';
 import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
@@ -51,19 +53,43 @@ export function nearestNode(world: Pick<World, 'nodes' | 'city'>, p: XY): number
   return null;
 }
 
+/** The street edges roadworks hold today (the M4 spec, item 2), or null when none are on. */
+export function worksToday(state: Pick<SimState, 'event' | 'elapsed'>): ReadonlySet<number> | null {
+  return worksOn(state.event, toCalendarTime(state.elapsed).day);
+}
+
 /**
  * The street a bus drives from one stop position to the next, or null if no street joins them: its
- * metres, and its metres weighted by how much of the rush each street takes (traffic/congestion.ts).
- * The line tool, the plan and the costs all read this.
+ * metres, its metres weighted by how much of the rush each street takes (traffic/congestion.ts), and
+ * its metres through `works`, today's roadworks. The line tool, the plan and the costs all read this.
  */
-export function legBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): Leg | null {
-  const a = nearestNode(world, from);
-  const b = nearestNode(world, to);
-  const path = a === null || b === null ? null : world.router.route(a, b);
+export function legBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY, works: ReadonlySet<number> | null = null): Leg | null {
+  const path = pathBetween(world, from, to);
   if (!path) return null;
   let rushDm = 0;
-  for (const e of path.edges) rushDm += world.city.graph.edgeDm[e]! * classRush(world.city.streets[e]!.cls);
-  return { m: path.dm / 10, rushM: rushDm / 10 };
+  let worksDm = 0;
+  for (const e of path.edges) {
+    rushDm += world.city.graph.edgeDm[e]! * classRush(world.city.streets[e]!.cls);
+    if (works?.has(e)) worksDm += world.city.graph.edgeDm[e]!;
+  }
+  return { m: path.dm / 10, rushM: rushDm / 10, worksM: worksDm / 10 };
+}
+
+function pathBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): { readonly dm: number; readonly edges: readonly number[] } | null {
+  const a = nearestNode(world, from);
+  const b = nearestNode(world, to);
+  return a === null || b === null ? null : world.router.route(a, b);
+}
+
+/** The street edges a line drives from its first stop to its last, in order. */
+export function lineEdges(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>, line: Line): number[] {
+  const xy = line.stopIds.map((id) => world.state.stops.find((s) => s.id === id)).map((s) => (s ? toXY(world.city.frame, [s.lon, s.lat]) : null));
+  const out: number[] = [];
+  for (let k = 1; k < xy.length; k++) {
+    const path = xy[k - 1] && xy[k] ? pathBetween(world, xy[k - 1]!, xy[k]!) : null;
+    if (path) out.push(...path.edges);
+  }
+  return out;
 }
 
 /** A line as the demand model sees it: stop positions and distances along its streets. */
@@ -71,13 +97,16 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
   const stops = line.stopIds.map((id) => world.state.stops.find((s) => s.id === id));
   if (stops.some((s) => !s) || stops.length < 2) return null;
   const xy = stops.map((s) => toXY(world.city.frame, [s!.lon, s!.lat]));
+  const works = worksToday(world.state);
   const dist = [0];
   let rushM = 0;
+  let worksM = 0;
   for (let k = 1; k < xy.length; k++) {
-    const leg = legBetween(world, xy[k - 1]!, xy[k]!);
+    const leg = legBetween(world, xy[k - 1]!, xy[k]!, works);
     if (leg === null) return null;
     dist.push(dist[k - 1]! + leg.m);
     rushM += leg.rushM;
+    worksM += leg.worksM;
   }
   const routeM = dist[dist.length - 1]!;
   return {
@@ -85,6 +114,7 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
     stops: xy,
     stopDistM: dist,
     rush: routeM > 0 ? rushM / routeM : 0,
+    worksM,
     headways: line.headways,
     fareCents: line.fareCents,
     walkBonusMin: stops.map((s) => STOP_TIERS[s!.tier].walkBonusMin),
@@ -99,6 +129,7 @@ export function fleetContext(world: Pick<World, 'state'>): FleetContext {
 
 /** What the line tool's rules read for this world: street nodes, the stops standing, the streets between them and the fleet (GD-05). */
 export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>): LineDraftContext {
+  const works = worksToday(world.state);
   return {
     ...fleetContext(world),
     nearestNode: (at, withinM) => {
@@ -106,7 +137,7 @@ export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' 
       return hit ? { node: hit.item, at: hit.p, distM: hit.distM } : null;
     },
     stops: world.state.stops.map((s) => ({ id: s.id, at: toXY(world.city.frame, [s.lon, s.lat]) })),
-    leg: (from, to) => legBetween(world, from, to),
+    leg: (from, to) => legBetween(world, from, to, works),
   };
 }
 
@@ -136,8 +167,8 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     const routeM = plan.stopDistM[plan.stopDistM.length - 1]!;
     const model = BUS_MODELS[line.model];
     const timing: Timing = {
-      cycle: cycleSeconds(routeM, plan.stops.length, model.kmh),
-      cycles: cyclesOf(routeM, plan.stops.length, model.kmh, plan.rush ?? 0),
+      cycle: cycleSeconds(slowedM(routeM, plan.worksM ?? 0), plan.stops.length, model.kmh),
+      cycles: cyclesOf(slowedM(routeM, plan.worksM ?? 0), plan.stops.length, model.kmh, plan.rush ?? 0),
       headways: line.headways,
       buses: line.buses,
     };

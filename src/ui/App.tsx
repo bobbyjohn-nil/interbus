@@ -182,6 +182,7 @@ export function App() {
         tint={tool === "depot"}
         depots={sim.snapshot?.depots ?? []}
         contracts={sim.snapshot?.contracts ?? []}
+        event={sim.snapshot?.event ?? null}
         draft={tool === "line" && clicks.length ? sim.draft : null}
         clock={
           sim.snapshot

@@ -12,7 +12,7 @@ export { BUS_MODELS, MODEL_IDS, type BusModel, type BusModelId } from '../config
 import { MIN_LINE_STOPS } from '../config/lines';
 import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
-import { busesNeeded, cycleSeconds, cyclesOf, type Cycles } from './cycle';
+import { busesNeeded, cycleSeconds, cyclesOf, slowedM, type Cycles } from './cycle';
 import { checkHeadways, type HeadwayRefusal, type Headways } from './periods';
 import { spendableCents } from './credit';
 import { checkStopSite, type StopPick, type StopSiteContext } from './stop';
@@ -24,10 +24,11 @@ export interface FleetContext {
   readonly cashCents: number;
 }
 
-/** A leg as the line drives it: street metres, and those metres weighted by how much of the rush each street takes. */
+/** A leg as the line drives it: street metres, those metres weighted by how much of the rush each street takes, and those through roadworks today. */
 export interface Leg {
   readonly m: number;
   readonly rushM: number;
+  readonly worksM: number;
 }
 
 export interface LineDraftContext extends StopSiteContext, FleetContext {
@@ -46,6 +47,8 @@ export interface LineDraft {
   readonly cycles: Cycles;
   /** How much of the rush the route's streets take (traffic/congestion.ts). */
   readonly rush: number;
+  /** Metres of the route through roadworks today, driven at ROADWORKS_SPEED (rules/cycle.ts slowedM). */
+  readonly worksM: number;
   readonly buses: number;
   readonly newStops: number;
   readonly stopsCents: number;
@@ -69,6 +72,7 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   const ids: number[] = [];
   const stopDistM: number[] = [];
   let rushM = 0;
+  let worksM = 0;
   const placed: { id: number; at: XY }[] = [];
   let problem: { reason: 'no_street_near' | 'stop_twice' | 'no_route'; at: number; limitM?: number } | null = null;
   for (let k = 0; k < clicks.length; k++) {
@@ -84,13 +88,14 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
       problem = { reason: 'stop_twice', at: k };
       break;
     }
-    const leg = stops.length ? ctx.leg(stops[stops.length - 1]!.at, pick.at) : { m: 0, rushM: 0 };
+    const leg = stops.length ? ctx.leg(stops[stops.length - 1]!.at, pick.at) : { m: 0, rushM: 0, worksM: 0 };
     if (leg === null) {
       problem = { reason: 'no_route', at: k };
       break;
     }
     stopDistM.push((stopDistM[stopDistM.length - 1] ?? 0) + leg.m);
     rushM += leg.rushM;
+    worksM += leg.worksM;
     stops.push(pick);
     ids.push(id);
     if (pick.kind === 'new') placed.push({ id, at: pick.at });
@@ -98,14 +103,14 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   const routeM = stopDistM[stopDistM.length - 1] ?? 0;
   const enough = stops.length >= MIN_LINE_STOPS;
   const rush = routeM > 0 ? rushM / routeM : 0;
-  const cycle = enough ? cycleSeconds(routeM, stops.length, model.kmh) : 0;
-  const cycles = enough ? cyclesOf(routeM, stops.length, model.kmh, rush) : { peak: 0, offpeak: 0, overnight: 0 };
+  const cycle = enough ? cycleSeconds(slowedM(routeM, worksM), stops.length, model.kmh) : 0;
+  const cycles = enough ? cyclesOf(slowedM(routeM, worksM), stops.length, model.kmh, rush) : { peak: 0, offpeak: 0, overnight: 0 };
   const headwaysOk = checkHeadways(headways);
   const buses = enough && headwaysOk.ok ? busesNeeded(cycles, headways) : 0;
   const newStops = stops.filter((s) => s.kind === 'new').length;
   const stopsCents = newStops * STOP_COST_CENTS;
   const busesCents = buses * model.priceCents;
-  const draft: LineDraft = { stops, stopDistM, routeM, cycle, cycles, rush, buses, newStops, stopsCents, busesCents, priceCents: stopsCents + busesCents };
+  const draft: LineDraft = { stops, stopDistM, routeM, cycle, cycles, rush, worksM, buses, newStops, stopsCents, busesCents, priceCents: stopsCents + busesCents };
 
   if (ctx.depots === 0) return refuse('needs_depot', { draft });
   if (model.locked) return refuse('model_locked', { draft });
@@ -146,12 +151,12 @@ export type ModelChangeRefusal = 'same_model' | 'model_locked' | 'depot_full' | 
  */
 export function checkModelChange(
   ctx: FleetContext,
-  line: { readonly routeM: number; readonly stops: number; readonly rush?: number; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
+  line: { readonly routeM: number; readonly stops: number; readonly rush?: number; readonly worksM?: number; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
   to: BusModel,
 ): Result<{ needed: number; buyCents: number; saleCents: number }, ModelChangeRefusal, { room?: number; shortCents?: number }> {
   if (to.id === line.model.id) return refuse('same_model');
   if (to.locked) return refuse('model_locked');
-  const needed = busesNeeded(cyclesOf(line.routeM, line.stops, to.kmh, line.rush ?? 0), line.headways);
+  const needed = busesNeeded(cyclesOf(slowedM(line.routeM, line.worksM ?? 0), line.stops, to.kmh, line.rush ?? 0), line.headways);
   const room = depotRoom(ctx) + line.buses;
   if (needed > room) return refuse('depot_full', { room });
   const buyCents = needed * to.priceCents;

@@ -19,7 +19,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 10;
+export const SAVE_FORMAT = 11;
 
 export interface BuildRef {
   readonly sha: string;
@@ -91,6 +91,8 @@ export function toSaveData(state: SimState): SaveData {
     closesBelowFloor: state.closesBelowFloor,
     contracts: state.contracts.map((c) => ({ ...c })),
     contractDeck: [...state.contractDeck],
+    eventRng: { state: state.eventRng.state },
+    event: state.event && { ...state.event, edges: [...state.event.edges] },
   };
 }
 
@@ -124,6 +126,8 @@ export function fromSaveData(data: SaveData): SimState {
     closesBelowFloor: data.closesBelowFloor,
     contracts: data.contracts.map((c) => ({ ...c, id: c.id as ContractId })),
     contractDeck: [...data.contractDeck],
+    eventRng: createRng(data.eventRng.state),
+    event: data.event && { ...data.event, edges: [...data.event.edges] },
   };
 }
 
@@ -148,6 +152,8 @@ export function integrityProblem(data: SaveData): string | null {
     if (c.acceptedDay !== null && c.acceptedDay < c.offeredDay) return `contract ${c.id}: taken before it was offered`;
   }
   if (data.contractDeck.some((k) => CONTRACT_ASKS[k] === undefined)) return 'a contract deck card that is no ask';
+  const e = data.event;
+  if (e && (e.startDay < 1 || e.endDay < e.startDay || e.edges.some((k) => k < 0) || new Set(e.edges).size !== e.edges.length)) return 'an event with impossible days or streets';
   const live: Partial<Record<IdKind, number[]>> = {
     stop: data.stops.map((s) => s.id),
     line: data.lines.map((l) => l.id),

@@ -6,7 +6,9 @@
 //
 // Since item 15 a round trip is as long as its period's traffic makes it: the drive at the period's
 // congestion (traffic/congestion.ts) for the streets the line takes, the dwells and layovers as they were.
+// Since the M4 spec's item 2, roadworks on its streets make it longer still (slowedM).
 import { DWELL_SEC } from '../config/demand';
+import { ROADWORKS_SPEED } from '../config/events';
 import { LAYOVER_SECONDS } from '../config/fleet';
 import { periodCongestion } from '../traffic/congestion';
 import { PERIODS, runsIn, type Headways, type Period } from './periods';
@@ -19,6 +21,11 @@ export function cycleSeconds(routeM: number, stopCount: number, kmh: number, con
   const driveSeconds = (routeM / 1000 / kmh) * 3600 * congestion;
   const dwellSeconds = Math.max(0, stopCount - 2) * DWELL_SEC;
   return Math.ceil(2 * (driveSeconds + dwellSeconds)) + 2 * LAYOVER_SECONDS;
+}
+
+/** The metres a route takes as long to drive at full speed as it does with `worksM` of it through roadworks, at ROADWORKS_SPEED. */
+export function slowedM(routeM: number, worksM: number): number {
+  return routeM + worksM * (1 / ROADWORKS_SPEED - 1);
 }
 
 /** A line's round trip in each period, whole seconds. */

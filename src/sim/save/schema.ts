@@ -2,6 +2,7 @@
 // come from this descriptor, so they cannot drift apart. V3 had types only, which erase at runtime,
 // so it could neither check a file field by field nor notice an unversioned change (K11, SC-10).
 import { CONTRACT_KINDS } from '../config/contracts';
+import { EVENT_KINDS } from '../config/events';
 import { MODEL_IDS } from '../config/fleet';
 import { ROW_KINDS } from '../economy/ledger';
 import { hashString } from '../core/rng';
@@ -33,7 +34,7 @@ export type Infer<F> = F extends 'int' | 'uint32' | 'number'
 
 /**
  * Intent only (PLAN §6, K12): no demand, geometry, camera or theme. Stops are anchored by place.
- * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7, the Interest row and the closes below the credit floor in 8, HEADWAY contracts and their Contracts row in 9.
+ * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7, the Interest row and the closes below the credit floor in 8, HEADWAY contracts and their Contracts row in 9, each contract's kind and ask in 10, the events' stream and the latest event in 11.
  */
 export const SAVE_SCHEMA = {
   object: {
@@ -79,6 +80,8 @@ export const SAVE_SCHEMA = {
       },
     },
     contractDeck: { array: 'int' },
+    eventRng: { object: { state: 'uint32' } },
+    event: { nullable: { object: { kind: { oneOf: EVENT_KINDS }, startDay: 'int', endDay: 'int', street: 'string', edges: { array: 'int' } } } },
   },
 } as const satisfies Field;
 

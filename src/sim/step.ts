@@ -6,19 +6,22 @@
 // by kind and line, and they are the day card (I1). A quarter's last day closes with its report card
 // (economy/reportCard.ts), whose payout or fine is one of that day's rows. A day that closes owing
 // pays the lender's interest, and a close below the credit floor counts toward the end (D10). Held
-// HEADWAY contracts are checked at each service hour's end and graded at the close, which then rolls
-// the next day's offers (economy/contracts.ts).
+// contracts are checked at each service hour's end and graded at the close, which then rolls the
+// next day's offers (economy/contracts.ts) and may roll an event for the day after (events/roll.ts);
+// a close where roadworks start or end times every line's round trip again.
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour } from './economy/costs';
 import { checkHour, closeContracts, rollOffers, type ContractOutcome } from './economy/contracts';
 import { closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
 import { gradeQuarter, type ReportCard } from './economy/reportCard';
+import { rollEvent } from './events/roll';
 import { DAYS_PER_QUARTER } from './config/time';
 import { INTEREST_PER_DAY_PPM } from './config/economy';
 import { belowFloor } from './rules/credit';
 import { subsidyCents } from './rules/fare';
-import type { World } from './world';
+import type { CityEvent } from './state';
+import { recompute, type World } from './world';
 
 export type SimEvent = {
   readonly kind: 'day-closed';
@@ -30,6 +33,11 @@ export type SimEvent = {
   readonly card: ReportCard | null;
   /** Contracts paid or lapsed at this close. */
   readonly contracts: readonly ContractOutcome[];
+  /** The event rolled at this close, which starts the day after the one just begun, and the event whose last day was the day just closed. */
+  readonly rolled: CityEvent | null;
+  readonly ended: CityEvent | null;
+  /** Roadworks started or ended at this close, so every line's round trip was timed again. */
+  readonly retimed: boolean;
 };
 
 /** Posts the hour that just ended: its paid boardings as fare and subsidy rows, its costs, each depot's upkeep. */
@@ -76,7 +84,12 @@ export function simStep(world: World): SimEvent[] {
   const rows = rowsOfDay(state.ledger, ended.day);
   const cashAfterCents = state.ledger.cashCents;
   rollOffers(world, ended.day + 1);
-  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts }];
+  const last = state.event;
+  const endedEvent = last && last.endDay === ended.day ? last : null;
+  const retimed = last !== null && (last.startDay === ended.day + 1 || endedEvent !== null) && last.kind === 'roadworks';
+  const rolled = rollEvent(world, ended.day + 1);
+  if (retimed) recompute(world);
+  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed }];
 }
 
 /** Whole steps covering `seconds` (a multiple of the step). */

@@ -41,10 +41,11 @@ import { acceptContract } from '../sim/commands/acceptContract';
 import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
 import { landmarkFigures } from '../sim/economy/contracts';
 import { contractDaysLeft, contractMet } from '../sim/rules/contract';
-import { newGame, type CityRef } from '../sim/state';
+import { eventDaysLeft, eventPhase } from '../sim/rules/event';
+import { newGame, type CityEvent, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { ContractView, DepotSiteView, Dots, ExtendData, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { ContractView, DayCard, DepotSiteView, Dots, EventView, ExtendData, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -145,11 +146,31 @@ function lineViews(world: World): LineView[] {
       cycle: service?.timing.cycle ?? 0,
       cycles: service?.timing.cycles ?? { peak: 0, offpeak: 0, overnight: 0 },
       rush: service?.plan.rush ?? 0,
+      worksM: service?.plan.worksM ?? 0,
       buses: line.buses,
       model: line.model,
       forecastCents: service ? forecastDay(service.costs) : { running: 0, wages: 0, deadhead: 0 },
     };
   });
+}
+
+/** The city event pending or on (the M4 spec, item 2) for its marker, or null. */
+function eventView(world: World, event: CityEvent | null, day: number): EventView | null {
+  if (!event) return null;
+  const phase = eventPhase(event, day);
+  if (phase === 'over') return null;
+  const { city } = world;
+  const pieces = event.edges.map((e) => city.streets[e]?.points ?? []).filter((pts) => pts.length > 1);
+  const path = pieces.map((pts) => pts.map((p) => [...toLngLat(city.frame, p as XY)] as LngLatPair));
+  // Its words sit at the middle point of its longest piece.
+  const longest = path.reduce<readonly LngLatPair[]>((best, p) => (p.length > best.length ? p : best), []);
+  return { kind: event.kind, phase, street: event.street, startDay: event.startDay, endDay: event.endDay, daysLeft: eventDaysLeft(event, day), path, at: longest[Math.floor(longest.length / 2)] ?? [0, 0] };
+}
+
+/** The day card's event notices: the event rolled at this close and the one whose last day it was. */
+function eventNews(rolled: CityEvent | null, ended: CityEvent | null): DayCard['events'] {
+  const one = (e: CityEvent, news: 'tomorrow' | 'over') => ({ kind: e.kind, street: e.street, days: e.endDay - e.startDay + 1, news });
+  return [...(ended ? [one(ended, 'over')] : []), ...(rolled ? [one(rolled, 'tomorrow')] : [])];
 }
 
 /** Every stop standing and its day (the M3 spec, item 5). */
@@ -377,6 +398,18 @@ export function createHost(post: (message: FromWorker) => void): Host {
     return contractsView;
   };
 
+  // Worked out again only when the event or the day changes.
+  let eventKey = '';
+  let eventShown: EventView | null = null;
+  const eventNow = (w: World, day: number): EventView | null => {
+    const key = `${JSON.stringify(w.state.event)}|${day}`;
+    if (key !== eventKey) {
+      eventKey = key;
+      eventShown = eventView(w, w.state.event, day);
+    }
+    return eventShown;
+  };
+
   const snapshot = (): Snapshot => {
     const w = world!;
     const t = toCalendarTime(w.state.elapsed);
@@ -405,6 +438,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
           : null,
       contracts: contractsNow(w, t.day),
       contractTaken: w.state.contracts.some((c) => c.acceptedDay !== null) || w.state.ledger.rows.some((r) => r.kind === 'contract'),
+      event: eventNow(w, t.day),
     };
   };
 
@@ -424,8 +458,11 @@ export function createHost(post: (message: FromWorker) => void): Host {
           cashAfterCents: event.cashAfterCents,
           report: event.card,
           contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, kind: o.contract.kind, ask: o.contract.ask, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
+          events: eventNews(event.rolled, event.ended),
         },
       });
+      // Roadworks started or ended: every line's round trip, buses and forecast were timed again.
+      if (event.retimed) refreshLines();
     }
     // The fifth close below the floor ends the run: time stops where it is (D10).
     if (runEnded(w.state.closesBelowFloor)) {

@@ -1,10 +1,11 @@
-import { askText, ROW_NAMES, usd } from '../format';
+import { askText, eventNewsText, ROW_NAMES, usd } from '../format';
 import type { Sim } from './useSim';
 
 /**
  * The daily close (PLAN §3): every figure a ledger row, adding up to the change in cash (I1). A
  * quarter's last day closes with its report card above the rows (the M3 spec, item 9), whose payout
- * or fine is one of them; a contract paid or lapsed at the close says so (item 11).
+ * or fine is one of them; a contract paid or lapsed at the close says so (item 11), as does a city
+ * event rolled for tomorrow or just over (the M4 spec, item 2).
  */
 export function DayCard({ sim }: { sim: Sim }) {
   const card = sim.dayCard;
@@ -45,6 +46,11 @@ export function DayCard({ sim }: { sim: Sim }) {
       {card.contracts.map((c) => (
         <p key={c.landmark} className="contract-outcome" data-testid="contract-outcome" data-outcome={c.outcome}>
           {c.outcome === 'paid' ? `Contract met: ${askText(c.kind, c.ask)} at ${c.landmark}, ${usd(c.rewardCents)}` : `Contract lapsed: ${askText(c.kind, c.ask)} at ${c.landmark}`}
+        </p>
+      ))}
+      {card.events.map((e) => (
+        <p key={e.news} className="event-news" data-testid="event-news" data-news={e.news}>
+          {eventNewsText(e)}
         </p>
       ))}
       <table>

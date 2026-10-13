@@ -1,10 +1,11 @@
 // The game's layers on the map: depot land and depots, demand dots (where people live and work),
 // the lines with their stops and the stops' QUIET and LOSS flags, the line being drawn, and each
-// HEADWAY contract's reach as a ring at its landmark, dashed while on offer, with its progress once held. GeoJSON sources set only when their data
+// contract's reach as a ring at its landmark, dashed while on offer, with its progress once held, and
+// a city event's street, hatched while pending and solid while on. GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
-import type { ContractView, DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import type { ContractView, DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -14,17 +15,19 @@ export const DEPOT_LAND = 'depot-land';
 export const DEPOTS = 'depots';
 export const DRAFT = 'draft';
 export const CONTRACTS = 'contracts';
+export const EVENTS = 'events';
 export const DOT_LAYERS = ['dots-homes', 'dots-jobs'] as const;
 export const LINE_LAYERS = ['lines-route', 'lines-stops'] as const;
 export const FLAG_LAYERS = ['stops-flag-ring', 'stops-flag-word'] as const;
 export const TINT_LAYERS = ['depot-land-fill', 'depot-land-edge'] as const;
 export const DRAFT_LAYERS = ['draft-rings', 'draft-route', 'draft-stops'] as const;
 export const CONTRACT_LAYERS = ['contracts-offered', 'contracts-held', 'contracts-label'] as const;
+export const EVENT_LAYERS = ['event-pending', 'event-on', 'event-label'] as const;
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
 
 export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'labelHalo'>): void {
-  for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, CONTRACTS]) map.addSource(id, { type: 'geojson', data: empty });
+  for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, CONTRACTS, EVENTS]) map.addSource(id, { type: 'geojson', data: empty });
   // Contracts first, under the lines: the walk a stop must be within, dashed while on offer.
   for (const held of [false, true]) {
     map.addLayer({
@@ -42,6 +45,26 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     filter: ['==', ['get', 'kind'], 'label'],
     layout: { 'text-field': ['get', 'text'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-allow-overlap': true },
     paint: { 'text-color': t.draft, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
+  });
+  // A city event's street (the M4 spec, item 2), under the lines and wider than them so it shows on
+  // either side of a route: hatched while pending, solid while on, in the warning colour.
+  for (const on of [false, true]) {
+    map.addLayer({
+      id: on ? 'event-on' : 'event-pending',
+      type: 'line',
+      source: EVENTS,
+      filter: ['all', ['==', ['get', 'kind'], 'street'], ['==', ['get', 'on'], on]],
+      layout: { 'line-cap': 'butt', 'line-join': 'round' },
+      paint: { 'line-color': t.stopFlag, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 7, 16, 15], 'line-opacity': on ? 0.7 : 0.6, ...(on ? {} : { 'line-dasharray': [0.6, 0.6] }) },
+    });
+  }
+  map.addLayer({
+    id: 'event-label',
+    type: 'symbol',
+    source: EVENTS,
+    filter: ['==', ['get', 'kind'], 'label'],
+    layout: { 'text-field': ['get', 'text'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-allow-overlap': true, 'text-offset': [0, -1.4] },
+    paint: { 'text-color': t.stopFlag, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
   });
   // The tint shows only while a depot is being placed (setTint): exactly the land the rule allows.
   map.addLayer({ id: 'depot-land-fill', type: 'fill', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'fill-color': t.depotLand, 'fill-opacity': 0.28 } });
@@ -186,6 +209,22 @@ export function setContracts(map: MapLibreMap, contracts: readonly ContractView[
     { type: 'Feature' as const, properties: { kind: 'label', text: contractLabel(c) }, geometry: { type: 'Point' as const, coordinates: [...c.at] } },
   ]);
   (map.getSource(CONTRACTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
+}
+
+/** The words at a city event's street: "Roadworks tomorrow" while pending, then the days left. */
+export function eventLabel(e: Pick<EventView, 'phase' | 'daysLeft'>): string {
+  if (e.phase === 'pending') return 'Roadworks tomorrow';
+  return e.daysLeft <= 1 ? 'Roadworks · last day' : `Roadworks · ${e.daysLeft} days left`;
+}
+
+export function setEvent(map: MapLibreMap, event: EventView | null): void {
+  const features = event
+    ? [
+        ...event.path.map((line) => ({ type: 'Feature' as const, properties: { kind: 'street', on: event.phase === 'on' }, geometry: { type: 'LineString' as const, coordinates: line.map((p) => [...p]) } })),
+        { type: 'Feature' as const, properties: { kind: 'label', text: eventLabel(event) }, geometry: { type: 'Point' as const, coordinates: [...event.at] } },
+      ]
+    : [];
+  (map.getSource(EVENTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 }
 
 export function setDots(map: MapLibreMap, dots: Dots): void {
