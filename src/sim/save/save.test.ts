@@ -70,7 +70,7 @@ describe('saves', () => {
 
   it('holds intent only: no demand, geometry, camera or theme (K12)', () => {
     expect(Object.keys((SAVE_SCHEMA as { object: object }).object).sort()).toEqual(
-      ['city', 'clock', 'company', 'depots', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
+      ['city', 'clock', 'closesBelowFloor', 'company', 'depots', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
     );
   });
 });

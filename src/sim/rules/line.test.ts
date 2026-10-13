@@ -71,7 +71,8 @@ describe('a line draft (the M2 spec, items 2–4)', () => {
     // Every 4 minutes needs ⌈1,539 ÷ 240⌉ = 7 Sparrows; one depot parks 6.
     expect(checkLineDraft(context(), DEBUG_LIKE, { peak: 240, offpeak: 240, overnight: null })).toMatchObject({ ok: false, reason: 'depot_full', room: 6 });
     expect(checkLineDraft(context({ busesOwned: 5 }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'depot_full', room: 1 });
-    expect(checkLineDraft(context({ cashCents: 15_100_000 }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 5_500_000 });
+    // $1,000 in cash and the $150k credit line (D10): $55k short.
+    expect(checkLineDraft(context({ cashCents: 100_000 }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 5_500_000 });
   });
 
   it('refuses headways outside D7 with the limit', () => {
@@ -89,7 +90,7 @@ describe('a headway change (GD-09)', () => {
     expect(checkHeadwayChange(fleet, line, { peak: 1_800, offpeak: 1_800, overnight: null })).toEqual({ ok: true, needed: 1, extra: 0, priceCents: 0 });
   });
   it('refuses in money, or for want of depot room', () => {
-    expect(checkHeadwayChange({ ...fleet, cashCents: 5_000_000 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 4_500_000 });
+    expect(checkHeadwayChange({ ...fleet, cashCents: -10_000_000 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 4_500_000 });
     expect(checkHeadwayChange({ ...fleet, busesOwned: 6 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'depot_full', room: 0 });
   });
 });
@@ -105,7 +106,7 @@ describe('a model change (the M3 spec, item 2)', () => {
   it('refuses the same model, a locked one, too little cash on the net, and too little depot room', () => {
     expect(checkModelChange(fleet, line, SPARROW)).toEqual({ ok: false, reason: 'same_model' });
     expect(checkModelChange(fleet, line, GOLIATH)).toEqual({ ok: false, reason: 'model_locked' });
-    expect(checkModelChange({ ...fleet, cashCents: 40_000_000 }, line, METRO_40)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 2_500_000 });
+    expect(checkModelChange({ ...fleet, cashCents: 25_000_000 }, line, METRO_40)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 2_500_000 });
     const tenMinutes = { ...line, headways: { peak: 600, offpeak: 1_200, overnight: null } };
     expect(checkModelChange({ ...fleet, busesOwned: DEPOT_CAPACITY }, tenMinutes, METRO_40)).toEqual({ ok: false, reason: 'depot_full', room: 2 });
   });

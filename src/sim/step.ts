@@ -3,13 +3,16 @@
 // the city's subsidy at that fare (rules/fare.ts), in whole boardings and whole cents, and the hour's costs (running, wages,
 // deadhead; economy/costs.ts), and each depot its upkeep; at 24:00 the day closes, its rows merge
 // by kind and line, and they are the day card (I1). A quarter's last day closes with its report card
-// (economy/reportCard.ts), whose payout or fine is one of that day's rows.
+// (economy/reportCard.ts), whose payout or fine is one of that day's rows. A day that closes owing
+// pays the lender's interest, and a close below the credit floor counts toward the end (D10).
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour } from './economy/costs';
 import { closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
 import { gradeQuarter, type ReportCard } from './economy/reportCard';
 import { DAYS_PER_QUARTER } from './config/time';
+import { INTEREST_PER_DAY_PPM } from './config/economy';
+import { belowFloor } from './rules/credit';
 import { subsidyCents } from './rules/fare';
 import type { World } from './world';
 
@@ -56,6 +59,11 @@ export function simStep(world: World): SimEvent[] {
   if (sinceMidnightOfDay1 % SECONDS_PER_DAY !== 0) return [];
   const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
   if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
+  if (state.ledger.cashCents < 0) {
+    const interest = Math.round((-state.ledger.cashCents * INTEREST_PER_DAY_PPM) / 1_000_000);
+    if (interest > 0) post(state.ledger, { day: ended.day, kind: 'interest', amountCents: -interest });
+  }
+  state.closesBelowFloor = belowFloor(state.ledger.cashCents) ? state.closesBelowFloor + 1 : 0;
   closeDay(state.ledger, ended.day);
   const rows = rowsOfDay(state.ledger, ended.day);
   const cashAfterCents = state.ledger.cashCents;

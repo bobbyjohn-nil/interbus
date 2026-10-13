@@ -1,6 +1,7 @@
 import type { Speed } from '../../sim/types';
+import { CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
 import { undoText } from '../copy';
-import { about, clock, usd } from '../format';
+import { about, clock, usd, usdK } from '../format';
 import { checklistText } from '../game/checklist';
 import type { Sim } from '../game/useSim';
 
@@ -14,7 +15,8 @@ const SPEEDS: readonly [Speed, string][] = [
 /**
  * The calm shell's chip row (PLAN §8, the M2 spec item 7): labelled chips for the date and clock,
  * the speed, Cash, Riders/day and the day's costs, and the checklist's next step (K20). The speed
- * waits until the company is founded. While paused, Undo names the command it would take back (I9).
+ * waits until the company is founded. While paused, Undo names the command it would take back (I9);
+ * below the credit line's floor, a countdown names the day closes left (D10).
  */
 export function TopBar({ sim }: { sim: Sim }) {
   const s = sim.snapshot;
@@ -44,6 +46,11 @@ export function TopBar({ sim }: { sim: Sim }) {
       {s.costsPerDayCents > 0 ? (
         <span className="chip">
           <span className="chip-label">Costs/day</span> {usd(s.costsPerDayCents)}
+        </span>
+      ) : null}
+      {s.floor && !s.floor.ended ? (
+        <span className="chip countdown" data-testid="countdown" data-left={s.floor.closesLeft}>
+          {s.floor.closesLeft} {s.floor.closesLeft === 1 ? 'day' : 'days'} to get above {usdK(-CREDIT_LIMIT_CENTS)}
         </span>
       ) : null}
       {s.undo ? (

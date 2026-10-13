@@ -49,6 +49,9 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   save_other_city: () => 'A save from another city',
   save_off_street: () => 'Its stops miss this map',
   save_none: () => 'Not a save this game can read',
+  // The failure floor (sim/rules/credit.ts)
+  run_ended: () => 'The lender has called in the loan',
+  no_quarter_save: () => 'No save from this quarter’s start',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',
@@ -64,9 +67,9 @@ export function refusalText(r: RefusalView): string {
 }
 
 /** A slot or a file that became the game, in one line. */
-export function loadedText(loaded: { readonly from: 'slot' | 'file'; readonly load: LoadView }): string {
+export function loadedText(loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView }): string {
   if (loaded.load === 'rebaked') return 'Save carried onto the new map';
-  return loaded.from === 'slot' ? 'Slot loaded' : 'Save file loaded';
+  return loaded.from === 'slot' ? 'Slot loaded' : loaded.from === 'file' ? 'Save file loaded' : 'Back to the start of the quarter';
 }
 
 /** What Undo would take back, named (the M3 spec, item 7): "Create Line 2". */

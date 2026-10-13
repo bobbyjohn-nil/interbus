@@ -61,11 +61,11 @@ test.describe('the line tool on the fixture', () => {
     await expect(draft).toHaveAttribute('data-refusal', '');
     await expect(draft).toContainText('4 stops');
     await expect(draft).toContainText('every 20 min needs 2 Sparrows · $190k');
-    // Metro 40s on the same draft: the card prices them, and the starter's cash cannot buy them yet.
+    // Metro 40s on the same draft: the card prices them, and the starter's cash and credit cannot buy them yet.
     await draft.getByLabel('Buses').selectOption('metro40');
     await expect(draft).toContainText('every 20 min needs 2 Metro 40s · $520k');
     await expect(draft).toHaveAttribute('data-refusal', 'insufficient_funds');
-    await expect(draft).toContainText('$258,800 short');
+    await expect(draft).toContainText('$108,800 short'); // past the $150k credit line too (D10)
     await draft.getByLabel('Buses').selectOption('sparrow');
     await expect(draft).toHaveAttribute('data-refusal', '');
     await page.getByRole('button', { name: 'Create' }).click();

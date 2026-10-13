@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 4514bdd (save slots), with M3 step 8, the report card, in review; step 7 (r1) is next.
+**Updated:** 2026-10-13, at `main` 5b7b718 (the report card), with M3 step 9, the failure floor, in review; step 7 (r1) is next, then step 10.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 178ed50. Deploy preview run 38388211506's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 5b7b718. Deploy preview run 38390342092's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -21,6 +21,8 @@ The running handoff between Claude sessions. Every session reads it right after 
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
   - undo while paused, on a chip and Ctrl+Z;
   - a save from another bake of the map carried onto it;
+  - Saves in the dock: three slots beside the autosave, and a game exported and imported as a file;
+  - a report card on each quarter's last day card, paying a grant or a fine;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
@@ -180,9 +182,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 6. [x] **Saves for r1** (item 8): stops by place and the r1→r2 save test, the missing-pack refusal, slots, export and import.
    - [x] **Another bake of the map** (2026-10-13): a save from another bake carries on with its stops on the new streets, or is set aside in words when a stop finds none; a missing city file is already the replaced-build card (DECISIONS, Measured).
    - [x] **Slots, export and import** (2026-10-13): a Saves panel in the dock with the autosave and three slots, export and import of a save file through `src/platform`; a file the game cannot read is refused and the game and its autosave kept. The shell at rest is now up to 5.5% of I13's 6%, so no sixth dock button (DECISIONS, Measured).
-7. [ ] **`city-boston-r1`** by Sun Nov 15: β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.
+7. [ ] **`city-boston-r1`** by Sun Nov 15 (next): β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.
 8. [x] **The report card** (item 9, done before step 7 because r1's bake work is not needed for it; 2026-10-13): Coverage, Reliability, Comfort and Money on the quarter's last day card, paid or fined as a Report card row. Ten seeded opening companies grade 53.7–63.8 (median 57.9), so V1's bars stay at 55 and 35; the card pays the debug line 3.9 times its quarter's net, for week 9 (DECISIONS, Measured).
-9. [ ] **The failure floor** (item 10): the credit line, the countdown, Restart this quarter.
+9. [x] **The failure floor** (item 10, also before step 7; 2026-10-13): cash may go to −$150k on a credit line, at 0.06% a day as an Interest row; a countdown chip from the first close below it, and on the fifth the run ends with **Restart this quarter**, from a save the game writes by itself at each quarter's start (save format 8; DECISIONS, Measured).
 10. [ ] **HEADWAY contracts** (item 11, I11), checklist step 5 and **Export session** (item 12).
 11. [ ] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).

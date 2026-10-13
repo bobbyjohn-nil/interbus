@@ -29,6 +29,7 @@ describe('a stop’s tier', () => {
     expect(checkStopTier(rich, 2, 2)).toMatchObject({ ok: false, reason: 'same_tier' });
     expect(checkStopTier(rich, 1, 6)).toMatchObject({ ok: false, reason: 'no_such_tier' });
     expect(checkStopTier(rich, 1, 0)).toMatchObject({ ok: false, reason: 'no_such_tier' });
-    expect(checkStopTier({ cashCents: 1_000_000, linesHere: 1 }, 1, 2)).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 200_000 });
+    // $140k owed on the $150k credit line (D10) leaves $10k to spend: $2k short of a Shelter.
+    expect(checkStopTier({ cashCents: -14_000_000, linesHere: 1 }, 1, 2)).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 200_000 });
   });
 });

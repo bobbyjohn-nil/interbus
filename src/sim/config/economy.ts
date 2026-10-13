@@ -32,6 +32,16 @@ export const STOP_QUIET_BOARDINGS = 5;
 export const STOP_LOSS_CENTS = -2_000;
 
 /**
+ * The failure floor (the M3 spec, item 10; D10): one lender's credit line lets cash go to −$150k, at
+ * 0.06% a day on what is owed, charged at each day's close as an Interest row; a purchase that would
+ * pass the limit is refused. Five day closes in a row below it end the run. No version built this;
+ * V1's lenders are the source of the numbers (`Intralines@7af45b1:src/game/store.ts:1765-1831`).
+ */
+export const CREDIT_LIMIT_CENTS = 15_000_000;
+export const INTEREST_PER_DAY_PPM = 600;
+export const FAILURE_CLOSES = 5;
+
+/**
  * Starting cash is k × a starter line's cost, written once at founding (D7). The starter is one
  * depot, four sign stops and the Sparrows its founding headway needs, counted by the cycle function
  * (economy/starter.ts) on a line like the debug line (3,535 m by street): 3.5 km, every 20 minutes.

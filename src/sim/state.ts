@@ -55,6 +55,8 @@ export interface SimState {
   stops: Stop[];
   lines: Line[];
   ledger: Ledger;
+  /** Day closes in a row with cash below the credit line's floor; five end the run (rules/credit.ts, D10). */
+  closesBelowFloor: number;
 }
 
 /** A new company at founding: 05:00 on day 1, Founding capital its only ledger row. */
@@ -69,5 +71,6 @@ export function newGame(city: CityRef, company: { name: string; colour: string }
     stops: [],
     lines: [],
     ledger: foundLedger(),
+    closesBelowFloor: 0,
   };
 }

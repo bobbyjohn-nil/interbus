@@ -4,6 +4,7 @@ import { MapView, type MapHit } from '../render/map/MapView';
 import type { BusModelId, LngLatPair } from '../sim/types';
 import { Corner } from './Corner';
 import { DayCard } from './game/DayCard';
+import { FailureCard } from './game/FailureCard';
 import { FoundingCard } from './game/Founding';
 import { ProbeCard } from './game/ProbeCard';
 import { StopCard } from './game/StopCard';
@@ -164,6 +165,7 @@ export function App() {
       <Notices sim={sim} />
       <FoundingCard sim={sim} />
       <DayCard sim={sim} />
+      <FailureCard sim={sim} />
       <Corner />
       <ReplacedCard />
     </main>

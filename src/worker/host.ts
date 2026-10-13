@@ -32,7 +32,8 @@ import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
-import { aboutSave, backupKey, decode, encode, fromSaveData, SAVE_SLOTS, saveKey, slotKey, type LoadOutcome } from '../sim/save/save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, slotKey, type LoadOutcome } from '../sim/save/save';
+import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
@@ -197,6 +198,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
   let build = { sha: '', version: '' };
   let key = '';
   let savedHour = 0;
+  const saveQuarter = () => post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: encode(world!.state, build) }] });
   const save = () => {
     savedHour = Math.floor(world!.state.elapsed / 3_600);
     post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build) }] });
@@ -251,13 +253,17 @@ export function createHost(post: (message: FromWorker) => void): Host {
    * refused in words and the game, and the save under the live key, stay as they were (V1 wrote over
    * the live save first, `Intralines@7af45b1:src/game/store.ts:1883-1901`).
    */
-  const loadText = (text: string | null, from: 'slot' | 'file') => {
-    if (!playing || text === null) return post({ type: 'refused', command: from === 'slot' ? 'load-slot' : 'import', reason: 'empty_slot' });
+  const loadText = (text: string | null, from: 'slot' | 'file' | 'quarter') => {
+    const command = from === 'slot' ? 'load-slot' : from === 'file' ? 'import' : 'restart-quarter';
+    if (!playing || text === null) return post({ type: 'refused', command, reason: from === 'quarter' ? 'no_quarter_save' : 'empty_slot' });
     const { result } = decode(text, playing.ref);
     const read = worldFrom(playing.city, playing.ref, result);
-    if (!read.ok) return post({ type: 'refused', command: from === 'slot' ? 'load-slot' : 'import', reason: `save_${read.reason.replace('-', '_')}` });
+    if (!read.ok) return post({ type: 'refused', command, reason: `save_${read.reason.replace('-', '_')}` });
     play(read.world, playing.city, playing.ref);
     save();
+    // A slot or a file brings no save of its quarter's start, so Restart this quarter goes back to
+    // the moment it was loaded; a restart keeps the quarter's own, and so does a game already ended.
+    if (from !== 'quarter' && !runEnded(read.world.state.closesBelowFloor)) saveQuarter();
     post({ type: 'loaded', from, load: result.outcome === 'rebaked' ? 'rebaked' : 'ok' });
     post({ type: 'snapshot', snapshot: snapshot() });
   };
@@ -306,6 +312,10 @@ export function createHost(post: (message: FromWorker) => void): Host {
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
       finance: financeNow(w),
       undo: speed === 0 ? nextUndo(undoStack) : null,
+      floor:
+        belowFloor(w.state.ledger.cashCents) || w.state.closesBelowFloor > 0
+          ? { closesLeft: Math.max(0, FAILURE_CLOSES - w.state.closesBelowFloor), ended: runEnded(w.state.closesBelowFloor) }
+          : null,
     };
   };
 
@@ -353,6 +363,8 @@ export function createHost(post: (message: FromWorker) => void): Host {
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
       if (message.type === 'speed') {
+        // Once the run has ended, only Restart this quarter goes on (D10).
+        if (message.speed > 0 && runEnded(world.state.closesBelowFloor)) return post({ type: 'refused', command: message.type, reason: 'run_ended' });
         if (message.speed > 0) timeRuns(undoStack);
         speed = message.speed;
         lastMs = null;
@@ -379,7 +391,10 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'found') {
         const result = found(world, message.name, message.colour);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
-        else save();
+        else {
+          save();
+          saveQuarter(); // quarter 1 begins at founding
+        }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'line-draft') {
         post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow') });
@@ -434,6 +449,8 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'load-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
         readKeys([slotKey(playing!.ref.id, message.slot)], ([text]) => loadText(text ?? null, 'slot'));
+      } else if (message.type === 'restart-quarter') {
+        readKeys([quarterKey(playing!.ref.id)], ([text]) => loadText(text ?? null, 'quarter'));
       } else if (message.type === 'import') {
         loadText(message.text, 'file');
       } else if (message.type === 'export') {
@@ -462,6 +479,9 @@ export function createHost(post: (message: FromWorker) => void): Host {
       while (carrySeconds >= STEP_SECONDS) {
         carrySeconds -= STEP_SECONDS;
         for (const event of simStep(world)) {
+          // A new quarter begins at the close that graded the last: keep the game as it stands,
+          // unless that close ended the run, when Restart this quarter reopens the quarter just graded.
+          if (event.card && !runEnded(world.state.closesBelowFloor)) saveQuarter();
           post({
             type: 'day-card',
             card: {
@@ -472,6 +492,14 @@ export function createHost(post: (message: FromWorker) => void): Host {
               report: event.card,
             },
           });
+        }
+        // The fifth close below the floor ends the run: time stops where it is (D10).
+        if (runEnded(world.state.closesBelowFloor)) {
+          speed = 0;
+          carrySeconds = 0;
+          save();
+          post({ type: 'snapshot', snapshot: snapshot() });
+          return;
         }
       }
       if (Math.floor(world.state.elapsed / 3_600) !== savedHour) save();

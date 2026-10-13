@@ -49,7 +49,7 @@ describe('placing a depot on mini-Boston', () => {
 
   it('refuses in money when cash is short, naming the shortfall', () => {
     const world = game();
-    world.state.ledger.cashCents = 10_000_000;
+    world.state.ledger.cashCents = -5_000_000; // $50k owed leaves $100k of the $150k credit line (D10)
     expect(placeDepot(world, toLngLat(city.frame, insideLand()))).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 5_000_000 });
   });
 
