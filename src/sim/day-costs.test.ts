@@ -1,38 +1,20 @@
 // M2's costs on the fixture: a depot and the debug line run two days, and every cost is a ledger row
 // that equals the line inspector's forecast to the cent (the M2 spec's exit check 5; I1, I6).
 import { describe, expect, it } from 'vitest';
-import { bakeSim } from '../../tools/bake/sim.mjs';
-import { loadCity } from './city/simfile';
 import { addDebugLine } from './commands/debugLine';
 import { placeDepot } from './commands/placeDepot';
-import { pointInRing, toLngLat, type XY } from './core/geo';
 import { SECONDS_PER_DAY } from './config/time';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, forecastDay } from './economy/costs';
 import type { RowKind } from './economy/ledger';
 import { encode } from './save/save';
-import { newGame } from './state';
 import { advance } from './step';
-import { createWorld, type World } from './world';
+import { fixtureGame, gameWithDepot, onDepotLand } from './testing';
+import type { World } from './world';
 
-const loaded = loadCity(bakeSim('boston', 'mini-boston').text);
-if (!loaded.ok) throw new Error(loaded.problem);
-const city = loaded.city;
 const BUILD = { sha: 'test', version: '0.0.0' };
 
-/** A point inside the fixture's largest parcel of depot land. */
-function onDepotLand(): XY {
-  const ring = [...city.depotLand].sort((a, b) => b.length - a.length)[0]!;
-  const [cx, cy] = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
-  for (let t = 0; t <= 1; t += 0.05) {
-    const p: XY = [cx + (ring[0]![0] - cx) * t, cy + (ring[0]![1] - cy) * t];
-    if (pointInRing(ring, p)) return p;
-  }
-  throw new Error('no point inside the parcel');
-}
-
 function game(withDepot = true): World {
-  const world = createWorld(city, newGame({ id: 'boston', revision: 'mini-boston', hash: '-' }, { name: 'Back Bay Transit', colour: '#c0392b' }, 7));
-  if (withDepot && !placeDepot(world, toLngLat(city.frame, onDepotLand())).ok) throw new Error('no depot');
+  const world = withDepot ? gameWithDepot() : fixtureGame();
   if (!addDebugLine(world).ok) throw new Error('no line');
   return world;
 }
@@ -80,7 +62,7 @@ describe('costs as ledger rows (the M2 spec, item 5)', () => {
     expect(total(world, 1, 'deadhead')).toBe(0);
     expect(total(world, 1, 'upkeep')).toBe(0);
     expect(total(world, 1, 'wages')).toBe(-forecastDay(service.costs, 5).wages);
-    const placed = placeDepot(world, toLngLat(city.frame, onDepotLand()));
+    const placed = placeDepot(world, onDepotLand());
     if (!placed.ok) throw new Error(placed.reason);
     expect([...world.services.values()][0]!.depotId).toBe(placed.depotId);
   });

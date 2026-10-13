@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 6ebc76d (G9 and G10), with the stripped map file in review.
+**Updated:** 2026-10-13, at `main` 6ebc76d (G9 and G10), with the stripped map file and then the line tool's sim side in review.
 
 ## Live now
 
@@ -84,6 +84,14 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - the map file: `tools/bake/tiles.mjs` strips 9,785 transit features and opens 116 busway pieces, and the City tiles workflow runs it before publishing.
    - **The stripped map file ships** (2026-10-13): `boston-20261012-a35f1831.pmtiles`, which a script test checks on every PR. G1–G10 now pass on both extents.
 5. [ ] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.
+   - [x] **In the sim** (2026-10-13):
+     - the stop rule (`src/sim/rules/stop.ts`: the nearest street node within 150 m, or a stop within 250 m joined);
+     - the draft and headway rules (`src/sim/rules/line.ts`: a depot first, two stops, each once, joined by streets, D7's headways, depot room, cash);
+     - `createLine` and `setHeadways`, each paying one Purchases row;
+     - the worker's `line-draft`, `create-line` and `set-headways` messages.
+
+     On the fixture, Copley to Longwood drafts as four new stops and two Sparrows: $206,000, leaving $71,200 after the depot. A third Sparrow every 10 minutes at peak is refused as $23,800 short.
+   - [ ] **On screen:** the depot tool with its tint and card, the line tool with its draft card, Create, and the headway card. The debug line is cut when they land.
 6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
 7. [ ] **The calm shell** replacing the debug panel, and I13.
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.

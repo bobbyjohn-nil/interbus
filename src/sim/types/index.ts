@@ -13,6 +13,40 @@ export interface CityRefData {
   readonly hash: string;
 }
 
+/** A line's headways in whole seconds; overnight null is no overnight service (sim/rules/periods.ts). */
+export interface HeadwaysData {
+  readonly peak: number;
+  readonly offpeak: number;
+  readonly overnight: number | null;
+}
+
+/** Why a command or a card said no, with the numbers its copy needs (src/ui turns the code into words). */
+export interface RefusalView {
+  readonly reason: string;
+  /** Which click of a draft the refusal is about. */
+  readonly at?: number;
+  readonly limitM?: number;
+  /** How far the nearest thing in the way is, in metres. */
+  readonly nearestM?: number;
+  readonly limitSeconds?: number;
+  readonly room?: number;
+  readonly shortCents?: number;
+}
+
+/** The line tool's draft card (sim/rules/line.ts): what the clicks make, and whether Create may buy it. */
+export interface LineDraftView {
+  readonly stops: readonly { readonly at: LngLatPair; readonly joins: number | null }[];
+  readonly route: readonly LngLatPair[];
+  readonly routeM: number;
+  readonly people: number;
+  readonly buses: number;
+  readonly newStops: number;
+  readonly stopsCents: number;
+  readonly busesCents: number;
+  readonly priceCents: number;
+  readonly refusal: RefusalView | null;
+}
+
 export interface LineView {
   readonly id: number;
   readonly name: string;
@@ -21,6 +55,9 @@ export interface LineView {
   /** The streets it drives, stop to stop. */
   readonly route: readonly LngLatPair[];
   readonly ridersPerDay: number;
+  readonly headways: HeadwaysData;
+  /** Its round trip in seconds, for the headway card's bus count. */
+  readonly cycle: number;
   readonly buses: number;
   /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
   readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
@@ -72,7 +109,10 @@ export type ToWorker =
   | { readonly type: 'add-debug-line' }
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
-  | { readonly type: 'place-depot'; readonly at: LngLatPair };
+  | { readonly type: 'place-depot'; readonly at: LngLatPair }
+  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData }
+  | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData }
+  | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData };
 
 export type FromWorker =
   | {
@@ -86,5 +126,6 @@ export type FromWorker =
   | { readonly type: 'day-card'; readonly card: DayCard }
   | { readonly type: 'probe'; readonly id: number; readonly people: number }
   | { readonly type: 'depot-site'; readonly id: number; readonly site: DepotSiteView }
-  | { readonly type: 'refused'; readonly command: string; readonly reason: string; readonly shortCents?: number }
+  | { readonly type: 'line-draft'; readonly id: number; readonly draft: LineDraftView }
+  | ({ readonly type: 'refused'; readonly command: string } & RefusalView)
   | { readonly type: 'failed'; readonly problem: string };

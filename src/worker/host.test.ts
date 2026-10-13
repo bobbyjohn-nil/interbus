@@ -96,6 +96,30 @@ describe('the sim host', () => {
     expect(last('refused')).toEqual({ type: 'refused', command: 'place-depot', reason: 'not_depot_land' });
   });
 
+  it('answers the line tool: the draft card, Create and a headway change (M2 items 3 and 4)', () => {
+    const { host, last } = started();
+    const clicks: [number, number][] = [[-71.077, 42.3499], [-71.0857, 42.3424], [-71.095, 42.3375], [-71.1035, 42.336]];
+    host.handle({ type: 'line-draft', id: 1, clicks });
+    expect(last('line-draft')!.draft.refusal).toEqual({ reason: 'needs_depot' });
+    const ring = [...last('ready')!.depotLand].sort((a, b) => b.length - a.length)[0]!;
+    const mid = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
+    host.handle({ type: 'place-depot', at: [(ring[0]![0] + mid[0]!) / 2, (ring[0]![1] + mid[1]!) / 2] });
+    host.handle({ type: 'line-draft', id: 2, clicks });
+    const draft = last('line-draft')!;
+    expect(draft.id).toBe(2);
+    expect(draft.draft).toMatchObject({ buses: 2, newStops: 4, priceCents: 20_600_000, refusal: null });
+    expect(draft.draft.routeM).toBeGreaterThan(3_400);
+    expect(draft.draft.people).toBeGreaterThan(5_000);
+    expect(draft.draft.route.length).toBeGreaterThan(10);
+    host.handle({ type: 'create-line', clicks });
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    expect(line).toMatchObject({ name: 'Line 1', buses: 2, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
+    expect(line.cycle).toBeGreaterThan(1_500);
+    expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000 - 20_600_000);
+    host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 600, offpeak: 1_200, overnight: null } });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-headways', reason: 'insufficient_funds', shortCents: 2_380_000 });
+  });
+
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
     createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1 });

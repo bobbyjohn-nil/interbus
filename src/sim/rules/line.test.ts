@@ -1,0 +1,93 @@
+import { describe, expect, it } from 'vitest';
+import type { XY } from '../core/geo';
+import { checkHeadwayChange, checkLineDraft, type LineDraftContext } from './line';
+import { checkStopSite } from './stop';
+
+// A street every 100 m along y = 0, from x = 0 to 5,000: every click snaps to the node below it.
+const nodes = Array.from({ length: 51 }, (_, i) => [i * 100, 0] as XY);
+function context(over: Partial<LineDraftContext> = {}): LineDraftContext {
+  return {
+    nearestNode: (at, withinM) => {
+      let best: { node: number; at: XY; distM: number } | null = null;
+      nodes.forEach((p, node) => {
+        const d = Math.hypot(p[0] - at[0], p[1] - at[1]);
+        if (d <= withinM && (!best || d < best.distM)) best = { node, at: p, distM: d };
+      });
+      return best;
+    },
+    stops: [],
+    legM: (a, b) => Math.abs(b[0] - a[0]),
+    depots: 1,
+    busesOwned: 0,
+    cashCents: 42_720_000,
+    ...over,
+  };
+}
+const TWENTY = { peak: 1_200, offpeak: 1_200, overnight: null };
+// Copley to Longwood's spacing: 0, 1,339, 2,425 and 3,535 m along the street.
+const DEBUG_LIKE: XY[] = [[0, 20], [1_339, -30], [2_425, 10], [3_535, 0]];
+
+describe('a stop click (EC-10)', () => {
+  it('snaps to the nearest street node, or joins a stop within 250 m as a transfer', () => {
+    expect(checkStopSite(context(), [1_339, 30])).toMatchObject({ ok: true, kind: 'new', node: 13, at: [1_300, 0] });
+    expect(checkStopSite(context({ stops: [{ id: 7, at: [1_500, 0] }] }), [1_339, 30])).toMatchObject({ ok: true, kind: 'join', stopId: 7 });
+    expect(checkStopSite(context({ stops: [{ id: 7, at: [1_700, 0] }] }), [1_339, 30])).toMatchObject({ kind: 'new' });
+    expect(checkStopSite(context(), [1_339, 400])).toEqual({ ok: false, reason: 'no_street_near', limitM: 150 });
+  });
+});
+
+describe('a line draft (the M2 spec, items 2–4)', () => {
+  it('prices the debug line as four stops and the two Sparrows every 20 minutes needs: $16k + $190k', () => {
+    const verdict = checkLineDraft(context(), DEBUG_LIKE, TWENTY);
+    expect(verdict.ok).toBe(true);
+    // Snapped to 0, 1,300, 2,400 and 3,500 m: a 1,539 s cycle on 3.5 km.
+    expect(verdict.draft).toMatchObject({ routeM: 3_500, buses: 2, newStops: 4, stopsCents: 1_600_000, busesCents: 19_000_000, priceCents: 20_600_000 });
+    expect(verdict.draft.stopDistM).toEqual([0, 1_300, 2_400, 3_500]);
+  });
+
+  it('asks for a depot first, and still shows the draft', () => {
+    const verdict = checkLineDraft(context({ depots: 0 }), DEBUG_LIKE, TWENTY);
+    expect(verdict).toMatchObject({ ok: false, reason: 'needs_depot' });
+    expect(verdict.draft.stops).toHaveLength(4);
+  });
+
+  it('needs two stops, each once, on streets that join', () => {
+    expect(checkLineDraft(context(), [[0, 0]], TWENTY)).toMatchObject({ ok: false, reason: 'too_few_stops' });
+    // A second click within 250 m of the draft's own first stop is that stop again.
+    expect(checkLineDraft(context(), [[0, 0], [2_000, 0], [100, 0]], TWENTY)).toMatchObject({ ok: false, reason: 'stop_twice', at: 2 });
+    expect(checkLineDraft(context(), [[0, 0], [3_000, 900]], TWENTY)).toMatchObject({ ok: false, reason: 'no_street_near', at: 1, limitM: 150 });
+    expect(checkLineDraft(context({ legM: (a, b) => (b[0] > 2_000 ? null : Math.abs(b[0] - a[0])) }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'no_route', at: 2 });
+  });
+
+  it('charges nothing for a stop it joins', () => {
+    const verdict = checkLineDraft(context({ stops: [{ id: 3, at: [1_300, 0] }] }), DEBUG_LIKE, TWENTY);
+    expect(verdict.draft).toMatchObject({ newStops: 3, stopsCents: 1_200_000 });
+    expect(verdict.draft.stops[1]).toMatchObject({ kind: 'join', stopId: 3 });
+  });
+
+  it('refuses buses the depots have no room for, and a price above the cash, in money', () => {
+    // Every 4 minutes needs ⌈1,539 ÷ 240⌉ = 7 Sparrows; one depot parks 6.
+    expect(checkLineDraft(context(), DEBUG_LIKE, { peak: 240, offpeak: 240, overnight: null })).toMatchObject({ ok: false, reason: 'depot_full', room: 6 });
+    expect(checkLineDraft(context({ busesOwned: 5 }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'depot_full', room: 1 });
+    expect(checkLineDraft(context({ cashCents: 15_100_000 }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 5_500_000 });
+  });
+
+  it('refuses headways outside D7 with the limit', () => {
+    expect(checkLineDraft(context(), DEBUG_LIKE, { peak: 1_200, offpeak: 4_000, overnight: null })).toMatchObject({ ok: false, reason: 'daytime_headway_too_long', limitSeconds: 3_600 });
+  });
+});
+
+describe('a headway change (GD-09)', () => {
+  const fleet = { depots: 1, busesOwned: 2, cashCents: 10_000_000 };
+  const line = { cycle: 1_539, buses: 2 };
+  it('buys the buses a shorter headway needs: every 10 min needs 3, one more at $95k', () => {
+    expect(checkHeadwayChange(fleet, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: true, needed: 3, extra: 1, priceCents: 9_500_000 });
+  });
+  it('buys nothing for a longer one, and keeps the buses', () => {
+    expect(checkHeadwayChange(fleet, line, { peak: 1_800, offpeak: 1_800, overnight: null })).toEqual({ ok: true, needed: 1, extra: 0, priceCents: 0 });
+  });
+  it('refuses in money, or for want of depot room', () => {
+    expect(checkHeadwayChange({ ...fleet, cashCents: 5_000_000 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 4_500_000 });
+    expect(checkHeadwayChange({ ...fleet, busesOwned: 6 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+  });
+});

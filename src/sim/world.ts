@@ -11,6 +11,7 @@ import type { DepotId, LineId } from './core/ids';
 import type { LineCostInputs } from './economy/costs';
 import { cycleSeconds } from './rules/cycle';
 import type { DepotSiteContext } from './rules/depot';
+import type { FleetContext, LineDraftContext } from './rules/line';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
 import type { Line, SimState } from './state';
 
@@ -43,6 +44,14 @@ export function nearestNode(world: Pick<World, 'nodes' | 'city'>, p: XY): number
   return null;
 }
 
+/** Street metres a bus drives from one stop position to the next, or null if no street joins them: the line tool, the plan and the costs all read this. */
+export function legMetres(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): number | null {
+  const a = nearestNode(world, from);
+  const b = nearestNode(world, to);
+  const path = a === null || b === null ? null : world.router.route(a, b);
+  return path ? path.dm / 10 : null;
+}
+
 /** A line as the demand model sees it: stop positions and distances along its streets. */
 export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>, line: Line): LinePlan | null {
   const stops = line.stopIds.map((id) => world.state.stops.find((s) => s.id === id));
@@ -50,13 +59,29 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
   const xy = stops.map((s) => toXY(world.city.frame, [s!.lon, s!.lat]));
   const dist = [0];
   for (let k = 1; k < xy.length; k++) {
-    const from = nearestNode(world, xy[k - 1]!);
-    const to = nearestNode(world, xy[k]!);
-    const path = from === null || to === null ? null : world.router.route(from, to);
-    if (!path) return null;
-    dist.push(dist[k - 1]! + path.dm / 10);
+    const leg = legMetres(world, xy[k - 1]!, xy[k]!);
+    if (leg === null) return null;
+    dist.push(dist[k - 1]! + leg);
   }
   return { id: line.id, stops: xy, stopDistM: dist, headways: line.headways, fareCents: line.fareCents };
+}
+
+/** What the fleet rules read for this world (sim/rules/line.ts). */
+export function fleetContext(world: Pick<World, 'state'>): FleetContext {
+  return { depots: world.state.depots.length, busesOwned: world.state.lines.reduce((n, l) => n + l.buses, 0), cashCents: world.state.ledger.cashCents };
+}
+
+/** What the line tool's rules read for this world: street nodes, the stops standing, the streets between them and the fleet (GD-05). */
+export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>): LineDraftContext {
+  return {
+    ...fleetContext(world),
+    nearestNode: (at, withinM) => {
+      const hit = world.nodes.nearest(at, withinM);
+      return hit ? { node: hit.item, at: hit.p, distM: hit.distM } : null;
+    },
+    stops: world.state.stops.map((s) => ({ id: s.id, at: toXY(world.city.frame, [s.lon, s.lat]) })),
+    legM: (from, to) => legMetres(world, from, to),
+  };
 }
 
 /** What the depot rule reads for this world: its depot land, street nodes and the depots built (GD-05). */
