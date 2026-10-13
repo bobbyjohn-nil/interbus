@@ -20,7 +20,7 @@ const SET_ASIDE_NAMES: Readonly<Record<SetAsideWhy, string>> = {
  * player exports or deletes it, so none is lost unseen. Export session hands over this session for a
  * bug report (the M3 spec, item 12).
  */
-export function Saves({ sim, onClose }: { sim: Sim; onClose: () => void }) {
+export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void; onHome?: () => void }) {
   const { send } = sim;
   useEffect(() => send({ type: 'slots' }), [send]);
   const [confirm, setConfirm] = useState<number | null>(null);
@@ -145,6 +145,11 @@ export function Saves({ sim, onClose }: { sim: Sim; onClose: () => void }) {
         <button type="button" title="For a bug report: this session from the quarter’s start, every command replayable" onClick={() => send({ type: 'export-session' })}>
           Export session
         </button>
+        {onHome ? (
+          <button type="button" onClick={onHome}>
+            Back to Home
+          </button>
+        ) : null}
       </div>
     </aside>
   );

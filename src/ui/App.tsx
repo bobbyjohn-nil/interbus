@@ -14,6 +14,7 @@ import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
 import { Finance } from "./shell/Finance";
 import { Contracts } from "./shell/Contracts";
+import { Home } from "./shell/Home";
 import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
 import { Notices } from "./shell/Notices";
@@ -33,6 +34,9 @@ export function App() {
   const [panel, setPanel] = useState<Panel>("none");
   const [lineId, setLineId] = useState<number | null>(null);
   const [stopId, setStopId] = useState<number | null>(null);
+  // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
+  // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
+  const [homeAt, setHomeAt] = useState<number | null>(0);
   const { probeAt, depotSiteAt, draftFor, send } = sim;
 
   // A tool's pointer: the depot card while placing a depot, "people within a walk" otherwise.
@@ -177,6 +181,44 @@ export function App() {
   }, [choose, send]);
 
   const ready = sim.status === "ready";
+  const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
+  if (atHome)
+    return (
+      <main className="app">
+        <MapView
+          dots={sim.dots}
+          lines={sim.snapshot?.lines ?? []}
+          stops={sim.snapshot?.stops ?? []}
+          linesVersion={sim.snapshot?.linesVersion ?? 0}
+          depotLand={sim.depotLand}
+          tint={false}
+          depots={sim.snapshot?.depots ?? []}
+          contracts={sim.snapshot?.contracts ?? []}
+          event={sim.snapshot?.event ?? null}
+          draft={null}
+          clock={
+            sim.snapshot
+              ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate, day: sim.snapshot.day }
+              : null
+          }
+        />
+        <Home
+          sim={sim}
+          onContinue={() => setHomeAt(null)}
+          onNewGame={() => {
+            if (sim.snapshot?.company.name) send({ type: "new-game" });
+            setHomeAt(null);
+          }}
+          onSaves={() => setPanel("saves")}
+        />
+        {panel === "saves" ? (
+          <Saves sim={sim} onClose={() => setPanel("none")} />
+        ) : null}
+        <Notices sim={sim} />
+        <Corner />
+        <ReplacedCard />
+      </main>
+    );
   return (
     <main className="app">
       <MapView
@@ -255,7 +297,16 @@ export function App() {
         <Finance sim={sim} onClose={() => setPanel("none")} />
       ) : null}
       {tool === "none" && panel === "saves" ? (
-        <Saves sim={sim} onClose={() => setPanel("none")} />
+        <Saves
+          sim={sim}
+          onClose={() => setPanel("none")}
+          onHome={() => {
+            // Paused first, which saves the game, so Continue picks up exactly here.
+            send({ type: "speed", speed: 0 });
+            setPanel("none");
+            setHomeAt(Date.now());
+          }}
+        />
       ) : null}
       {tool === "none" && panel === "contracts" ? (
         <Contracts sim={sim} onClose={() => setPanel("none")} />

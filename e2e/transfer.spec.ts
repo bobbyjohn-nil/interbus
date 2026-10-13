@@ -21,8 +21,8 @@ test.describe('a change of line', () => {
     await page.goto('./');
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-    await expect(page.getByTestId('sim-panel')).toBeVisible({ timeout: 30_000 });
     await foundCompany(page);
+    await expect(page.getByTestId('sim-panel')).toBeVisible();
     await zoomOutOnce(page);
 
     await page.getByRole('button', { name: 'Place a depot' }).click();

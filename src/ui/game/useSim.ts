@@ -108,7 +108,10 @@ export function useSim(city: City | undefined): Sim {
             setSetAside(m.setAside);
           }
           else if (m.type === 'export') downloadText(m.name, m.text);
-          else if (m.type === 'loaded') setLoaded({ from: m.from, load: m.load, at: Date.now() });
+          // A new game from Home needs no notice: its founding card says what comes next.
+          else if (m.type === 'loaded') {
+            if (m.from !== 'new') setLoaded({ from: m.from, load: m.load, at: Date.now() });
+          }
           else if (m.type === 'store') inStore((s) => applyEffects(s, m.effects));
           else if (m.type === 'snapshot') setSnapshot(m.snapshot);
           else if (m.type === 'depot-site') {

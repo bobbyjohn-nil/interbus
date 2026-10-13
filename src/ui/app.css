@@ -724,3 +724,49 @@ button.chip.checklist,
   font-weight: 600;
   vertical-align: middle;
 }
+
+/* Home (src/ui/shell/Home.tsx): the first screen, over the paused map. */
+.home {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 280px;
+  padding: 18px 22px;
+  border-radius: 12px;
+  background: var(--ui-paper);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 0.18);
+  font-size: 14px;
+}
+
+.home h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.home .hint {
+  margin: 0 0 6px;
+}
+
+.home button {
+  min-height: 32px;
+  text-align: left;
+}
+
+.home button.primary {
+  font-weight: 600;
+}
+
+.home button .about {
+  display: block;
+  font-weight: 400;
+  color: var(--ui-ink-soft);
+}
+
+.home .ask p {
+  margin: 0 0 6px;
+}

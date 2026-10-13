@@ -374,6 +374,8 @@ export type ToWorker =
   /** Hands over a set-aside save as a file, or deletes it (the page asks first). */
   | { readonly type: 'export-set-aside'; readonly why: SetAsideWhy }
   | { readonly type: 'delete-set-aside'; readonly why: SetAsideWhy }
+  /** Home's New game (the M5 spec, item 3): a new, unnamed company in place of this game, its autosave replaced; slots stay. */
+  | { readonly type: 'new-game' }
   /** Reopens the save written as this quarter began (the failure floor's Restart this quarter). */
   | { readonly type: 'restart-quarter' }
   /** Takes a contract on offer. */
@@ -402,7 +404,7 @@ export type FromWorker =
   /** This game as a save file, for the page to hand to the player. */
   | { readonly type: 'export'; readonly name: string; readonly text: string }
   /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */
-  | { readonly type: 'loaded'; readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView }
+  | { readonly type: 'loaded'; readonly from: 'slot' | 'file' | 'quarter' | 'new'; readonly load: LoadView }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }
   | { readonly type: 'day-card'; readonly card: DayCard }
   | { readonly type: 'probe'; readonly id: number; readonly people: number }
