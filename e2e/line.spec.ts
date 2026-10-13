@@ -91,7 +91,7 @@ test.describe('the line tool on the fixture', () => {
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();
     await expect(panel).toHaveAttribute('data-cash', '7120000');
-    const costsPerDay = Number(await panel.getAttribute('data-costs'));
+    const running = Number(await page.getByTestId('line-card').getAttribute('data-running'));
 
     // A day: every cost is a row, and the rows add up to the change in cash.
     await page.getByRole('button', { name: '3×' }).click();
@@ -100,9 +100,11 @@ test.describe('the line tool on the fixture', () => {
     for (const name of ['Fares', 'Running (per km)', 'Driver wages', 'Deadhead', 'Depot upkeep']) await expect(card).toContainText(name);
     expect(await card.getAttribute('data-total')).toBe(await card.getAttribute('data-change'));
     const cents = async (kind: string) => Number(await card.locator(`tr[data-kind="${kind}"]`).getAttribute('data-cents'));
-    // Day 1 opens at 05:00: the line's day is whole (it runs nothing overnight), the depot's upkeep is 19 hours of 24.
+    // Day 1 opens at 05:00: every run of the line is on it, so its running cost is the forecast to the
+    // cent; the depot's upkeep is 19 hours of 24. (A whole day's wages and deadhead meet the forecast in
+    // the host and sim tests: day 1 starts after the first bus left the depot.)
+    expect(await cents('running')).toBe(-running);
     expect(await cents('upkeep')).toBe(-19 * 1_250);
-    expect((await cents('running')) + (await cents('wages')) + (await cents('deadhead'))).toBe(-(costsPerDay - 30_000));
     expect(errors).toEqual([]);
   });
 });

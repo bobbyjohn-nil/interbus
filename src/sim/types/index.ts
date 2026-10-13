@@ -20,6 +20,14 @@ export interface HeadwaysData {
   readonly overnight: number | null;
 }
 
+/** What a line's day plan is built from (sim/rules/schedule.ts PlanInputs), as plain data. */
+export interface PlanInputsData {
+  readonly timing: { readonly cycle: number; readonly headways: HeadwaysData; readonly buses: number };
+  readonly oneWayS: number;
+  readonly pullOutS: number;
+  readonly pullInS: number;
+}
+
 /** Why a command or a card said no, with the numbers its copy needs (src/ui turns the code into words). */
 export interface RefusalView {
   readonly reason: string;
@@ -61,6 +69,15 @@ export interface LineView {
   /** Its round trip in seconds, for the headway card's bus count. */
   readonly cycle: number;
   readonly buses: number;
+  /** Index in `route` of each stop. */
+  readonly stopAt: readonly number[];
+  /** Street metres from the first stop to each stop. */
+  readonly stopDistM: readonly number[];
+  /** The drives from the depot to the first stop and back; empty with no depot. */
+  readonly pullOut: readonly LngLatPair[];
+  readonly pullIn: readonly LngLatPair[];
+  /** The day plan's inputs (sim/rules/schedule.ts): the page builds the same plan the costs bill, for the vehicle layer. */
+  readonly plan: PlanInputsData;
   /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
   readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
 }

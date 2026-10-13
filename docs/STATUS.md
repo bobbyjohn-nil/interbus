@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` bc6eeae (the line tool's sim side), with the depot and line tools on screen in review.
+**Updated:** 2026-10-13, at `main` 629d8ff (the depot and line tools on screen), with the day plan in review.
 
 ## Live now
 
@@ -100,6 +100,14 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - **`e2e/line.spec.ts`** plays steps 2–5 of the exit check in the browser: depot, Copley to Longwood, Create, and a day whose cost rows meet the forecast.
    - **Snapped stops.** Copley to Longwood drawn with the tool snaps its stops to street nodes, so it reads 3.7 km and ≈750 riders a day, against the debug line's 3,535 m and 795.
 6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
+   - [x] **One day plan per line** (2026-10-13, `src/sim/rules/schedule.ts`):
+     - departures every running headway, each period's own, on one clock through the day;
+     - each departure's round trip of exactly one cycle;
+     - each bus's stint from the depot and home again: a bus waits at the first stop unless its next departure is over an hour off.
+
+     The costs bill the plan's movements hour by hour, and `busPositionsAt` (`src/sim/rules/position.ts`) places every bus from it, so a bus is billed for what it does (I6).
+   - [x] **The debug line's whole day** under the plan: running $362.52 (57 departures out and back), wages $972.11, deadhead $15.00, upkeep $300, net +$1,411.12 (DECISIONS, Measured).
+   - [ ] **The vehicle layer:** the code-drawn glyph in one MapLibre custom layer, then I12.
 7. [ ] **The calm shell** replacing the debug panel, and I13.
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
 
