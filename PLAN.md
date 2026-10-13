@@ -91,7 +91,7 @@ A mechanic that needs a second mechanic to explain it is cut ([GD-06](docs/histo
 | 0:00 | Name, colour. The board opens paused and flat over Back Bay at zoom 14, every arterial named (local names from z14.5); chip "1/5 Place a depot" ([UX-07](docs/history/lessons-ledger.md)) |
 | 1:00 | Legal land tints green, mostly industrial strips; card "Industrial ✓ · street 40 m ✓ · $150k" |
 | 2:00 | "2/5 Draw a line" along Massachusetts Avenue: a 650 m walk ring, "≈9,000 people within a walk" |
-| 3:00 | Four stops to the Longwood Medical Area. "Every 20 min needs 1 Sparrow · $95k": founding sets peak and off-peak alike, overnight off; about $49k left at k ≈ 1.2 |
+| 3:00 | Four stops to the Longwood Medical Area. "Every 20 min needs 2 Sparrows · $190k" (the cycle function, 2026-10-13; the M2 spec): founding sets peak and off-peak alike, overnight off; about $71k left at k ≈ 1.2 |
 | 3:30 | "3/5 Press play" at 05:00 on day 1. The bus pulls out; the 06:30 peak fills it |
 | 4:30 | The 2D/3D chip (or `T`) tilts the map: Back Bay rises around the bus; again to flatten. Nothing in the game changes |
 | 5:30 | First daily close, every figure a ledger row ([AR-12](docs/history/lessons-ledger.md)); "QUIET · 3 boardings" |

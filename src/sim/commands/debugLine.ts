@@ -1,4 +1,4 @@
-// M1's debug line (docs/specs/current.md): four stops from Back Bay to Longwood, every 20 minutes by
+// M1's debug line (docs/specs/m1-first-dollar.md): four stops from Back Bay to Longwood, every 20 minutes by
 // day, overnight off, $2.25. The seed of M2's line tool, cut when the tool lands. In M1 it runs its
 // timetable with no bus and no cost; week 4 gives every line buses and their costs (K42).
 import { toXY, type LngLat } from '../core/geo';

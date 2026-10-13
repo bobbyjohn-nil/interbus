@@ -1,142 +1,134 @@
-# M1 · First dollar, on the fixture
+# M2 · First line
 
-**The first fare dollar on the mini-Boston fixture by Sun Nov 1 2026.** Money before presentation (PLAN §0 call 1): nothing here waits for the Inner Boston bake, 3D or art.
+**A player-built line on the fixture by Sun Nov 8 2026: found, place a depot, draw four stops, set every 20 minutes, buy the buses it needs, and watch them run while every cost lands as a ledger row.** It is money work (PLAN §0 call 1); the shell, the line and stop layers and the code-drawn bus glyph are the layers its exit check needs.
 
-One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](../history/lessons-ledger.md), [SC-07](../history/lessons-ledger.md)). Written 2026-10-13 from PLAN §3–§7, §10, §14 and DECISIONS D7, D10, D11, D17. When this spec and those disagree, they win; fix this file in the same PR.
+One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](../history/lessons-ledger.md), [SC-07](../history/lessons-ledger.md)). Written 2026-10-13 from PLAN §3, §5, §6, §8 and §10 (week 4), DECISIONS D7, D10, D11, D12 and D17, and a survey of V1 and V3's economy, fleet and line code (cited below). When this spec and those disagree, they win; fix this file in the same PR. M1's spec is archived in [m1-first-dollar.md](m1-first-dollar.md).
 
 ## Exit check (the owner, 10 minutes, on the deployed preview)
 
-A debug line from Back Bay to Longwood: riders board, money comes in, the day card adds up (PLAN §10 week 3). Concretely:
-1. Open the preview and turn on the debug line (a menu entry, no URL flags).
-2. Press play at 05:00 on day 1. The chips show Cash and Riders/day moving.
-3. At 24:00 the day card opens. Every figure on it is a ledger row, and the rows sum to the change in cash.
+"Found, depot, 4 stops, every 20 min, overnight off: cash moves exactly as the inspector said" (PLAN §10 week 4). Concretely, on mini-Boston:
+1. Name and colour the company. Cash reads the founding capital, its one ledger row.
+2. Place a depot on the green tint; the cursor card reads "Industrial ✓ · street N m ✓ · $150k".
+3. Draw four stops from Copley to Longwood. The card reads "every 20 min needs 2 Sparrows · $190k"; Create buys them.
+4. Press play at 05:00. Buses pull out of the depot, run the line and go back at 24:00.
+5. At 24:00 the day card's rows (fares, subsidy, running, wages, depot upkeep, deadhead) are ledger rows that sum to the change in cash, and each cost equals the line inspector's forecast to the cent.
 
 ## Dates
 
 | When | What |
 |---|---|
-| Sun Oct 25 | This spec merged; **the fare-row signal**: a headless fixture test where one line writes a fare row. Red → week 3 drops all map work (PLAN §10) |
-| Oct 26–Nov 1 | Week 3, 5 sessions: M1 |
-| Sun Nov 1 | First dollar on the preview; capacity check; recompute measured (R2 check, D11); the velocity check |
+| Sun Nov 1 | M1's checks: capacity; recompute (R2, D11; **44.6 ms p95 on Inner Boston, measured 2026-10-13**); velocity |
+| Nov 2–8 | Week 4, 6.5 sessions: M2 (PLAN §10) |
+| Sun Nov 8 | M2 on the preview; **the full Inner Boston pack green (G1–G10)**; **`sim.json` format 1 frozen**; the owner's light token pick (≤0.5 session). The artist: `sparrow` and `goliath` blockouts |
 
-## Week 2 work M1 stands on (PLAN §14 items 10–11)
+## Above the cut line (all of it is M2)
 
-- **Ports**:
-  - V3's ledger, saves (async store, bus counter, schema hash), calendar and errors;
-  - V2's seeded RNG, graph and A* on (node, edge);
-  - V1's geo.
+1. **One cycle function** (K07, I6), used by the forecast, the costs, the bus count and the vehicle layer:
+   - a round trip is twice the drive along the line's route at the bus's speed (Sparrow 26 km/h), plus 20 s per intermediate stop each way, plus a 4-minute layover at each end (`Intralines@7af45b1:src/game/sim/demand.worker.ts:211-219`, without V1's refuelling term: fuel is out, PLAN §2);
+   - buses needed = the most any running period needs, each ⌈cycle ÷ headway⌉;
+   - a line short of buses runs every cycle ÷ buses instead, and demand reads that (`Intralines@7af45b1:src/game/sim/demand.worker.ts:224-229`).
+2. **Depots.**
+   - **Depot land** is baked into `sim.json` before the format freeze. It is OSM industrial land within 60 m, plus V1's census fallback where a cell has more jobs than residents and below-median density (`Intralines@7af45b1:src/game/store.ts:313-401`).
+   - **Placement** needs depot land, the nearest street node within 400 m and 120 m from any other depot (`Intralines_City@dc63602:src/game/depots/siting.ts:75-92`); one `sim/rules` predicate draws the tint, writes the card and checks the command (GD-05).
+   - **Price** $150k × 1.5ⁿ for the nth depot, to $5k (V1 ladder); 6 buses each; upkeep $300 a day.
+   - **A depot comes first:** no line or bus before a depot (V1).
+3. **The line tool.**
+   - **Placing stops.** A click places a stop on the nearest street node. It joins an existing stop within 250 m, with a "joins … · transfer" ring (EC-10; V2's `STOP_SNAP_EXISTING_M`, `Intralines_City_dep@archive/intralines-city-v1:Gaming/src/10-core.js:108`). Legs route by the existing A*.
+   - **The draft card.** It shows stops, km, the 650 m walk ring with "≈N people within a walk", and the price.
+   - **Create** needs 2 or more stops and the cash, and buys the stops ($4k each) and the buses the founding headway needs.
+   - **Refusals** carry reason codes, read as copy of 8 words or fewer, and in money where money is short ("$55k short", UX-03); never a raw code (V3's `insufficient_funds` bug).
+4. **Headways to purchase.**
+   - **Three headways per line** (D7). Peak and off-peak always run, each at 60 min or less; overnight is "no service" or no more often than off-peak. One predicate per limit.
+   - **Founding** sets peak and off-peak alike, overnight off.
+   - **A headway that needs more buses** shows "needs 3 buses, you have 2 · $95k" (GD-09), and confirming buys them. Sparrows only: the Metro 40 and Goliath rows are week 5.
+5. **All costs, as ledger rows banked hourly and closed daily:**
+   - running at the model's per-km rate (Sparrow $0.90/km, V1's `costPerKm`, which already includes fuel; V3's spec counted fuel twice);
+   - driver wages at $26 an hour per bus in service;
+   - depot upkeep;
+   - deadhead, the A* drive from the depot to the first stop and back for each bus each service day, at the same km and wage rates (`Intralines_City@dc63602:src/game/depots/deadhead.ts:138-142`, never wired in V3).
 
-  Each is shown failing on its old bug; I7 and the schema hash are green.
-- **The worker host:**
-  - a fixed step of 0.5 game-min;
-  - `simStep()` is the only door that advances time;
-  - commands apply at the next step;
-  - snapshots go out at about 10 Hz;
-  - I8 holds (N days in one call = N days in 72 chunks).
-- **`sim.json` format 1 for the fixture**, from `tools/bake`:
-  - cells: 350 m squares from 2020 blocks, each with residents, workers, jobs by sector and up to 8 weighted sub-points;
-  - the street graph: degree-2 collapsed, bus access applied, no service roads;
-  - the gateways;
-  - `calib`.
+   Purchases are rows when bought. The founding recipe counts its buses with the cycle function, which closes STATUS's open K07 item.
+6. **The vehicle layer.**
+   - **One MapLibre custom layer** draws the code-drawn top-down glyph, instanced in one draw call, flat to the screen when tilted, never upside down.
+   - **Positions** come from a pure `busPositionAt` ported from `Intralines_City@dc63602:src/game/buses/position.ts:99-157`, with three of V3's bugs fixed:
+     - a bus pulls out of its depot before its first departure, instead of appearing mid-route at 06:00;
+     - each period uses its own headway;
+     - a bus finishes its trip and deadheads home instead of vanishing.
+   - **I12:** 50 buses of each family at the three cameras are at least 20/24/32 px, and a 4 px meta-test must fail.
+7. **The calm shell** replaces M1's debug panel:
+   - the founding card;
+   - chips for date and clock, speed, Cash and Riders/day;
+   - the checklist chip ("1/5 Place a depot", "2/5 Draw a line", "3/5 Press play");
+   - a dock of 8 slots or fewer;
+   - the line inspector with the day's forecast;
+   - notices in one corner.
 
-  Its loader is in the sim. The demand dots and the "people within a walk" probe are in the preview.
-
-## Above the cut line (all of it is M1)
-
-1. **Clock and periods.**
-   - A game starts paused at 05:00 on day 1.
-   - Periods: peak 06:30–09:30 and 16:00–19:00; off-peak the rest of 05:00–24:00; overnight 00:00–05:00.
-   - Each period boundary is one `sim/rules` predicate (D7).
-   - The day closes at 24:00, so overnight belongs to the next day.
-2. **Ledger in cents.**
-   - The first row is "Founding capital", k × the starter line's cost, written once at founding.
-   - k = 1.2 (a config row). The starter recipe is 1 depot + 4 sign stops + 1 Sparrow = $261,000, so founding capital is $313,200 (V1 had $310,000).
-   - Cash is never stored apart from the rows (I1).
-3. **The debug line**, created by one `{ok, reason}` command (`addDebugLine`):
-   - 4 stops: Copley, Symphony, the Museum of Fine Arts, Longwood;
-   - each stop snapped to the street graph, joined by V2's A*;
-   - every 20 min at peak and off-peak, overnight off;
-   - a fare of $2.25.
-
-   The line tool is M2; this command is its seed and is cut when the tool lands.
-4. **Demand, commuters only**, rewritten from V1's worker (`Intralines@7af45b1:src/game/sim/demand.worker.ts`):
-   - workers = residents × V1's workforce rate;
-   - destinations follow a gravity model over jobs (WAC) with β = 4.0 km (V1's worker default; r1 fits β to LODES);
-   - the mode is a bus–car–walk logit with 13% captive riders, and every boarding pays the full fare ([K05](../history/salvage-matrix.md));
-   - catchments sum sub-points within 650 m, with no caps ([K04](../history/salvage-matrix.md), [K23](../history/salvage-matrix.md));
-   - paths are searched once and shared; only the logit and assignment repeat per period;
-   - riders board only in periods the line runs.
-5. **Calibration.**
-   - `calib.tripScale` is set on the fixture so the debug line carries 600–1,000 boardings a day. V1's starter line (9 stops, 5.4 km, one Sparrow) carried 1,058 a day ([EC-11](../history/lessons-ledger.md)).
-   - The value is set by a committed script and recorded with its run.
-6. **Income.**
-   - Each boarding pays the fare plus V1's $1.60 city subsidy.
-   - Rows post at each game-hour boundary, per line: "Fares" and "City subsidy". Fractional boardings carry to the next hour, so cents stay exact.
-   - Cash ticks each game hour.
-7. **Daily close and day card.**
-   - At 24:00 the sim emits the day's rows.
-   - The UI shows them as a debug day card: rows, their sum, and the cash before and after.
-   - React renders it at the close, never per frame ([AR-08](../history/lessons-ledger.md)).
-8. **Layers** for the exit check, each a GeoJSON source updated only on change:
-   - the line, as a ribbon in the line colour;
-   - the stops;
-   - demand dots, one per sub-point, sized by residents.
+   I13 measures chrome at 6% or less at rest and 26% or less with a panel, at 1440×900, 1366×768 and 1152×720.
+8. **The pack, green and frozen.**
+   - **Format 1 adds** depot land and the gateways: Logan and the main road entries, with inbound commuters from the LODES OD files. Demand starts using the gateways with visitors in week 5.
+   - **Gates G5–G10** are written and pass on the fixture and on Inner Boston:
+     - G5: no residents in water, and Logan holds the airport gateway;
+     - G6: map and demand agree;
+     - G7: sizes;
+     - G8: two runners, already shown;
+     - G9: load in 300 ms or less;
+     - G10: no transit feature.
+9. **Saves.** Format 3 holds depots, each line's buses and its depot, and three headways. Older web saves are set aside (D12).
 
 ## Magnitudes (expected before measuring, [TS-12](../history/lessons-ledger.md); out of range means find out why before tuning)
 
-| Quantity | Expected | Source of the expectation |
+| Quantity | Expected | Source |
 |---|---|---|
-| Fixture residents | 105,620 exactly | `fixture.json`, G4's sum |
-| Fixture cells (350 m, holding people or jobs) | 55–80 expected; **84 measured** 2026-10-13, because the fixture shares Boston's grid and the box touches 11 × 9 = 99 of its cells | Box size |
-| Collapsed street nodes on the fixture | 600–2,000; **681 measured** (675 while `hgv=no` closed streets) | 16,054 OPL nodes; collapse removes most |
-| `sim.json` for the fixture | 30–200 kB gzip; **56.6 kB measured** (133 kB raw) | 208 kB for all of Boston's streets (PLAN §5) |
-| Jobs in the box / workers living in it | 186,144 / 41,148 (WAC / RAC sums) | Fixture CSVs |
-| Commuters with both ends in the box | 9,287 (Σ S000) | Fixture OD |
-| Residents within 650 m of the debug line's stops | about 50,000 | Straight-line estimate from block points |
-| Debug line length by street | 3–4 km (2.76 km straight) | Stop positions |
-| Boardings per day after `tripScale` | 600–1,000; **795.3 measured at 111‰** after the recompute speed-up (799.3 before; 7,164.6 at 1,000‰), 2026-10-13 | Calibration target above; PLAN §3 expects Inner Boston 7–10× Riverton |
-| Income per day | $2,300–$3,900 (boardings × $3.85); **$3,060.75 measured** on a full day (`npm run bench day`) | Fare plus subsidy |
-| Recompute, fixture, three periods | ≤20 ms; **3.3 ms p50 measured** with three lines (`npm run bench`; 37 ms with one line before the speed-up) | About 70 cells |
-| Recompute, synthetic 800 cells, three periods | ≤150 ms p95 (I14); R2 needs ≤100 ms; **52 ms p50, 65–78 ms p95 measured** on 812 cells with T03; **44.6 ms p95 on Inner Boston** (735 cells, ten corridor lines) | PLAN §5: 50–130 ms for one period, interpolated |
+| Debug line by street | **3,535 m measured** (Copley 0, Symphony 1,339, MFA 2,425) | `planLine` on the fixture |
+| Its round trip | 25.7 min: 2 × (8.2 min drive + 0.7 min dwell) + 8 min layover | Item 1 |
+| Sparrows for every 20 min | **2** (D7's $261k starter assumed 1) | ⌈25.7 ÷ 20⌉ |
+| Starter recipe; founding capital at k = 1.2 | $356,000; **$427,200** (was $313,200); $71k left after the starter | D7 |
+| Debug line running cost a day | 57 trips each way × 3.535 km × 2 = 403 km × $0.90 ≈ **$363** | Item 5 |
+| Wages a day | 2 buses × 19 h × $26 ≈ **$988** | Item 5 |
+| Depot upkeep + deadhead a day | $300 + under $20 | Items 2, 5 |
+| Income a day | **$3,060.75 measured** (795 boardings × $3.85) | M1 |
+| Net on day 2 | **≈ +$1,390**: a profitable first line inside "profit by 8 minutes" (PLAN §3) | Sum |
+| Depot land | 3–8% of Inner Boston's land; at least one legal site within 2 km of the debug line on the fixture | V1's rule, Boston's industrial strips |
+| Gateways; inbound commuters | Logan + 6–12 road entries; several hundred thousand (873k jobs against 332k resident workers) | Inner Boston bake |
+| `sim.json` with depot land and gateways | ≤1 MB gzip (Inner Boston 785 KiB today) | G7 |
+| Vehicle layer | one draw call; 0 frames while paused (I14) | PLAN §6 |
+| Recompute with stretched headways | unchanged, ≤150 ms (I14) | Bench |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
 
-- **Fare-row signal (Oct 25):** fixture → `sim.json` → the debug line → one day; the ledger holds a Fares row > 0.
-- **I1:** cash = Σ rows, the first being Founding capital. The day card's rows are ledger rows. Retuning k between save and load leaves cash unchanged.
-- **I2:** adding a line, stop or bus never cuts linked trips by more than 0.1%.
-- **I3, the per-period part:**
-  - riders boarding a line in a period ≤ trips generated in that period's hours;
-  - none board overnight while overnight is off.
+- **I6:** each cursor card's verdict equals its command's; a bus loops in exactly the cycle it is billed for.
+- **I1:** purchases and every cost are ledger rows; the day card sums to the change in cash; the forecast equals the day's cost rows.
+- **I2's bus clause:** adding a bus never cuts linked trips by more than 0.1%.
+- **I3, the strategies:** "daytime longest, overnight shortest" earns less than the best all-period setting, and a night-only line is refused (EC-03).
+- **I12** at three cameras, with the 4 px meta-test.
+- **I13** at three sizes.
+- **I17:** G1–G10 on both extents.
 - **I7, I8**, still green.
-- **I10's fixture clauses:**
-  - the same inputs give the same bytes;
-  - one connected network;
-  - ≥90% of built-up street nodes within 650 m of a populated cell;
-  - a stop with residents within 300 m draws riders within a game day.
-- **e2e on the preview:** found, run the debug line one day, and check that the day card's sum equals the change in cash. Then reload and compare.
+- **e2e (I15):**
+  - found, depot, four stops, create, run a day;
+  - the day card sums to the change in cash;
+  - reload and compare.
 
-## Below the cut line (cut in this order if Nov 1 is at risk)
+## Below the cut line (cut in this order if Nov 8 is at risk)
 
-1. Recompute measured on Inner Boston itself. Keep the fixture and the synthetic 800-cell bench, and stay at Inner Boston (R2 needs a Boston number). **Done 2026-10-13: 44.6 ms p95.**
-2. The Inner Boston bake run. The Nov 8 pack trigger covers it. **Done 2026-10-13: 735 cells, G1–G4 pass.**
-3. Per-period crowding ([K27](../history/salvage-matrix.md)). It moves to week 4 with buses and costs; I3's conservation bound stays.
-4. The visitor matrix (weeks 4–5).
-5. Day-card polish beyond rows and their sum.
+1. The I3 strategy sweep, to week 5's CI sweep.
+2. Deadhead as its own cost, to week 5; buses still leave from the depot.
+3. A second depot (the ladder and the separation rule); one depot until week 5.
+4. I13 at one size instead of three.
+5. The light token pick, to the Nov 15 session.
 
-## Out of M1 by plan
+**Never cut from M2:** depot land and gateways in format 1 before the Nov 8 freeze; the cycle function; purchase; costs as rows; the vehicle layer and I12; the exit check's e2e.
 
-- Costs, purchases and the line tool (M2, week 4).
-- The fare band and QUIET/LOSS (week 5).
-- Transfers (week 7) and express (week 8).
-- The vehicle layer and its glyph (week 4).
+## Out of M2 by plan
+
+- Stop tiers and flags, the fare band, Finance, the Metro 40 and Goliath rows, per-period crowding (K27), visitors through the gateways, undo, save slots and export (week 5).
+- Hourly congestion, transfers, route remove and extend (week 7).
+- Contracts, events, express and route insert (week 8).
+- Meshes and three.js (week 13).
 
 ## Calls made here (Claude's, under PLAN §13; the owner can overrule them)
 
-- **Gates per extent.** The fixture touches at most 99 of Boston's cells, has no airport, and clipping it strands the Mass Pike (no ramps inside) and one-way grids whose way back lies outside the box. So the gates read a profile per extent in `cities/boston/city.json`:
-  - the fixture checks 40–99 cells, 70% of drivable km kept and 97% of residents within 300 m of a street;
-  - Inner Boston keeps 400–1,000 cells, 98% kept, 99% near a street, and the Logan gateway.
-- **The play extent's bake** (2026-10-13). The play area is the four municipalities inside the extent box (D11), so blocks in Chelsea or Winthrop are left out, while streets are every drivable way that touches the box. G2 counts only streets whose middle lies inside the box the inputs were clipped to: the clip keeps whole ways, and their far ends are stranded by design. Gateways wait for visitors.
-- **Bus access follows OSM's hierarchy** (2026-10-13). `hgv=no` restricts trucks, not buses, so it no longer closes a street. The parkways it was meant to close are DCR's River Roads, which `adjust.json` closes by name. G2 measures connectivity off motorways, because clipping and the River Roads' closure strand motorway pieces that no bus could use (DECISIONS, Measured).
-- **Gravity inside the box.** On the fixture, gravity runs only between cells inside the box, so jobs inside it are over-weighted. That is accepted: `tripScale` is re-measured on `city-boston-r1` in week 5.
-- **Errors stay outside the sim.** The sim returns reason codes. V3's error bus (it calls `Date.now()`) lives in the worker host or the UI, with an injected clock.
-- **The bench.** It is committed against the fixture plus a synthetic 800-cell grid in week 3, and re-run on Boston when the bake lands.
+- **Buses belong to a line.** They are bought for it, park at its depot (the nearest by driving time with room, V3's rule), and are counted per line.
+- **No office overhead or mechanics.** V1 charged $250 a day and $260 a mechanic; PLAN lists per-km, wage, upkeep and deadhead, and staff are out (PLAN §2).
+- **Wages are paid per bus in service**, as V1 did: a parked bus costs its depot's upkeep only.
+- **The founding headway buys its buses at Create**, so the first day runs as forecast; PLAN §3's "needs 1 Sparrow" text was illustrative and becomes 2.
