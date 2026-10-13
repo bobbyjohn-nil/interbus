@@ -10,7 +10,7 @@ const SPEED_LABELS: readonly [Speed, string][] = [
 ];
 
 /**
- * M1's debug panel (docs/specs/current.md): labelled chips for time, Cash and Riders/day (K20), the
+ * M1's debug panel (docs/specs/m1-first-dollar.md): labelled chips for time, Cash and Riders/day (K20), the
  * speed control and the debug line. The calm shell replaces it in week 4.
  */
 export function SimPanel({ sim }: { sim: Sim }) {

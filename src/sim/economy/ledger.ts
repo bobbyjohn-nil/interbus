@@ -14,7 +14,7 @@ export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund'] 
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
-  /** The game day the row belongs to; the day closes at 24:00 (docs/specs/current.md). */
+  /** The game day the row belongs to; the day closes at 24:00 (docs/specs/m1-first-dollar.md). */
   readonly day: number;
   readonly kind: RowKind;
   /** Positive for money in, negative for money out. */

@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` b175c05, with the Inner Boston bake in review.
+**Updated:** 2026-10-13, at `main` ee8d74f, with the M2 spec in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` aea4ff0. Deploy preview run 38349009192's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ee8d74f. Deploy preview run 38354291134's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -17,7 +17,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Data:**
   - release `city-boston-sim-mini-boston-20b38b02` holds mini-Boston's `sim.json` at `tripScale` 111‰ with bus access by OSM's hierarchy (134,361 B), published by **City sim file (manual)** run 38352676465, which matched the golden on GitHub's runner. The older `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden in `cities/boston/sim-inner-boston.lock.json` (**City sim file** run 38353671557 matched it on GitHub's runner), not yet published;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
@@ -58,28 +58,30 @@ The exit check: `T` tilts and returns; dots sit where Back Bay to Longwood lives
   - the smoke test runs axe-core.
 - **The fare-row signal** (due Oct 25) went green on Oct 13, in `src/sim/fare-row.test.ts`.
 - **Item 12:** raw tilt and the board mask.
-- **Item 13:** [`docs/specs/current.md`](specs/current.md), the M1 spec.
+- **Item 13:** the M1 spec, now archived in [`docs/specs/m1-first-dollar.md`](specs/m1-first-dollar.md).
 
-## Next: M1, the first dollar on the fixture, by Sun Nov 1 (week 3)
+## Done: M1, the first dollar on the fixture, finished 2026-10-13
 
-The spec is [`docs/specs/current.md`](specs/current.md). Much of its top half is in already:
-- demand;
-- income rows;
-- the daily close;
-- the debug line;
-- the layers.
-
-What is left, in order:
+The spec is archived in [`docs/specs/m1-first-dollar.md`](specs/m1-first-dollar.md). Demand, income rows, the daily close, the debug line and its layers landed in week 2's work; then, in order:
 1. [x] **`tripScale`** is 111‰ (2026-10-13), in `city.json` calib. The debug line carries 799.3 boardings a day and `calibration.test.ts` holds the 600–1,000 band. The fixture's `sim.json` was rebaked, re-locked and republished.
 2. [x] **I2** and **I3 per period** (2026-10-13, `src/sim/demand/invariants.test.ts`). The bus clause of I2 waits for week 4's buses.
 3. [x] **The recompute bench** (2026-10-13, `bench/`, `npm run bench`): 52 ms p50 and 65–78 ms p95 for three periods on a synthetic 812-cell grid with T03, under I14's 150 ms and R2's 100 ms. It was 13 s before trips were timed per group of sub-points reaching the same stops. `npm run bench compare` holds the result within 1.5% of the old loop per line and period, except where lines overlap (DECISIONS, Measured). Boston's own number comes from the Inner Boston bake, on Nov 1.
 4. [x] **Bus access** (2026-10-13): `hgv=no` restricts trucks, not buses, and no longer closes a street; DCR's River Roads close by name in `adjust.json`; G2 measures connectivity off motorways. A trial bake of Inner Boston found the old rule closed 353 ways, Summer Street and Columbia Road among them (DECISIONS, Measured).
 5. [x] **The Inner Boston bake** (2026-10-13; `node tools/bake/sim.mjs boston inner-boston`, the **City sim file** workflow with extent `inner-boston`): 735 cells, 11,687 nodes, G1–G4 pass, golden `8b87dfc2`. Its recompute is **44.6 ms p95** with ten lines along real corridors, under R2's 100 ms (D11) for the Nov 1 check. The game still plays on the fixture; gateways and Inner Boston's `calib` come later (DECISIONS, Measured).
-6. **Next, below the cut line:** per-period crowding (K27), then visitors. Then week 4 (M2): buses, costs, purchases and the line tool.
 
-Open from the research critique, for week 4:
-- **The starter recipe's bus count.** V1's cycle formula says a 3–4 km line every 20 min needs 2 Sparrows, not the 1 in D7's $261k starter. Make the recipe count its buses with the one cycle function (K07).
-- **The debug line runs with no bus or cost (K42)** until week 4's buses.
+Per-period crowding (K27) and visitors, the last two items below M1's cut line, move to week 5: crowding with the Metro 40 and Goliath rows, visitors with M2's gateways. M1's dated checks (capacity, R2, velocity) still fall on Sun Nov 1.
+
+## Next: M2, the first line, by Sun Nov 8 (week 4)
+
+The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a small pull request:
+1. [ ] **The cycle function** in `sim/rules`, the bus count per period, and the founding recipe counted with it ($427,200 at k = 1.2; D7's clarification).
+2. [ ] **Depots in the sim:** the placement predicate, the place command, the price ladder, upkeep, and save format 3.
+3. [ ] **Costs as ledger rows** (running, wages, depot upkeep, deadhead) and the line inspector's forecast, equal to the cent (I1, I6).
+4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze.
+5. [ ] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.
+6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
+7. [ ] **The calm shell** replacing the debug panel, and I13.
+8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 

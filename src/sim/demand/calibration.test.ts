@@ -1,4 +1,4 @@
-// calib.tripScale on the fixture (PLAN §3; docs/specs/current.md): prices stay V1's and demand
+// calib.tripScale on the fixture (PLAN §3; docs/specs/m1-first-dollar.md): prices stay V1's and demand
 // scales, so the debug line carries 600–1,000 boardings a day, beside V1's starter line at 1,058
 // (EC-11). The value lives in cities/boston/city.json; this test measures the line and holds it to
 // the band, so a demand change that moves it fails here first.
