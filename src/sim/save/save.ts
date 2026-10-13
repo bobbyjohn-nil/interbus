@@ -9,9 +9,11 @@
 // - the envelope names the build (SHA and version) instead of a typed version string (PR-15).
 import { STOP_TIER_IDS, type StopTier } from '../config/stops';
 import { ID_KINDS, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
+import { toCalendarTime } from '../core/calendar';
 import { createRng } from '../core/rng';
 import type { LedgerRow } from '../economy/ledger';
 import { checkHeadways } from '../rules/periods';
+import type { SaveAbout } from '../types';
 import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
@@ -32,6 +34,22 @@ export interface SaveEnvelope {
 /** Keys carry no format number, so an old tab still finds a newer save and refuses it. */
 export const saveKey = (cityId: string) => `interbus.save.${cityId}`;
 export const backupKey = (cityId: string, why: 'unreadable' | 'newer' | 'older' | 'other-city') => `interbus.backup.${cityId}.${why}`;
+/** Three slots beside the autosave, which is the live key (the M3 spec, item 8). */
+export const SAVE_SLOTS = [1, 2, 3] as const;
+export const slotKey = (cityId: string, slot: number) => `interbus.slot.${cityId}.${slot}`;
+
+/** A save in a line, for the Saves panel: when it is, the company, its cash and its lines. */
+export function aboutSave(data: SaveData): SaveAbout {
+  const t = toCalendarTime(data.clock.elapsed);
+  return {
+    day: t.day,
+    hour: t.hour,
+    minute: t.minute,
+    company: data.company.name,
+    cashCents: data.ledger.reduce((sum, r) => sum + r.amountCents, 0),
+    lines: data.lines.length,
+  };
+}
 
 /** What the platform's store must do after a load: the live key is never overwritten by a refusal. */
 export type StoreEffect = { readonly op: 'write'; readonly key: string; readonly value: string } | { readonly op: 'remove'; readonly key: string };

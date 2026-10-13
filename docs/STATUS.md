@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 312554f (undo while paused), with M3 step 6a, saves from another bake, in review.
+**Updated:** 2026-10-13, at `main` 178ed50 (saves from another bake), with M3 step 6b, slots, export and import, in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a9eb451. Deploy preview run 38386390074's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 312554f. Deploy preview run 38387072159's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -19,6 +19,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - each stop's day on a click (boardings, alightings, net), and QUIET or LOSS stops ringed on the map;
   - stop tiers from a Sign to a Transfer Hub on the stop card;
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
+  - undo while paused, on a chip and Ctrl+Z;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
@@ -175,9 +176,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
    - [x] **Stop tiers** (2026-10-13): Sign to Transfer Hub on the stop card, V1's prices and walk bonus, Interchange and Hub only where 3 or 5 lines call, half back as a Sales row on the way down; saves are format 6. A Shelter at Symphony adds 32.4 riders a day on the debug line (DECISIONS, Measured).
    - [x] **Finance** (2026-10-13): a dock button opens every ledger row by kind for today, yesterday and this quarter, beside a day's forecast, capital included, so each column adds up to the change in cash (DECISIONS, Measured).
 5. [x] **Undo while paused** (item 7, I9; 2026-10-13): every command since the last unpause, newest first and named on a chip and Ctrl+Z, back to the cent; refused with a reason once time has run (DECISIONS, Measured).
-6. [ ] **Saves for r1** (item 8): stops by place and the r1→r2 save test, the missing-pack refusal, slots, export and import.
+6. [x] **Saves for r1** (item 8): stops by place and the r1→r2 save test, the missing-pack refusal, slots, export and import.
    - [x] **Another bake of the map** (2026-10-13): a save from another bake carries on with its stops on the new streets, or is set aside in words when a stop finds none; a missing city file is already the replaced-build card (DECISIONS, Measured).
-   - [ ] **Slots, export and import**: three slots and the autosave; export and import of a save file through `src/platform`, an import that does not decode refused and the live save kept.
+   - [x] **Slots, export and import** (2026-10-13): a Saves panel in the dock with the autosave and three slots, export and import of a save file through `src/platform`; a file the game cannot read is refused and the game and its autosave kept. The shell at rest is now up to 5.5% of I13's 6%, so no sixth dock button (DECISIONS, Measured).
 7. [ ] **`city-boston-r1`** by Sun Nov 15: β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.
 8. [ ] **The report card** (item 9), its bands from a measured spread over 10 seeds.
 9. [ ] **The failure floor** (item 10): the credit line, the countdown, Restart this quarter.

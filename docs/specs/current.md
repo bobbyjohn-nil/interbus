@@ -41,7 +41,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 8. **Saves for r1 (D12, WD-10):**
    - (done 2026-10-13) stops anchored by place, so a save from r1 loads on r2 with its stops re-snapped by the stop rule, and a stop that no longer snaps is refused in words (the r1→r2 save test; M2 sets another revision's save aside, and this replaces it);
    - a missing city file is a readable refusal, never a substitute city;
-   - three slots and the autosave, and export and import of a save file through `src/platform`; an import that does not decode is refused and the live save kept (V1 overwrote it, `Intralines@7af45b1:src/game/store.ts:1883-1901`).
+   - (done 2026-10-13) three slots and the autosave, and export and import of a save file through `src/platform`; an import that does not decode is refused and the live save kept (V1 overwrote it, `Intralines@7af45b1:src/game/store.ts:1883-1901`).
 9. **The report card (EC-14, EC-07, K03)**, every quarter (10 days):
    - Coverage: residents within a walk of a stop, weighted by its service, (calls a day ÷ 64)^0.75 (V2's fix, `…:Gaming/src/30-sim.js:3884-3918`);
    - Reliability: each line's running headway against its own timetable, so a line short of buses scores below 100 and one that runs nothing scores nothing (V1 read a stale 15 minutes; V2 scored 100 when nothing ran);

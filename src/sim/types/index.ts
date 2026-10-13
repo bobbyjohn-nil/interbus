@@ -193,6 +193,23 @@ export interface DayCard {
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */
 export type StoreEffect = { readonly op: 'write'; readonly key: string; readonly value: string } | { readonly op: 'remove'; readonly key: string };
 
+/** A save in a line (sim/save/save.ts aboutSave). */
+export interface SaveAbout {
+  readonly day: number;
+  readonly hour: number;
+  readonly minute: number;
+  readonly company: string;
+  readonly cashCents: number;
+  readonly lines: number;
+}
+
+/** A save slot: empty, a save the game can read, or one it cannot. */
+export interface SlotView {
+  readonly slot: number;
+  readonly about: SaveAbout | null;
+  readonly readable: boolean;
+}
+
 /**
  * What became of the save a game started from: none, read, read onto another bake of the map with
  * its stops on the new streets, or set aside for a fresh start (D12), including one whose stops
@@ -217,6 +234,14 @@ export type ToWorker =
   | { readonly type: 'set-stop-tier'; readonly stopId: number; readonly tier: number }
   /** Takes back the newest command taken while paused (I9). */
   | { readonly type: 'undo' }
+  /** The page's answer to read-keys: each key's text, in order, or null. */
+  | { readonly type: 'key-texts'; readonly id: number; readonly texts: readonly (string | null)[] }
+  /** Saves (the M3 spec, item 8): list the slots, save into one, load one, load a file's text, or hand over this game as a file. */
+  | { readonly type: 'slots' }
+  | { readonly type: 'save-slot'; readonly slot: number }
+  | { readonly type: 'load-slot'; readonly slot: number }
+  | { readonly type: 'import'; readonly text: string }
+  | { readonly type: 'export' }
   /** Asks for a line's fare band, for its open card. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 
@@ -233,6 +258,13 @@ export type FromWorker =
   | { readonly type: 'read-save'; readonly key: string }
   /** Saves and set-asides for the page to carry out, in order. */
   | { readonly type: 'store'; readonly effects: readonly StoreEffect[] }
+  /** The sim asks for these keys' texts, after every store effect posted before it. */
+  | { readonly type: 'read-keys'; readonly id: number; readonly keys: readonly string[] }
+  | { readonly type: 'slots'; readonly slots: readonly SlotView[] }
+  /** This game as a save file, for the page to hand to the player. */
+  | { readonly type: 'export'; readonly name: string; readonly text: string }
+  /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */
+  | { readonly type: 'loaded'; readonly from: 'slot' | 'file'; readonly load: LoadView }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }
   | { readonly type: 'day-card'; readonly card: DayCard }
   | { readonly type: 'probe'; readonly id: number; readonly people: number }

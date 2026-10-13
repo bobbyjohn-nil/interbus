@@ -32,11 +32,11 @@ import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
-import { backupKey, decode, encode, fromSaveData, saveKey } from '../sim/save/save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, SAVE_SLOTS, saveKey, slotKey, type LoadOutcome } from '../sim/save/save';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -184,6 +184,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
   let world: World | null = null;
   // The city loaded, waiting for the page's save.
   let pending: { city: City; ref: CityRef; seed: number } | null = null;
+  // The city and bake the running game plays on, for saves loaded from a slot or a file.
+  let playing: { city: City; ref: CityRef } | null = null;
+  // Keys the sim asked the page to read, by request id.
+  const reads = new Map<number, (texts: readonly (string | null)[]) => void>();
+  let nextRead = 1;
+  const readKeys = (keys: readonly string[], then: (texts: readonly (string | null)[]) => void) => {
+    const id = nextRead++;
+    reads.set(id, then);
+    post({ type: 'read-keys', id, keys });
+  };
   let build = { sha: '', version: '' };
   let key = '';
   let savedHour = 0;
@@ -203,6 +213,53 @@ export function createHost(post: (message: FromWorker) => void): Host {
     lines = lineViews(world!);
     stops = stopViews(world!);
     linesVersion++;
+  };
+
+  /** A world from a decoded save: as it was, or with its stops on this bake's streets; or why it cannot be played here. */
+  const worldFrom = (city: City, ref: CityRef, result: LoadOutcome): { ok: true; world: World } | { ok: false; reason: LoadView } => {
+    if (result.outcome !== 'ok' && result.outcome !== 'rebaked') return { ok: false, reason: result.outcome };
+    const read = createWorld(city, fromSaveData(result.envelope.data));
+    if (result.outcome === 'rebaked' && !rebase(read, ref).ok) return { ok: false, reason: 'off-street' };
+    return { ok: true, world: read };
+  };
+  /** Makes `next` the game: paused, nothing to undo, its lines drawn afresh. */
+  const play = (next: World, city: City, ref: CityRef) => {
+    world = next;
+    playing = { city, ref };
+    speed = 0;
+    lastMs = null;
+    carrySeconds = 0;
+    undoStack = newUndo();
+    savedHour = Math.floor(next.state.elapsed / 3_600);
+    refreshLines();
+  };
+  /** Reads the slots and posts what each holds. */
+  const listSlots = () =>
+    readKeys(
+      SAVE_SLOTS.map((n) => slotKey(playing!.ref.id, n)),
+      (texts) => {
+        const slots: SlotView[] = texts.map((text, k) => {
+          if (text === null) return { slot: SAVE_SLOTS[k]!, about: null, readable: true };
+          const { result } = decode(text, playing!.ref);
+          return result.outcome === 'ok' || result.outcome === 'rebaked' ? { slot: SAVE_SLOTS[k]!, about: aboutSave(result.envelope.data), readable: true } : { slot: SAVE_SLOTS[k]!, about: null, readable: false };
+        });
+        post({ type: 'slots', slots });
+      },
+    );
+  /**
+   * A slot's or a file's save becomes the game only if it can be played here; anything else is
+   * refused in words and the game, and the save under the live key, stay as they were (V1 wrote over
+   * the live save first, `Intralines@7af45b1:src/game/store.ts:1883-1901`).
+   */
+  const loadText = (text: string | null, from: 'slot' | 'file') => {
+    if (!playing || text === null) return post({ type: 'refused', command: from === 'slot' ? 'load-slot' : 'import', reason: 'empty_slot' });
+    const { result } = decode(text, playing.ref);
+    const read = worldFrom(playing.city, playing.ref, result);
+    if (!read.ok) return post({ type: 'refused', command: from === 'slot' ? 'load-slot' : 'import', reason: `save_${read.reason.replace('-', '_')}` });
+    play(read.world, playing.city, playing.ref);
+    save();
+    post({ type: 'loaded', from, load: result.outcome === 'rebaked' ? 'rebaked' : 'ok' });
+    post({ type: 'snapshot', snapshot: snapshot() });
   };
 
   // Every command taken since the last unpause, newest last (sim/undo.ts, I9).
@@ -272,25 +329,26 @@ export function createHost(post: (message: FromWorker) => void): Host {
         // this bake's streets; anything else is set aside first and a new game starts, unnamed until
         // the founding card names it (D12).
         const { result, effects } = decode(message.text, ref);
-        const fresh = () => createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed));
+        const read = worldFrom(city, ref, result);
         let load: LoadView = result.outcome;
-        if (result.outcome === 'ok') world = createWorld(city, fromSaveData(result.envelope.data));
-        else if (result.outcome === 'rebaked') {
-          world = createWorld(city, fromSaveData(result.envelope.data));
-          if (!rebase(world, ref).ok) {
+        if (read.ok) play(read.world, city, ref);
+        else {
+          if (read.reason === 'off-street') {
             effects.push({ op: 'write', key: backupKey(ref.id, 'other-city'), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
-            world = fresh();
             load = 'off-street';
           }
-        } else world = fresh();
-        speed = 0;
-        undoStack = newUndo();
-        savedHour = Math.floor(world.state.elapsed / 3_600);
-        refreshLines();
+          play(createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed)), city, ref);
+        }
         if (effects.length) post({ type: 'store', effects });
         // The rebased game is saved at once, under this bake's name.
         if (load === 'rebaked') save();
         post({ type: 'ready', dots: dotsOf(city), depotLand: depotLandOf(city), snapshot: snapshot(), load });
+        return;
+      }
+      if (message.type === 'key-texts') {
+        const then = reads.get(message.id);
+        reads.delete(message.id);
+        then?.(message.texts);
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
@@ -367,6 +425,20 @@ export function createHost(post: (message: FromWorker) => void): Host {
           save();
         }
         post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'slots') {
+        listSlots();
+      } else if (message.type === 'save-slot') {
+        if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
+        post({ type: 'store', effects: [{ op: 'write', key: slotKey(playing!.ref.id, message.slot), value: encode(world.state, build) }] });
+        listSlots();
+      } else if (message.type === 'load-slot') {
+        if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
+        readKeys([slotKey(playing!.ref.id, message.slot)], ([text]) => loadText(text ?? null, 'slot'));
+      } else if (message.type === 'import') {
+        loadText(message.text, 'file');
+      } else if (message.type === 'export') {
+        const t = toCalendarTime(world.state.elapsed);
+        post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build) });
       } else if (message.type === 'fare-band') {
         post({ type: 'fare-band', id: message.id, lineId: message.lineId, band: fareBand(world, message.lineId as LineId) });
       } else if (message.type === 'set-headways') {

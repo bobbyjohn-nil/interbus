@@ -341,6 +341,26 @@ body,
   border-top: 1px solid var(--ui-line);
 }
 
+/* Saves: one row a slot, its line above its buttons. */
+.panel.saves {
+  width: 320px;
+}
+
+.saves .slots {
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saves .slots li {
+  padding: 6px 0;
+  border-top: 1px solid var(--ui-line);
+}
+
+.saves .slots .controls {
+  margin-top: 4px;
+}
+
 /* Finance: five columns, so the panel is wider than the others. */
 .panel.finance {
   width: 440px;
