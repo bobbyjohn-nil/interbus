@@ -3,7 +3,7 @@
 // again. Reload and compare, the exit check's last step, is in line.spec.ts.
 import { expect, test } from '@playwright/test';
 import { backupKey, saveKey } from '../src/sim/save/save';
-import { foundCompany } from './found';
+import { foundCompany, leaveHome } from './found';
 import { city } from './shell';
 
 const OLD = JSON.stringify({ format: 1, build: { sha: '0'.repeat(40), version: '0.0.0' }, data: { company: { name: 'Old Line Co' } } });
@@ -17,6 +17,8 @@ test.describe('saves', () => {
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(page.getByTestId('notice')).toHaveText('Save from an older build set aside', { timeout: 30_000 });
+    await expect(page.getByTestId('home-continue')).toHaveCount(0); // nothing to continue
+    await leaveHome(page);
     await expect(page.getByTestId('founding-card')).toBeVisible();
     const stored = () => page.evaluate(([a, b]) => [localStorage.getItem(a!), localStorage.getItem(b!)], [live, backup]);
     expect(await stored()).toEqual([null, OLD]);

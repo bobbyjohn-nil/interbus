@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Home: the game opens on a home screen over the paused map. Continue goes on with the game you were playing, named by its company, day and cash; New game starts a new company, asking first when it would replace that game (your slots stay); Saves opens your slots. Back to Home, in Saves, pauses and returns there.
 - The save list: each slot in Saves names its buses beside its day, company, cash and lines, and when you saved it by your own clock. A slot can be deleted (Saves asks first), and a save set aside by a new build is listed there until you export it as a file or delete it.
 - Express lines: a line of 5 km or more whose stops stand at least 1.2 km apart on average runs express. Riders feel its ride a little quicker and mind its fare half as much, so it draws more of them over the long trips it serves, though a line with more stops on the same street can still carry more. The line card says Express beside its name, and the new-line card says so as you draw one.
 - Snow: now and then it snows for a day or two, named on the midnight card the evening before ("Snow tomorrow, for 1 day"). Every bus drives slower in the snow, so a round trip takes about a quarter longer (the line card says how much) and a line without a spare bus runs a little less often until it stops. Riders' own rides are no slower.

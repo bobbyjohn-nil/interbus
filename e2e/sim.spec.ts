@@ -18,9 +18,10 @@ test.describe('the city on the fixture', () => {
     await page.goto('./');
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-    await expect(page.getByTestId('sim-panel')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
     await expect.poll(async () => Number(await map.getAttribute('data-dots')), { timeout: 30_000 }).toBeGreaterThan(100);
     await foundCompany(page);
+    await expect(page.getByTestId('sim-panel')).toBeVisible();
 
     const box = (await map.boundingBox())!;
     await page.mouse.move(box.width / 2, box.height / 2);

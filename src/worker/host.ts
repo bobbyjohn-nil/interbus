@@ -303,6 +303,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   let pending: { city: City; ref: CityRef; seed: number } | null = null;
   // The city and bake the running game plays on, for saves loaded from a slot or a file.
   let playing: { city: City; ref: CityRef } | null = null;
+  // The seed a new game in this city starts from: the page's, at init.
+  let gameSeed = 1;
   // Keys the sim asked the page to read, by request id.
   const reads = new Map<number, (texts: readonly (string | null)[]) => void>();
   let nextRead = 1;
@@ -546,6 +548,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         if (!pending) return;
         const { city, ref, seed } = pending;
         pending = null;
+        gameSeed = seed;
         // A readable save carries on; one from another bake of this city carries on with its stops on
         // this bake's streets; anything else is set aside first and a new game starts, unnamed until
         // the founding card names it (D12).
@@ -714,6 +717,15 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       } else if (message.type === 'load-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
         readKeys([slotKey(playing!.ref.id, message.slot)], ([text]) => loadText(text ?? null, 'slot'));
+      } else if (message.type === 'new-game') {
+        // Home's New game, asked first on the page: an unnamed company in place of this one, saved at
+        // once so the autosave is the new game; the slots and set-aside saves stay.
+        const { city, ref } = playing!;
+        play(createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, gameSeed)), city, ref);
+        save();
+        beginSession(encode(world!.state, build));
+        post({ type: 'loaded', from: 'new', load: 'none' });
+        post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'restart-quarter') {
         readKeys([quarterKey(playing!.ref.id)], ([text]) => loadText(text ?? null, 'quarter'));
       } else if (message.type === 'import') {

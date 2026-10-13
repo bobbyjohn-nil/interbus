@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
-import { foundCompany } from './found';
+import { foundCompany, leaveHome } from './found';
 import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 // The M2 spec's exit check as one game (I15): found, a depot on the green tint, four stops from
@@ -17,10 +17,11 @@ test.describe('the line tool on the fixture', () => {
     const map = page.getByTestId('map');
     const panel = page.getByTestId('sim-panel');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-    await expect(panel).toBeVisible({ timeout: 30_000 });
-    // Step 1: name and colour the company; cash reads the founding capital.
-    await expect(panel).toHaveAttribute('data-cash', '42720000');
+    // Home first (the M5 spec, item 3), then step 1: name and colour the company; cash reads the founding capital.
+    await leaveHome(page);
+    await expect(page.getByTestId('founding-card')).toContainText('Founding capital $427,200');
     await foundCompany(page);
+    await expect(panel).toHaveAttribute('data-cash', '42720000');
     await expect(page.getByTestId('checklist')).toHaveText('1/5 Place a depot');
     // One step out from the opening view, so the depot land and Longwood both fit on screen.
     await zoomOutOnce(page);
@@ -107,6 +108,9 @@ test.describe('the line tool on the fixture', () => {
     expect(Number(kept.elapsed)).toBeGreaterThan(19 * 3_600);
     await page.reload();
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    // Home names the game and Continue goes on with it (the M5 spec, item 3).
+    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Day 2');
+    await leaveHome(page, 'continue');
     await expect(panel).toHaveAttribute('data-elapsed', kept.elapsed!, { timeout: 30_000 });
     await expect(panel).toHaveAttribute('data-cash', kept.cash!);
     await expect(page.getByTestId('founding-card')).toHaveCount(0);

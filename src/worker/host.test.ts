@@ -463,6 +463,21 @@ describe('save slots, export and import', () => {
     expect(last('slots')!.setAside).toEqual([]);
   });
 
+  // Home's New game (the M5 spec, item 3). Shown failing (TS-04) with the new game left unsaved: a
+  // reload then brought the old company back.
+  it('starts an unnamed company in place of this one, saved at once, its slots kept', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'save-slot', slot: 1 });
+    send({ type: 'new-game' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ company: { name: '' }, lines: [], depots: [], day: 1 });
+    expect(JSON.parse(store.get(KEY)!).data.company.name).toBe('');
+    expect(store.has('interbus.slot.boston.1')).toBe(true);
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'new', load: 'none' });
+    send({ type: 'found', name: 'Kenmore Lines', colour: '#2471a3' });
+    expect(last('snapshot')!.snapshot.company.name).toBe('Kenmore Lines');
+  });
+
   it('exports this game as a file that imports back to the same game', () => {
     const { send, last, store } = withStore();
     send({ type: 'export' });
