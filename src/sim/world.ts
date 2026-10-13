@@ -130,6 +130,12 @@ function pathBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, 
   return a === null || b === null ? null : world.router.route(a, b);
 }
 
+/** The street nodes a bus passes from one point to another, in order, as points: for laying stops along a street (src/sim/sweep.ts). */
+export function nodesBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): XY[] | null {
+  const path = pathBetween(world, from, to);
+  return path ? path.nodes.map((n): XY => [world.city.graph.x[n]!, world.city.graph.y[n]!]) : null;
+}
+
 /** The street edges a line drives from its first stop to its last, in order. */
 export function lineEdges(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>, line: Line): number[] {
   const xy = line.stopIds.map((id) => world.state.stops.find((s) => s.id === id)).map((s) => (s ? toXY(world.city.frame, [s.lon, s.lat]) : null));
