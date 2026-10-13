@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { addDebugLine } from './commands/debugLine';
+import { setFare } from './commands/setFare';
 import { loadCity } from './city/simfile';
 import { SECONDS_PER_DAY } from './config/time';
 import { decode, encode, fromSaveData } from './save/save';
@@ -33,6 +34,17 @@ describe('the first-dollar signal', () => {
     expect(fares.every((r) => r.lineId === world.state.lines[0]!.id && r.amountCents > 0 && r.amountCents % 225 === 0)).toBe(true);
     const subsidy = world.state.ledger.rows.filter((r) => r.kind === 'subsidy' && r.day === 1);
     expect(subsidy.reduce((s, r) => s + r.amountCents, 0) / 160).toBe(fares.reduce((s, r) => s + r.amountCents, 0) / 225);
+  });
+
+  it('banks a dearer fare at that fare and its tapered subsidy, $3.00 and $1.48 a boarding (the M3 spec, item 4)', () => {
+    const world = game();
+    const result = setFare(world, world.state.lines[0]!.id, 300);
+    expect(result.ok).toBe(true);
+    advance(world, SECONDS_PER_DAY);
+    const sum = (kind: string) => world.state.ledger.rows.filter((r) => r.kind === kind && r.day === 1).reduce((s, r) => s + r.amountCents, 0);
+    expect(sum('fares')).toBeGreaterThan(0);
+    expect(sum('fares') % 300).toBe(0);
+    expect(sum('subsidy') / 148).toBe(sum('fares') / 300);
   });
 
   it('closes the day at 24:00 with a card whose rows add up to the change in cash (I1)', () => {

@@ -28,6 +28,10 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   depot_full: (r) => (r.room ? `Depots have room for ${r.room} more` : 'Your depots are full'),
   insufficient_funds: (r) => `${usd(r.shortCents ?? 0)} short`,
   no_such_line: () => 'That line is gone',
+  // Fares (sim/rules/fare.ts)
+  fare_out_of_range: () => 'Fares run from $1.00 to $5.00',
+  fare_not_a_step: () => 'Fares go up in 25¢ steps',
+  same_fare: () => 'The line already charges that',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',

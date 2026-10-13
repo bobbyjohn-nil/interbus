@@ -46,6 +46,17 @@ export const WAIT_PAIN_EXPONENT = 1.5;
 /** The reference fare and the minutes a dollar is worth (constants.ts:418-420): each boarding's fare beyond $2.25 feels like extra ride time (K05). */
 export const REFERENCE_FARE_CENTS = 225;
 export const CENTS_PER_MINUTE = 18;
+/**
+ * One fare buys one ride, so a rider weighs it against the ride's length along the line: those
+ * minutes × (3 km ÷ ride)^1.5, kept within 0.15–1.6, so a short hop feels a dear fare most and a
+ * long ride least (V2, EC-09: `Intralines_City_dep@archive/intralines-city-v1:Gaming/src/
+ * 30-sim.js:94-100, 2636-2652`). The 0.4 km floor only guards a zero-length ride.
+ */
+export const FARE_SENS_RIDE_REF_KM = 3;
+export const FARE_SENS_RIDE_EXPONENT = 1.5;
+export const FARE_SENS_MIN = 0.15;
+export const FARE_SENS_MAX = 1.6;
+export const FARE_SENS_RIDE_FLOOR_KM = 0.4;
 
 /**
  * Commute trips by clock hour, 00–23 (constants.ts:155-159). V1's sums to 1.001, so it is

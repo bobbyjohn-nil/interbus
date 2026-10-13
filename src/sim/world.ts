@@ -159,11 +159,14 @@ function runningHeadways(t: Timing): Line['headways'] | null {
   return { peak, offpeak, overnight: runningHeadwayIn(t, 'overnight') };
 }
 
+/** The plans of the lines that run: a line with no buses runs at no time, so nobody can ride it. */
+export function runningPlans(world: Pick<World, 'services'>): LinePlan[] {
+  return [...world.services.values()].filter((s) => s.timing.buses > 0).map((s) => s.plan);
+}
+
 export function recompute(world: World): void {
   world.services = lineServices(world);
-  // A line with no buses runs at no time, so nobody can ride it.
-  const plans = [...world.services.values()].filter((s) => s.timing.buses > 0).map((s) => s.plan);
-  world.assignment = assign(world.city, world.commuters, plans);
+  world.assignment = assign(world.city, world.commuters, runningPlans(world));
 }
 
 export function createWorld(city: City, state: SimState): World {

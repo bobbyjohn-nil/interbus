@@ -6,7 +6,7 @@ import { distXY, SpatialGrid } from '../../core/geo';
 import type { City, SubPoint } from '../../city/simfile';
 import { PERIODS, runsIn, type Period } from '../../rules/periods';
 import type { Commuters } from '../commuters';
-import { busShare, perceivedWaitMin, waitMin, type LinePlan } from '../assign';
+import { busShare, fareSensitivity, perceivedWaitMin, waitMin, type LinePlan } from '../assign';
 
 interface Reach {
   readonly line: number;
@@ -67,7 +67,8 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
             for (const b of d.reach) {
               if (a.line !== b.line || a.pos === b.pos) continue;
               // A bargain fare makes the ride feel shorter, never free (V1 demand.worker.ts:342-344).
-              const base = a.walkMin + Math.max(0.5, rideMin(a.line, a.pos, b.pos) + fareMin[a.line]!) + b.walkMin;
+              const rideKm = Math.abs(plans[a.line]!.stopDistM[b.pos]! - plans[a.line]!.stopDistM[a.pos]!) / 1000;
+              const base = a.walkMin + Math.max(0.5, rideMin(a.line, a.pos, b.pos) + fareMin[a.line]! * fareSensitivity(rideKm)) + b.walkMin;
               for (const period of PERIODS) {
                 const t = base + wait[a.line]![period];
                 if (t < best[period].min) best[period] = { min: t, line: a.line, from: a.pos, to: b.pos };

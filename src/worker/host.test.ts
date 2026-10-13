@@ -170,6 +170,23 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
   });
 
+  it('sets a line’s fare on the card’s rule and answers its fare band (the M3 spec, item 4)', () => {
+    const { host, last } = started();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    expect(line.fareCents).toBe(225);
+    host.handle({ type: 'fare-band', id: 7, lineId: line.id });
+    expect(last('fare-band')).toMatchObject({ id: 7, lineId: line.id, band: { bestCents: 175, fromCents: 175, toCents: 200 } });
+    host.handle({ type: 'set-fare', lineId: line.id, fareCents: 230 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-fare', reason: 'fare_not_a_step', limit: 25 });
+    host.handle({ type: 'set-fare', lineId: line.id, fareCents: 175 });
+    const cheaper = last('snapshot')!.snapshot;
+    expect(cheaper.lines[0]).toMatchObject({ fareCents: 175 });
+    expect(cheaper.lines[0]!.ridersPerDay).toBeGreaterThan(line.ridersPerDay);
+    expect(cheaper.linesVersion).toBeGreaterThan(last('ready')!.snapshot.linesVersion);
+  });
+
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
     createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1, build: BUILD });

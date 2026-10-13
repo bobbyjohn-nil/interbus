@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import type { City } from '../../cities';
-import type { BusModelId, DayCard, DepotSiteView, Dots, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, Snapshot, ToWorker } from '../../sim/types';
+import type { BusModelId, DayCard, DepotSiteView, Dots, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 
 export type SimStatus = 'none' | 'loading' | 'ready' | 'failed';
@@ -22,6 +22,8 @@ export interface Sim {
   readonly probe: { readonly at: LngLatPair; readonly people: number } | null;
   /** The depot rule's verdict where the pointer last was, while placing a depot. */
   readonly depotSite: { readonly at: LngLatPair; readonly site: DepotSiteView } | null;
+  /** The fare band of the line last asked about. */
+  readonly fareBand: { readonly lineId: number; readonly band: FareBandView | null } | null;
   /** The line rule's draft for the clicks last sent. */
   readonly draft: LineDraftView | null;
   /** The last command the sim refused, until the next command. */
@@ -33,6 +35,8 @@ export interface Sim {
   depotSiteAt(at: LngLatPair | null): void;
   /** Asks for the draft card of these clicks; an empty list clears it. */
   draftFor(clicks: readonly LngLatPair[], model?: BusModelId): void;
+  /** Asks for a line's fare band; null forgets it. */
+  fareBandFor(lineId: number | null): void;
   closeDayCard(): void;
 }
 
@@ -46,12 +50,13 @@ export function useSim(city: City | undefined): Sim {
   const [depotLand, setDepotLand] = useState<Sim['depotLand']>(null);
   const [depotSite, setDepotSite] = useState<Sim['depotSite']>(null);
   const [draft, setDraft] = useState<LineDraftView | null>(null);
+  const [fareBand, setFareBand] = useState<Sim['fareBand']>(null);
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
   const [load, setLoad] = useState<LoadView | null>(null);
   const probes = useRef(new Map<number, LngLatPair>());
   const nextProbe = useRef(1);
   // Only the newest answer counts: an older one arriving late is dropped.
-  const asked = useRef({ site: 0, draft: 0, next: 1 });
+  const asked = useRef({ site: 0, draft: 0, band: 0, next: 1 });
   const sites = useRef(new Map<number, LngLatPair>());
 
   useEffect(() => {
@@ -91,6 +96,8 @@ export function useSim(city: City | undefined): Sim {
             if (at && m.id === asked.current.site) setDepotSite({ at, site: m.site });
           } else if (m.type === 'line-draft') {
             if (m.id === asked.current.draft) setDraft(m.draft);
+          } else if (m.type === 'fare-band') {
+            if (m.id === asked.current.band) setFareBand({ lineId: m.lineId, band: m.band });
           }
           else if (m.type === 'day-card') setDayCard(m.card);
           else if (m.type === 'probe') {
@@ -152,7 +159,16 @@ export function useSim(city: City | undefined): Sim {
     asked.current.draft = id;
     worker.current?.postMessage({ type: 'line-draft', id, clicks, model } satisfies ToWorker);
   }, []);
+  const fareBandFor = useCallback((lineId: number | null) => {
+    if (lineId === null) {
+      asked.current.band = 0;
+      return setFareBand(null);
+    }
+    const id = asked.current.next++;
+    asked.current.band = id;
+    worker.current?.postMessage({ type: 'fare-band', id, lineId } satisfies ToWorker);
+  }, []);
   const closeDayCard = useCallback(() => setDayCard(null), []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, refusal, load, send, probeAt, depotSiteAt, draftFor, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, fareBand, refusal, load, send, probeAt, depotSiteAt, draftFor, fareBandFor, closeDayCard };
 }

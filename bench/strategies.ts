@@ -1,13 +1,14 @@
 // I3's strategy sweep on the fixture (`src/sim/economy/strategies.test.ts` holds the verdicts): the
 // debug line's day at every setting of peak, off-peak and overnight headway the rules allow, each with
 // the buses it needs and no depot, so no deadhead. Prints the best settings, the night-heavy one the
-// test compares and a few references. `npm run bench strategies`.
+// test compares and a few references, then the day's net at every fare on the starter's and the
+// best headways. `npm run bench strategies`.
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { loadCity } from '../src/sim/city/simfile';
 import { addDebugLine } from '../src/sim/commands/debugLine';
-import { SUBSIDY_PER_BOARDING_CENTS } from '../src/sim/config/economy';
 import { forecastDay } from '../src/sim/economy/costs';
 import { busesNeeded } from '../src/sim/rules/cycle';
+import { FARES_CENTS, subsidyCents } from '../src/sim/rules/fare';
 import { checkHeadways, type Headways } from '../src/sim/rules/periods';
 import { newGame } from '../src/sim/state';
 import { createWorld, recompute } from '../src/sim/world';
@@ -26,7 +27,7 @@ const rows = settings.map((h) => {
   recompute(world);
   const { perDay: riders, shedPerDay: shed } = world.assignment.lines.get(line.id)!;
   const c = forecastDay(world.services.get(line.id)!.costs);
-  const net = Math.floor(riders) * (line.fareCents + SUBSIDY_PER_BOARDING_CENTS) - c.running - c.wages - c.deadhead;
+  const net = Math.floor(riders) * (line.fareCents + subsidyCents(line.fareCents)) - c.running - c.wages - c.deadhead;
   return { h, buses: line.buses, riders, shed, net };
 });
 const best = [...rows].sort((a, b) => b.net - a.net);
@@ -42,3 +43,19 @@ show('the starter (every 20 min by day)', at(1_200, 1_200, null));
 show('every 5 min by day', at(300, 300, null));
 const bestOvernight = best.find((r) => r.h.overnight !== null)!;
 show('best with overnight service', bestOvernight);
+
+for (const h of [best[0]!.h, at(1_200, 1_200, null).h]) {
+  line.headways = h;
+  line.buses = busesNeeded(world.services.get(line.id)!.timing.cycle, h);
+  console.log(`\nEvery ${min(h.peak)}/${min(h.offpeak)}/${min(h.overnight)} min on ${line.buses} buses: fare, riders a day, net a day`);
+  const nets = FARES_CENTS.map((fare) => {
+    line.fareCents = fare;
+    recompute(world);
+    const riders = world.assignment.lines.get(line.id)!.perDay;
+    const c = forecastDay(world.services.get(line.id)!.costs);
+    return { fare, riders, net: Math.floor(riders) * (fare + subsidyCents(fare)) - c.running - c.wages - c.deadhead };
+  });
+  const top = Math.max(...nets.map((r) => r.net));
+  for (const r of nets) console.log(`  $${(r.fare / 100).toFixed(2)}  ${r.riders.toFixed(1).padStart(6)}  $${(r.net / 100).toFixed(2)}${r.net === top ? '  best' : r.net >= top - 0.05 * Math.abs(top) ? '  within 5%' : ''}`);
+  line.fareCents = 225;
+}

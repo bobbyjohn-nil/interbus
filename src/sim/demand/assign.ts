@@ -6,7 +6,8 @@
 // - catchments sum each cell's sub-points instead of measuring from one centroid (EC-15);
 // - per period (D7): a line's wait comes from that period's headway, and nobody boards in a period
 //   it does not run, so an overnight-off line loses its night riders (EC-03);
-// - the fare is paid per boarding and felt as minutes beyond $2.25 (K05);
+// - the fare is paid per boarding and felt as minutes beyond $2.25 (K05), weighed against the
+//   ride's length (V2's elasticity, EC-09);
 // - no silent floors: V1 dropped pairs under half a commuter and shares under 1%; this keeps them;
 // - V1 timed trips between cell centroids; this times them per group of sub-points that reach the
 //   same stops, with the group's average walk (I14's budget rules out every sub-point pair);
@@ -22,6 +23,11 @@ import {
   CAR_TIME_FACTOR,
   CENTS_PER_MINUTE,
   DWELL_SEC,
+  FARE_SENS_MAX,
+  FARE_SENS_MIN,
+  FARE_SENS_RIDE_EXPONENT,
+  FARE_SENS_RIDE_FLOOR_KM,
+  FARE_SENS_RIDE_REF_KM,
   HOURLY_PROFILE,
   LOGIT_SCALE,
   MAX_SHARE,
@@ -99,6 +105,12 @@ export function perceivedWaitMin(wait: number): number {
   return wait <= WAIT_PAIN_REF_MIN ? wait : WAIT_PAIN_REF_MIN * (wait / WAIT_PAIN_REF_MIN) ** WAIT_PAIN_EXPONENT;
 }
 
+/** How hard a fare bites on a ride of this many km along the line: 1 at 3 km, more on a shorter ride (V2's fareSensOf). */
+export function fareSensitivity(rideKm: number): number {
+  const k = (FARE_SENS_RIDE_REF_KM / Math.max(rideKm, FARE_SENS_RIDE_FLOOR_KM)) ** FARE_SENS_RIDE_EXPONENT;
+  return Math.min(FARE_SENS_MAX, Math.max(FARE_SENS_MIN, k));
+}
+
 /** The bus's share of a trip, given its door-to-door bus minutes and straight-line km (V1 demand.worker.ts:481-491). */
 export function busShare(busMin: number, km: number): number {
   return shareFor(busMin, carMin(km), km * WALK_MIN_PER_KM);
@@ -158,20 +170,17 @@ function sidesOf(city: City): { homes: Side[]; work: Side[] } {
 }
 
 /**
- * Riders per line for the whole network. Who can walk to which stop is decided per sub-point, so
- * catchments sum sub-points (EC-15), and nobody is credited with a stop they cannot walk to. Within
- * a cell, sub-points that reach the same stops of a line ride as one group, with the group's
- * average walk to each stop. The straight-line km is the cell pair's, as the commuters were
- * counted, so placing a stop never moves it (I2). Where groups at both ends share several lines,
- * each pair of sub-points rides the quickest line that serves both, so nobody is counted twice.
- *
- * Only cell pairs that share a line are visited (on T03's grid, 91 thousand of 659 thousand). The
- * first version compared every sub-point pair with every stop pair: 13 s on the 812-cell bench
- * against I14's 150 ms. reference/assignNaive.ts keeps it as the yardstick; assign.test.ts holds
- * this one to its riders on the fixture.
+ * Who can walk to which stops: each line's groups of sub-points in every cell (Access), by home cell
+ * and by line for work cells. They depend only on where the stops stand, so assignments that change
+ * only headways or fares can share them.
  */
-export function assign(city: City, commuters: Commuters, plans: readonly LinePlan[], tripScalePermille = city.tripScalePermille): Assignment {
-  const lineCount = plans.length;
+export interface Catchments {
+  readonly homeLines: readonly (readonly { readonly line: number; readonly groups: readonly Access[] }[])[];
+  readonly workAccess: readonly (readonly { readonly cell: number; readonly groups: readonly Access[] }[])[];
+}
+
+/** Every line's catchments (Catchments) for these plans. */
+export function catchments(city: City, plans: readonly LinePlan[]): Catchments {
   const stopsGrid = new SpatialGrid<{ line: number; pos: number }>(MAX_WALK_M);
   plans.forEach((plan, line) => plan.stops.forEach((p, pos) => stopsGrid.add(p, { line, pos })));
 
@@ -227,13 +236,42 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     });
     return byLine;
   };
-  const { homes, work } = sidesOf(city);
   const homeLines = city.cells.map(() => [] as { line: number; groups: Access[] }[]);
   accessOf(city.cells.map((c) => c.homes)).forEach((cells, line) => cells.forEach(({ cell, groups }) => homeLines[cell]!.push({ line, groups })));
-  const workAccess = accessOf(city.cells.map((c) => c.work));
+  return { homeLines, workAccess: accessOf(city.cells.map((c) => c.work)) };
+}
+
+export interface AssignOptions {
+  /** Visit only the cell pairs this line serves: its riders come out whole, the other lines' in part. */
+  readonly only?: LinePlan['id'];
+  /** The catchments of these plans' stops, worked out once for several assignments of the same stops. */
+  readonly reach?: Catchments;
+}
+
+/**
+ * Riders per line for the whole network. Who can walk to which stop is decided per sub-point, so
+ * catchments sum sub-points (EC-15), and nobody is credited with a stop they cannot walk to. Within
+ * a cell, sub-points that reach the same stops of a line ride as one group, with the group's
+ * average walk to each stop. The straight-line km is the cell pair's, as the commuters were
+ * counted, so placing a stop never moves it (I2). Where groups at both ends share several lines,
+ * each pair of sub-points rides the quickest line that serves both, so nobody is counted twice.
+ *
+ * Only cell pairs that share a line are visited (on T03's grid, 91 thousand of 659 thousand). The
+ * first version compared every sub-point pair with every stop pair: 13 s on the 812-cell bench
+ * against I14's 150 ms. reference/assignNaive.ts keeps it as the yardstick; assign.test.ts holds
+ * this one to its riders on the fixture.
+ *
+ * `only` (AssignOptions) visits just the cell pairs one line serves, which is all the fare band asks
+ * of the network for each fare it tries, and `reach` reuses the catchments across those tries.
+ */
+export function assign(city: City, commuters: Commuters, plans: readonly LinePlan[], options: AssignOptions = {}): Assignment {
+  const onlyLine = options.only === undefined ? -1 : plans.findIndex((p) => p.id === options.only);
+  const lineCount = plans.length;
+  const { homes, work } = sidesOf(city);
+  const { homeLines, workAccess } = options.reach ?? catchments(city, plans);
 
   // Each line's wait in each period (Infinity where it does not run), at [line * 3 + period] in
-  // PERIODS order, and its fare in minutes.
+  // PERIODS order.
   const wait = new Float64Array(lineCount * 3);
   plans.forEach((plan, line) =>
     PERIODS.forEach((period, k) => {
@@ -241,7 +279,18 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       wait[line * 3 + k] = runsIn(plan.headways, period) && h !== null ? perceivedWaitMin(waitMin(h)) : Infinity;
     }),
   );
-  const fareMin = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
+  // Each line's fare in minutes for a ride between two of its stops, at [from * stops + to].
+  const fareMin = plans.map((plan) => {
+    const extra = (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE;
+    const stops = plan.stops.length;
+    const at = new Float64Array(stops * stops);
+    if (extra !== 0) {
+      for (let a = 0; a < stops; a++) {
+        for (let b = 0; b < stops; b++) at[a * stops + b] = extra * fareSensitivity(Math.abs(plan.stopDistM[b]! - plan.stopDistM[a]!) / 1000);
+      }
+    }
+    return at;
+  });
   // Minutes along each line to each stop, and exp(wait / τ) for each line and period.
   const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / (plan.kmh ?? BUS_KMH)) * 60));
   const expWait = wait.map((w) => Math.exp(w / MODE_TAU_MIN));
@@ -252,6 +301,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   const baseMin = (line: number, a: Access, b: Access) => {
     const along = stopMin[line]!;
     const fare = fareMin[line]!;
+    const stops = along.length;
     let best = Infinity;
     for (let x = 0; x < a.pos.length; x++) {
       const pa = a.pos[x]!;
@@ -260,7 +310,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         if (pa === pb) continue;
         const ride = Math.abs(along[pb]! - along[pa]!) + Math.max(0, Math.abs(pb - pa) - 1) * (DWELL_SEC / 60);
         // A bargain fare makes the ride feel shorter, never free (V1 demand.worker.ts:342-344).
-        const t = a.walkMin[x]! + Math.max(0.5, ride + fare) + b.walkMin[y]!;
+        const t = a.walkMin[x]! + Math.max(0.5, ride + fare[pa * stops + pb]!) + b.walkMin[y]!;
         if (t < best) {
           best = t;
           boardAt = pa;
@@ -272,7 +322,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   };
 
   const n = commuters.n;
-  const scale = tripScalePermille / 1000;
+  const scale = city.tripScalePermille / 1000;
   // Riders per line per period at [line * 3 + period], as if the whole day's trips fell in that
   // period; spread over the period's half-hours by the commute profile at the end, since a choice
   // depends only on the wait.
@@ -293,13 +343,15 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       d[(k * 2 + 1) * stops + board]! -= r;
     }
   };
-  // Work cells reached from the current home cell, each with a list of the lines both share.
+  // Work cells reached from the current home cell, each with a list of the lines both share, and
+  // whether `only` is among them.
   const head = new Int32Array(n).fill(-1);
+  const hasOnly = new Uint8Array(n);
   const touched: number[] = [];
   const next: number[] = [];
   const entryLine: number[] = [];
-  const entryFrom: Access[][] = [];
-  const entryTo: Access[][] = [];
+  const entryFrom: (readonly Access[])[] = [];
+  const entryTo: (readonly Access[])[] = [];
   // Every way the current cell pair can ride: a line, a home group and a work group.
   let room = 64;
   let optLine = new Int32Array(room);
@@ -335,9 +387,11 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     entryLine.length = 0;
     entryFrom.length = 0;
     entryTo.length = 0;
+    if (onlyLine >= 0 && !homeLines[i]!.some((h) => h.line === onlyLine)) continue;
     for (const { line, groups } of homeLines[i]!) {
       for (const { cell: j, groups: to } of workAccess[line]!) {
         if (head[j] === -1) touched.push(j);
+        if (line === onlyLine) hasOnly[j] = 1;
         next.push(head[j]!);
         head[j] = entryLine.length;
         entryLine.push(line);
@@ -348,8 +402,10 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     for (const j of touched) {
       const first = head[j]!;
       head[j] = -1;
+      const skip = onlyLine >= 0 && !hasOnly[j];
+      hasOnly[j] = 0;
       const flow = commuters.flow[i * n + j]!;
-      if (flow <= 0) continue;
+      if (flow <= 0 || skip) continue;
       // Straight-line km between the cells' centres, which no stop can move (I2), and the car and
       // walking minutes it gives.
       const km = commuters.km[i * n + j]!;

@@ -7,8 +7,23 @@ export { DEPOT_FIRST_PRICE_CENTS as DEPOT_COST_CENTS } from './depots';
 export const STOP_COST_CENTS = 400_000;
 /** The reference fare, $2.25 (V1 `FARE_REFERENCE`, constants.ts:418). */
 export const REFERENCE_FARE_CENTS = 225;
-/** The city's subsidy per boarding, $1.60 (V1 `SUBSIDY_PER_RIDER`, constants.ts:78). */
+/** The city's subsidy per boarding, $1.60 (V1 `SUBSIDY_PER_RIDER`, constants.ts:78), at the reference fare or below. */
 export const SUBSIDY_PER_BOARDING_CENTS = 160;
+/**
+ * A line's fare runs from $1.00 to $5.00 in 25¢ steps (the M3 spec, item 4; V2's band, EC-09,
+ * `Intralines_City_dep@archive/intralines-city-v1:Gaming/src/10-core.js:58-63`).
+ */
+export const FARE_MIN_CENTS = 100;
+export const FARE_MAX_CENTS = 500;
+export const FARE_STEP_CENTS = 25;
+/**
+ * Above the reference fare the subsidy tapers to nothing at the top fare: × (1 − (gap ÷ $2.75)²),
+ * so a dearer fare has a peak, never a ramp to $5 (V2's fix for "drag to $5", EC-05,
+ * `…:Gaming/src/30-sim.js:3687-3700`).
+ */
+export const SUBSIDY_TAPER_EXPONENT = 2;
+/** The line card's fare band: every fare whose day nets within this share of the best fare's (the M3 spec, item 4). */
+export const FARE_BAND_SHARE = 0.05;
 
 /**
  * Starting cash is k × a starter line's cost, written once at founding (D7). The starter is one
