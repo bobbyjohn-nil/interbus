@@ -14,12 +14,17 @@ interface Reach {
   readonly walkMin: number;
 }
 
-/** Riders per line per period, in PERIODS order, as the old loop counted them. */
-export function assignNaive(city: City, commuters: Commuters, plans: readonly LinePlan[], tripScalePermille = city.tripScalePermille): number[][] {
+/**
+ * Riders per line per period, in PERIODS order, as the old loop counted them, and each line's
+ * busiest leg per period, counted rider by rider (assign() counts it from its groups' stops).
+ */
+export function assignNaive(city: City, commuters: Commuters, plans: readonly LinePlan[], tripScalePermille = city.tripScalePermille): { riders: number[][]; busiest: number[][] } {
   // Riders per line per period, as if the whole day's trips fell in that period; spread over the
   // period's half-hours by the commute profile at the end, since a pair's choice depends only on
   // the period's wait.
   const byPeriod = plans.map(() => ({ peak: 0, offpeak: 0, overnight: 0 }) as Record<Period, number>);
+  // Each line's load on every leg, per period and direction, at [(period * 2 + direction) * stops + leg].
+  const load = plans.map((plan) => new Float64Array(6 * plan.stops.length));
   const stopsGrid = new SpatialGrid<{ line: number; pos: number }>(MAX_WALK_M);
   plans.forEach((plan, line) => plan.stops.forEach((p, pos) => stopsGrid.add(p, { line, pos })));
   const reach = (p: SubPoint): Reach[] =>
@@ -44,7 +49,8 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
 
   const n = commuters.n;
   const scale = tripScalePermille / 1000;
-  const best: Record<Period, { min: number; line: number }> = { peak: { min: 0, line: -1 }, offpeak: { min: 0, line: -1 }, overnight: { min: 0, line: -1 } };
+  type Best = { min: number; line: number; from: number; to: number };
+  const best: Record<Period, Best> = { peak: { min: 0, line: -1, from: 0, to: 0 }, offpeak: { min: 0, line: -1, from: 0, to: 0 }, overnight: { min: 0, line: -1, from: 0, to: 0 } };
   for (let i = 0; i < n; i++) {
     const origins = homes[i]!;
     if (origins.length === 0) continue;
@@ -56,7 +62,7 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
         for (const d of ends) {
           // This sub-point pair's share of the cell pair's commuters, both ways (V1 counted the round trip).
           const pairTrips = 2 * flow * (o.p.w / totals[i]![0]) * (d.p.w / totals[j]![1]) * scale;
-          for (const period of PERIODS) best[period] = { min: Infinity, line: -1 };
+          for (const period of PERIODS) best[period] = { min: Infinity, line: -1, from: 0, to: 0 };
           for (const a of o.reach) {
             for (const b of d.reach) {
               if (a.line !== b.line || a.pos === b.pos) continue;
@@ -64,18 +70,32 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
               const base = a.walkMin + Math.max(0.5, rideMin(a.line, a.pos, b.pos) + fareMin[a.line]!) + b.walkMin;
               for (const period of PERIODS) {
                 const t = base + wait[a.line]![period];
-                if (t < best[period].min) best[period] = { min: t, line: a.line };
+                if (t < best[period].min) best[period] = { min: t, line: a.line, from: a.pos, to: b.pos };
               }
             }
           }
           const km = distXY([o.p.x, o.p.y], [d.p.x, d.p.y]) / 1000;
-          for (const period of PERIODS) {
+          PERIODS.forEach((period, k) => {
             const choice = best[period];
-            if (choice.line >= 0) byPeriod[choice.line]![period] += pairTrips * busShare(choice.min, km);
-          }
+            if (choice.line < 0) return;
+            const r = pairTrips * busShare(choice.min, km);
+            byPeriod[choice.line]![period] += r;
+            // Every leg between the two stops, in the direction travelled, carries these riders.
+            const stops = plans[choice.line]!.stops.length;
+            const at = (choice.from < choice.to ? k * 2 : k * 2 + 1) * stops;
+            for (let leg = Math.min(choice.from, choice.to); leg < Math.max(choice.from, choice.to); leg++) load[choice.line]![at + leg]! += r;
+          });
         }
       }
     }
   }
-  return byPeriod.map((r) => PERIODS.map((p) => r[p]));
+  return {
+    riders: byPeriod.map((r) => PERIODS.map((p) => r[p])),
+    busiest: load.map((d, line) =>
+      PERIODS.map((_, k) => {
+        const stops = plans[line]!.stops.length;
+        return Math.max(...d.subarray(k * 2 * stops, (k * 2 + 2) * stops));
+      }),
+    ),
+  };
 }

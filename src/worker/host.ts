@@ -87,6 +87,7 @@ function lineViews(world: World): LineView[] {
     const { route, stopAt } = routeOf(world, xy);
     const first = xy.length ? nearestNode(world, xy[0]!) : null;
     const depotNode = service?.depotNode ?? null;
+    const demand = world.assignment.lines.get(line.id);
     return {
       id: line.id,
       name: line.name,
@@ -98,8 +99,11 @@ function lineViews(world: World): LineView[] {
       pullOut: driveOf(world, depotNode, first),
       pullIn: driveOf(world, first, depotNode),
       plan: service ? service.day.inputs : { timing: { cycle: 0, headways: line.headways, buses: 0 }, oneWayS: 0, pullOutS: 0, pullInS: 0 },
-      ridersPerDay: world.assignment.lines.get(line.id)?.perDay ?? 0,
-      incomeCents: Math.floor(world.assignment.lines.get(line.id)?.perDay ?? 0) * (line.fareCents + SUBSIDY_PER_BOARDING_CENTS),
+      ridersPerDay: demand?.perDay ?? 0,
+      turnedAwayPerDay: demand?.shedPerDay ?? 0,
+      // Each slot is a half-hour.
+      fullAtMinute: demand && demand.fullSlot !== null ? demand.fullSlot * 30 : null,
+      incomeCents: Math.floor(demand?.perDay ?? 0) * (line.fareCents + SUBSIDY_PER_BOARDING_CENTS),
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
       buses: line.buses,

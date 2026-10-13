@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The tools sit in a dock along the bottom of the screen, and the day, the time, the speed, cash and riders a day sit in a row of chips along the top, leaving the city the rest of the screen.
 - When something can't be done, a notice in the bottom-left corner says why for a few seconds.
 - Riders weigh the wait: up to a bus every 12 minutes most of them time their trip to the timetable, but a bus every hour carries few, so a line pays best every 10 to 15 minutes.
+- Buses fill up: when more riders want a line than its seats carry, the extra riders are turned away in that half-hour, and the line's card says when it is full ("Full at 17:00") and how many riders a day it turns away. Running more often or with bigger buses carries them.
 - Two more buses: the Metro 40 (70 seats, $260,000) and the Goliath (115 seats, locked until a silver medal). Each line runs one model: pick it on the new-line card, or swap a line's buses on its card, where the old ones sell for half their price. Bigger buses are drawn longer on the map.
 - The game saves itself in this browser as you play, so a reload carries on where you left off. A save from an older build is kept aside, a new game starts, and a note says so.
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.

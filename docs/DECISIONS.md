@@ -252,6 +252,20 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench crowding`, `npm run bench compare`, `npm run bench`; `src/sim/demand/assign.ts`, `crowding.test.ts`): **full buses turn riders away, half-hour by half-hour (K27).**
+  - **The rule.** Each option a rider picks records the stops where it boards and alights, so the assignment sums every leg's riders per period and direction. A half-hour's riders all travel the way the commute does then (home to work in the morning, back in the evening), so its busiest leg carries its share of the period's busiest leg. Riders past the seats the line offers each way in that half-hour (departures × the model's seats) are turned away in that half-hour only. A half-hour that fits loses nobody: V1 cut the whole day by its peak hour's ratio (`Intralines@7af45b1:src/game/sim/demand.worker.ts:575-590`), and one ratio per period, as the spec first read, would turn away riders at 06:30 who fit. That follows PLAN's "hourly crowding" and the salvage rule "per-hour everywhere" ([K27](history/salvage-matrix.md)).
+  - **Inner Boston's ten corridor lines** (bench/inner.ts), riders a day and turned away a day:
+
+    | Network | Riders | Turned away | Where |
+    |---|---|---|---|
+    | Sparrows, every 10 min at peak, 15 off-peak | 15,452.2 | 2,377.8 (13.3%) | all on Washington Street, fullest at 17:00 |
+    | Metro 40s on the same headways | 17,270.8 | 131.4 (0.8%) | Washington Street, 17:00 |
+    | Sparrows every 20 min by day | 10,556.7 | 2,225.3 (17.4%) | Washington Street, 17:00 |
+
+    Washington Street, from Downtown Crossing south, is offered 7,508 riders a day; on Sparrows every 10 minutes it boards 5,130.3, on Metro 40s 7,232.8. The other nine lines never fill. So the Metro 40 earns its price on the busiest corridor and nowhere else yet.
+  - **The fixture's debug line never fills**: its busiest leg carries 18.7 riders in the 17:00 half-hour against 42 seats every 20 minutes. The sweep (best +$1,905.82, starved −$72.10) and the calibration are unchanged; the calibration test now scales the riders offered, before crowding. At nine times the fixture's demand, Sparrows board 3,855.8 and turn away 1,876.2, Metro 40s 5,228.4 and 416.7.
+  - **Against the reference loop**, which counts each rider's legs one by one, the busiest leg is within 1.07% on the debug line in every period, and within 2.3% on eight of the synthetic grid's ten lines; the other two, whose busiest legs carry 46 riders or fewer, are 2.8–4.7% off. Run backwards, the debug line catches a sign slip in the down direction (51% off) that the forwards run missed.
+  - **Recompute** is unchanged: Inner Boston's p95 was 56.6–63.0 ms over three runs, against 59.3 ms on `main`.
 - **2026-10-13** (`npm run bench strategies`, `npm run bench day`; `src/sim/demand/assign.ts`): **V2's wait model (EC-08's verdict) is ported, and a starved line no longer pays.**
   - **The model.** M1 had ported V1's waits: 70% of riders timed the stop and waited 2 minutes at every headway, and no wait counted past 15 minutes. Now:
     - 70% time the stop up to a 12-minute headway, and the share halves as the headway doubles, down to 5%;

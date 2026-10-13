@@ -70,6 +70,9 @@ export interface LineView {
   /** The streets it drives, stop to stop. */
   readonly route: readonly LngLatPair[];
   readonly ridersPerDay: number;
+  /** Riders a day its full buses turn away (K27), and the minute of the day of the half-hour that turns away the most, or null when none are. */
+  readonly turnedAwayPerDay: number;
+  readonly fullAtMinute: number | null;
   readonly headways: HeadwaysData;
   /** Its round trip in seconds, for the headway card's bus count. */
   readonly cycle: number;
