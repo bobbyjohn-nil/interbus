@@ -15,7 +15,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-ba4110d6` holds mini-Boston's `sim.json` (132,908 B), published by **City sim file (manual)** run 38346461662;
+  - release `city-boston-sim-mini-boston-7efc98ec` holds mini-Boston's `sim.json` at `tripScale` 111‰ (132,907 B), published by **City sim file (manual)** run 38347610455. The uncalibrated `ba4110d6` stays for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
   - release `city-boston-sources-20261012` holds the bake's eight pinned inputs;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
