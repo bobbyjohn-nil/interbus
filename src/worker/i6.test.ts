@@ -119,6 +119,7 @@ const send = (message: ToWorker) => (s: ReturnType<typeof started>) => {
 describe('I6 across route edits mid-run (the M4 spec, item 4)', () => {
   checkChange('Symphony taken off', EIGHT, send({ type: 'remove-stop', lineId: 1, stopId: 2 }));
   checkChange('extended beyond Longwood', EIGHT, send({ type: 'extend-line', lineId: 1, end: 'end', clicks: [[-71.1085, 42.3395]] }));
+  checkChange('a stop inserted between Symphony and the MFA', EIGHT, send({ type: 'insert-stop', lineId: 1, at: [-71.0903, 42.33995] }));
   checkChange('every 15 minutes', EIGHT, send({ type: 'set-headways', lineId: 1, headways: { peak: 900, offpeak: 900, overnight: null } }));
   checkChange('every 5 minutes', EIGHT, send({ type: 'set-headways', lineId: 1, headways: { peak: 300, offpeak: 300, overnight: null } }));
   checkChange('swapped to Metro 40s', EIGHT, send({ type: 'set-model', lineId: 1, model: 'metro40' }), true);

@@ -39,7 +39,9 @@ export function DepotCard({
  * The line tool's card (the M2 spec, item 3): the stops so far, km, people within a walk, the model,
  * the buses it needs and the price, then Create. Extending a line (the M3 spec, item 14), it reads
  * the whole line as it would run and what the extension adds: its new stops and the buses its longer
- * round trip needs beyond those it has, at its model; then Extend.
+ * round trip needs beyond those it has, at its model; then Extend. Inserting a stop (the M4 spec,
+ * item 4), the same for one click on the line, with the metres it adds to its leg, warned when
+ * that is over 15% of the leg; then Insert.
  */
 export function DraftCard({
   sim,
@@ -54,8 +56,12 @@ export function DraftCard({
   sim: Sim;
   clicks: number;
   model: BusModelId;
-  /** The line being extended, or null for a new line. */
-  extend?: { readonly name: string; readonly model: BusModelId } | null;
+  /** The line being extended, or having a stop inserted, or null for a new line. */
+  extend?: {
+    readonly name: string;
+    readonly model: BusModelId;
+    readonly insert?: boolean;
+  } | null;
   onModel: (model: BusModelId) => void;
   onCreate: () => void;
   onUndo: () => void;
@@ -63,16 +69,21 @@ export function DraftCard({
 }) {
   const draft = clicks ? sim.draft : null;
   const refused = draft?.refusal ?? null;
+  const title = extend?.insert
+    ? `Insert a stop on ${extend.name}`
+    : extend
+      ? `Extend ${extend.name}`
+      : "New line";
   return (
     <section
       className="panel tool-card"
-      aria-label={extend ? `Extend ${extend.name}` : "New line"}
+      aria-label={title}
       data-testid="draft-card"
       data-chrome="panel"
       data-price={draft?.priceCents ?? ""}
       data-refusal={refused?.reason ?? ""}
     >
-      <h2>{extend ? `Extend ${extend.name}` : "New line"}</h2>
+      <h2>{title}</h2>
       {extend ? null : (
         <label className="model">
           Buses
@@ -92,9 +103,11 @@ export function DraftCard({
       )}
       {!draft ? (
         <p className="hint">
-          {extend
-            ? "Click the map beyond the line to add stops."
-            : "Click the map to place stops."}
+          {extend?.insert
+            ? "Click the line where the stop goes."
+            : extend
+              ? "Click the map beyond the line to add stops."
+              : "Click the map to place stops."}
         </p>
       ) : (
         <>
@@ -103,6 +116,17 @@ export function DraftCard({
             {km(draft.routeM)}
           </p>
           <p>{about(draft.people)} people within a walk</p>
+          {draft.detour && draft.detour.addedM > 0 ? (
+            <p
+              className={draft.detour.warn ? "refusal" : undefined}
+              data-testid="detour"
+              data-warn={draft.detour.warn ? "yes" : "no"}
+            >
+              {draft.detour.warn
+                ? `A long detour: ${Math.round(draft.detour.share * 100)}% longer on that leg, +${draft.detour.addedM} m`
+                : `+${draft.detour.addedM} m on that leg`}
+            </p>
+          ) : null}
           {draft.buses > 0 && extend ? (
             <p>
               {busCount(draft.buses, BUS_MODELS[extend.model].name)} more for
@@ -135,7 +159,7 @@ export function DraftCard({
           onClick={onCreate}
           disabled={!draft || refused !== null}
         >
-          {extend ? "Extend" : "Create"}
+          {extend?.insert ? "Insert" : extend ? "Extend" : "Create"}
         </button>
         <button type="button" onClick={onUndo} disabled={!clicks}>
           Undo stop

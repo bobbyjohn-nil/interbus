@@ -12,3 +12,7 @@ export const MIN_LINE_STOPS = 2;
 export const FOUNDING_HEADWAYS = { peak: 1_200, offpeak: 1_200, overnight: null } as const;
 /** Line colours in order of creation; the line card can change them later. */
 export const LINE_COLOURS: readonly string[] = ['#c0392b', '#2471a3', '#1e8449', '#b9770e', '#7d3c98', '#117a65', '#a04000', '#2e4053'];
+/** A stop inserted into a line goes into the leg nearest the click, which must be within this distance of the leg's streets (the M4 spec, item 4). */
+export const INSERT_REACH_M = 300;
+/** An insertion lengthening its leg by more than this share warns on the card, never blocks (V2's LINE_DETOUR_WARN_SHARE). */
+export const DETOUR_WARN_SHARE = 0.15;

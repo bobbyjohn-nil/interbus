@@ -98,6 +98,7 @@ export function createVehicleLayer(fleet: BusSource): VehicleLayer {
   let relative = new Float32Array(0);
   let drawn = 0;
   let asked = 0;
+  let still = 0;
   const where: Record<string, WebGLUniformLocation | null> = {};
 
   return {
@@ -140,6 +141,14 @@ export function createVehicleLayer(fleet: BusSource): VehicleLayer {
       const box = map.getContainer().dataset;
       if (count !== drawn) box.buses = String(count);
       drawn = count;
+      // Paused, frames are few: the container carries where each bus is drawn and counts the frames,
+      // for the e2e tests to see that nothing moves when a line changes (the M4 spec, item 4).
+      if (!fleet.running) {
+        const at: string[] = [];
+        for (let i = 0; i < count; i++) at.push(`${data[BUS_FLOATS * i]!.toFixed(6)},${data[BUS_FLOATS * i + 1]!.toFixed(6)}`);
+        box.busesAt = at.join(' ');
+        box.stillFrames = String(++still);
+      }
       if (count > 0) {
         // Positions relative to the camera's centre, so float32 keeps them to a fraction of a pixel at
         // any zoom; the matrix carries the centre instead, worked out in float64.

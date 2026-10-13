@@ -40,6 +40,10 @@ export function App() {
   useEffect(() => {
     toolRef.current = tool;
   }, [tool]);
+  const insertingRef = useRef(false);
+  useEffect(() => {
+    insertingRef.current = extending?.end === "insert";
+  }, [extending]);
   const onPointer = useCallback(
     (at: LngLatPair | null, point: [number, number] | null) => {
       setScreen(point);
@@ -51,7 +55,9 @@ export function App() {
   const onClick = useCallback(
     (at: LngLatPair, hit: MapHit) => {
       if (toolRef.current === "depot") send({ type: "place-depot", at });
-      else if (toolRef.current === "line") setClicks((c) => [...c, at]);
+      // Inserting a stop takes one click, the last one made.
+      else if (toolRef.current === "line")
+        setClicks((c) => (insertingRef.current ? [at] : [...c, at]));
       else if (hit.stopId !== null) {
         // A click on a stop opens its card; on a line, the line's inspector.
         setStopId(hit.stopId);
@@ -88,7 +94,7 @@ export function App() {
     [clicks, draftModel, extending, draftFor],
   );
   const startExtend = useCallback(
-    (id: number, end: "start" | "end") => {
+    (id: number, end: "start" | "end" | "insert") => {
       const stops =
         sim.snapshot?.lines.find((l) => l.id === id)?.stopIds.length ?? 0;
       setTool("line");
@@ -206,20 +212,31 @@ export function App() {
           clicks={clicks.length}
           model={draftModel}
           extend={
-            extendingLine
-              ? { name: extendingLine.name, model: extendingLine.model }
+            extendingLine && extending
+              ? {
+                  name: extendingLine.name,
+                  model: extendingLine.model,
+                  insert: extending.end === "insert",
+                }
               : null
           }
           onModel={setDraftModel}
           onCreate={() =>
-            extending
-              ? send({
-                  type: "extend-line",
+            extending?.end === "insert"
+              ? clicks[0] &&
+                send({
+                  type: "insert-stop",
                   lineId: extending.lineId,
-                  end: extending.end,
-                  clicks,
+                  at: clicks[0],
                 })
-              : send({ type: "create-line", clicks, model: draftModel })
+              : extending
+                ? send({
+                    type: "extend-line",
+                    lineId: extending.lineId,
+                    end: extending.end,
+                    clicks,
+                  })
+                : send({ type: "create-line", clicks, model: draftModel })
           }
           onUndo={() => setClicks((c) => c.slice(0, -1))}
           onCancel={() => choose("none")}

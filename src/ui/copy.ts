@@ -41,6 +41,7 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   not_on_line: () => 'The line doesn’t stop here',
   line_keeps_two: (r) => `A line keeps at least ${r.limit ?? 2} stops`,
   no_new_stops: () => 'Click the map beyond the line',
+  no_leg_near: (r) => `Click within ${r.limitM ?? 300} m of the line`,
   // Undo (sim/undo.ts)
   time_has_run: () => 'Time has run since then',
   nothing_to_undo: () => 'Nothing to undo',
@@ -85,6 +86,7 @@ const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'place-depot': (s) => `Place ${s}`,
   'create-line': (s) => `Create ${s}`,
   'extend-line': (s) => `Extend ${s}`,
+  'insert-stop': (s) => `Insert a stop on ${s}`,
   'set-headways': (s) => `${s}’s headways`,
   'set-model': (s) => `${s}’s buses`,
   'set-fare': (s) => `${s}’s fare`,
