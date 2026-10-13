@@ -2,18 +2,19 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` d5ce97c (saves and the exit check), with M2's last tests in review.
+**Updated:** 2026-10-13, at `main` 7a66127: M2 is done, and the M3 spec is in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ca54ad8. Deploy preview run 38370960912's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 7a66127. Deploy preview run 38372349654's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
   - the founding card, and the checklist chip naming the next step;
   - the calm shell: a chip row, a dock with **Place a depot**, **Draw a line** and **Lines**, the line inspector with its headways and a day's forecast, and notices in one corner;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
-  - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep.
+  - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
+  - the game saved in the browser as it plays, so a reload carries on where it was.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -35,6 +36,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §3, §3.1, §5, §6 and §10 and answer §12; commit `art/LICENSE.md`.
 - [ ] **D20, by Sun Oct 25:** the art's open licence (recommended CC BY 4.0).
 - [ ] **Week 2 check:** "Does this look like Boston?" (PLAN §14 item 14).
+- [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare the costs on **day 2's** card: day 1 opens at 05:00, after the first bus left the depot, so its wages and deadhead fall a little short of a whole day's forecast.
 
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13
 
@@ -74,9 +76,9 @@ The spec is archived in [`docs/specs/m1-first-dollar.md`](specs/m1-first-dollar.
 
 Per-period crowding (K27) and visitors, the last two items below M1's cut line, move to week 5: crowding with the Metro 40 and Goliath rows, visitors with M2's gateways. M1's dated checks (capacity, R2, velocity) still fall on Sun Nov 1.
 
-## Next: M2, the first line, by Sun Nov 8 (week 4)
+## Done: M2, the first line, finished 2026-10-13
 
-The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a small pull request:
+The spec is archived in [`docs/specs/m2-first-line.md`](specs/m2-first-line.md). Its Sun Nov 8 dates (the format freeze, the light token pick) carry over to M3's spec. In order, each a small pull request:
 1. [x] **The cycle function** (2026-10-13, `src/sim/rules/cycle.ts`): a round trip, the buses each running period needs, the headway a short line runs, and the founding recipe counted with it (two Sparrows; $427,200 at k = 1.2; D7's clarification). The Sparrow is a config row in `src/sim/config/fleet.ts`.
 2. [x] **Depots in the sim** (2026-10-13): the siting rule (`src/sim/rules/depot.ts`: depot land, a street node within 400 m, 120 m from other depots, five at most), the place command, V1's price ladder ($150k to $760k), save format 3, and the worker's `depot-site` and `place-depot` messages with depot land for the tint. Upkeep is a config row charged with the costs (step 3); the card and tint draw with the line tool (step 5).
 3. [x] **Costs as ledger rows** (2026-10-13): the timetable (`src/sim/rules/timetable.ts`), running, wages and deadhead per line and upkeep per depot, banked hourly from `src/sim/economy/costs.ts`, and the forecast the line inspector will show, equal to the day's rows to the cent on a part day and a whole one. On day 2 the debug line nets +$1,388.93 (DECISIONS, Measured). A closed day's rows merge into one per kind and line, so a save grows about 354 B a day instead of about 5 KB. The panel's Costs/day chip reads the forecast until the calm shell's inspector (step 7). Save format 4 holds each line's buses.
@@ -143,6 +145,22 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
    - **I2's bus clause:** adding a bus never cuts linked trips by more than 0.1%, alone or beside a line on the same streets (`invariants.test.ts`).
    - **I3's strategies:** all 245 allowed headway settings for the debug line (`npm run bench strategies`). "Daytime longest, overnight shortest" earns less than the best (15, 60, off: $2,354.45 a day), a night-only line cannot be set, and a line off overnight carries nobody then (`strategies.test.ts`).
    - **Not yet held: PLAN's starving clause** (60% of the optimum or less). Hourly all day on one bus earns 98.5% of the best, so for week 5: per-period crowding (K27) and the fare band should make starving cost, then the sweep re-runs.
+
+## Next: M3, the money loop, by Sun Nov 29 (weeks 5–7)
+
+The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in Nov 9–29; work starts now, money first. In this order, each a small pull request (items are the spec's):
+1. [ ] **Landmarks in `sim.json`** (item 1), before the Nov 8 freeze: a committed list, baked into both extents, G6 checking each.
+2. [ ] **Three bus models, one per line** (item 2), and **crowding per period** (item 3), with the sweep re-run: a starved line should earn 60% of the best or less.
+3. [ ] **The fare band** (item 4): per-line fares, perceived once per trip, the subsidy taper, the printed band; I3's fare optimum and I4.
+4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).
+5. [ ] **Undo while paused** (item 7, I9).
+6. [ ] **Saves for r1** (item 8): stops by place and the r1→r2 save test, the missing-pack refusal, slots, export and import.
+7. [ ] **`city-boston-r1`** by Sun Nov 15: β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.
+8. [ ] **The report card** (item 9), its bands from a measured spread over 10 seeds.
+9. [ ] **The failure floor** (item 10): the credit line, the countdown, Restart this quarter.
+10. [ ] **HEADWAY contracts** (item 11, I11), checklist step 5 and **Export session** (item 12).
+11. [ ] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
+12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 
