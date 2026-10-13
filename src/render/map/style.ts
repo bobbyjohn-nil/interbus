@@ -32,7 +32,8 @@ const MASK_REACH = 4;
 
 /**
  * Layers interbus never draws:
- * - roads_rail: the city starts with no transit of any kind (D17); the week-3 bake also strips it from the tiles.
+ * - roads_rail: the city starts with no transit of any kind (D17), and the map file holds none either
+ *   (tools/bake/tiles.mjs strips it and G10 checks); the layer stays dropped should a later cut carry rail.
  * - pois, roads_shields, roads_oneway: icon layers; the style ships no sprite yet, and transit stations live in pois.
  */
 export const DROPPED_LAYERS: readonly string[] = ['roads_rail', 'pois', 'roads_shields', 'roads_oneway'];

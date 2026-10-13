@@ -21,4 +21,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Point anywhere on the map to see how many people live within a walk of that spot.
 - A new company starts with $427,200: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
 - A test bus line from Copley to Longwood: press Run the debug line, then play. Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.
+- Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
 - Running a line now costs money: $0.90 for each kilometre a bus drives and $26 an hour for each driver on the road. The midnight card lists both, and a Costs/day chip shows what a whole day will cost.
