@@ -6,7 +6,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a003492 (the pacing run). Deploy preview run 38474687009's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` efcb5cc (the 2D/3D chip). Deploy preview run 38476579807's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, the 2D/3D chip or a right-drag (snapping flat below 12°, the buildings cross-fading), four buildings in five at their measured height; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
