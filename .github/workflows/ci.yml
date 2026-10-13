@@ -67,13 +67,17 @@ jobs:
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 
-      # The build the deploy ships plays Inner Boston: it boots, names its build and draws Boston, draws
-      # its first full frame within I14's 2.5 s, and draws every bus of the slow-laptop run's busy
-      # scene, 200 and more (the M5 spec, item 9).
-      - name: Smoke test the shipped build, with its first frame and busy scene
-        run: npx playwright test e2e/smoke.spec.ts e2e/first-frame.spec.ts e2e/scene.spec.ts
+      # I14's first frame within 2.5 s on the shipped build, timed alone so no other test shares the
+      # runner while it times (beside the busy scene's, its median was 1.99 s; e2e/first-frame.spec.ts).
+      - name: I14's first frame on the shipped build
+        run: npx playwright test e2e/first-frame.spec.ts
         env:
           SHIPPED_BUILD: '1'
+
+      # The build the deploy ships plays Inner Boston: it boots, names its build and draws Boston, and
+      # draws every bus of the slow-laptop run's busy scene, 200 and more (the M5 spec, item 9).
+      - name: Smoke test the shipped build, with its busy scene
+        run: npx playwright test e2e/smoke.spec.ts e2e/scene.spec.ts
 
       # The e2e tests are written on mini-Boston, so they run on a build that plays it.
       - run: npm run build:fixture
