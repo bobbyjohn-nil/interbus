@@ -2,7 +2,8 @@
 // reach the same stops, so it is held to the reference loop's riders rather than equal to them.
 // Shown failing (TS-04): with the coverage masks removed, four overlapping lines count trips twice
 // (+118%); with every stop credited to the whole cell, the debug line gains 4.3% at peak; with the
-// down direction's rides counted with the wrong sign, its busiest leg falls short.
+// down direction's rides counted with the wrong sign, its busiest leg falls short; with boardings
+// and alightings swapped, the first stop's boardings are 15% off.
 // `npm run bench compare` prints this comparison, and the synthetic grid's, in full.
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../../tools/bake/sim.mjs';
@@ -34,8 +35,8 @@ const overlapping: LinePlan[] = [
 ];
 const both = (plans: LinePlan[]) => ({ fast: assign(world.city, world.commuters, plans), ref: reference(plans) });
 const reference = (plans: LinePlan[]) => {
-  const { riders, busiest } = assignNaive(world.city, world.commuters, plans);
-  return spread(plans, riders, busiest);
+  const { riders, busiest, ends } = assignNaive(world.city, world.commuters, plans);
+  return spread(plans, riders, busiest, ends);
 };
 const byPeriod = (slots: Float64Array) => PERIODS.map((p) => slots.reduce((sum, v, s) => sum + (s < SLOTS && periodAt(s * 1800 + 900) === p ? v : 0), 0));
 const off = (got: number, want: number) => Math.abs(got - want) / want;
@@ -67,6 +68,19 @@ describe('assign against the reference loop', () => {
       if (want[k]! === 0) expect(got[k], p).toBe(0);
       else expect(off(got[k]!, want[k]!), p).toBeLessThan(0.03);
     });
+  });
+
+  it('counts each stop’s boardings and alightings within 6% or 2 riders of the reference (4.7% measured), every rider once each way', () => {
+    const { fast, ref } = both([debug]);
+    const got = fast.lines.get(debug.id)!;
+    const want = ref.lines.get(debug.id)!;
+    debug.stops.forEach((_, q) => {
+      for (const side of ['boardingsByStop', 'alightingsByStop'] as const) {
+        expect(Math.abs(got[side][q]! - want[side][q]!), `${side} at stop ${q}`).toBeLessThan(Math.max(0.06 * want[side][q]!, 2));
+      }
+    });
+    expect(got.boardingsByStop.reduce((sum, v) => sum + v, 0)).toBeCloseTo(got.perDay, 9);
+    expect(got.alightingsByStop.reduce((sum, v) => sum + v, 0)).toBeCloseTo(got.perDay, 9);
   });
 
   it('keeps trips within 2% where four lines overlap, and each line’s day within 10% or 2 riders', () => {

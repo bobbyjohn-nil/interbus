@@ -346,6 +346,18 @@ body,
   font-weight: 600;
 }
 
+/* A stop's QUIET or LOSS, in the map flag's colour (5.2:1 on the panel's white). */
+.flag {
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.stop-card .lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .swatch {
   display: inline-block;
   width: 10px;

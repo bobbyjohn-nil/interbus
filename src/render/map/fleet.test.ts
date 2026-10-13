@@ -12,6 +12,7 @@ function line(buses = 2): LineView {
     name: 'Line 1',
     colour: '#c0392b',
     stops: [east(0), east(1_339), east(2_425), east(3_535)],
+    stopIds: [1, 2, 3, 4],
     route: [east(0), east(1_339), east(2_425), east(3_535)],
     stopAt: [0, 1, 2, 3],
     stopDistM: [0, 1_339, 2_425, 3_535],

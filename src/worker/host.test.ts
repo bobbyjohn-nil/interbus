@@ -187,6 +187,17 @@ describe('the sim host', () => {
     expect(cheaper.linesVersion).toBeGreaterThan(last('ready')!.snapshot.linesVersion);
   });
 
+  it('sends every stop’s day with the lines: boardings, alightings, net and flags (the M3 spec, item 5)', () => {
+    const { host, last } = started();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const { lines, stops } = last('snapshot')!.snapshot;
+    expect(stops.map((s) => s.id)).toEqual(lines[0]!.stopIds);
+    expect(stops.every((s) => s.lineIds.length === 1 && s.lineIds[0] === lines[0]!.id)).toBe(true);
+    expect(stops.reduce((sum, s) => sum + s.boardings, 0)).toBeCloseTo(lines[0]!.ridersPerDay, 6);
+    expect(stops.some((s) => s.quiet || s.loss)).toBe(false);
+  });
+
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
     createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1, build: BUILD });

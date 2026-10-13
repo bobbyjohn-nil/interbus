@@ -120,6 +120,22 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('fare-band')).toContainText('Best net at $1.75');
     await lineCard.getByLabel('Fare').selectOption('175');
     await expect(lineCard.getByLabel('Fare')).toHaveValue('175');
+    // A stop's card: with the inspector closed (it covers the map's right side), a click on
+    // Symphony's stop shows its day and no flag (the M3 spec, item 5).
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('inspector')).toHaveCount(0);
+    // Where Symphony's stop stands: its click snapped to the nearest street.
+    const placed = (await map.getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number) as [number, number, number]);
+    const [sx, sy] = await toScreen(page, [placed[1]![1], placed[1]![2]]);
+    await page.mouse.click(sx, sy);
+    const stopCard = page.getByTestId('stop-card');
+    await expect(stopCard).toBeVisible();
+    await expect(stopCard).toContainText('board and');
+    await expect(stopCard).toHaveAttribute('data-quiet', 'no');
+    await expect(stopCard).toHaveAttribute('data-loss', 'no');
+    expect(Number(await stopCard.getAttribute('data-net'))).toBeGreaterThan(0);
+    await stopCard.getByRole('button', { name: /Line 1/ }).click();
+    await expect(page.getByTestId('line-card')).toBeVisible();
     // It runs on from there (overnight, so no buses until about 05:00).
     await page.getByRole('button', { name: '1×' }).click();
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 10_000 }).toBeGreaterThan(Number(kept.elapsed));

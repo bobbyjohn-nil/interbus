@@ -1,4 +1,4 @@
-// How far the fast assignment's riders and busiest legs sit from the reference loop's
+// How far the fast assignment's riders, stops' boardings and busiest legs sit from the reference loop's
 // (src/sim/demand/reference), per line and period, on the fixture and on the synthetic grid.
 // `npm run bench compare`; the reference takes about 13 s on the grid. assign.test.ts holds the
 // fixture to these numbers.
@@ -20,7 +20,7 @@ const byPeriod = (slots: Float64Array) => PERIODS.map((p) => slots.reduce((sum, 
 function compare(name: string, city: City, commuters: Commuters, plans: LinePlan[]): void {
   const fast = assign(city, commuters, plans);
   const naive = assignNaive(city, commuters, plans);
-  const ref = spread(plans, naive.riders, naive.busiest);
+  const ref = spread(plans, naive.riders, naive.busiest, naive.ends);
   let worst = 0;
   for (const plan of plans) {
     const got = byPeriod(fast.lines.get(plan.id)!.bySlot);
@@ -31,6 +31,9 @@ function compare(name: string, city: City, commuters: Commuters, plans: LinePlan
     console.log(`${name} line ${plan.id}: ${PERIODS.map((p, k) => `${p} ${got[k]!.toFixed(1)} vs ${want[k]!.toFixed(1)} (${pct(got[k]!, want[k]!)})`).join(', ')}`);
     const legGot = fast.lines.get(plan.id)!.busiestLeg;
     const legWant = ref.lines.get(plan.id)!.busiestLeg;
+    const f = fast.lines.get(plan.id)!;
+    const r = ref.lines.get(plan.id)!;
+    console.log(`${name} line ${plan.id} boardings by stop: ${[...f.boardingsByStop].map((v, q) => `${v.toFixed(1)} vs ${r.boardingsByStop[q]!.toFixed(1)}`).join(', ')}; alightings ${[...f.alightingsByStop].map((v, q) => `${v.toFixed(1)} vs ${r.alightingsByStop[q]!.toFixed(1)}`).join(', ')}`);
     console.log(`${name} line ${plan.id} busiest leg: ${PERIODS.map((p, k) => `${p} ${legGot[k]!.toFixed(1)} vs ${legWant[k]!.toFixed(1)} (${pct(legGot[k]!, legWant[k]!)})`).join(', ')}`);
   }
   console.log(`${name}: trips ${fast.tripsPerDay.toFixed(1)} vs ${ref.tripsPerDay.toFixed(1)} (${pct(fast.tripsPerDay, ref.tripsPerDay)}); worst line-period ${(worst * 100).toFixed(2)}%`);

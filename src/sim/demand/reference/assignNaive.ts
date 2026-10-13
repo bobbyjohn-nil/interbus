@@ -18,13 +18,20 @@ interface Reach {
  * Riders per line per period, in PERIODS order, as the old loop counted them, and each line's
  * busiest leg per period, counted rider by rider (assign() counts it from its groups' stops).
  */
-export function assignNaive(city: City, commuters: Commuters, plans: readonly LinePlan[], tripScalePermille = city.tripScalePermille): { riders: number[][]; busiest: number[][] } {
+export function assignNaive(
+  city: City,
+  commuters: Commuters,
+  plans: readonly LinePlan[],
+  tripScalePermille = city.tripScalePermille,
+): { riders: number[][]; busiest: number[][]; ends: { board: Float64Array; alight: Float64Array }[] } {
   // Riders per line per period, as if the whole day's trips fell in that period; spread over the
   // period's half-hours by the commute profile at the end, since a pair's choice depends only on
   // the period's wait.
   const byPeriod = plans.map(() => ({ peak: 0, offpeak: 0, overnight: 0 }) as Record<Period, number>);
   // Each line's load on every leg, per period and direction, at [(period * 2 + direction) * stops + leg].
   const load = plans.map((plan) => new Float64Array(6 * plan.stops.length));
+  // Who boards and alights at each stop, at [period * stops + stop].
+  const stopEnds = plans.map((plan) => ({ board: new Float64Array(3 * plan.stops.length), alight: new Float64Array(3 * plan.stops.length) }));
   const stopsGrid = new SpatialGrid<{ line: number; pos: number }>(MAX_WALK_M);
   plans.forEach((plan, line) => plan.stops.forEach((p, pos) => stopsGrid.add(p, { line, pos })));
   const reach = (p: SubPoint): Reach[] =>
@@ -83,6 +90,8 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
             byPeriod[choice.line]![period] += r;
             // Every leg between the two stops, in the direction travelled, carries these riders.
             const stops = plans[choice.line]!.stops.length;
+            stopEnds[choice.line]!.board[k * stops + choice.from]! += r;
+            stopEnds[choice.line]!.alight[k * stops + choice.to]! += r;
             const at = (choice.from < choice.to ? k * 2 : k * 2 + 1) * stops;
             for (let leg = Math.min(choice.from, choice.to); leg < Math.max(choice.from, choice.to); leg++) load[choice.line]![at + leg]! += r;
           });
@@ -98,5 +107,6 @@ export function assignNaive(city: City, commuters: Commuters, plans: readonly Li
         return Math.max(...d.subarray(k * 2 * stops, (k * 2 + 2) * stops));
       }),
     ),
+    ends: stopEnds,
   };
 }

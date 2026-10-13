@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` d11357f (crowding), with M3 step 3, the fare band, in review.
+**Updated:** 2026-10-13, at `main` 26169b5 (the fare band), with M3 step 4a, each stop's day, in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` d11357f. Deploy preview run 38380736185's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 26169b5. Deploy preview run 38383150680's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -15,6 +15,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a bus model per line, Sparrow or Metro 40, picked on the new-line card and swapped on the line card, each drawn at its own length;
   - V2's waits: riders leave a line that comes once an hour;
   - full buses turning riders away half-hour by half-hour, and "Full at 17:00" on the line card when they do;
+  - a fare per line from $1.00 to $5.00 on the line card, with the band of fares that net the most;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
@@ -167,6 +168,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
    - [x] **Crowding** (K27; 2026-10-13): each half-hour, riders past the seats on a line's busiest leg are turned away in that half-hour only, and the line card reads "Full at 17:00 · ≈2,400 riders a day turned away". On Inner Boston's ten corridor lines only Washington Street fills: on Sparrows every 10 minutes it turns away 2,377.8 of 7,508 riders a day, on Metro 40s 131.4. The fixture's debug line never fills, so its sweep is unchanged (DECISIONS, Measured).
 3. [x] **The fare band** (item 4; 2026-10-13): a fare per line from $1.00 to $5.00, felt against the ride's length, the subsidy tapering to nothing at $5.00, and the line card's band of fares within 5% of the best net. The debug line does best at $1.75 on the starter's headways (band $1.75–$2.00), inside the spec's $1.75–$3.25, which `strategies.test.ts` holds as I3's fare clause. Riders turned out very fare-sensitive, which week 9's tuning should look at (DECISIONS, Measured). I4 waits for transfers (item 13).
 4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).
+   - [x] **Each stop's day** (2026-10-13): boardings, alightings and net, V2's apportionment, flagged QUIET under 5 boardings or LOSS under −$20 with a ring and a word on the map; a click on a stop opens its card. A starved debug line flags Longwood QUIET and Symphony LOSS (DECISIONS, Measured).
+   - [ ] **Stop tiers**: Sign to Transfer Hub, the walk bonus, half back on a downgrade (save format 6).
+   - [ ] **Finance**: the ledger by kind for today, yesterday and the quarter, beside the forecast.
 5. [ ] **Undo while paused** (item 7, I9).
 6. [ ] **Saves for r1** (item 8): stops by place and the r1→r2 save test, the missing-pack refusal, slots, export and import.
 7. [ ] **`city-boston-r1`** by Sun Nov 15: β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.

@@ -14,6 +14,7 @@ function render(change: Partial<LineView>, band: FareBandView | null = null): st
     name: 'Line 1',
     colour: '#c0392b',
     stops: [],
+    stopIds: [],
     route: [],
     stopAt: [],
     stopDistM: [0, 3_535],

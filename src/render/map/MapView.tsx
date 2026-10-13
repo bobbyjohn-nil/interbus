@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { onReplaced } from '../../platform';
 import { CITIES } from '../../cities';
-import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
-import type { MountedMap } from './loadMap';
+import type { DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import type { MapHit, MountedMap } from './loadMap';
+
+export type { MapHit };
 import { afterIdle, afterMountError, afterTimeout, type MapStatus as Status } from './status';
 import { buildingsLayer, isTiltKey, toggled, type ViewMode } from './tilt';
 
@@ -20,10 +22,12 @@ export interface MapViewProps {
   /** Where people live and work, from the sim worker. */
   readonly dots?: Dots | null;
   readonly lines?: readonly LineView[];
-  /** Changes whenever `lines` does (Snapshot.linesVersion). */
+  /** Every stop and its QUIET or LOSS flag. */
+  readonly stops?: readonly StopView[];
+  /** Changes whenever `lines` and `stops` do (Snapshot.linesVersion). */
   readonly linesVersion?: number;
   readonly onPointer?: (at: LngLatPair | null, screen: [number, number] | null) => void;
-  readonly onClick?: (at: LngLatPair, lineId: number | null) => void;
+  readonly onClick?: (at: LngLatPair, hit: MapHit) => void;
   /** Where depots may stand, tinted while `tint` is on. */
   readonly depotLand?: readonly (readonly LngLatPair[])[] | null;
   readonly tint?: boolean;
@@ -42,14 +46,14 @@ function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void
   return () => void mounted.map.off('idle', onIdle);
 }
 
-export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, clock = null }: MapViewProps) {
+export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, clock = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
   const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
-  const latest = useRef({ dots, lines, onPointer, onClick, depotLand, tint, depots, draft, clock });
+  const latest = useRef({ dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, clock });
   useEffect(() => {
-    latest.current = { dots, lines, onPointer, onClick, depotLand, tint, depots, draft, clock };
+    latest.current = { dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, clock };
   });
   // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
   const depotsKey = depots.map((d) => d.id).join(',');
@@ -111,14 +115,14 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, 
         mountedRef.current = mounted;
         const now = latest.current;
         if (now.dots) showDots(mounted, now.dots, setDotsDrawn);
-        mounted.setLines(now.lines);
+        mounted.setLines(now.lines, now.stops);
         if (now.depotLand) mounted.setDepotLand(now.depotLand);
         mounted.setDepots(now.depots);
         mounted.setTint(now.tint);
         mounted.setDraft(now.draft);
         if (now.clock) mounted.setClock(now.clock.second, now.clock.rate);
         mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
-        mounted.onClick((at, lineId) => latest.current.onClick?.(at, lineId));
+        mounted.onClick((at, hit) => latest.current.onClick?.(at, hit));
         const rest = () => {
           const c = mounted.map.getCenter();
           setView(`${c.lng.toFixed(6)},${c.lat.toFixed(6)},${mounted.map.getZoom().toFixed(3)}`);
@@ -154,7 +158,7 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, 
   }, [dots]);
 
   useEffect(() => {
-    mountedRef.current?.setLines(latest.current.lines);
+    mountedRef.current?.setLines(latest.current.lines, latest.current.stops);
   }, [linesVersion]);
 
   useEffect(() => {
@@ -194,6 +198,7 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, 
       data-dots={dotsDrawn ?? ''}
       data-tint={tint ? 'on' : 'off'}
       data-view={view}
+      data-stops={stops.map((s) => `${s.id}:${s.at[0].toFixed(6)},${s.at[1].toFixed(6)}`).join(' ')}
     >
       {status in MESSAGES ? <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p> : null}
     </div>

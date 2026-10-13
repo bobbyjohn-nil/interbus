@@ -67,6 +67,8 @@ export interface LineView {
   readonly name: string;
   readonly colour: string;
   readonly stops: readonly LngLatPair[];
+  /** Each stop's id, in line order (Snapshot.stops). */
+  readonly stopIds: readonly number[];
   /** The streets it drives, stop to stop. */
   readonly route: readonly LngLatPair[];
   readonly ridersPerDay: number;
@@ -94,6 +96,19 @@ export interface LineView {
   readonly incomeCents: number;
   /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
   readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
+}
+
+/** A stop's day over every line that calls there (sim/economy/stops.ts): QUIET under 5 boardings, LOSS under −$20. */
+export interface StopView {
+  readonly id: number;
+  readonly at: LngLatPair;
+  /** The lines that call here. */
+  readonly lineIds: readonly number[];
+  readonly boardings: number;
+  readonly alightings: number;
+  readonly netCents: number;
+  readonly quiet: boolean;
+  readonly loss: boolean;
 }
 
 export interface DepotView {
@@ -134,7 +149,9 @@ export interface Snapshot {
   /** Every line's forecast and every depot's upkeep for a whole day, in cents. */
   readonly costsPerDayCents: number;
   readonly lines: readonly LineView[];
-  /** Changes whenever `lines` does, so the map redraws them only then (RN-04). */
+  /** Every stop standing, with its day; changes with `lines`. */
+  readonly stops: readonly StopView[];
+  /** Changes whenever `lines` and `stops` do, so the map redraws them only then (RN-04). */
   readonly linesVersion: number;
   readonly depots: readonly DepotView[];
 }

@@ -252,6 +252,12 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench compare`, `npm run bench`; `src/sim/economy/stops.ts`, `stops.test.ts`): **each stop has a day: boardings, alightings and net, flagged QUIET or LOSS** (the M3 spec, item 5).
+  - **The rule.** The assignment counts who boards and alights at each stop, per period, and crowding takes its share off each. A stop's net is V2's apportionment (`Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:3757-3792`): its boardings at each line's fare and subsidy, less each line's day of costs shared by boardings, or evenly when nobody boards. So the stops' nets add up to the line's. QUIET is under 5 boardings a day, LOSS under −$20 a day (V2's thresholds).
+  - **Against the reference loop**, which counts each rider's stops one by one, the debug line's boardings and alightings per stop are within 4.7%.
+  - **The debug line's stops on the starter** (no depot): Copley nets $508.86 a day, Symphony $714.74, the MFA $273.68 and Longwood $54.54, so none is flagged. **Starved** (hourly, one bus): Longwood is QUIET at 1.7 boardings and Symphony LOSS at −$34.23. With a depot's deadhead on the bill as well, Copley, Symphony and the MFA all read LOSS.
+  - **On the map** a flagged stop has a ring and its word in the flag colour #c2410c (chroma above PLAN §8's 0.12; 5.2:1 on the panel's white), and a click on a stop opens its card.
+  - **Recompute** grows by a few milliseconds for the per-stop counts: Inner Boston's p50 was 43.6–47.1 ms over four runs against 40.7 ms on `main`, and p95 50.8–71.7 ms, inside I14's 150 ms.
 - **2026-10-13** (`npm run bench strategies`, `npm run bench fares`; `src/sim/rules/fare.ts`, `src/sim/economy/fareBand.ts`): **each line has its own fare, and the line card names the band that nets the most** (the M3 spec, item 4; EC-09, X-12).
   - **The rules**, V2's (`Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:94-100, 2636-2652, 3687-3700`, `10-core.js:58-67`):
     - a fare from $1.00 to $5.00 in 25¢ steps;

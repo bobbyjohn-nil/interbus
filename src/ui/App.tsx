@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CITIES } from '../cities';
-import { MapView } from '../render/map/MapView';
+import { MapView, type MapHit } from '../render/map/MapView';
 import type { BusModelId, LngLatPair } from '../sim/types';
 import { Corner } from './Corner';
 import { DayCard } from './game/DayCard';
 import { FoundingCard } from './game/Founding';
 import { ProbeCard } from './game/ProbeCard';
+import { StopCard } from './game/StopCard';
 import { DepotCard, DraftCard, type Tool } from './game/Tools';
 import { useSim } from './game/useSim';
 import { ReplacedCard } from './ReplacedCard';
@@ -20,9 +21,10 @@ export function App() {
   const [tool, setTool] = useState<Tool>('none');
   const [clicks, setClicks] = useState<LngLatPair[]>([]);
   const [draftModel, setDraftModel] = useState<BusModelId>('sparrow');
-  // One panel at a time on the right: the line tool's draft card, or the lines' inspector.
+  // One panel at a time on the right: the line tool's draft card, the lines' inspector, or a stop's card.
   const [panel, setPanel] = useState<Panel>('none');
   const [lineId, setLineId] = useState<number | null>(null);
+  const [stopId, setStopId] = useState<number | null>(null);
   const { probeAt, depotSiteAt, draftFor, send } = sim;
 
   // A tool's pointer: the depot card while placing a depot, "people within a walk" otherwise.
@@ -39,12 +41,15 @@ export function App() {
     [probeAt, depotSiteAt],
   );
   const onClick = useCallback(
-    (at: LngLatPair, line: number | null) => {
+    (at: LngLatPair, hit: MapHit) => {
       if (toolRef.current === 'depot') send({ type: 'place-depot', at });
       else if (toolRef.current === 'line') setClicks((c) => [...c, at]);
-      else if (line !== null) {
-        // A click on a line opens its inspector.
-        setLineId(line);
+      else if (hit.stopId !== null) {
+        // A click on a stop opens its card; on a line, the line's inspector.
+        setStopId(hit.stopId);
+        setPanel('stop');
+      } else if (hit.lineId !== null) {
+        setLineId(hit.lineId);
         setPanel('lines');
       }
     },
@@ -108,6 +113,7 @@ export function App() {
       <MapView
         dots={sim.dots}
         lines={sim.snapshot?.lines ?? []}
+        stops={sim.snapshot?.stops ?? []}
         linesVersion={sim.snapshot?.linesVersion ?? 0}
         depotLand={sim.depotLand}
         tint={tool === 'depot'}
@@ -131,6 +137,17 @@ export function App() {
         />
       ) : null}
       {tool === 'none' && panel === 'lines' ? <Inspector sim={sim} lineId={lineId} onLine={setLineId} onClose={() => setPanel('none')} /> : null}
+      {tool === 'none' && panel === 'stop' && stopId !== null ? (
+        <StopCard
+          sim={sim}
+          stopId={stopId}
+          onLine={(id) => {
+            setLineId(id);
+            setPanel('lines');
+          }}
+          onClose={() => setPanel('none')}
+        />
+      ) : null}
       {ready && sim.snapshot?.company.name ? (
         <Dock tool={tool} panel={panel} hasLines={(sim.snapshot?.lines.length ?? 0) > 0} onTool={choose} onPanel={setPanel} />
       ) : null}

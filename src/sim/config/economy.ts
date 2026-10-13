@@ -24,6 +24,12 @@ export const FARE_STEP_CENTS = 25;
 export const SUBSIDY_TAPER_EXPONENT = 2;
 /** The line card's fare band: every fare whose day nets within this share of the best fare's (the M3 spec, item 4). */
 export const FARE_BAND_SHARE = 0.05;
+/**
+ * A stop is QUIET under 5 boardings a day and LOSS under −$20 a day (the M3 spec, item 5; V2's
+ * thresholds, `Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:67-68`).
+ */
+export const STOP_QUIET_BOARDINGS = 5;
+export const STOP_LOSS_CENTS = -2_000;
 
 /**
  * Starting cash is k × a starter line's cost, written once at founding (D7). The starter is one
