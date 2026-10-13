@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` ca54ad8 (the calm shell), with saves and the exit check in review.
+**Updated:** 2026-10-13, at `main` d5ce97c (saves and the exit check), with M2's last tests in review.
 
 ## Live now
 
@@ -139,7 +139,10 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
    - **When it saves.** The worker hands the page a fresh save after every command, at every change of speed and every game hour. The page writes them one at a time, in order. A change of speed drops the part-step of game time, as a save does, so a reloaded game runs on in step: `host.test.ts` failed by one 30 s step without it.
    - **A reload** opens on the saved game: no founding card, and the inspector stays shut, because only lines created after the game starts count as new.
    - **`e2e/line.spec.ts`** plays the whole exit check: found, depot, Copley to Longwood, Create, buses at 1×, a day whose rows add up to the change in cash, then pause, reload and compare the clock, cash, checklist and line. With saves switched off it fails at the reload, with elapsed 0 against 72,240. `e2e/save.spec.ts` sets an older save aside in the browser.
-9. [ ] **The last of M2's tests:** I2's bus clause (adding a bus never cuts linked trips by more than 0.1%), then I3's strategies, which sit below the cut line and may move to week 5's CI sweep.
+9. [x] **The last of M2's tests** (2026-10-13; DECISIONS, Measured):
+   - **I2's bus clause:** adding a bus never cuts linked trips by more than 0.1%, alone or beside a line on the same streets (`invariants.test.ts`).
+   - **I3's strategies:** all 245 allowed headway settings for the debug line (`npm run bench strategies`). "Daytime longest, overnight shortest" earns less than the best (15, 60, off: $2,354.45 a day), a night-only line cannot be set, and a line off overnight carries nobody then (`strategies.test.ts`).
+   - **Not yet held: PLAN's starving clause** (60% of the optimum or less). Hourly all day on one bus earns 98.5% of the best, so for week 5: per-period crowding (K27) and the fare band should make starving cost, then the sweep re-runs.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 
