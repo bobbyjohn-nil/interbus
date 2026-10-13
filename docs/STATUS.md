@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` ed4edec (festival and snow): M3's items are all in but week 5's presentation items, and every M4 item above the cut is in: express (below the cut's first) is in review.
+**Updated:** 2026-10-13, at `main` 902ad82 (express): M3's items are all in but week 5's presentation items, M4's are all in, and M5's spec is written; its first item, I14 with events on, is next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ed4edec. Deploy preview run 38462383652's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 902ad82. Deploy preview run 38464253263's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -21,6 +21,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - each stop's day on a click (boardings, alightings, net), and QUIET or LOSS stops ringed on the map;
   - stop tiers from a Sign to a Transfer Hub on the stop card, and each line's button there to take the stop off it;
   - a line extended from either end, or a stop inserted into it where the player clicks, from Lines, priced on the draft card;
+  - express lines: a line of 5 km or more with its stops 1,200 m apart on average, its riders minding its ride and its fare less, marked Express on the line and draft cards;
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
   - undo while paused, on a chip and Ctrl+Z;
   - a save from another bake of the map carried onto it;
@@ -215,9 +216,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 
 14. [x] **Credits and `LICENSE-DATA.md`** (PLAN §10's week 5; 2026-10-13): every city source (OpenStreetMap, the Protomaps build, Overture's heights, the 2020 TIGER/Line blocks and county subdivisions, LODES 8.4), the font and the software, each with its licence and credit, and `public/THIRD_PARTY_NOTICES.txt` for the 33 packages the game is built with, generated from the lockfile and checked in CI. Three packages ship no licence text; their upstream texts join the notices before a Steam build. The credits screen stays in week 14.
 
-## Next: M4, Goals, by Sun Dec 6 (week 8; started early, 2026-10-13)
+## Done: M4, Goals, finished 2026-10-13 (the calendar's week 8)
 
-The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m3-money-loop.md`](specs/m3-money-loop.md)). Money first, each a small pull request (items are the spec's); P1's notes (Nov 16–22) may reorder them. M3's item 12 above, the presentation work, stays at most one session in three.
+The spec is archived as [`m4-goals.md`](specs/m4-goals.md). Every item is in, the four below its cut included; the owner's exit check on the preview and the medal ladder (DECISIONS, Open, Sun Nov 22) remain.
 1. [x] **RIDERSHIP contracts** (item 1; 2026-10-13): 150, 400 or 800 paid boardings a day near a landmark for $60k, $150k or $240k, a change onto a line not counted, dealt with HEADWAY's asks from one deck of six; an offer untaken for 10 days is withdrawn (save format 10). I11's company, now two lines reaching every fixture landmark, earns $900k–$1.02M over 40 days on 100 seeds. On Inner Boston the debug line gives Copley 136.1, and a second line from Copley to Downtown Crossing at 20 minutes lifts it to 400.5, so exit check 1 holds with little to spare (DECISIONS, Measured).
 2. [x] **Events** (item 2), from the events' own saved stream.
    - [x] **Roadworks a day ahead** (2026-10-13): rolled at a day's start (0.18, one at a time, 2 days' gap) for 3–6 days on up to 400 m of one named street a running line drives; every line over them drives it at 0.65 of its speed, hatched on the map and named on the day card the evening before, solid while on, and the line card reads its round trip and what the works add (save format 11). 0.8 events a quarter; the debug line +9 to +64 s at peak, median 52; I11 unchanged (DECISIONS, Measured).
@@ -226,7 +227,19 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m
 4. [x] **Route insert** (item 4; 2026-10-13): Insert a stop on the line card, then a click within 300 m of the line goes into its nearest leg, priced on the card with a warning over a 15% detour; one command, one undo, and no bus moves at the click (exit check 3 as e2e; DECISIONS, Measured).
 5. [x] **Medals** (item 3; 2026-10-13): bronze for a quarter of 55, silver at 25,000 trips carried (paid boardings, so a change is not counted twice) with the Goliath behind it, gold for a quarter of 75 with no grade under 60 on a day of 5,000 trips, each awarded once at a close and kept in the save (format 13), on the recommended ladder until the owner answers. On the fixture the debug line alone gets bronze on day 10 and silver on day 41, and two lines every 10 minutes silver on day 23. The medals held are dots on the Contracts chip and the Contracts panel lists the ladder with the trips left to silver, because a chip of their own broke I13 at 1152×720 (6.4% of 6%); the shell at rest late in a game now takes 5.96%, so the chip row is full (DECISIONS, Measured).
 6. [x] **The full sweep** (item 5; 2026-10-13): I3 over every headway the line card offers (650 settings), every fare, each model and each tier a lone line's stops may take, with and without roadworks on its own streets, on the debug line and two Inner Boston corridors whose stops are laid every 400 m along the street: it holds in all 54 slices, the best always every 12–15 minutes at peak with overnight off at $1.75–$2.00, a starved line at 2.7% of the best or less. It takes about 37 minutes, so it runs nightly, and the PR checks run it in small (DECISIONS, Measured). Festival and snow join its slices with their PR, doubling the nightly run.
-7. [x] **Express behind I3** (below the cut's first; 2026-10-13, in review): a line of 5 km or more with its stops 1,200 m apart on average (and three or more) is express, riders feeling its ride at 0.85 and its fare at half; Express on the line and draft cards. On Massachusetts Avenue the express line (6 stops) draws 727 riders a day where a local one of 7 stops draws 573, but one of 8 stops 733 and the 19-stop corridor more: no exploit. I3 holds on it, in small in the PR checks and in the nightly sweep; the founding recipe and the debug line are not express (DECISIONS, Measured).
+7. [x] **Express behind I3** (below the cut's first; 2026-10-13): a line of 5 km or more with its stops 1,200 m apart on average (and three or more) is express, riders feeling its ride at 0.85 and its fare at half; Express on the line and draft cards. On Massachusetts Avenue the express line (6 stops) draws 727 riders a day where a local one of 7 stops draws 573, but one of 8 stops 733 and the 19-stop corridor more: no exploit. I3 holds on it, in small in the PR checks and in the nightly sweep; the founding recipe and the debug line are not express (DECISIONS, Measured).
+
+## Next: M5, Prototype, by Sun Dec 20 (weeks 9–10; started early, 2026-10-13)
+
+The spec is [`docs/specs/current.md`](specs/current.md). No new system after Sun Dec 6: everything here is a tunable, UI, copy or rendering. The tuning waits for P1's notes (Nov 16–22) and freezes on Dec 13; P2 is Dec 12–13. The 2D/3D chip and the light style pass are look work, at most one session in three until M3 is signed off, with M3's item 12 above. In this order, each a small pull request (items are the spec's):
+1. [ ] **I14 with events on** (M4's last magnitude): the recompute on a festival's first day on Inner Boston, against 150 ms.
+2. [ ] **The scripted pacing run** (item 1): `bench/pacing.ts`, a scripted player on Inner Boston reporting real minutes on the speed ladder against PLAN §3's targets, with a fixture version in the PR checks.
+3. [ ] **The save list** (item 4): buses, when each was saved, Delete after a question, and a save set aside by a format change listed with Export.
+4. [ ] **Home** (item 3): Continue, New game (asking before it replaces the autosave), Saves and the build chip over the paused map; "Back to Home" in Saves.
+5. [ ] **The GPU ladder** (item 5): Low graphics (2D, 30 fps) and the hardware-acceleration card, each forced in e2e; the `?fps` readout.
+6. [ ] **The tuning freeze** (item 2): k, the speed ladder, the medal bars and Boston's balance bands, from the pacing run and P1, by Dec 13.
+7. [ ] **The 2D/3D chip, drag, snap and cross-fade** (item 6; look work), its room in I13 measured.
+8. [ ] **P2's fixes, the light style pass and the slow-laptop run** (items 7–9; week 10).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 

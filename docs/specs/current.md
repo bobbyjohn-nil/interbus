@@ -1,85 +1,129 @@
-# M4 · Goals
+# M5 · Prototype
 
-**Boston gives a company something to aim at beyond a profitable day: RIDERSHIP contracts beside HEADWAY ones, an event hatched a day ahead to plan around, medals for a good company, the Goliath behind silver, and a stop inserted into a running line with no bus jumping. By Sun Dec 6 2026, the system cutoff (PLAN §10, week 8).** It is money work (PLAN §0 call 1); its only drawing is what its exit check needs (an event's hatched marker, a contract ring, a medal chip).
+**Boston end to end, balanced, saved and onboarded, flat and tilted, by Sun Dec 20 2026 (PLAN §4, §10 weeks 9–10).**
+- **Week 9** freezes the tuning against a scripted pacing run, and adds Home, the save list and the GPU ladder.
+- **Week 10** lands P2's fixes, the 2D/3D chip with drag, snap and cross-fade, the light style pass and a slow-laptop run.
 
-One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](../history/lessons-ledger.md), [SC-07](../history/lessons-ledger.md)). Written 2026-10-13 from PLAN §3, §4 and §10 (week 8), DECISIONS D7 and D10 and the contracts' measured entry, and a survey of V1, V2 and V3's contracts, events, unlocks, express and route editing (cited below; V2 at its archive branch). When this spec and those disagree, they win; fix this file in the same PR. M3's spec is archived in [m3-money-loop.md](m3-money-loop.md).
+No new system after Sun Dec 6 ([SC-08](../history/lessons-ledger.md)): everything here is a tunable, UI, copy or rendering. The chip and the style pass are look work, the items PLAN §10 schedules, at most one session in three until M3 is signed off.
+
+One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](../history/lessons-ledger.md), [SC-07](../history/lessons-ledger.md)).
+- **Written** 2026-10-13 from:
+  - PLAN §3, §4, §6, §8 and §10 (weeks 9–10);
+  - DECISIONS D2, D7, D8, D13, D16 and D19, and the medals' measured entry;
+  - a survey of V1's, V2's and V3's home menus, save lists, GPU handling, pacing and tilt (cited below; V2 at its archive branch).
+- **Conflicts:** when this spec and those disagree, they win; fix this file in the same PR.
+- **M4's spec** is archived in [m4-goals.md](m4-goals.md).
 
 ## Exit check (the owner, 10 minutes, on the deployed preview)
 
-"A Longwood contract; roadworks a day ahead; insert a stop and no bus jumps" (PLAN §10 week 8). Concretely, on Inner Boston:
-1. Take a RIDERSHIP contract ("400 boardings a day near Copley Square, 10 days") and meet it by adding a second line there; it pays as one ledger row.
-2. A "Roadworks tomorrow" marker appears hatched on a street a line drives; the next day the line's card shows its slower round trip, and the marker clears when the works end.
-3. Insert a stop between two of a running line's stops at speed: no bus on the map moves more than a few metres at the click, and one undo takes it back.
-4. A quarter graded 55 or better gives the bronze medal, a dot on the Contracts chip; the Contracts panel names the trips left to silver, which unlocks the Goliath (a chip of its own broke I13; DECISIONS, Measured).
+The plan's two checks: "Home → founding → a profitable day" (week 10), and "the scripted pacing run meets §3's targets; Home to a profitable day in ≤8 minutes; your Mac's fps recorded" (week 9). Concretely, on Inner Boston:
+1. **Home to a profitable day.** The preview opens on Home. New game leads to founding, then to a day closed in profit by following the checklist, all in 8 minutes or less.
+2. **The save list.** Saves lists the autosave and the slots, each with its company, game day, cash and lines, and when it was saved. Continue on Home opens the newest.
+3. **Tilt and back.** The 2D/3D chip, `T` and a right-drag all tilt the map, and a drag below 12° snaps it flat. The buildings cross-fade, and nothing in the game changes.
+4. **Your Mac's fps.** The fps readout gives your Mac's 2D and 3D frame rates in stable Chrome. They go in P2's notes.
+5. **The pacing report.** DECISIONS records the scripted run's minutes against §3's targets.
 
 ## Dates
 
 | By | What |
 |---|---|
-| Sun Nov 22 | The owner answers the medal ladder (DECISIONS, Open); P1 notes in (the owner and the artist, PLAN §10 week 6) |
-| Nov 30–Dec 6 | Week 8, 5 sessions: whatever of items 1–6 is not in yet. **System cutoff Sun Dec 6**: no new sim system after it ([SC-08](../history/lessons-ledger.md)) |
+| Sun Nov 22 | The owner answers the medal ladder (DECISIONS, Open; carried from M4) |
+| Dec 7–13 | Week 9, 5 sessions: the tuning freeze; pacing; Home; the save list; the GPU ladder; the model viewer (≤1.5). **P2 Dec 12–13** (the owner and the artist) |
+| Dec 14–20 | Week 10, 5 sessions: P2's fixes first; the 2D/3D chip, drag, snap and cross-fade; the light style pass; the slow-laptop run. **The `prototype` tag Sun Dec 20** (D16: not a version), on the commit the owner signs off; **D19 revisited** the same day |
 
-Work starts now, ahead of the calendar, money first; P1 may reorder it.
+Work starts now, ahead of the calendar. The pacing harness and the shell come first; the tuning waits for P1's notes (Nov 16–22) and freezes on Dec 13.
 
 ## Above the cut line
 
-1. **RIDERSHIP contracts** (PLAN §3, GD-04; V2's rules, `Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:4747-4862`, without its bugs):
-   - Asks of 150, 400 or 800 boardings a day near a landmark, paying $60k, $150k or $240k: harder asks pay more (V2 first paid 150 the most, fixed in its `b9b8637`).
-   - Counted as the day's paid boardings (a change onto a line boards free and is not counted, EC-04) at every stop within the 650 m reach, all lines together, from the modelled day (V2 read the same, `:3255-3269`); graded at the close like HEADWAY, 10 days met in a row within 20, paid once.
-   - Dealt from one shuffled deck of the six asks, HEADWAY's three and RIDERSHIP's three, so every six offers hold each once and I11's bound holds across kinds (V2 drew kind and ask independently).
-   - The card shows today's boardings against the ask; the map's contract ring names the kind.
-   - An offer nobody takes for 10 days is withdrawn and its slot dealt again, so an ask a company cannot reach never holds a slot for good (added in building it; DECISIONS, Measured).
-2. **Events, one at a time, hatched a day ahead** (PLAN §3; V2's rates, `…:Gaming/src/10-core.js:276-285`, `30-sim.js:4576-4709`; fuel shock is out with fuel):
-   - Rolled at a day's start from their own saved RNG stream, never the contracts' (DECISIONS, Measured: the contracts' draws): a 0.18 chance a day, none while one is pending or running or for 2 days after, starting the next day.
-   - **Roadworks** (3–6 days): one stretch of street a running line drives, up to 400 m of one named street, at 0.65 of its speed; every line over it takes the longer round trip in every period (rules/cycle.ts). Riders' rides keep the street's speed: they feel the works through a short line's stretched headways (built so, DECISIONS, Measured).
-   - **Festival** (1–2 days): demand ×2.6 for trips starting or ending within 900 m of a stop, weighted to busier stops (V2 `30-sim.js:4617-4660`); it can carry a RIDERSHIP day, as V2 intended. Built so: the stop is picked by its paid boardings and named after the nearest landmark within 900 m, else the nearest street; every trip boarding at it starts or ends within 900 m, so its boardings take the full ×2.6 short of crowding (DECISIONS, Measured).
-   - **Snow** (1–2 days): every drive at ÷0.72 on top of the hour's congestion (V2 `10-core.js:766-785`).
-   - Shown as a hatched marker ("Roadworks tomorrow", "Snow tomorrow") while pending and solid while on, with a notice; a short line runs stretched headways rather than buying buses on its own. Each roll picks its kind evenly (V2). A festival's marker is a 900 m ring round its stop; snow has no shape, its words amid the company's stops; the line card says what roadworks or snow add to its round trip.
-3. **Medals** (PLAN §3: three for Boston, silver unlocks the Goliath; no earlier version had them, so the ladder is new and the owner's call, DECISIONS Open). Recommended:
-   - **Bronze:** a quarter's report card at 55 or more (the grant's bar).
-   - **Silver:** 25,000 trips carried since founding, counted as trips, not boardings (V3's fix, `Intralines_City@dc63602:studio/docs/design/fleet-and-staff.md:22-40`; V1 and V2's 25,000 boardings let a split line buy the Goliath at half the riders), and unlocks the Goliath.
-   - **Gold:** a quarter graded 75 or more with no category under 60, carrying 5,000 trips a day.
-   - Each is awarded once, at a day's close, with a notice on the day card, and kept in the save; Steam achievements later read them (PLAN §4). The medals held are dots on the Contracts chip and the Contracts panel lists the ladder, since a chip of their own broke I13 at 1152×720 (built so; DECISIONS, Measured).
-4. **Route insert, and no bus jumps on any route edit** (PLAN §3; V2's design, `…:Gaming/docs/design/route-editing.md:1-92`):
-   - Point at a leg of a line and click: one command places the stop (or joins one within reach) and inserts it there, one undo entry; a detour over 15% of the leg warns, never blocks (V2's `LINE_DETOUR_WARN_SHARE`). The click must be within 300 m of the leg's streets (added in building it; DECISIONS, Measured).
-   - **No bus jumps:** a trip under way when a line's route or round trip changes (insert, remove, extend, a model swap, an event starting) finishes on the route and times it began with; the next departures take the new ones. V2's epoch measured 4,165 m → 1.6 m on insert (`57dcdc0`) but kept two timelines in step and still jumped 3,117 m on a reorder (K32, RN-11); here the day plan keeps the old plan's trips until they end, one timeline.
-5. **The full sweep** (PLAN §10 week 8; I3): every allowed fare, headway, model and stop tier on the debug line and two Inner Boston corridors, with events off and on; nightly if it passes the 8-minute PR budget. Built so (DECISIONS, Measured): it does not fit the budget, so it runs nightly (`.github/workflows/nightly.yml`, `npm run bench sweep inner`), and the PR checks run it in small. The corridors' stops are laid about every 400 m along the street between their ends. A slice where no setting earns is noted for week 9's tuning, not failed, since running as little as it may is a losing line's least loss.
+1. **The scripted pacing run** (PLAN §3's targets; [GD-10](../history/lessons-ledger.md), [EC-11](../history/lessons-ledger.md)). No earlier version had one: V1 took about 15 game days to a second bus, and nobody had checked (GD-10). `bench/pacing.ts` is a committed scripted player on Inner Boston.
+   - **What the player does:**
+     - founds with the founding recipe and plays its first day at speed 1, then speed 2;
+     - draws a second line along a sweep corridor once its cash covers that line and its buses;
+     - takes the contracts its lines can meet, and nothing else.
+   - **What it reports, in real minutes on the speed ladder** (`SPEEDS`: 600, 1,800 and 5,400 game seconds a second; `src/worker/host.ts`): first profitable day, second line, the report card, then bronze, silver and gold.
+   - **The targets:** profit by 8 minutes, the second line after 15–25, the report card by 20, the top medal in 2–4 hours.
+   - **The first line's 3–5 minutes** is the player's own time at the tools. The e2e founding run times its clicks, and P2 times people.
+2. **The tuning freeze** (PLAN §3, D7; I10, [GD-11](../history/lessons-ledger.md)). What can be tuned from the pacing run's numbers:
+   - k, within 1.0–1.8; now 1.2, giving $427,200 against the 3.5 km founding recipe;
+   - the speed ladder;
+   - the medal bars, on the owner's answer or else the recommendation;
+   - fare band share, crowding and contract asks.
 
-## Below the cut line (cut in this order if Dec 6 is at risk)
+   Each change goes in DECISIONS with its measured reason. Starting cash is written at founding, so a retune never moves a save. After Sun Dec 13 a tunable changes only for a P2 finding.
+   - **Boston's balance bands** ([EC-12](../history/lessons-ledger.md)): the founding recipe's day-2 net, the best first line's net, the days to the second line and the quarter's grade under the scripted player. Each is committed as a band, so a later change that moves one fails.
+3. **Home** ([UX-07](../history/lessons-ledger.md); V1's menu, `Intralines@7af45b1:src/ui/Menu.tsx:104-253`, re-implemented per salvage R11). V2 and V3 had none.
+   - **What it holds:** the first screen over the paused, flat map ([UX-10](../history/lessons-ledger.md)), with:
+     - **Continue**, naming the newest save's company, day and cash;
+     - **New game**, which asks first when it would replace the autosave (V1 confirmed too);
+     - **Saves**;
+     - the build chip.
+   - **What waits:** settings, help and credits wait for week 14.
+   - **Getting back:** "Back to Home" in Saves, which saves first.
+   - **Cost:** Home is gone once a game plays, so it costs nothing in I13 at rest. Its code counts toward the menu's 200 KiB.
+4. **The save list** (V1's rows, `Intralines@7af45b1:src/ui/Menu.tsx:278-347`; V3's backup key, [DP-06](../history/lessons-ledger.md)). Saves today shows the autosave and Slots 1–3 with day, time, company, cash and lines (`src/ui/shell/Saves.tsx`). It gains:
+   - buses;
+   - when each was saved, read through `src/platform/` (no `Date` in the sim);
+   - Delete, after a question.
 
-1. **Express behind I3** (PLAN cut 2; X-20): a line earns express from its streets (≥5 km, average spacing ≥1,200 m on the routed path, V1's `Intralines@7af45b1:src/game/constants.ts:390-431`), riders weigh its ride ×0.85 and its fare ×0.5, and it ships only if I3 holds: its best fare under $5 (V2 peaked at $5.00 before the subsidy taper and $2.75 after, EC-05) and the starter recipe not express (K16: a 5.3 km starter earned +$3,167 a day). Built so, with V1's three-stop minimum and without its ×1.5 subsidy: I3 holds on an express Massachusetts Avenue, in the PR checks in small and nightly in full (DECISIONS, Measured). The map's express chevrons (PLAN §8) wait for look work.
-2. Festival and snow (PLAN cut 4: events down to roadworks).
-3. Route insert (PLAN cut 6); no bus jumps on remove, extend and model swaps stays.
-4. Gold (PLAN cut 7); the Goliath stays behind silver.
+   A save set aside by a format change shows as a row "From an older build", with Export, so it is never lost silently.
+5. **The GPU ladder** (PLAN §6 "No GPU"; never cut). Since Chrome 139 a machine without a usable GPU gets no WebGL at all (PLAN §6's source). No earlier version had a ladder; V1 had only a lost-context card (`Intralines@7af45b1:src/map/MapView.tsx:124-131`).
+   - **The rungs:**
+     - **Hardware:** as now.
+     - **Low graphics:** 2D only, capped at 30 fps. The 2D/3D chip says why it is off.
+     - **No WebGL, or a context lost and not restored:** a calm card, "Turn on hardware acceleration to see the map", with Saves and Export intact.
+   - **The fps readout:** behind `?fps`, read through `src/platform/`. It records frame times for exit check 4 and the slow-laptop run.
+   - **CI:** CI's Chromium renders in software (SwiftShader). So the ladder's own tests force each rung, and the other tests keep hardware.
+6. **The 2D/3D chip, drag, snap and cross-fade** (D2; PLAN §6 "2D and 3D"; week 10, look work).
+   - **What it adds:** a labelled chip beside `T`, plus right-drag and two-finger pitch at 25–60°. Releasing below 12° snaps flat.
+   - **The cross-fade:** building extrusions cross-fade once per mode change, never per frame ([RN-04](../history/lessons-ledger.md)). It replaces today's 600 ms ease (`src/render/map/loadMap.ts`).
+   - **Prior art:** V1 started tilted with MapLibre's pitch control (`Intralines@7af45b1:src/map/MapView.tsx:83-111`). V3 used drag at 0.25°/px and a 400 ms ease that is instant under reduced motion (`Intralines_City@dc63602:src/render/three/constants.ts:14-49`). Reduced motion makes both the cross-fade and the snap instant.
+   - **I13:** the shell at rest late in a game takes 5.96% of the 6% at 1152×720 (DECISIONS, medals). The chip must find its room in the row, measured in its PR. If nothing fits, that becomes the week's question to the owner, with a recommendation.
+7. **P2's fixes** (Dec 12–13). The notes go in `docs/playtests/`, and their fixes come first in week 10.
+8. **The light style pass** (D8; PLAN §8 rules 1–5). It applies the owner's Nov 8 token pick, keeps the palette and contrast tests green, and puts a side-by-side with V1 in the milestone's notes.
+9. **The slow-laptop run** (PLAN §6 budgets): 2D must hold ≥30 fps on the slowest machine with 200 buses, and 3D at zoom 17, pitch 60 must hold ≥30. Under that, PLAN §10's trigger applies in this order: a 3D zoom floor of 14.5, no extrusion gradient, pitch capped at 50°.
 
-**Never cut from M4:** RIDERSHIP contracts; roadworks a day ahead; bronze and silver with the Goliath behind it; no bus jumps; the full sweep.
+## Below the cut line (cut in this order if Dec 20 is at risk)
+
+1. **The model viewer** with the Boston-map preview (≤1.5; `docs/art/MODELS.md:167-173`). It is built only once the artist's `metro-40` blockout has landed ([RN-07](../history/lessons-ledger.md)); otherwise it waits for week 13. V3's `.glb` viewer had no map (`Intralines_City@dc63602:studio/viewer/main.ts:1-8`).
+2. **Week 5's carried items:** the three.js proof behind a flag (≤1) and the art check. Both also wait on the first file.
+3. **Drag and snap** (PLAN cut 5): two fixed states, flat and 50°, set by the chip and `T` alone.
+4. **The style pass beyond the token pick.**
+
+**Never cut from M5:** the pacing run and the tuning freeze; Home; the save list; the GPU ladder; a way from flat into 3D (the chip at least); P2 and its fixes.
 
 ## Magnitudes (expected before measuring, [TS-12](../history/lessons-ledger.md); out of range means find out why before tuning)
 
 | Quantity | Expected | Source |
 |---|---|---|
-| Copley's boardings a day with the debug line alone | about 195 (the fixture's first stop): meets RIDERSHIP 150, not 400 | Item 1 |
-| A 3-bus company winning RIDERSHIP | some of 400 at a hub with a second line; 800 needs an interchange (V2: 0 of 15 at 3 buses) | Item 1, V2 `contracts.md:54-74` |
-| Contract income over 100 seeds, both kinds | within ±30% of the median, as I11 | Item 1 |
-| Events a quarter | about one (0.18 a day, the gaps and durations) | Item 2 |
-| Roadworks on the debug line | +30 to +60 s a round trip; still 2 buses at 20 min | Item 2 |
-| Snow on the debug line | peak round trip 1,641 s → about 2,060 s: 2 buses at 20 min, a fourth needed at 10 min | Item 2 |
-| Festival at Copley | the day's boardings near it up 1.5–2.5× | Item 2 |
-| Bronze, silver, gold | about the first or second quarter; 40 days with one line or about 12 with three; within PLAN's 2–4 hours to the top medal (speed 1: 2.4 min a day) | Item 3 |
-| A bus's move at an edit's instant | ≤5 m (V2's epoch: 1.6 m) | Item 4 |
-| Recompute with events on | ≤150 ms p95 on GitHub's runner | I14 |
+| New game to a profitable day, scripted e2e with no thinking time | ≤5 of the 8 minutes: founding, a depot, four stops and day 1 at speed 1 (2.4 minutes a game day) | Item 1, §3 |
+| A game day at speeds 1, 2 and 3 | 144, 48 and 16 s | `SPEEDS` |
+| The report card under the scripted player | about 10–12 minutes: day 1 at speed 1, days 2–10 at speed 2 | Item 1, §3 |
+| Days to a second line | 6–10 game days (V1: about 15, unchecked) | Item 1, GD-10 |
+| Bronze and silver | bronze in the first quarter; silver about day 23–41 (the fixture: two lines, one line) | M4's medals bench |
+| Gold on Inner Boston | 5,000 trips a day needs about eight lines like the debug line (610 a day on the fixture); within 2–4 hours if the ladder holds | Item 2, §3 |
+| k after tuning | 1.0–1.8 (now 1.2) | I10 |
+| Home and the save list in the menu chunk | within 200 KiB gzip | PLAN §6 |
+| Low graphics | 30 fps cap, 2D only | PLAN §6 |
+| I13 with the 2D/3D chip | ≤6% at rest at 1152×720 late in a game; 0.04% is left today | Item 6 |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
 
-- **I11** over both kinds: contract income over 100 seeds within ±30% of the median; no RIDERSHIP day met by changes counted twice.
-- **I8** with events: the same seed and commands give the same events and fingerprint; adding the event stream leaves the contract deck as it was.
-- **I6** across route edits mid-run: no bus moves more than 5 m at an edit's instant, and buses out never exceed buses owned (a model swap's old buses, sold at the click, finishing their trips beside the new ones).
-- **I3** in the full sweep (and with express, if it ships): interior optima, starving ≤60%, best fare under $5.
-- **I7** for the save format with events, medals and the new contract kind, and the r1→r2 save test.
-- **e2e (I15)**: the exit check, items 1–4, on the fixture.
+- **The pacing run's bands:** a fixture version in the PR checks, and the full Inner Boston run nightly ([EC-11](../history/lessons-ledger.md), [EC-12](../history/lessons-ledger.md)).
+- **I10 after the k tune:**
+  - the best profitable first line fits the starting cash;
+  - the best four-bus line costs ≥1.15× it;
+  - k stays in 1.0–1.8.
+- **I13** at rest and with a panel, at all three sizes, with Home, the save list and the 2D/3D chip.
+- **D2:** the same commands give the same fingerprint, whether flat, tilted or in Low graphics.
+- **I7** for any envelope change the save list needs.
+- **e2e (I15):**
+  - the exit check's items 1–3 on the fixture;
+  - the GPU ladder's card with WebGL off;
+  - Low graphics forced.
 
-## Out of M4 by plan
+## Out of M5 by plan
 
-- Tuning k, Boston's bands and pacing (week 9); Home and the save list (week 9).
-- The dark theme (week 13); the artist's models in 3D (week 13, cut 3); help, settings and the credits screen (week 14).
-- "Bronze unlocks the next city" (a second city, after v1.0).
+- The dark theme and the artist's models in 3D (week 13).
+- Help, settings with the theme toggle, the credits screen and close-zoom lane markings (week 14).
+- Steam and desktop work (after v1.0, D18).
+- The demo's scope (D19: revisited Dec 20, decided by Feb 28).
