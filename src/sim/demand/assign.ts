@@ -55,6 +55,8 @@ export const SLOTS = 48;
 const SLOT_PERIOD: readonly Period[] = Array.from({ length: SLOTS }, (_, s) => periodAt(s * 1800 + 900));
 const SLOT_PERIOD_INDEX: readonly number[] = SLOT_PERIOD.map((p) => PERIODS.indexOf(p));
 const SLOT_SHARE: readonly number[] = Array.from({ length: SLOTS }, (_, s) => HOURLY_PROFILE[Math.floor(s / 2)]! / 2);
+/** Each period's share of a day's trips, in PERIODS order. */
+const PERIOD_SHARE: readonly number[] = PERIODS.map((_, k) => SLOT_SHARE.reduce((sum, v, s) => sum + (SLOT_PERIOD_INDEX[s] === k ? v : 0), 0));
 
 export interface LinePlan {
   readonly id: LineId;
@@ -78,6 +80,9 @@ export interface LineDemand {
   readonly fullSlot: number | null;
   /** Riders on the busiest leg in each period, in PERIODS order, as if the whole day's trips fell in that period. */
   readonly busiestLeg: readonly number[];
+  /** Riders a day who board and who alight at each of its stops, in line order, after crowding. */
+  readonly boardingsByStop: Float64Array;
+  readonly alightingsByStop: Float64Array;
 }
 
 export interface Assignment {
@@ -332,9 +337,13 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   // the line is the load on each leg. Home to work is the direction the morning travels; the
   // evening travels it back, so the busier direction is the same all day.
   const legs = plans.map((plan) => new Float64Array(6 * plan.stops.length));
+  // And who boards and alights at each stop, at [period * stops + stop].
+  const ends = plans.map((plan) => ({ board: new Float64Array(3 * plan.stops.length), alight: new Float64Array(3 * plan.stops.length) }));
   const carry = (line: number, k: number, board: number, alight: number, r: number) => {
     const stops = plans[line]!.stops.length;
     const d = legs[line]!;
+    ends[line]!.board[k * stops + board]! += r;
+    ends[line]!.alight[k * stops + alight]! += r;
     if (board < alight) {
       d[k * 2 * stops + board]! += r;
       d[k * 2 * stops + alight]! -= r;
@@ -491,6 +500,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     plans,
     plans.map((_, line) => [riders[line * 3]!, riders[line * 3 + 1]!, riders[line * 3 + 2]!]),
     legs.map((d, line) => busiestLegs(d, plans[line]!.stops.length)),
+    ends,
   );
 }
 
@@ -523,9 +533,16 @@ export function seatsPerSlot(plan: LinePlan, period: Period): number {
  * period) into boardings per half-hour, by the commute profile, and turns away the riders a full
  * bus cannot take (K27). A half-hour's riders all travel the way the commute does then, so its
  * busiest leg carries that half-hour's share of the period's busiest leg; past the seats the line
- * offers each way in that half-hour, the rest are turned away, in that half-hour only.
+ * offers each way in that half-hour, the rest are turned away, in that half-hour only. Each stop's
+ * boardings and alightings (`ends`, at [period * stops + stop]) lose the same share as their
+ * period's riders.
  */
-export function spread(plans: readonly LinePlan[], byPeriod: readonly (readonly number[])[], busiest: readonly (readonly number[])[]): Assignment {
+export function spread(
+  plans: readonly LinePlan[],
+  byPeriod: readonly (readonly number[])[],
+  busiest: readonly (readonly number[])[],
+  ends: readonly { readonly board: Float64Array; readonly alight: Float64Array }[],
+): Assignment {
   const lines = new Map<LinePlan['id'], LineDemand>();
   let tripsPerDay = 0;
   plans.forEach((plan, line) => {
@@ -535,10 +552,12 @@ export function spread(plans: readonly LinePlan[], byPeriod: readonly (readonly 
     let shedPerDay = 0;
     let fullSlot: number | null = null;
     let most = 0;
+    const kept = [0, 0, 0];
     for (let s = 0; s < SLOTS; s++) {
       const k = SLOT_PERIOD_INDEX[s]!;
       const shed = Math.max(0, busiest[line]![k]! * SLOT_SHARE[s]! - seats[k]!);
       bySlot[s] = byPeriod[line]![k]! * SLOT_SHARE[s]! - shed;
+      kept[k]! += bySlot[s]!;
       perDay += bySlot[s]!;
       shedPerDay += shed;
       if (shed > most) {
@@ -546,7 +565,20 @@ export function spread(plans: readonly LinePlan[], byPeriod: readonly (readonly 
         fullSlot = s;
       }
     }
-    lines.set(plan.id, { bySlot, perDay, shedPerDay, fullSlot, busiestLeg: busiest[line]! });
+    // Riders a day per stop: each period's share of the day, less what crowding turned away then.
+    const stops = plan.stops.length;
+    const boardingsByStop = new Float64Array(stops);
+    const alightingsByStop = new Float64Array(stops);
+    PERIODS.forEach((_, k) => {
+      const offered = byPeriod[line]![k]! * PERIOD_SHARE[k]!;
+      if (offered <= 0) return;
+      const scale = (PERIOD_SHARE[k]! * kept[k]!) / offered;
+      for (let q = 0; q < stops; q++) {
+        boardingsByStop[q]! += ends[line]!.board[k * stops + q]! * scale;
+        alightingsByStop[q]! += ends[line]!.alight[k * stops + q]! * scale;
+      }
+    });
+    lines.set(plan.id, { bySlot, perDay, shedPerDay, fullSlot, busiestLeg: busiest[line]!, boardingsByStop, alightingsByStop });
     // One-seat rides only until transfers (week 7), so trips equal boardings.
     tripsPerDay += perDay;
   });

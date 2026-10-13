@@ -9,9 +9,9 @@ import { FileSource, PMTiles, Protocol } from 'pmtiles';
 import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platform';
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
-import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
+import type { DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
-import { addOverlays, DOT_LAYERS, LINE_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
+import { addOverlays, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
@@ -35,7 +35,7 @@ export interface MountedMap {
   setMode(mode: ViewMode): void;
   /** The game's layers (overlays.ts); safe to call before the style loads. */
   setDots(dots: Dots): void;
-  setLines(lines: readonly LineView[]): void;
+  setLines(lines: readonly LineView[], stops: readonly StopView[]): void;
   setDepotLand(rings: readonly (readonly LngLatPair[])[]): void;
   setDepots(depots: readonly DepotView[]): void;
   /** Shows the depot-land tint while a depot is being placed. */
@@ -47,9 +47,15 @@ export interface MountedMap {
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), at most every 100 ms and always its last position. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null) => void): void;
-  /** Where a click lands on the map (not a drag), and the line drawn under it, if any. */
-  onClick(listener: (at: LngLatPair, lineId: number | null) => void): void;
+  /** Where a click lands on the map (not a drag), and the line and the stop drawn under it, if any. */
+  onClick(listener: (at: LngLatPair, hit: MapHit) => void): void;
   dispose(): void;
+}
+
+/** What a click lands on: a line and, at one of its stops, that stop. */
+export interface MapHit {
+  readonly lineId: number | null;
+  readonly stopId: number | null;
 }
 
 /** The pointer is reported at most this often. */
@@ -129,7 +135,7 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
   let loaded = false;
   const pending: {
     dots?: Dots;
-    lines?: readonly LineView[];
+    lines?: { lines: readonly LineView[]; stops: readonly StopView[] };
     depotLand?: readonly (readonly LngLatPair[])[];
     depots?: readonly DepotView[];
     tint?: boolean;
@@ -138,11 +144,11 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
   // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
   const fleet = new Fleet();
   map.once('load', () => {
-    addOverlays(map, GAME_LIGHT);
+    addOverlays(map, GAME_LIGHT, LIGHT);
     map.addLayer(createVehicleLayer(fleet));
     loaded = true;
     if (pending.dots) setDots(map, pending.dots);
-    if (pending.lines) setLines(map, pending.lines);
+    if (pending.lines) setLines(map, pending.lines.lines, pending.lines.stops);
     if (pending.depotLand) setDepotLand(map, pending.depotLand);
     if (pending.depots) setDepots(map, pending.depots);
     if (pending.tint !== undefined) setTint(map, pending.tint);
@@ -173,12 +179,15 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     latestMove = null;
     pointer?.(null, null);
   });
-  let click: ((at: LngLatPair, lineId: number | null) => void) | null = null;
-  // MapLibre fires 'click' only when the pointer did not drag between press and release.
+  let click: ((at: LngLatPair, hit: MapHit) => void) | null = null;
+  // MapLibre fires 'click' only when the pointer did not drag between press and release. A stop
+  // under the pointer wins over the line it sits on.
   map.on('click', (e) => {
-    const hit = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...LINE_LAYERS] }) : [];
-    const id = hit[0]?.properties?.id;
-    click?.([e.lngLat.lng, e.lngLat.lat], typeof id === 'number' ? id : null);
+    const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS] }) : [];
+    const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
+    const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
+    const line = hits.find((h) => numberOf(h.properties?.id) !== null);
+    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: numberOf(line?.properties?.id), stopId: numberOf(stop?.properties?.stop) });
   });
 
   return {
@@ -186,11 +195,11 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     tileReads: file.kind,
     setMode,
     setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
-    setLines: (lines) => {
+    setLines: (lines, stops) => {
       fleet.setLines(lines);
       map.triggerRepaint();
-      if (loaded) setLines(map, lines);
-      else pending.lines = lines;
+      if (loaded) setLines(map, lines, stops);
+      else pending.lines = { lines, stops };
     },
     setClock: (second, rate) => {
       fleet.setClock(second, rate, performance.now());

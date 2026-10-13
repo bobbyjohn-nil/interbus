@@ -46,6 +46,8 @@ export interface GameTokens {
   readonly depotMark: string;
   /** A line still being drawn, before Create. */
   readonly draft: string;
+  /** A QUIET or LOSS stop's ring and word (the M3 spec, item 5). */
+  readonly stopFlag: string;
 }
 
 export const GAME_LIGHT: GameTokens = {
@@ -55,6 +57,7 @@ export const GAME_LIGHT: GameTokens = {
   depotLand: '#2f9e44',
   depotMark: '#1f8a3a',
   draft: '#2a2723',
+  stopFlag: '#c2410c',
 };
 
 export const LIGHT: MapTokens = {

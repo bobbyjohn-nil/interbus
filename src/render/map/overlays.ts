@@ -1,10 +1,11 @@
 // The game's layers on the map: depot land and depots, demand dots (where people live and work),
-// the lines with their stops, and the line being drawn. GeoJSON sources set only when their data
+// the lines with their stops and the stops' QUIET and LOSS flags, and the line being drawn. GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
-import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
-import type { GameTokens } from './tokens';
+import type { DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import { FONT_SEMIBOLD } from './style';
+import type { GameTokens, MapTokens } from './tokens';
 
 export const DOTS = 'dots';
 export const LINES = 'lines';
@@ -13,12 +14,13 @@ export const DEPOTS = 'depots';
 export const DRAFT = 'draft';
 export const DOT_LAYERS = ['dots-homes', 'dots-jobs'] as const;
 export const LINE_LAYERS = ['lines-route', 'lines-stops'] as const;
+export const FLAG_LAYERS = ['stops-flag-ring', 'stops-flag-word'] as const;
 export const TINT_LAYERS = ['depot-land-fill', 'depot-land-edge'] as const;
 export const DRAFT_LAYERS = ['draft-rings', 'draft-route', 'draft-stops'] as const;
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
 
-export function addOverlays(map: MapLibreMap, t: GameTokens): void {
+export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'labelHalo'>): void {
   for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT]) map.addSource(id, { type: 'geojson', data: empty });
   // The tint shows only while a depot is being placed (setTint): exactly the land the rule allows.
   map.addLayer({ id: 'depot-land-fill', type: 'fill', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'fill-color': t.depotLand, 'fill-opacity': 0.28 } });
@@ -56,6 +58,27 @@ export function addOverlays(map: MapLibreMap, t: GameTokens): void {
       'circle-stroke-width': 3,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8],
     },
+  });
+  // A flagged stop: a ring in the flag's colour around it, and the word above it.
+  map.addLayer({
+    id: 'stops-flag-ring',
+    type: 'circle',
+    source: LINES,
+    filter: ['==', ['get', 'kind'], 'flag'],
+    paint: {
+      'circle-color': 'rgba(0, 0, 0, 0)',
+      'circle-stroke-color': t.stopFlag,
+      'circle-stroke-width': 2,
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 8, 16, 13],
+    },
+  });
+  map.addLayer({
+    id: 'stops-flag-word',
+    type: 'symbol',
+    source: LINES,
+    filter: ['==', ['get', 'kind'], 'flag'],
+    layout: { 'text-field': ['get', 'word'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -1.1], 'text-allow-overlap': true },
+    paint: { 'text-color': t.stopFlag, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
   });
   map.addLayer({
     id: 'depots',
@@ -139,10 +162,21 @@ export function setDots(map: MapLibreMap, dots: Dots): void {
   (map.getSource(DOTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features: [...dots.homes.map(point('home')), ...dots.jobs.map(point('job'))] });
 }
 
-export function setLines(map: MapLibreMap, lines: readonly LineView[]): void {
-  const features = lines.flatMap((line) => [
-    { type: 'Feature' as const, properties: { kind: 'route', colour: line.colour, id: line.id }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
-    ...line.stops.map((p) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
-  ]);
+/** The flag a stop shows on the map, or null: QUIET, LOSS, or both. */
+export function flagWord(stop: Pick<StopView, 'quiet' | 'loss'>): string | null {
+  return stop.quiet && stop.loss ? 'QUIET · LOSS' : stop.quiet ? 'QUIET' : stop.loss ? 'LOSS' : null;
+}
+
+export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[]): void {
+  const features = [
+    ...lines.flatMap((line) => [
+      { type: 'Feature' as const, properties: { kind: 'route', colour: line.colour, id: line.id }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
+      ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
+    ]),
+    ...stops.flatMap((s) => {
+      const word = flagWord(s);
+      return word ? [{ type: 'Feature' as const, properties: { kind: 'flag', word, stop: s.id }, geometry: { type: 'Point' as const, coordinates: [...s.at] } }] : [];
+    }),
+  ];
   (map.getSource(LINES) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 }

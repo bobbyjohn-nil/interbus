@@ -21,6 +21,7 @@ import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { forecastDay } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
+import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
 import type { LineId } from '../sim/core/ids';
 import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
@@ -31,7 +32,7 @@ import { checkLineDraft } from '../sim/rules/line';
 import { decode, encode, fromSaveData, saveKey } from '../sim/save/save';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
-import type { DepotSiteView, Dots, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, ToWorker } from '../sim/types';
+import type { DepotSiteView, Dots, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -95,6 +96,7 @@ function lineViews(world: World): LineView[] {
       name: line.name,
       colour: line.colour,
       stops,
+      stopIds: [...line.stopIds],
       route,
       stopAt,
       stopDistM: service?.plan.stopDistM ?? [],
@@ -112,6 +114,24 @@ function lineViews(world: World): LineView[] {
       buses: line.buses,
       model: line.model,
       forecastCents: service ? forecastDay(service.costs) : { running: 0, wages: 0, deadhead: 0 },
+    };
+  });
+}
+
+/** Every stop standing and its day (the M3 spec, item 5). */
+function stopViews(world: World): StopView[] {
+  const days = new Map(stopDays(world).map((d) => [d.id, d]));
+  return world.state.stops.map((s) => {
+    const day = days.get(s.id)!;
+    return {
+      id: s.id,
+      at: [s.lon, s.lat],
+      lineIds: world.state.lines.filter((l) => l.stopIds.includes(s.id)).map((l) => l.id),
+      boardings: day.boardings,
+      alightings: day.alightings,
+      netCents: day.netCents,
+      quiet: day.quiet,
+      loss: day.loss,
     };
   });
 }
@@ -172,9 +192,11 @@ export function createHost(post: (message: FromWorker) => void): Host {
   let lastSnapshotMs = -Infinity;
   // Routes change only when the network does, not ten times a second.
   let lines: LineView[] = [];
+  let stops: StopView[] = [];
   let linesVersion = 0;
   const refreshLines = () => {
     lines = lineViews(world!);
+    stops = stopViews(world!);
     linesVersion++;
   };
 
@@ -195,6 +217,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       profitableDays: profitableDays(w.state.ledger, t.day),
       costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS,
       lines,
+      stops,
       linesVersion,
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
     };

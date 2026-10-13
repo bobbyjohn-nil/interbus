@@ -1,6 +1,6 @@
 import type { Tool } from '../game/Tools';
 
-export type Panel = 'none' | 'lines';
+export type Panel = 'none' | 'lines' | 'stop';
 
 /** The calm shell's dock (PLAN §8: 8 slots or fewer): the tools, and the lines' inspector. */
 export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; panel: Panel; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Panel) => void }) {
