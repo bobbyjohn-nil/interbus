@@ -1,8 +1,8 @@
 {
   "about": "The golden hash of this extent's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
   "format": 1,
-  "sha256": "da5ebb4b72bf46187f3d7bf245bf6758d7ef5e2cc67d79ecafead41a5d307334",
-  "bytes": 135551,
+  "sha256": "72e7f8b998f9dabf79799b78fd389de603a1df19bc9815ed5016a44fe351a883",
+  "bytes": 135571,
   "nodes": 681,
   "edges": 1037,
   "keptKm": 106.982,
@@ -62,7 +62,7 @@
     },
     {
       "gate": "G7 sim.json gzipped",
-      "value": 57067,
+      "value": 57089,
       "ok": true,
       "limit": "≤1048576"
     }

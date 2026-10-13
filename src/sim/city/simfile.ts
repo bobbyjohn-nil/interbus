@@ -64,6 +64,8 @@ export interface City {
   readonly cells: readonly Cell[];
   /** demand × tripScalePermille / 1000 (PLAN §3: prices stay V1's, demand scales). */
   readonly tripScalePermille: number;
+  /** The commuter matrix's decay, exp(-d/β), in metres: fitted to LODES on city-boston-r1 (tools/bake/beta.mjs). */
+  readonly gravityBetaM: number;
   readonly gateways: readonly Gateway[];
   /** Land a depot may stand on: industrial areas, as rings in the frame's metres (PLAN §3). */
   readonly depotLand: readonly (readonly (readonly [number, number])[])[];
@@ -133,6 +135,8 @@ function parse(data: Record<string, unknown>): City {
   });
   const scale = (calib as { tripScalePermille?: unknown } | undefined)?.tripScalePermille;
   if (!isInt(scale) || scale <= 0) throw new Error('calib.tripScalePermille: not a positive whole number');
+  const beta = (calib as { gravityBetaM?: unknown } | undefined)?.gravityBetaM;
+  if (!isInt(beta) || beta <= 0) throw new Error('calib.gravityBetaM: not a positive whole number');
 
   if (!Array.isArray(data.gateways)) throw new Error('gateways: not a list');
   const gateways: Gateway[] = (data.gateways as Record<string, unknown>[]).map((g, n) => {
@@ -172,6 +176,7 @@ function parse(data: Record<string, unknown>): City {
     streets,
     cells: cellList,
     tripScalePermille: scale,
+    gravityBetaM: beta,
     gateways,
     depotLand,
     landmarks,

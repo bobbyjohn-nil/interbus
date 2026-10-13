@@ -1,8 +1,9 @@
 // Who commutes where: V1's gravity matrix (`Intralines@7af45b1:src/game/sim/demand.worker.ts:142-165`,
 // R01), over cells instead of block groups. Each cell's workers (LODES RAC, where V1 multiplied
-// residents by a workforce rate) spread over every other cell's jobs by exp(-d/β). It does not
-// depend on the network, so it is built once per city.
-import { GRAVITY_BETA_KM, GRAVITY_CUTOFF_KM } from '../config/demand';
+// residents by a workforce rate) spread over every other cell's jobs by exp(-d/β), β the city's own,
+// fitted to LODES (sim.json's calib; V1 used 4 km everywhere). It does not depend on the network, so
+// it is built once per city.
+import { GRAVITY_CUTOFF_KM } from '../config/demand';
 import { distXY, type XY } from '../core/geo';
 import type { City, SubPoint } from '../city/simfile';
 
@@ -21,7 +22,7 @@ export function centre(points: readonly SubPoint[]): XY | null {
   return [points.reduce((s, p) => s + p.x * p.w, 0) / w, points.reduce((s, p) => s + p.y * p.w, 0) / w];
 }
 
-export function buildCommuters(city: City, betaKm = GRAVITY_BETA_KM): Commuters {
+export function buildCommuters(city: City, betaKm = city.gravityBetaM / 1000): Commuters {
   const n = city.cells.length;
   const flow = new Float64Array(n * n);
   const km = new Float64Array(n * n);

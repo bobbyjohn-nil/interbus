@@ -1,9 +1,7 @@
 // Demand config rows, V1's numbers (`Intralines@7af45b1:src/game/constants.ts`, R01) unless noted.
-// M1 uses V1's β; the r1 bake fits β to LODES in week 5 (PLAN §5).
+// The gravity decay β is each city's own, fitted to LODES by the bake (sim.json's calib; V1 used 4 km).
 import { SPARROW } from './fleet';
 
-/** Gravity decay length (V1's worker default, demand.worker.ts:93; the spec's call). */
-export const GRAVITY_BETA_KM = 4;
 /** Jobs beyond this pull no commuters (demand.worker.ts:164). */
 export const GRAVITY_CUTOFF_KM = 45;
 /** Walking pace, and how far anyone walks to a stop (constants.ts:124-125). */

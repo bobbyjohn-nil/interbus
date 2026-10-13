@@ -252,6 +252,18 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`node tools/bake/beta.mjs boston <extent>`; `src/sim/demand/beta.test.ts`; `npm run bench report`, `npm run bench crowding`, `npm run bench`): **the gravity decay β is fitted to Boston's commutes** (city-boston-r1, the M3 spec's Nov 15 item; PLAN §5).
+  - **The fit.** β is the decay in the commuter matrix, exp(-d/β) (`src/sim/demand/commuters.ts`). The bake fits it so the matrix's mean commute between cells equals LODES's own, over its 2023 origin-destination pairs with both ends inside the area.
+    - Inner Boston: 735 cells, 212,081 such commuters, mean **3.499 km**. V1's 4,000 m gave 3.655 km; **3,260 m** meets it.
+    - The fixture's own fit would be 1,240 m (8,884 commuters, mean 1.222 km), because its box cuts off every longer commute. It takes Inner Boston's 3,260 m instead.
+    - The value is per extent in `cities/boston/city.json`'s calib. `sim.json` carries it as `calib.gravityBetaM`, and the loader refuses a file without it. The fit's copy of the matrix is held to the game's to nine decimals, and it recovers a β of 2,500 m from commutes the matrix made (TS-04: counting a cell's own jobs breaks both).
+  - **What moved on the fixture.** The debug line carries **614.4** riders a day (was 636.3, −3.4%), inside the calibration band of 600–1,000, so `tripScale` stays at 111‰. Its fare optimum and the starving clause are unchanged. Other changes:
+    - a Shelter at Symphony adds 32.0 riders a day (was 32.4);
+    - the starved line's Symphony reads LOSS at −$35.92 a day (was −$34.23), and Longwood is still QUIET at 1.7 boardings;
+    - the debug line's report card grades **74.0** and pays $30,335, 4.2 times its quarter's running net of $7,154 (was 74.3, $30,813, 3.9 times);
+    - ten opening companies grade 53.7 / 57.9 / 64.0 (was 63.8 at the top), so the bars stay.
+  - **On Inner Boston**, Sparrows every 10 minutes turn away 12.7% of riders (Washington Street 2,378.6 a day; was 13.3%), and Metro 40s 0.7% (133.1; was 0.8%). The recompute takes 47.9 ms p50 and 60.1 ms p95.
+  - **Next for r1:** Inner Boston's `tripScale`, set so the debug line carries there what it carries on the fixture, so economics measured on the fixture hold on the preview.
 - **2026-10-13** (`src/worker/session.test.ts`, `e2e/session.spec.ts`, `npm run bench replay <file>`): **Export session replays to the same game** (the M3 spec, item 12; AR-06; I15's "Export session replayed").
   - **The file.** Saves has **Export session**: the save the session began from, the speed at that moment, and every command since, each at the game second it ran (speed changes and undo included, since they decide what undo does), with the build's SHA and the game's fingerprint where it ends. A session begins at each quarter's start (the save Restart this quarter reopens), and again wherever a slot, a file or a restart is loaded. It lives in the worker, so a reload begins a new one from the autosave: a bug report covers play since the last reload, never a gap.
   - **The replay** is the same host the game runs, given the session's save and speed, then each command at its game second, stepping between them as ticks would. A session played in Chromium on the page (found, a depot, the debug line, a fare changed at 3×, paused) replays in Node, on the same sim file, to the same fingerprint. `npm run bench replay <file>` replays a player's file at a checked-out build.

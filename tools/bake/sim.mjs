@@ -115,6 +115,13 @@ function readInputs(dir) {
   return { osm: parseOpl(text('osm.opl')), blocks, inbound, ...readLodes(text('lodes-rac.csv'), text('lodes-wac.csv')) };
 }
 
+/** The extent's gravity decay in whole metres, from its calib (tools/bake/beta.mjs measures it); a bake without one refuses. */
+function gravityBetaM(config, extentId) {
+  const beta = config.calib?.[extentId]?.gravityBetaM;
+  if (!Number.isInteger(beta) || beta <= 0) throw new Error(`sim: cities' city.json has no calib.${extentId}.gravityBetaM; measure it with tools/bake/beta.mjs`);
+  return beta;
+}
+
 /** Bakes sim.json for one extent of a city; throws, naming the gate, if one fails. */
 export function bakeSim(cityId, extentId) {
   const { entry, config } = readCity(cityId);
@@ -225,7 +232,7 @@ export function bakeSim(cityId, extentId) {
     gateways: gateways.map((g) => ({ name: g.name, kind: g.kind, node: g.node, inbound: g.inbound.flat() })),
     depotLand,
     landmarks: landmarks.map((l) => ({ name: l.name, x: l.xy[0], y: l.xy[1] })),
-    calib: { tripScalePermille: config.calib?.[extentId]?.tripScalePermille ?? 1000 },
+    calib: { tripScalePermille: config.calib?.[extentId]?.tripScalePermille ?? 1000, gravityBetaM: gravityBetaM(config, extentId) },
   };
   const text = `${JSON.stringify(sim)}\n`;
   const gzipped = gzipSync(text, { level: 9 }).length;

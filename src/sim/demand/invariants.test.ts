@@ -50,7 +50,7 @@ describe('I2: adding a line or a stop never cuts linked trips by more than 0.1%'
       const id = addStop(trial, toLngLat(city.frame, [city.graph.x[middle]!, city.graph.y[middle]!]));
       trial.state.lines[0]!.stopIds.splice(k, 0, id);
       recompute(trial);
-      // Measured with V2's waits, from 636.3 trips: +19.27%, +10.24% and −0.68% (the Fens).
+      // Measured with V2's waits and Boston's fitted β, from 614.4 trips: +19.98%, +10.58% and −0.63% (the Fens).
       expect(trial.assignment.tripsPerDay, `a stop between stops ${k} and ${k + 1}`).toBeGreaterThanOrEqual(before * 0.99);
     }
   });

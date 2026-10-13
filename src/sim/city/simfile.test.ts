@@ -119,6 +119,7 @@ describe('refusals (never repaired at load)', () => {
       while (c.homes.length < 27) c.homes.push(0, 0, 0);
     }))).toMatch(/cells\[0\]\.homes: 9 points, more than 8/);
     expect(problem((d) => void ((d.calib as { tripScalePermille: number }).tripScalePermille = 0))).toMatch(/tripScalePermille/);
+    expect(problem((d) => void delete (d.calib as { gravityBetaM?: number }).gravityBetaM)).toMatch(/gravityBetaM/);
     // Gateways name a street node and the cells their commuters work in; depot land is rings.
     expect(problem((d) => void (d.gateways = [{ name: 'Mass Pike', kind: 'road', node: 99_999, inbound: [] }]))).toMatch(/gateways\[0\]/);
     expect(problem((d) => void (d.gateways = [{ name: 'Mass Pike', kind: 'road', node: 0, inbound: [99_999, 5] }]))).toMatch(/missing cell/);

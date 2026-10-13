@@ -47,3 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The game saves itself in this browser as you play, so a reload carries on where you left off. A save from an older build is kept aside, a new game starts, and a note says so.
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
 - Running a line costs money: $0.90 for each kilometre a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what a whole day will cost.
+
+### Changed
+
+- How far people commute now follows Boston's own census records rather than a generic guess, so trips are a little shorter on average and a line from Copley to Longwood carries about 3% fewer riders.
