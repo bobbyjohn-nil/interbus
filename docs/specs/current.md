@@ -94,9 +94,9 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 | Commuters with both ends in the box | 9,287 (Σ S000) | Fixture OD |
 | Residents within 650 m of the debug line's stops | about 50,000 | Straight-line estimate from block points |
 | Debug line length by street | 3–4 km (2.76 km straight) | Stop positions |
-| Boardings per day after `tripScale` | 600–1,000 | Calibration target above |
+| Boardings per day after `tripScale` | 600–1,000; **7,200.7 measured at `tripScale` 1** (2026-10-13), so `tripScale` ≈ 0.1 | Calibration target above; PLAN §3 expects Inner Boston 7–10× Riverton |
 | Income per day | $2,300–$3,900 (boardings × $3.85) | Fare plus subsidy |
-| Recompute, fixture, three periods | ≤20 ms | About 70 cells |
+| Recompute, fixture, three periods | ≤20 ms; **37 ms measured** with one line, from 8 × 8 sub-point pairs per cell pair | About 70 cells |
 | Recompute, synthetic 800 cells, three periods | ≤150 ms p95 (I14); R2 needs ≤100 ms | PLAN §5: 50–130 ms for one period, interpolated |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
