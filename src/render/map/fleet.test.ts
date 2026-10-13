@@ -19,6 +19,7 @@ function line(buses = 2): LineView {
     pullIn: [east(0), [-71.1, LAT - 0.01]],
     plan: { timing: { cycle: 1_539, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, buses }, oneWayS: 529.5, pullOutS: 166, pullInS: 208 },
     ridersPerDay: 750,
+    incomeCents: 0,
     headways: { peak: 1_200, offpeak: 1_200, overnight: null },
     cycle: 1_539,
     buses,

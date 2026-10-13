@@ -75,11 +75,6 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
           </div>
         </div>
       ) : null}
-      {sim.refusal?.command === 'set-headways' ? (
-        <p className="refusal" role="status">
-          {refusalText(sim.refusal)}
-        </p>
-      ) : null}
     </section>
   );
 }

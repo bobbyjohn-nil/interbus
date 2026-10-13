@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Draw a line: click the map to place stops (a click near a stop you already have joins it). A card shows the stops, the distance, how many people live within a walk, the buses running every 20 minutes needs and the price; Create buys it all, once you have a depot.
 - Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.
 - Buses run: each line's Sparrows pull out of the depot before the first departure, drive the line at its headways with a short stop at each stop, and go home after the last trip. Pause, and they stop where they are.
-- Each line has a card with its riders, its buses and its peak, off-peak and overnight headways. A headway that needs more buses says how many and what they cost before you buy them.
+- Each line has an inspector: click the line on the map or Lines in the dock to see its riders, its buses, its peak, off-peak and overnight headways and a whole day's forecast of fares, running costs, wages and the drive to and from the depot. A headway that needs more buses says how many and what they cost before you buy them.
+- The tools sit in a dock along the bottom of the screen, and the day, the time, the speed, cash and riders a day sit in a row of chips along the top, leaving the city the rest of the screen.
+- When something can't be done, a notice in the bottom-left corner says why for a few seconds.
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
 - Running a line costs money: $0.90 for each kilometre a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what a whole day will cost.

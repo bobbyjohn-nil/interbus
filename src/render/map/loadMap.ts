@@ -11,7 +11,7 @@ import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
 import { Fleet } from './fleet';
-import { addOverlays, DOT_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
+import { addOverlays, DOT_LAYERS, LINE_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
@@ -47,8 +47,8 @@ export interface MountedMap {
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), at most every 100 ms and always its last position. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null) => void): void;
-  /** Where a click lands on the map (not a drag). */
-  onClick(listener: (at: LngLatPair) => void): void;
+  /** Where a click lands on the map (not a drag), and the line drawn under it, if any. */
+  onClick(listener: (at: LngLatPair, lineId: number | null) => void): void;
   dispose(): void;
 }
 
@@ -173,9 +173,13 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     latestMove = null;
     pointer?.(null, null);
   });
-  let click: ((at: LngLatPair) => void) | null = null;
+  let click: ((at: LngLatPair, lineId: number | null) => void) | null = null;
   // MapLibre fires 'click' only when the pointer did not drag between press and release.
-  map.on('click', (e) => click?.([e.lngLat.lng, e.lngLat.lat]));
+  map.on('click', (e) => {
+    const hit = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...LINE_LAYERS] }) : [];
+    const id = hit[0]?.properties?.id;
+    click?.([e.lngLat.lng, e.lngLat.lat], typeof id === 'number' ? id : null);
+  });
 
   return {
     map,

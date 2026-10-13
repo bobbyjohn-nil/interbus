@@ -2,15 +2,18 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 6385253 (the day plan), with the vehicle layer in review.
+**Updated:** 2026-10-13, at `main` cf890d7 (founding and the checklist), with the calm shell in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bc6eeae. Deploy preview run 38360900824's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` cf890d7. Deploy preview run 38369656849's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
-  - **Run the debug line** with its Costs/day chip, and a day card listing fares, subsidy, running costs and driver wages (replaced by the depot and line tools in the next deploy).
+  - the founding card, and the checklist chip naming the next step;
+  - **Place a depot** and **Draw a line**, each line's card with its headways, and a Costs/day chip;
+  - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
+  - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -119,13 +122,18 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - a 4 px glyph fails the same check.
 
      The harness also caught the first glyph at 18 px: its white outline barely differed from the light land, so only the body read (DECISIONS, Measured).
-7. [ ] **The calm shell** replacing the debug panel, and I13.
+7. [x] **The calm shell** replacing the debug panel, and I13.
    - [x] **Founding and the checklist** (2026-10-13):
      - a new game opens unnamed, and the founding card names and colours the company (`src/sim/rules/company.ts`, one rule for the card and the `found` command);
      - the speed and tools stay hidden until then;
      - the checklist chip reads "1/5 Place a depot", "2/5 Draw a line", "3/5 Press play", "4/5 Close a day in profit" (a closed day whose running rows come out ahead, `profitableDays`), then "5/5 Take a contract" for M3.
      - `e2e/line.spec.ts` walks all five.
-   - [ ] **The shell:** the dock, the line inspector with the day's forecast, notices in one corner, and I13 at the three sizes.
+   - [x] **The shell** (2026-10-13, `src/ui/shell/`), replacing M1's debug panel:
+     - the chip row top-left: day and clock, speed, Cash, Riders/day, Costs/day and the checklist;
+     - the dock bottom-centre, three slots of eight: Place a depot, Draw a line, Lines;
+     - the line inspector on the right, opened by Lines, by clicking a line on the map, or by creating one: the line's card and headways, tabs when there are several, and a whole day's forecast (fares and subsidy "≈", running, wages and deadhead to the cent, and the line's net);
+     - notices bottom-left: a refusal in words for six seconds, which replaces the draft and line cards' own refusal text.
+   - [x] **I13** (2026-10-13, `e2e/i13.spec.ts`): at 1440×900, 1366×768 and 1152×720 the shell covers 2.5–3.9% of the screen at rest and 6.7–14.0% with its largest panel, against 6% and 26%; a 400 × 200 panel more breaks the at-rest budget (DECISIONS, Measured).
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
