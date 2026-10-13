@@ -1,8 +1,8 @@
 {
   "about": "The golden hash of this extent's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
   "format": 1,
-  "sha256": "69866a1ebac1a3d9eede65bb268d6403491a7753dbb04b5871e1f133f60782e4",
-  "bytes": 135413,
+  "sha256": "da5ebb4b72bf46187f3d7bf245bf6758d7ef5e2cc67d79ecafead41a5d307334",
+  "bytes": 135551,
   "nodes": 681,
   "edges": 1037,
   "keptKm": 106.982,
@@ -49,14 +49,20 @@
       "limit": "not required"
     },
     {
-      "gate": "G6 nodes or people outside the map",
+      "gate": "G6 nodes, people or landmarks outside the map",
       "value": 0,
       "ok": true,
       "limit": "0"
     },
     {
+      "gate": "G10 transit features in sim.json",
+      "value": 0,
+      "ok": true,
+      "limit": "0 of the clip's 789"
+    },
+    {
       "gate": "G7 sim.json gzipped",
-      "value": 56968,
+      "value": 57067,
       "ok": true,
       "limit": "≤1048576"
     }
@@ -66,6 +72,11 @@
     "km2": 0.01
   },
   "gateways": [],
+  "landmarks": [
+    "Copley Square",
+    "Longwood",
+    "Kenmore"
+  ],
   "unplacedInbound": 0,
   "closedToBuses": [
     "8614906 Memorial Drive: adjust.json",

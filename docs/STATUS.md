@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 7a66127: M2 is done, and the M3 spec is in review.
+**Updated:** 2026-10-13, at `main` e97115d (the M3 spec), with M3 step 1, the landmarks, in review.
 
 ## Live now
 
@@ -19,9 +19,9 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-69866a1e` holds mini-Boston's `sim.json` with depot land and the (empty) gateway list (135,413 B), published by **City sim file (manual)** run 38356104923, which matched the golden on GitHub's runner. The older `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
+  - release `city-boston-sim-mini-boston-da5ebb4b` holds mini-Boston's `sim.json` with depot land, the (empty) gateway list and three landmarks (135,551 B), published by **City sim file (manual)** run 38374308243, which matched the golden on GitHub's runner. The older `69866a1e`, `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-a35f1831` holds Boston's map file with every transit feature stripped (15,347,095 B), published by **City tiles (manual)** run 38359580324 from the extract `57ac68da` (D17, G10). The older `57ac68da` stays for pages of older builds;
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `bafe84fa` in `cities/boston/sim-inner-boston.lock.json`, not yet published;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `ef552579` (with six landmarks) in `cities/boston/sim-inner-boston.lock.json`, not yet published;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
@@ -149,7 +149,7 @@ The spec is archived in [`docs/specs/m2-first-line.md`](specs/m2-first-line.md).
 ## Next: M3, the money loop, by Sun Nov 29 (weeks 5–7)
 
 The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in Nov 9–29; work starts now, money first. In this order, each a small pull request (items are the spec's):
-1. [ ] **Landmarks in `sim.json`** (item 1), before the Nov 8 freeze: a committed list, baked into both extents, G6 checking each.
+1. [x] **Landmarks in `sim.json`** (item 1; 2026-10-13): six in `cities/boston/city.json`, each the label the map file draws. They are Copley Square, Longwood, Kenmore, Kendall Square, Harvard Square and Downtown Crossing. The fixture holds the first three; G6 fails a bake on any outside the extent; the loader reads them strictly.
 2. [ ] **Three bus models, one per line** (item 2), and **crowding per period** (item 3), with the sweep re-run: a starved line should earn 60% of the best or less.
 3. [ ] **The fare band** (item 4): per-line fares, perceived once per trip, the subsidy taper, the printed band; I3's fare optimum and I4.
 4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).

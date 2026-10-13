@@ -47,6 +47,12 @@ export interface Gateway {
   readonly inbound: readonly { readonly cell: number; readonly people: number }[];
 }
 
+/** A named place contracts are offered near (the M3 spec, item 1), in the frame's metres. */
+export interface Landmark {
+  readonly name: string;
+  readonly at: readonly [number, number];
+}
+
 export interface City {
   readonly id: string;
   readonly extent: string;
@@ -61,6 +67,7 @@ export interface City {
   readonly gateways: readonly Gateway[];
   /** Land a depot may stand on: industrial areas, as rings in the frame's metres (PLAN §3). */
   readonly depotLand: readonly (readonly (readonly [number, number])[])[];
+  readonly landmarks: readonly Landmark[];
 }
 
 export type SimFileRefusal = 'not_json' | 'wrong_format' | 'malformed';
@@ -149,6 +156,13 @@ function parse(data: Record<string, unknown>): City {
     return pts;
   });
 
+  if (!Array.isArray(data.landmarks)) throw new Error('landmarks: not a list');
+  const landmarks: Landmark[] = (data.landmarks as Record<string, unknown>[]).map((l, n) => {
+    const { name, x, y } = l ?? {};
+    if (typeof name !== 'string' || name === '' || !isInt(x) || !isInt(y)) throw new Error(`landmarks[${n}]: not a name and an x, y`);
+    return { name, at: [x / 10, y / 10] };
+  });
+
   return {
     id: data.city as string,
     extent: data.extent as string,
@@ -160,6 +174,7 @@ function parse(data: Record<string, unknown>): City {
     tripScalePermille: scale,
     gateways,
     depotLand,
+    landmarks,
   };
 }
 

@@ -33,6 +33,8 @@ describe("mini-Boston's sim.json", () => {
     // since the fixture keeps only commutes with both ends in its box.
     expect(city.depotLand).toHaveLength(3);
     expect(city.gateways).toEqual([]);
+    // The landmarks the fixture's box holds, where contracts are offered (the M3 spec, item 1).
+    expect(city.landmarks.map((l) => l.name)).toEqual(['Copley Square', 'Longwood', 'Kenmore']);
   });
 
   it("uses exactly the sim's own frame: the bake and the game measure alike", () => {
@@ -123,5 +125,8 @@ describe('refusals (never repaired at load)', () => {
     expect(problem((d) => void (d.gateways = [{ name: 'Mass Pike', kind: 'ferry', node: 0, inbound: [] }]))).toMatch(/gateways\[0\]/);
     expect(problem((d) => void (d.depotLand = [[0, 0, 10, 10]]))).toMatch(/depotLand\[0\]/);
     expect(problem((d) => void delete d.depotLand)).toMatch(/depotLand: not a list/);
+    expect(problem((d) => void delete d.landmarks)).toMatch(/landmarks: not a list/);
+    expect(problem((d) => void (d.landmarks = [{ name: '', x: 0, y: 0 }]))).toMatch(/landmarks\[0\]/);
+    expect(problem((d) => void (d.landmarks = [{ name: 'Longwood', x: 1.5, y: 0 }]))).toMatch(/landmarks\[0\]/);
   });
 });

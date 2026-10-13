@@ -1,8 +1,8 @@
 {
   "about": "The golden hash of this extent's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
   "format": 1,
-  "sha256": "bafe84faa3f8128e359a98d080d7f43d274cc0532258592f6f110b21ae78f875",
-  "bytes": 2033387,
+  "sha256": "ef5525798b1207ae5a047946a910d09f5e9c6c23d0f052b3cf113aaf5ba78c6d",
+  "bytes": 2033666,
   "nodes": 11687,
   "edges": 17221,
   "keptKm": 1725.9,
@@ -49,14 +49,20 @@
       "limit": "required"
     },
     {
-      "gate": "G6 nodes or people outside the map",
+      "gate": "G6 nodes, people or landmarks outside the map",
       "value": 0,
       "ok": true,
       "limit": "0"
     },
     {
+      "gate": "G10 transit features in sim.json",
+      "value": 0,
+      "ok": true,
+      "limit": "0 of the clip's 6286"
+    },
+    {
       "gate": "G7 sim.json gzipped",
-      "value": 837594,
+      "value": 837765,
       "ok": true,
       "limit": "≤1048576"
     }
@@ -171,6 +177,14 @@
       "kind": "airport",
       "commuters": 0
     }
+  ],
+  "landmarks": [
+    "Copley Square",
+    "Longwood",
+    "Kenmore",
+    "Kendall Square",
+    "Harvard Square",
+    "Downtown Crossing"
   ],
   "unplacedInbound": 0,
   "closedToBuses": [
