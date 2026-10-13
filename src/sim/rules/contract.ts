@@ -1,10 +1,13 @@
-// HEADWAY contracts (the M3 spec, item 11; I11): one predicate for whether a landmark is served as
-// often as a contract asks, read by the contract card, the day's grading and the ring on the map
-// (GD-05). A stop's headway in a period is every line calling there together, as riders scanning the
-// stop see it (1 ÷ Σ 1/h); a landmark's figure is the best stop within its reach, at the slower of
-// its peak and off-peak, so no contract is met by one period alone (I11; V2 averaged 16 hours across
-// lines, so a line every 5 minutes at peak and hourly otherwise met a 15-minute contract).
-import { CONTRACT_DAYS, CONTRACT_WINDOW_DAYS } from '../config/contracts';
+// Contracts (the M3 spec, item 11; the M4 spec, item 1; I11): one predicate for whether a landmark
+// meets a contract's ask, read by the contract card, the day's grading and the ring on the map
+// (GD-05). HEADWAY: a stop's headway in a period is every line calling there together, as riders
+// scanning the stop see it (1 ÷ Σ 1/h); a landmark's figure is the best stop within its reach, at the
+// slower of its peak and off-peak, so no contract is met by one period alone (I11; V2 averaged 16
+// hours across lines, so a line every 5 minutes at peak and hourly otherwise met a 15-minute
+// contract). RIDERSHIP: a landmark's figure is the paid boardings a day at every stop within its
+// reach, all lines together; a change boards free and is not counted, so splitting a line there
+// never counts a rider twice (EC-04).
+import { CONTRACT_DAYS, CONTRACT_WINDOW_DAYS, type ContractKind } from '../config/contracts';
 import { ok, refuse, type Result } from '../core/result';
 
 /** The periods a contract reads: the two that always run (D7). Overnight counts toward nothing but Coverage. */
@@ -32,9 +35,18 @@ export function landmarkHeadway(stops: readonly StopService[]): number | null {
   return best;
 }
 
-/** Met while the figure is at or under the ask. Headways are whole seconds per line; the sum of a few lines' is not, so a hair's tolerance. */
-export function contractMet(figureSeconds: number | null, askSeconds: number): boolean {
-  return figureSeconds !== null && figureSeconds <= askSeconds + 1e-6;
+/** A RIDERSHIP landmark's figure: the paid boardings a day at the stops within its reach, or null with none in reach. */
+export function landmarkBoardings(paidBoardingsAtStops: readonly number[]): number | null {
+  return paidBoardingsAtStops.length === 0 ? null : paidBoardingsAtStops.reduce((sum, v) => sum + v, 0);
+}
+
+/**
+ * Met while the figure meets the ask: HEADWAY at or under it (headways are whole seconds per line; the
+ * sum of a few lines' is not, so a hair's tolerance), RIDERSHIP at or over it.
+ */
+export function contractMet(kind: ContractKind, figure: number | null, ask: number): boolean {
+  if (figure === null) return false;
+  return kind === 'headway' ? figure <= ask + 1e-6 : figure >= ask;
 }
 
 /** Days left to hold it, counting today, from the day it was taken. */

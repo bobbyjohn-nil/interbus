@@ -547,11 +547,13 @@ describe('HEADWAY contracts (the M3 spec, item 11)', () => {
     host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
     const offers = last('snapshot')!.snapshot.contracts;
     expect(offers.map((c) => c.landmark).sort()).toEqual(['Copley Square', 'Kenmore', 'Longwood']);
-    expect(offers.every((c) => !c.held && c.figureSeconds === null && !c.met && c.reachM === 650)).toBe(true);
+    expect(offers.every((c) => !c.held && c.figure === null && !c.met && c.reachM === 650)).toBe(true);
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     host.handle({ type: 'create-line', clicks: CLICKS });
     const longwood = last('snapshot')!.snapshot.contracts.find((c) => c.landmark === 'Longwood')!;
-    expect(longwood.figureSeconds).toBe(1_200); // the line every 20 minutes calls at Longwood
+    // The line every 20 minutes calls at Longwood: a bus every 20 minutes, and a few riders boarding there.
+    if (longwood.kind === 'headway') expect(longwood.figure).toBe(1_200);
+    else expect(longwood.figure).toBeGreaterThan(0);
     const before = saves().at(-1);
     host.handle({ type: 'accept-contract', contractId: longwood.id });
     const taken = last('snapshot')!.snapshot;

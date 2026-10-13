@@ -1,6 +1,7 @@
 // The save's one schema, as data: the TypeScript type, the reader's checks and the schema hash all
 // come from this descriptor, so they cannot drift apart. V3 had types only, which erase at runtime,
 // so it could neither check a file field by field nor notice an unversioned change (K11, SC-10).
+import { CONTRACT_KINDS } from '../config/contracts';
 import { MODEL_IDS } from '../config/fleet';
 import { ROW_KINDS } from '../economy/ledger';
 import { hashString } from '../core/rng';
@@ -67,7 +68,8 @@ export const SAVE_SCHEMA = {
         object: {
           id: 'int',
           landmark: 'string',
-          askSeconds: 'int',
+          kind: { oneOf: CONTRACT_KINDS },
+          ask: 'int',
           rewardCents: 'int',
           offeredDay: 'int',
           acceptedDay: { nullable: 'int' },

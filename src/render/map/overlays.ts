@@ -174,9 +174,9 @@ export function setDraft(map: MapLibreMap, draft: LineDraftView | null): void {
   (map.getSource(DRAFT) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 }
 
-/** The words at a contract's landmark: its ask, and once held its days met. */
-export function contractLabel(c: Pick<ContractView, 'askSeconds' | 'held' | 'daysMet' | 'daysNeeded'>): string {
-  const ask = `every ${c.askSeconds / 60} min`;
+/** The words at a contract's landmark: its ask (HEADWAY's headway or RIDERSHIP's boardings a day), and once held its days met. */
+export function contractLabel(c: Pick<ContractView, 'kind' | 'ask' | 'held' | 'daysMet' | 'daysNeeded'>): string {
+  const ask = c.kind === 'headway' ? `every ${c.ask / 60} min` : `${c.ask} boardings a day`;
   return c.held ? `${ask} · ${c.daysMet}/${c.daysNeeded} days` : ask;
 }
 

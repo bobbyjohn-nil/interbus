@@ -1,4 +1,4 @@
-import { every, ROW_NAMES, usd } from '../format';
+import { askText, ROW_NAMES, usd } from '../format';
 import type { Sim } from './useSim';
 
 /**
@@ -44,7 +44,7 @@ export function DayCard({ sim }: { sim: Sim }) {
       ) : null}
       {card.contracts.map((c) => (
         <p key={c.landmark} className="contract-outcome" data-testid="contract-outcome" data-outcome={c.outcome}>
-          {c.outcome === 'paid' ? `Contract met: ${every(c.askSeconds)} at ${c.landmark}, ${usd(c.rewardCents)}` : `Contract lapsed: ${every(c.askSeconds)} at ${c.landmark}`}
+          {c.outcome === 'paid' ? `Contract met: ${askText(c.kind, c.ask)} at ${c.landmark}, ${usd(c.rewardCents)}` : `Contract lapsed: ${askText(c.kind, c.ask)} at ${c.landmark}`}
         </p>
       ))}
       <table>

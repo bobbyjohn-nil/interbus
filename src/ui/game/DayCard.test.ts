@@ -34,10 +34,12 @@ describe('the day card at a quarter’s close', () => {
 
 describe('the day card when a contract closes', () => {
   it('names a contract paid, beside its Contracts row, and one lapsed', () => {
-    const paid = { landmark: 'Longwood', askSeconds: 900, rewardCents: 15_000_000, outcome: 'paid' as const };
+    const paid = { landmark: 'Longwood', kind: 'headway' as const, ask: 900, rewardCents: 15_000_000, outcome: 'paid' as const };
     const html = render({ day: 12, rows: [{ kind: 'contract', amountCents: 15_000_000, lineId: null }], cashBeforeCents: 0, cashAfterCents: 15_000_000, report: null, contracts: [paid] });
     expect(html).toContain('Contract met: every 15 min at Longwood, $150,000');
     expect(html).toContain('<th scope="row">Contracts</th><td>$150,000.00</td>');
     expect(render({ day: 12, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [{ ...paid, outcome: 'lapsed' }] })).toContain('Contract lapsed: every 15 min at Longwood');
+    const riders = { landmark: 'Copley Square', kind: 'ridership' as const, ask: 400, rewardCents: 15_000_000, outcome: 'paid' as const };
+    expect(render({ day: 12, rows: [], cashBeforeCents: 0, cashAfterCents: 15_000_000, report: null, contracts: [riders] })).toContain('Contract met: 400 boardings a day at Copley Square, $150,000');
   });
 });

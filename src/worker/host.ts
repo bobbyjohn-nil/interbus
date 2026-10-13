@@ -39,7 +39,7 @@ import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SL
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { acceptContract } from '../sim/commands/acceptContract';
 import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
-import { landmarkHeadways } from '../sim/economy/contracts';
+import { landmarkFigures } from '../sim/economy/contracts';
 import { contractDaysLeft, contractMet } from '../sim/rules/contract';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
@@ -353,23 +353,24 @@ export function createHost(post: (message: FromWorker) => void): Host {
     const key = `${linesVersion}|${JSON.stringify(w.state.contracts)}|${day}`;
     if (key === contractsKey) return contractsView;
     contractsKey = key;
-    const figures = landmarkHeadways(w);
+    const figures = landmarkFigures(w);
     contractsView = w.state.contracts.map((c) => {
       const landmark = w.city.landmarks.find((l) => l.name === c.landmark);
-      const figureSeconds = figures.get(c.landmark) ?? null;
+      const figure = figures.get(c.landmark)?.[c.kind] ?? null;
       return {
         id: c.id,
         landmark: c.landmark,
         at: landmark ? toLngLat(w.city.frame, landmark.at) : [0, 0],
         reachM: CONTRACT_REACH_M,
-        askSeconds: c.askSeconds,
+        kind: c.kind,
+        ask: c.ask,
         rewardCents: c.rewardCents,
         held: c.acceptedDay !== null,
         daysMet: c.daysMet,
         daysNeeded: CONTRACT_DAYS,
         daysLeft: c.acceptedDay === null ? null : contractDaysLeft(c.acceptedDay, day),
-        figureSeconds,
-        met: contractMet(figureSeconds, c.askSeconds),
+        figure,
+        met: contractMet(c.kind, figure, c.ask),
         onTrack: c.hoursMissedToday === 0,
       };
     });
@@ -422,7 +423,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
           cashBeforeCents: event.cashBeforeCents,
           cashAfterCents: event.cashAfterCents,
           report: event.card,
-          contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, askSeconds: o.contract.askSeconds, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
+          contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, kind: o.contract.kind, ask: o.contract.ask, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
         },
       });
     }

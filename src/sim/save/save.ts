@@ -19,7 +19,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 9;
+export const SAVE_FORMAT = 10;
 
 export interface BuildRef {
   readonly sha: string;
@@ -144,10 +144,10 @@ export function integrityProblem(data: SaveData): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
   if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
   for (const c of data.contracts) {
-    if (c.daysMet < 0 || c.hoursMissedToday < 0 || c.askSeconds <= 0 || c.rewardCents < 0) return `contract ${c.id}: a negative count or amount`;
+    if (c.daysMet < 0 || c.hoursMissedToday < 0 || c.ask <= 0 || c.rewardCents < 0) return `contract ${c.id}: a negative count or amount`;
     if (c.acceptedDay !== null && c.acceptedDay < c.offeredDay) return `contract ${c.id}: taken before it was offered`;
   }
-  if (data.contractDeck.some((s) => !CONTRACT_ASKS.some((a) => a.askSeconds === s))) return 'a contract deck card that is no ask';
+  if (data.contractDeck.some((k) => CONTRACT_ASKS[k] === undefined)) return 'a contract deck card that is no ask';
   const live: Partial<Record<IdKind, number[]>> = {
     stop: data.stops.map((s) => s.id),
     line: data.lines.map((l) => l.id),
