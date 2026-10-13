@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
 import type { BusModelId, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
-import { about, busCount, usdK } from '../format';
+import { about, busCount, clock, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /** Headways a player picks from, in minutes; overnight adds "off". */
@@ -14,7 +14,7 @@ const PERIODS = [
 ] as const;
 
 /**
- * A line's card: its riders, its buses and their model, and three headways (D7). A headway that needs
+ * A line's card: its riders, when its buses fill (K27), its buses and their model, and three headways (D7). A headway that needs
  * more buses reads "needs 3 buses, you have 2 · $95k" and confirming buys them (GD-09); another model
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
  * (sim/rules/line.ts, GD-05).
@@ -40,6 +40,11 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
       <p>
         {about(line.ridersPerDay)} riders a day · {busCount(line.buses, model.name)}
       </p>
+      {line.fullAtMinute !== null ? (
+        <p className="full" data-testid="line-full">
+          Full at {clock(Math.floor(line.fullAtMinute / 60), line.fullAtMinute % 60)} · {about(line.turnedAwayPerDay)} riders a day turned away
+        </p>
+      ) : null}
       <label className="model">
         Buses
         <select value={wantedModel ?? line.model} onChange={(e) => setWantedModel(e.target.value === line.model ? null : (e.target.value as BusModelId))}>

@@ -13,23 +13,26 @@ const loaded = loadCity(bakeSim('boston', 'mini-boston').text);
 if (!loaded.ok) throw new Error(loaded.problem);
 const city = loaded.city;
 
-function debugLineRiders(scalePermille: number): number {
+function debugLine(scalePermille: number): { boarded: number; offered: number } {
   const world = createWorld({ ...city, tripScalePermille: scalePermille }, newGame({ id: 'boston', revision: 'mini-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
   addDebugLine(world);
-  return [...world.assignment.lines.values()][0]!.perDay;
+  const demand = [...world.assignment.lines.values()][0]!;
+  return { boarded: demand.perDay, offered: demand.perDay + demand.shedPerDay };
 }
 
 describe('calib.tripScale on mini-Boston', () => {
-  it('puts the debug line at 600–1,000 boardings a day', () => {
-    const riders = debugLineRiders(city.tripScalePermille);
+  it('puts the debug line at 600–1,000 boardings a day, none turned away', () => {
+    const { boarded, offered } = debugLine(city.tripScalePermille);
     expect(city.tripScalePermille).toBe(111);
-    expect(riders).toBeGreaterThanOrEqual(600);
-    expect(riders).toBeLessThanOrEqual(1000);
+    expect(boarded).toBeGreaterThanOrEqual(600);
+    expect(boarded).toBeLessThanOrEqual(1000);
+    expect(offered).toBe(boarded);
   });
 
+  // Full buses cap boardings, so the riders the line is offered, before crowding, are what scales.
   it('scales riders in proportion, so the calibration is one division', () => {
-    const one = debugLineRiders(1000);
-    expect(debugLineRiders(500) / one).toBeCloseTo(0.5, 10);
+    const one = debugLine(1000).offered;
+    expect(debugLine(500).offered / one).toBeCloseTo(0.5, 10);
     expect(one).toBeGreaterThan(5000); // 5,732.0 measured 2026-10-13 with V2's waits (EC-08); 7,164.6 with V1's
   });
 });

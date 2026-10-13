@@ -24,17 +24,17 @@ const rows = settings.map((h) => {
   line.headways = h;
   line.buses = busesNeeded(world.services.get(line.id)!.timing.cycle, h);
   recompute(world);
-  const riders = world.assignment.lines.get(line.id)!.perDay;
+  const { perDay: riders, shedPerDay: shed } = world.assignment.lines.get(line.id)!;
   const c = forecastDay(world.services.get(line.id)!.costs);
   const net = Math.floor(riders) * (line.fareCents + SUBSIDY_PER_BOARDING_CENTS) - c.running - c.wages - c.deadhead;
-  return { h, buses: line.buses, riders, net };
+  return { h, buses: line.buses, riders, shed, net };
 });
 const best = [...rows].sort((a, b) => b.net - a.net);
 const at = (peak: number, offpeak: number, overnight: number | null) => rows.find((r) => r.h.peak === peak && r.h.offpeak === offpeak && r.h.overnight === overnight)!;
 const min = (s: number | null) => (s === null ? '—' : String(s / 60));
 const show = (label: string, r: (typeof rows)[number]) =>
-  console.log(`${label.padEnd(34)} ${min(r.h.peak).padStart(4)} ${min(r.h.offpeak).padStart(4)} ${min(r.h.overnight).padStart(4)}  ${String(r.buses).padStart(2)}  ${r.riders.toFixed(1).padStart(6)}  $${(r.net / 100).toFixed(2)}`);
-console.log(`${settings.length} settings the rules allow. Headways in minutes (peak, off-peak, overnight), buses, riders a day, net a day:`);
+  console.log(`${label.padEnd(34)} ${min(r.h.peak).padStart(4)} ${min(r.h.offpeak).padStart(4)} ${min(r.h.overnight).padStart(4)}  ${String(r.buses).padStart(2)}  ${r.riders.toFixed(1).padStart(6)}  ${r.shed.toFixed(1).padStart(5)}  $${(r.net / 100).toFixed(2)}`);
+console.log(`${settings.length} settings the rules allow. Headways in minutes (peak, off-peak, overnight), buses, riders a day, turned away a day, net a day:`);
 best.slice(0, 3).forEach((r, k) => show(`best ${k + 1}`, r));
 show('daytime longest, overnight shortest', at(3_600, 3_600, 3_600));
 show('starved: hourly all day, one bus', at(3_600, 3_600, null));

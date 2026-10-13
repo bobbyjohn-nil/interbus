@@ -1,6 +1,7 @@
-// How far the fast assignment's riders sit from the reference loop's (src/sim/demand/reference),
-// per line and period, on the fixture and on the synthetic grid. `npm run bench compare`; the
-// reference takes about 13 s on the grid. assign.test.ts holds the fixture to these numbers.
+// How far the fast assignment's riders and busiest legs sit from the reference loop's
+// (src/sim/demand/reference), per line and period, on the fixture and on the synthetic grid.
+// `npm run bench compare`; the reference takes about 13 s on the grid. assign.test.ts holds the
+// fixture to these numbers.
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity, type City } from '../src/sim/city/simfile';
@@ -18,7 +19,8 @@ const byPeriod = (slots: Float64Array) => PERIODS.map((p) => slots.reduce((sum, 
 
 function compare(name: string, city: City, commuters: Commuters, plans: LinePlan[]): void {
   const fast = assign(city, commuters, plans);
-  const ref = spread(plans, assignNaive(city, commuters, plans));
+  const naive = assignNaive(city, commuters, plans);
+  const ref = spread(plans, naive.riders, naive.busiest);
   let worst = 0;
   for (const plan of plans) {
     const got = byPeriod(fast.lines.get(plan.id)!.bySlot);
@@ -27,6 +29,9 @@ function compare(name: string, city: City, commuters: Commuters, plans: LinePlan
       if (want[k]! > 0) worst = Math.max(worst, Math.abs(got[k]! - want[k]!) / want[k]!);
     });
     console.log(`${name} line ${plan.id}: ${PERIODS.map((p, k) => `${p} ${got[k]!.toFixed(1)} vs ${want[k]!.toFixed(1)} (${pct(got[k]!, want[k]!)})`).join(', ')}`);
+    const legGot = fast.lines.get(plan.id)!.busiestLeg;
+    const legWant = ref.lines.get(plan.id)!.busiestLeg;
+    console.log(`${name} line ${plan.id} busiest leg: ${PERIODS.map((p, k) => `${p} ${legGot[k]!.toFixed(1)} vs ${legWant[k]!.toFixed(1)} (${pct(legGot[k]!, legWant[k]!)})`).join(', ')}`);
   }
   console.log(`${name}: trips ${fast.tripsPerDay.toFixed(1)} vs ${ref.tripsPerDay.toFixed(1)} (${pct(fast.tripsPerDay, ref.tripsPerDay)}); worst line-period ${(worst * 100).toFixed(2)}%`);
 }

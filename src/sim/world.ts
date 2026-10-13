@@ -140,7 +140,7 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
       pullInS: driveSeconds(pullInM, model),
     });
     services.set(line.id, {
-      plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways, kmh: model.kmh },
+      plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways, kmh: model.kmh, seats: model.seats },
       timing,
       day,
       costs: { plan: day, routeM, model, pullOutM, pullInM },

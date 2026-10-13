@@ -2,16 +2,18 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 8f5ea83 (the bus models), with M3 step 2b, V2's waits, in review.
+**Updated:** 2026-10-13, at `main` 7a20198 (V2's waits), with M3 step 2c, crowding, in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 7a66127. Deploy preview run 38372349654's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 7a20198. Deploy preview run 38377940934's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
   - the founding card, and the checklist chip naming the next step;
   - the calm shell: a chip row, a dock with **Place a depot**, **Draw a line** and **Lines**, the line inspector with its headways and a day's forecast, and notices in one corner;
+  - a bus model per line, Sparrow or Metro 40, picked on the new-line card and swapped on the line card, each drawn at its own length;
+  - V2's waits: riders leave a line that comes once an hour;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
@@ -151,7 +153,7 @@ The spec is archived in [`docs/specs/m2-first-line.md`](specs/m2-first-line.md).
 
 The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in Nov 9–29; work starts now, money first. In this order, each a small pull request (items are the spec's):
 1. [x] **Landmarks in `sim.json`** (item 1; 2026-10-13): six in `cities/boston/city.json`, each the label the map file draws. They are Copley Square, Longwood, Kenmore, Kendall Square, Harvard Square and Downtown Crossing. The fixture holds the first three; G6 fails a bake on any outside the extent; the loader reads them strictly.
-2. [ ] **Three bus models, one per line** (item 2), and **crowding per period** (item 3), with the sweep re-run: a starved line should earn 60% of the best or less.
+2. [x] **Three bus models, one per line** (item 2), and **crowding per period** (item 3), with the sweep re-run: a starved line should earn 60% of the best or less.
    - [x] **The models** (2026-10-13):
      - the Metro 40 and Goliath rows, with the Goliath locked until a medal (M4);
      - a model on each line (save format 5), so its cycle, speed, costs and demand are that row's;
@@ -161,7 +163,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 
      The starter cannot afford Metro 40s: the debug line's two cost $520k against $71,200 left after the starter.
    - [x] **V2's waits** (EC-08's verdict; 2026-10-13): riders time the stop only at a headway they can plan around, and a long wait counts convexly. A starved line (hourly, one bus) now loses $72.10 a day against the best's +$1,905.82 (it earned 98.5% of the best), and both daytime optima are inside the range. The debug line carries 636.3 riders and nets +$798.97 on day 2 (DECISIONS, Measured). I2's stop clause is now held with the dwell at zero, and the owner's call is under DECISIONS, Open.
-   - [ ] **Crowding per period**: seats per hour against the busiest leg, shed in that period only.
+   - [x] **Crowding** (K27; 2026-10-13): each half-hour, riders past the seats on a line's busiest leg are turned away in that half-hour only, and the line card reads "Full at 17:00 · ≈2,400 riders a day turned away". On Inner Boston's ten corridor lines only Washington Street fills: on Sparrows every 10 minutes it turns away 2,377.8 of 7,508 riders a day, on Metro 40s 131.4. The fixture's debug line never fills, so its sweep is unchanged (DECISIONS, Measured).
 3. [ ] **The fare band** (item 4): per-line fares, perceived once per trip, the subsidy taper, the printed band; I3's fare optimum and I4.
 4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).
 5. [ ] **Undo while paused** (item 7, I9).

@@ -11,8 +11,9 @@ export const WALK_MIN_PER_KM = 12;
 export const MAX_WALK_M = 650;
 /** A stop's dwell (constants.ts:115). */
 export const DWELL_SEC = 20;
-/** Riders ride at the bus model's pace, as V1 did (constants.ts:170); the Sparrow until week 5's models. */
+/** Riders ride at the line's model's pace, as V1 did (constants.ts:170), and fill its seats; the Sparrow's where a plan names no model. */
 export const BUS_KMH = SPARROW.kmh;
+export const BUS_SEATS = SPARROW.seats;
 /** Driving: average speed, the detour and traffic factor, and the parking hunt (demand.worker.ts:93, 486; constants.ts:127). */
 export const CAR_KMH = 35;
 export const CAR_TIME_FACTOR = 1.3;
