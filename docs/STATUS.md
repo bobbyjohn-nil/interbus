@@ -15,7 +15,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-ba4110d6` holds mini-Boston's `sim.json` (132,908 B), published by **City sim file (manual)** run 38346461662;
+  - release `city-boston-sim-mini-boston-7efc98ec` holds mini-Boston's `sim.json` at `tripScale` 111‰ (132,907 B), published by **City sim file (manual)** run 38347610455. The uncalibrated `ba4110d6` stays for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
   - release `city-boston-sources-20261012` holds the bake's eight pinned inputs;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
@@ -70,11 +70,10 @@ The spec is [`docs/specs/current.md`](specs/current.md). Much of its top half is
 - the layers.
 
 What is left, in order:
-1. **`tripScale`:** a committed calibration script sets it on the fixture so the debug line carries 600–1,000 boardings a day. At 1 it carries 7,200.7, so expect about 0.1. The value goes into `sim.json`'s calib, which means a rebake, a new golden hash, a republish and a new `cities/index.json` entry.
-2. **I2:** adding a line, stop or bus never cuts linked trips by more than 0.1%.
-3. **I3, per period:** riders boarding a line in a period ≤ trips generated in that period's hours.
-4. **The recompute bench,** outside `src/sim`: the fixture plus a synthetic 800-cell grid, three periods, p95. It is 37 ms on the fixture today against a ≤20 ms guess, and the R2 decision (D11) on Nov 1 rests on it.
-5. **Below the cut line:** the Inner Boston bake job, then per-period crowding, then visitors.
+1. [x] **`tripScale`** is 111‰ (2026-10-13), in `city.json` calib. The debug line carries 799.3 boardings a day and `calibration.test.ts` holds the 600–1,000 band. The fixture's `sim.json` was rebaked, re-locked and republished.
+2. [x] **I2** and **I3 per period** (2026-10-13, `src/sim/demand/invariants.test.ts`). The bus clause of I2 waits for week 4's buses.
+3. [ ] **The recompute bench,** outside `src/sim`: the fixture plus a synthetic 800-cell grid, three periods, p95. It is 37 ms on the fixture today against a ≤20 ms guess, and the R2 decision (D11) on Nov 1 rests on it.
+4. **Below the cut line:** the Inner Boston bake job, then per-period crowding, then visitors.
 
 Open from the research critique, for week 4:
 - **The starter recipe's bus count.** V1's cycle formula says a 3–4 km line every 20 min needs 2 Sparrows, not the 1 in D7's $261k starter. Make the recipe count its buses with the one cycle function (K07).
