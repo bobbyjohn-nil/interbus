@@ -43,6 +43,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
    - **What it reports, in real minutes on the speed ladder** (`SPEEDS`: 600, 1,800 and 5,400 game seconds a second; `src/worker/host.ts`): first profitable day, second line, the report card, then bronze, silver and gold.
    - **The targets:** profit by 8 minutes, the second line after 15–25, the report card by 20, the top medal in 2–4 hours.
    - **The first line's 3–5 minutes** is the player's own time at the tools. The e2e founding run times its clicks, and P2 times people.
+   - **Built so** (`src/sim/pacing.ts`; DECISIONS, Measured): it also adds lines past the second (with depots of their own), the fixture version holds bands in the PR checks, and the nightly runs it on Inner Boston. Profit at 5.4 and the report card at 12.6 minutes meet their targets; the second line at 46.1 (day 51) and gold (none in 200 days, coverage the lowest grade) do not, which is the tuning's work.
 2. **The tuning freeze** (PLAN §3, D7; I10, [GD-11](../history/lessons-ledger.md)). What can be tuned from the pacing run's numbers:
    - k, within 1.0–1.8; now 1.2, giving $427,200 against the 3.5 km founding recipe;
    - the speed ladder;

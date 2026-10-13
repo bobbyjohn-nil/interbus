@@ -10,11 +10,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity } from '../src/sim/city/simfile';
+import { toCalendarTime } from '../src/sim/core/calendar';
+import { toLngLat } from '../src/sim/core/geo';
 import type { LineId } from '../src/sim/core/ids';
 import { assign, type LinePlan } from '../src/sim/demand/assign';
 import { buildCommuters } from '../src/sim/demand/commuters';
 import { newGame } from '../src/sim/state';
-import { createWorld, planLine } from '../src/sim/world';
+import { commutersToday, createWorld, planLine } from '../src/sim/world';
 import { innerBoston } from './inner';
 import { syntheticCity, t03Network } from './synthetic';
 
@@ -63,6 +65,14 @@ if (inner) {
   const { world: boston, plans: bostonPlans } = inner;
   results.innerBostonCells = boston.city.cells.length;
   time(`Inner Boston ${boston.city.cells.length} cells, ${bostonPlans.length} lines, ${bostonPlans.reduce((s, p) => s + p.stops.length, 0)} stops, 3 periods`, () => assign(boston.city, boston.commuters, bostonPlans));
+  // A festival's first recompute (the M4 spec's magnitudes: I14 with events on): its flows boosted
+  // afresh each run, as at the close that starts it, round Massachusetts Avenue's middle stop. Snow
+  // and roadworks change only the plans' times, not the work the assignment does.
+  const [lon, lat] = bostonPlans[0]!.stops[6]!;
+  const at = toLngLat(boston.city.frame, [lon, lat]);
+  const day = toCalendarTime(boston.state.elapsed).day;
+  const state = { ...boston.state, event: { kind: 'festival' as const, startDay: day, endDay: day, street: '', edges: [], at: { lon: at[0], lat: at[1] } } };
+  time(`Inner Boston on a festival's first day, 3 periods`, () => assign(boston.city, commutersToday({ city: boston.city, commuters: { ...boston.commuters }, state }), bostonPlans));
 }
 
 mkdirSync('.cache/bench', { recursive: true });

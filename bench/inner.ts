@@ -1,14 +1,29 @@
 // Inner Boston with ten lines along real corridors, 116 stops as in T03: each line's stops are spaced
 // evenly between its ends and snap to the street graph as the line tool's will. Read by the
-// recompute and crowding benches once `node tools/bake/sim.mjs boston inner-boston` has baked it.
+// recompute, crowding and pacing benches from the local bake (`node tools/bake/sim.mjs boston
+// inner-boston`) or, as on the nightly runner, the published file `npm run cities` fetched.
 import { existsSync, readFileSync } from 'node:fs';
-import { loadCity } from '../src/sim/city/simfile';
+import { loadCity, type City } from '../src/sim/city/simfile';
 import { mint } from '../src/sim/core/ids';
 import type { LinePlan } from '../src/sim/demand/assign';
 import { newGame } from '../src/sim/state';
 import { createWorld, planLine, type World } from '../src/sim/world';
 
-const INNER = '.cache/bake/boston/sim-inner-boston.json';
+const BAKED = '.cache/bake/boston/sim-inner-boston.json';
+
+/** Inner Boston's sim file: the local bake, else the published one in public/cities, else null. */
+export function innerBostonCity(): City | null {
+  let path = BAKED;
+  if (!existsSync(path)) {
+    const index = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { sim?: { file: string } }[] };
+    const file = index.cities[0]?.sim?.file;
+    path = file ? `public/cities/${file}` : '';
+  }
+  if (!path || !existsSync(path)) return null;
+  const loaded = loadCity(readFileSync(path, 'utf8'));
+  if (!loaded.ok) throw new Error(loaded.problem);
+  return loaded.city;
+}
 export const CORRIDORS: [name: string, from: [number, number], to: [number, number], stops: number][] = [
   ['Massachusetts Avenue', [-71.119, 42.3736], [-71.0838, 42.3293], 12],
   ['Huntington Avenue', [-71.0776, 42.3496], [-71.111, 42.3285], 12],
@@ -24,13 +39,12 @@ export const CORRIDORS: [name: string, from: [number, number], to: [number, numb
 
 /** The world and its ten Sparrow lines' plans, every 10 min at peak and 15 off-peak, or null if not baked. */
 export function innerBoston(): { world: World; plans: LinePlan[]; names: string[] } | null {
-  if (!existsSync(INNER)) {
-    console.log(`bench: Inner Boston skipped; bake it with \`node tools/bake/sim.mjs boston inner-boston\``);
+  const city = innerBostonCity();
+  if (!city) {
+    console.log(`bench: Inner Boston skipped; bake it with \`node tools/bake/sim.mjs boston inner-boston\` or fetch it with \`npm run cities\``);
     return null;
   }
-  const inner = loadCity(readFileSync(INNER, 'utf8'));
-  if (!inner.ok) throw new Error(inner.problem);
-  const world = createWorld(inner.city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
+  const world = createWorld(city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
   const plans = CORRIDORS.map(([name, from, to, count], n) => {
     const stopIds = Array.from({ length: count }, (_, k) => {
       const t = k / (count - 1);

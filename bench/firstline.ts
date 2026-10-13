@@ -11,11 +11,12 @@ import { placeDepot } from '../src/sim/commands/placeDepot';
 import { loadCity } from '../src/sim/city/simfile';
 import { DEPOT_COST_CENTS } from '../src/sim/config/economy';
 import { SECONDS_PER_DAY } from '../src/sim/config/time';
-import { distXY, pointInRing, toLngLat, toXY, type LngLat, type XY } from '../src/sim/core/geo';
+import { toLngLat, toXY, type LngLat } from '../src/sim/core/geo';
 import { foundingCapitalCents, rowsOfDay } from '../src/sim/economy/ledger';
 import { newGame } from '../src/sim/state';
 import { advance } from '../src/sim/step';
 import { createWorld } from '../src/sim/world';
+import { depotNear } from '../src/sim/pacing';
 import { CORRIDORS } from './inner';
 
 const INNER = '.cache/bake/boston/sim-inner-boston.json';
@@ -24,22 +25,6 @@ const loaded = loadCity(readFileSync(INNER, 'utf8'));
 if (!loaded.ok) throw new Error(loaded.problem);
 const city = loaded.city;
 const SPAN_M = 3_200;
-
-/** A point inside the depot-land parcel nearest `at`. */
-function depotNear(at: XY): LngLat {
-  let best: { p: XY; d: number } | null = null;
-  for (const ring of city.depotLand) {
-    const c: XY = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
-    for (let t = 0; t <= 1; t += 0.05) {
-      const p: XY = [c[0] + (ring[0]![0] - c[0]) * t, c[1] + (ring[0]![1] - c[1]) * t];
-      if (!pointInRing(ring, p)) continue;
-      const d = distXY(p, at);
-      if (!best || d < best.d) best = { p, d };
-      break;
-    }
-  }
-  return toLngLat(city.frame, best!.p);
-}
 
 const candidates: { name: string; stops: LngLat[] }[] = [{ name: 'the debug line', stops: DEBUG_STOPS.map((s) => s.at) }];
 for (const [name, from, to] of CORRIDORS) {
@@ -57,7 +42,7 @@ const usd = (cents: number) => `${cents < 0 ? '-' : ''}$${Math.round(Math.abs(ce
 const rows: { name: string; cost: number; net: number; buses: number; riders: number }[] = [];
 for (const c of candidates) {
   const world = createWorld(city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
-  if (!placeDepot(world, depotNear(toXY(city.frame, c.stops[0]!))).ok) continue;
+  if (!placeDepot(world, depotNear(city, toXY(city.frame, c.stops[0]!))).ok) continue;
   const made = createLine(world, c.stops);
   if (!made.ok) {
     console.log(`  ${c.name}: refused (${made.reason})`);
