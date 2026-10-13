@@ -153,6 +153,8 @@ describe('the sim host', () => {
     expect(line).toMatchObject({ name: 'Line 1', buses: 2, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
     expect(line.cycle).toBeGreaterThan(1_500);
     expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000 - 20_600_000);
+    // Finance (the M3 spec, item 6): the depot and the line are today's purchases.
+    expect(last('snapshot')!.snapshot.finance.rows.find((r) => r.kind === 'purchase')).toMatchObject({ todayCents: -35_600_000, forecastCents: null });
     host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 600, offpeak: 1_200, overnight: null } });
     expect(last('refused')).toEqual({ type: 'refused', command: 'set-headways', reason: 'insufficient_funds', shortCents: 2_380_000 });
   });

@@ -11,6 +11,7 @@ import { DepotCard, DraftCard, type Tool } from './game/Tools';
 import { useSim } from './game/useSim';
 import { ReplacedCard } from './ReplacedCard';
 import { Dock, type Panel } from './shell/Dock';
+import { Finance } from './shell/Finance';
 import { Inspector } from './shell/Inspector';
 import { Notices } from './shell/Notices';
 import { TopBar } from './shell/TopBar';
@@ -137,6 +138,7 @@ export function App() {
         />
       ) : null}
       {tool === 'none' && panel === 'lines' ? <Inspector sim={sim} lineId={lineId} onLine={setLineId} onClose={() => setPanel('none')} /> : null}
+      {tool === 'none' && panel === 'finance' ? <Finance sim={sim} onClose={() => setPanel('none')} /> : null}
       {tool === 'none' && panel === 'stop' && stopId !== null ? (
         <StopCard
           sim={sim}
