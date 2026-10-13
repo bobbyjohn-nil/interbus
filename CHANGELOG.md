@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The tools sit in a dock along the bottom of the screen, and the day, the time, the speed, cash and riders a day sit in a row of chips along the top, leaving the city the rest of the screen.
 - When something can't be done, a notice in the bottom-left corner says why for a few seconds.
 - Riders weigh the wait: up to a bus every 12 minutes most of them time their trip to the timetable, but a bus every hour carries few, so a line pays best every 10 to 15 minutes.
+- Undo while paused: the Undo chip (or Ctrl+Z, ⌘Z on a Mac) takes back the last thing you did since you paused, a depot, a line, a headway, a bus model, a fare or a stop, cash and all. Once the clock has run, it says so instead.
 - Finance, in the dock: every kind of money in and out for today, yesterday and this quarter, beside what a whole day is forecast to bring, adding up to the change in cash.
 - Make a stop nicer from its card: a Shelter ($12,000), a Station ($35,000), an Interchange ($90,000, with 3 lines calling) or a Transfer Hub ($200,000, with 5). A nicer stop feels closer on foot, so more people walk to it; stepping it back down returns half of what the step cost.
 - Click a stop to see its day: how many board and get off there, and what it earns. A stop with fewer than 5 boardings a day reads QUIET, and one losing more than $20 a day reads LOSS, with a ring around it on the map.

@@ -173,6 +173,8 @@ export interface Snapshot {
   readonly depots: readonly DepotView[];
   /** The Finance panel's table; changes when a row is posted or the network changes. */
   readonly finance: FinanceView;
+  /** While paused, the command an undo would take back, such as create-line "Line 2" (sim/undo.ts); null otherwise. */
+  readonly undo: { readonly command: string; readonly subject: string } | null;
 }
 
 /** Where people live and work: each cell's sub-points, weighted. */
@@ -209,6 +211,8 @@ export type ToWorker =
   | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }
   | { readonly type: 'set-fare'; readonly lineId: number; readonly fareCents: number }
   | { readonly type: 'set-stop-tier'; readonly stopId: number; readonly tier: number }
+  /** Takes back the newest command taken while paused (I9). */
+  | { readonly type: 'undo' }
   /** Asks for a line's fare band, for its open card. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 

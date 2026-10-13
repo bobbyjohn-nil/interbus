@@ -1,4 +1,5 @@
 import type { Speed } from '../../sim/types';
+import { undoText } from '../copy';
 import { about, clock, usd } from '../format';
 import { checklistText } from '../game/checklist';
 import type { Sim } from '../game/useSim';
@@ -13,7 +14,7 @@ const SPEEDS: readonly [Speed, string][] = [
 /**
  * The calm shell's chip row (PLAN §8, the M2 spec item 7): labelled chips for the date and clock,
  * the speed, Cash, Riders/day and the day's costs, and the checklist's next step (K20). The speed
- * waits until the company is founded.
+ * waits until the company is founded. While paused, Undo names the command it would take back (I9).
  */
 export function TopBar({ sim }: { sim: Sim }) {
   const s = sim.snapshot;
@@ -44,6 +45,11 @@ export function TopBar({ sim }: { sim: Sim }) {
         <span className="chip">
           <span className="chip-label">Costs/day</span> {usd(s.costsPerDayCents)}
         </span>
+      ) : null}
+      {s.undo ? (
+        <button type="button" className="chip undo" data-testid="undo" onClick={() => sim.send({ type: 'undo' })}>
+          {undoText(s.undo)}
+        </button>
       ) : null}
       {founded && checklist ? (
         <span className="chip checklist" data-testid="checklist">

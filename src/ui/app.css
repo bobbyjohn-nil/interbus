@@ -166,6 +166,14 @@ body,
   font-weight: 600;
 }
 
+/* Undo while paused (I9): a chip that is a button. */
+.chip.undo {
+  font: inherit;
+  border: 0;
+  color: var(--ui-ink);
+  cursor: pointer;
+}
+
 .dock {
   position: absolute;
   left: 50%;

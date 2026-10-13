@@ -293,3 +293,63 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     }
   });
 });
+
+// I9 (the M3 spec, item 7): every command taken since the last unpause can be taken back, newest
+// first, to the cent; once time has run, an undo is refused in words. Shown failing (TS-04) with the
+// stack kept across an unpause, as V2's undo was: the undo then rewinds the income earned since.
+describe('undo while paused (I9)', () => {
+  function foundedWithSaves() {
+    const run = started();
+    run.host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    return run;
+  }
+
+  it('takes back every command since the pause, newest first and named, and each save is as it was', () => {
+    const { host, last, saves } = foundedWithSaves();
+    const [founded] = saves().slice(-1);
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    host.handle({ type: 'set-fare', lineId: line.id, fareCents: 175 });
+    const [afterDepot, afterLine] = saves().slice(-3, -1);
+    expect(last('snapshot')!.snapshot.undo).toEqual({ command: 'set-fare', subject: 'Line 1' });
+    host.handle({ type: 'undo' });
+    expect(saves().at(-1)).toBe(afterLine);
+    expect(last('snapshot')!.snapshot.lines[0]!.fareCents).toBe(225);
+    expect(last('snapshot')!.snapshot.undo).toEqual({ command: 'create-line', subject: 'Line 1' });
+    host.handle({ type: 'undo' });
+    expect(saves().at(-1)).toBe(afterDepot);
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], cashCents: 42_720_000 - 15_000_000, undo: { command: 'place-depot', subject: 'Depot 1' } });
+    host.handle({ type: 'undo' });
+    expect(saves().at(-1)).toBe(founded);
+    expect(last('snapshot')!.snapshot).toMatchObject({ depots: [], cashCents: 42_720_000, undo: null });
+    host.handle({ type: 'undo' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'undo', reason: 'nothing_to_undo' });
+  });
+
+  it('refuses an undo once time has run, and keeps what the line earned meanwhile', () => {
+    const { host, last } = foundedWithSaves();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    host.handle({ type: 'speed', speed: 3 });
+    for (let t = 0; t <= 4_000; t += 50) host.tick(t);
+    host.handle({ type: 'speed', speed: 0 });
+    const paused = last('snapshot')!.snapshot;
+    expect(paused.elapsed).toBeGreaterThan(0);
+    expect(paused.undo).toBeNull();
+    host.handle({ type: 'undo' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'undo', reason: 'time_has_run' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: paused.cashCents, elapsed: paused.elapsed, lines: [{ id: paused.lines[0]!.id }] });
+  });
+
+  it('keeps no command taken while time runs', () => {
+    const { host, last } = foundedWithSaves();
+    host.handle({ type: 'speed', speed: 1 });
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'speed', speed: 0 });
+    expect(last('snapshot')!.snapshot.undo).toBeNull();
+    host.handle({ type: 'undo' });
+    expect(last('refused')).toMatchObject({ reason: 'nothing_to_undo' });
+    expect(last('snapshot')!.snapshot.depots).toHaveLength(1);
+  });
+});

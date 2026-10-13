@@ -37,6 +37,9 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   no_such_tier: () => 'No such kind of stop',
   needs_lines: (r) => `Needs ${r.limit ?? 3} lines calling here`,
   no_such_stop: () => 'That stop is gone',
+  // Undo (sim/undo.ts)
+  time_has_run: () => 'Time has run since then',
+  nothing_to_undo: () => 'Nothing to undo',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',
@@ -49,6 +52,20 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
 /** A refusal as words; an unknown code still reads as a sentence, never as itself. */
 export function refusalText(r: RefusalView): string {
   return (REFUSAL_COPY[r.reason] ?? (() => 'That can’t be done here'))(r);
+}
+
+/** What Undo would take back, named (the M3 spec, item 7): "Create Line 2". */
+const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
+  'place-depot': (s) => `Place ${s}`,
+  'create-line': (s) => `Create ${s}`,
+  'set-headways': (s) => `${s}’s headways`,
+  'set-model': (s) => `${s}’s buses`,
+  'set-fare': (s) => `${s}’s fare`,
+  'set-stop-tier': (s) => `${s}’s kind`,
+};
+
+export function undoText(u: { readonly command: string; readonly subject: string }): string {
+  return `Undo: ${(UNDO_COPY[u.command] ?? ((s: string) => s))(u.subject)}`;
 }
 
 /** A save the game could not start from, in one line (D12): kept under a backup key, never overwritten. */

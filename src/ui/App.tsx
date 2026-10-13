@@ -98,6 +98,12 @@ export function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLSelectElement || event.target instanceof HTMLInputElement) return;
+      // Ctrl+Z or ⌘Z takes back the newest command taken while paused (I9).
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        send({ type: 'undo' });
+        return;
+      }
       if (event.key === 'Escape') {
         choose('none');
         setPanel('none');
@@ -106,7 +112,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [choose]);
+  }, [choose, send]);
 
   const ready = sim.status === 'ready';
   return (

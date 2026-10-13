@@ -73,7 +73,7 @@ export function spend(
   return ok();
 }
 
-/** Gives back exactly what a purchase took (an undo while paused, I9). */
+/** Money given back as a Refunds row. An undo while paused needs none: it puts back the whole state from before the command (sim/undo.ts, I9). */
 export function refund(ledger: Ledger, amountCents: number, day: number): void {
   assertCents(amountCents, 'refund');
   if (amountCents < 0) throw new RangeError(`a refund is never negative, got ${amountCents}`);
