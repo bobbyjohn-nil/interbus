@@ -11,6 +11,11 @@
       { "name": "Brookline", "ctycsub": "2502109175", "pop20": 63191 }
     ]
   },
+  "gates": {
+    "about": "Bake gates per extent (PLAN §5). G1: cells holding residents or jobs. G2: street nodes after collapse, and the share of open drivable km in the largest piece every node of which reaches every other. G3: residents with a kept street within 300 m. The fixture box holds at most 99 cells of Boston's grid, and clipping it strands the Mass Pike (no ramps inside) and one-way grids whose return lies outside the box, so its G1, G2 and G3 limits are its own. Measured 2026-10-13: 84 cells; 75% of open drivable km kept; 97.4% of residents within 300 m of a kept street, the other 2,748 all north of 42.355 in Beacon Hill and Cambridgeport, whose stranded one-way grids the clip drops.",
+    "inner-boston": { "cells": [400, 1000], "maxNodes": 16000, "keptShare": 0.98, "residentsNearStreet": 0.99 },
+    "mini-boston": { "cells": [40, 99], "maxNodes": 16000, "keptShare": 0.7, "residentsNearStreet": 0.97 }
+  },
   "fixture": {
     "about": "Mini-Boston, Back Bay to Longwood (PLAN §5): every input clipped to this box and committed under tools/bake/fixtures/, so PR checks and the money work never wait for the full bake.",
     "id": "mini-boston",

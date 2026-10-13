@@ -87,9 +87,9 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 | Quantity | Expected | Source of the expectation |
 |---|---|---|
 | Fixture residents | 105,620 exactly | `fixture.json`, G4's sum |
-| Fixture cells (350 m, with land) | 55–80; at most 80, since the box is 3.29 × 2.78 km | Box size |
-| Collapsed street nodes on the fixture | 600–2,000 | 16,054 OPL nodes; collapse removes most |
-| `sim.json` for the fixture | 30–200 kB gzip | 208 kB for all of Boston's streets (PLAN §5) |
+| Fixture cells (350 m, holding people or jobs) | 55–80 expected; **84 measured** 2026-10-13, because the fixture shares Boston's grid and the box touches 11 × 9 = 99 of its cells | Box size |
+| Collapsed street nodes on the fixture | 600–2,000; **675 measured** | 16,054 OPL nodes; collapse removes most |
+| `sim.json` for the fixture | 30–200 kB gzip; **56.6 kB measured** (133 kB raw) | 208 kB for all of Boston's streets (PLAN §5) |
 | Jobs in the box / workers living in it | 186,144 / 41,148 (WAC / RAC sums) | Fixture CSVs |
 | Commuters with both ends in the box | 9,287 (Σ S000) | Fixture OD |
 | Residents within 650 m of the debug line's stops | about 50,000 | Straight-line estimate from block points |
@@ -132,9 +132,9 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 
 ## Calls made here (Claude's, under PLAN §13; the owner can overrule them)
 
-- **Gates per extent.** The fixture holds at most 80 cells and no airport. G1 and G5 therefore read a profile in `cities/boston/city.json`:
-  - the fixture checks 40–80 cells and "no residents in water";
-  - Inner Boston keeps 400–1,000 cells and the Logan gateway.
+- **Gates per extent.** The fixture touches at most 99 of Boston's cells, has no airport, and clipping it strands the Mass Pike (no ramps inside) and one-way grids whose way back lies outside the box. So the gates read a profile per extent in `cities/boston/city.json`:
+  - the fixture checks 40–99 cells, 70% of drivable km kept and 97% of residents within 300 m of a street;
+  - Inner Boston keeps 400–1,000 cells, 98% kept, 99% near a street, and the Logan gateway.
 - **Gravity inside the box.** On the fixture, gravity runs only between cells inside the box, so jobs inside it are over-weighted. That is accepted: `tripScale` is re-measured on `city-boston-r1` in week 5.
 - **Errors stay outside the sim.** The sim returns reason codes. V3's error bus (it calls `Date.now()`) lives in the worker host or the UI, with an injected clock.
 - **The bench.** It is committed against the fixture plus a synthetic 800-cell grid in week 3, and re-run on Boston when the bake lands.

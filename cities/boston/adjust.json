@@ -1,0 +1,13 @@
+{
+  "about": "Corrections the bake applies where OpenStreetMap's tags leave a fact out (PLAN §5). Each names what it changes and why; the bake report lists every street it closes.",
+  "closeToBuses": [
+    {
+      "name": "Storrow Drive",
+      "why": "A DCR parkway closed to buses and trucks; most of it is tagged hgv=no or with clearances under 3.5 m, and this catches any piece that is not."
+    },
+    {
+      "name": "Memorial Drive",
+      "why": "A DCR parkway closed to buses and trucks; OSM tags only some of its ways (1.4 km of it in the fixture carried no restriction on 2026-10-13)."
+    }
+  ]
+}
