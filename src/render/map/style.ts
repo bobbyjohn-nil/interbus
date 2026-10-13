@@ -257,7 +257,7 @@ export function buildStyle({ tilesUrl, assetBase, tokens, extent }: StyleOptions
       [SOURCE]: {
         type: 'vector',
         url: tilesUrl,
-        attribution: '© OpenStreetMap contributors · Protomaps',
+        attribution: '© OpenStreetMap contributors · Protomaps · Overture Maps',
       },
       [BOARD]: { type: 'geojson', data: boardFeatures(extent) },
     },

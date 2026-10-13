@@ -57,6 +57,8 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
   await expect(chip).toHaveAttribute('data-sha', built.sha);
   await expect(chip).toHaveText(`build ${built.sha.slice(0, 7)}`);
   await expect(page.getByText('© OpenStreetMap contributors')).toBeVisible();
+  // Building heights are Overture's where OSM has none (PLAN §5), and its credit sits beside OSM's.
+  await expect(page.getByRole('link', { name: 'Overture Maps' })).toBeVisible();
 
   // The interface is set in self-hosted Afacad Flux (D13).
   const faces = await page.evaluate(async () => {
