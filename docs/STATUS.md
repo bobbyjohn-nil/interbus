@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 1249a21, with the cycle function in review.
+**Updated:** 2026-10-13, at `main` 3c1abf5, with depot land and gateways in review.
 
 ## Live now
 
@@ -15,9 +15,9 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-20b38b02` holds mini-Boston's `sim.json` at `tripScale` 111‰ with bus access by OSM's hierarchy (134,361 B), published by **City sim file (manual)** run 38352676465, which matched the golden on GitHub's runner. The older `7efc98ec` and `ba4110d6` stay for pages of older builds;
+  - release `city-boston-sim-mini-boston-69866a1e` holds mini-Boston's `sim.json` with depot land and the (empty) gateway list (135,413 B), published by **City sim file (manual)** run 38356104923, which matched the golden on GitHub's runner. The older `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden in `cities/boston/sim-inner-boston.lock.json` (**City sim file** run 38353671557 matched it on GitHub's runner), not yet published;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `bafe84fa` in `cities/boston/sim-inner-boston.lock.json`, not yet published;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
@@ -77,7 +77,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
 1. [x] **The cycle function** (2026-10-13, `src/sim/rules/cycle.ts`): a round trip, the buses each running period needs, the headway a short line runs, and the founding recipe counted with it (two Sparrows; $427,200 at k = 1.2; D7's clarification). The Sparrow is a config row in `src/sim/config/fleet.ts`.
 2. [ ] **Depots in the sim:** the placement predicate, the place command, the price ladder, upkeep, and save format 3.
 3. [ ] **Costs as ledger rows** (running, wages, depot upkeep, deadhead) and the line inspector's forecast, equal to the cent (I1, I6).
-4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze.
+4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze. Depot land, gateways and G5–G7 are done (2026-10-13; DECISIONS, Measured); G9 (load ≤300 ms) and G10 (no transit feature, including in the map file) remain.
 5. [ ] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.
 6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
 7. [ ] **The calm shell** replacing the debug panel, and I13.

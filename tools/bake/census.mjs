@@ -154,3 +154,55 @@ export async function clipLodes(path, kind, inside) {
   }
   return `${out.join('\n')}\n`;
 }
+
+/**
+ * Commuters into the play area: OD rows whose workplace block is `inside` and whose home is not,
+ * summed by home tract (the block id's first 11 digits) and workplace block. Gateways carry them
+ * (PLAN §5); a tract's centre is near enough to pick the road a commuter comes in on. Sorted by
+ * tract, then workplace.
+ */
+export async function inboundByTract(path, inside) {
+  const sums = new Map();
+  let cols = null;
+  for await (const line of lines(path)) {
+    if (!line) continue;
+    if (!cols) {
+      const header = line.split(',');
+      cols = [header.indexOf('w_geocode'), header.indexOf('h_geocode'), header.indexOf('S000')];
+      if (cols.some((c) => c < 0)) throw new Error(`census: ${path} lacks w_geocode, h_geocode or S000`);
+      continue;
+    }
+    const fields = line.split(',');
+    const w = fields[cols[0]];
+    const h = fields[cols[1]];
+    if (!inside.has(w) || inside.has(h)) continue;
+    const key = `${h.slice(0, 11)},${w}`;
+    sums.set(key, (sums.get(key) ?? 0) + Number(fields[cols[2]]));
+  }
+  return [...sums]
+    .map(([key, jobs]) => {
+      const [tract, w] = key.split(',');
+      return { tract, w, jobs };
+    })
+    .sort((a, b) => (a.tract < b.tract ? -1 : a.tract > b.tract ? 1 : a.w < b.w ? -1 : a.w > b.w ? 1 : 0));
+}
+
+/** Each wanted tract's centre: its blocks' internal points averaged, weighted by people where any live. */
+export function tractCentres(blocks, wanted) {
+  const acc = new Map();
+  for (const b of blocks) {
+    const tract = b.geoid.slice(0, 11);
+    if (!wanted.has(tract)) continue;
+    const a = acc.get(tract) ?? { w: 0, lon: 0, lat: 0, n: 0, plon: 0, plat: 0 };
+    a.w += b.pop20;
+    a.lon += b.pop20 * b.lon;
+    a.lat += b.pop20 * b.lat;
+    a.n++;
+    a.plon += b.lon;
+    a.plat += b.lat;
+    acc.set(tract, a);
+  }
+  return new Map(
+    [...acc].sort(([x], [y]) => (x < y ? -1 : 1)).map(([tract, a]) => [tract, a.w > 0 ? [a.lon / a.w, a.lat / a.w] : [a.plon / a.n, a.plat / a.n]]),
+  );
+}

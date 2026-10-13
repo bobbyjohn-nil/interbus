@@ -1,8 +1,8 @@
 {
   "about": "The golden hash of this extent's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
   "format": 1,
-  "sha256": "8b87dfc2337026e50264151d441887360b3c21e1e65e7f351dd7ac38a95c34e2",
-  "bytes": 1928801,
+  "sha256": "bafe84faa3f8128e359a98d080d7f43d274cc0532258592f6f110b21ae78f875",
+  "bytes": 2033387,
   "nodes": 11687,
   "edges": 17221,
   "keptKm": 1725.9,
@@ -35,8 +35,144 @@
       "value": 0.9998,
       "ok": true,
       "limit": "≥0.99"
+    },
+    {
+      "gate": "G5 residents in water",
+      "value": 9,
+      "ok": true,
+      "limit": "≤10"
+    },
+    {
+      "gate": "G5 airport gateway on its aerodrome",
+      "value": "Logan International Airport",
+      "ok": true,
+      "limit": "required"
+    },
+    {
+      "gate": "G6 nodes or people outside the map",
+      "value": 0,
+      "ok": true,
+      "limit": "0"
+    },
+    {
+      "gate": "G7 sim.json gzipped",
+      "value": 837594,
+      "ok": true,
+      "limit": "≤1048576"
     }
   ],
+  "depotLand": {
+    "areas": 155,
+    "km2": 7.36
+  },
+  "gateways": [
+    {
+      "name": "North Beacon Street",
+      "kind": "road",
+      "commuters": 4199
+    },
+    {
+      "name": "Beacon Street",
+      "kind": "road",
+      "commuters": 633
+    },
+    {
+      "name": "Dorchester Avenue",
+      "kind": "road",
+      "commuters": 131801
+    },
+    {
+      "name": "Northeast Expressway",
+      "kind": "road",
+      "commuters": 9406
+    },
+    {
+      "name": "Washington Street",
+      "kind": "road",
+      "commuters": 7131
+    },
+    {
+      "name": "Washington Street",
+      "kind": "road",
+      "commuters": 28306
+    },
+    {
+      "name": "Massachusetts Avenue",
+      "kind": "road",
+      "commuters": 32902
+    },
+    {
+      "name": "Main Street",
+      "kind": "road",
+      "commuters": 23374
+    },
+    {
+      "name": "Everett Avenue",
+      "kind": "road",
+      "commuters": 3722
+    },
+    {
+      "name": "Mount Auburn Street",
+      "kind": "road",
+      "commuters": 11525
+    },
+    {
+      "name": "Belmont Street",
+      "kind": "road",
+      "commuters": 4581
+    },
+    {
+      "name": "Concord Avenue",
+      "kind": "road",
+      "commuters": 15715
+    },
+    {
+      "name": "Fellsway",
+      "kind": "road",
+      "commuters": 29501
+    },
+    {
+      "name": "Santilli Circle",
+      "kind": "road",
+      "commuters": 0
+    },
+    {
+      "name": "Boylston Street",
+      "kind": "road",
+      "commuters": 98392
+    },
+    {
+      "name": "Broadway",
+      "kind": "road",
+      "commuters": 18623
+    },
+    {
+      "name": "Pond Street",
+      "kind": "road",
+      "commuters": 50795
+    },
+    {
+      "name": "Concord Turnpike",
+      "kind": "road",
+      "commuters": 62722
+    },
+    {
+      "name": "Commonwealth Avenue",
+      "kind": "road",
+      "commuters": 12784
+    },
+    {
+      "name": "Lee Burbank Highway",
+      "kind": "road",
+      "commuters": 51069
+    },
+    {
+      "name": "Logan International Airport",
+      "kind": "airport",
+      "commuters": 0
+    }
+  ],
+  "unplacedInbound": 0,
   "closedToBuses": [
     "8614583 Memorial Drive: adjust.json",
     "8614849 First Street: a low barrier on it",

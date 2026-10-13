@@ -29,6 +29,10 @@ describe("mini-Boston's sim.json", () => {
     expect(city.cells.reduce((s, c) => s + c.residents, 0)).toBe(105_620);
     expect(city.cells.reduce((s, c) => s + c.jobs, 0)).toBe(186_144);
     expect(city.streets.every((s) => s.points.length >= 2)).toBe(true);
+    // Three small industrial parcels, the nearest about 330 m from the debug line; no gateways,
+    // since the fixture keeps only commutes with both ends in its box.
+    expect(city.depotLand).toHaveLength(3);
+    expect(city.gateways).toEqual([]);
   });
 
   it("uses exactly the sim's own frame: the bake and the game measure alike", () => {
@@ -113,5 +117,11 @@ describe('refusals (never repaired at load)', () => {
       while (c.homes.length < 27) c.homes.push(0, 0, 0);
     }))).toMatch(/cells\[0\]\.homes: 9 points, more than 8/);
     expect(problem((d) => void ((d.calib as { tripScalePermille: number }).tripScalePermille = 0))).toMatch(/tripScalePermille/);
+    // Gateways name a street node and the cells their commuters work in; depot land is rings.
+    expect(problem((d) => void (d.gateways = [{ name: 'Mass Pike', kind: 'road', node: 99_999, inbound: [] }]))).toMatch(/gateways\[0\]/);
+    expect(problem((d) => void (d.gateways = [{ name: 'Mass Pike', kind: 'road', node: 0, inbound: [99_999, 5] }]))).toMatch(/missing cell/);
+    expect(problem((d) => void (d.gateways = [{ name: 'Mass Pike', kind: 'ferry', node: 0, inbound: [] }]))).toMatch(/gateways\[0\]/);
+    expect(problem((d) => void (d.depotLand = [[0, 0, 10, 10]]))).toMatch(/depotLand\[0\]/);
+    expect(problem((d) => void delete d.depotLand)).toMatch(/depotLand: not a list/);
   });
 });

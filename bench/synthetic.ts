@@ -58,6 +58,8 @@ export function syntheticCity(seed = 1): City {
     streets,
     cells,
     tripScalePermille: 111,
+    gateways: [],
+    depotLand: [],
   };
 }
 

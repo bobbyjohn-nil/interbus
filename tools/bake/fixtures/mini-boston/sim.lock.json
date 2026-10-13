@@ -1,8 +1,8 @@
 {
   "about": "The golden hash of this extent's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
   "format": 1,
-  "sha256": "20b38b02c227efb2901f7717318c5cbfd1d7703c2e6ba19e16842d1b5267b32f",
-  "bytes": 134361,
+  "sha256": "69866a1ebac1a3d9eede65bb268d6403491a7753dbb04b5871e1f133f60782e4",
+  "bytes": 135413,
   "nodes": 681,
   "edges": 1037,
   "keptKm": 106.982,
@@ -35,8 +35,38 @@
       "value": 0.974,
       "ok": true,
       "limit": "≥0.97"
+    },
+    {
+      "gate": "G5 residents in water",
+      "value": 0,
+      "ok": true,
+      "limit": "≤0"
+    },
+    {
+      "gate": "G5 airport gateway on its aerodrome",
+      "value": "none",
+      "ok": true,
+      "limit": "not required"
+    },
+    {
+      "gate": "G6 nodes or people outside the map",
+      "value": 0,
+      "ok": true,
+      "limit": "0"
+    },
+    {
+      "gate": "G7 sim.json gzipped",
+      "value": 56968,
+      "ok": true,
+      "limit": "≤1048576"
     }
   ],
+  "depotLand": {
+    "areas": 3,
+    "km2": 0.01
+  },
+  "gateways": [],
+  "unplacedInbound": 0,
   "closedToBuses": [
     "8614906 Memorial Drive: adjust.json",
     "8614910 Memorial Drive: adjust.json",

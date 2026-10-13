@@ -28,7 +28,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
    - buses needed = the most any running period needs, each ⌈cycle ÷ headway⌉;
    - a line short of buses runs every cycle ÷ buses instead, and demand reads that (`Intralines@7af45b1:src/game/sim/demand.worker.ts:224-229`).
 2. **Depots.**
-   - **Depot land** is baked into `sim.json` before the format freeze. It is OSM industrial land within 60 m, plus V1's census fallback where a cell has more jobs than residents and below-median density (`Intralines@7af45b1:src/game/store.ts:313-401`).
+   - **Depot land** is baked into `sim.json` before the format freeze: OSM industrial land, 7.36 km² of Inner Boston (measured). V1's 60 m margin and census fallback (`Intralines@7af45b1:src/game/store.ts:313-401`) are not needed, so the tint is exactly the rule.
    - **Placement** needs depot land, the nearest street node within 400 m and 120 m from any other depot (`Intralines_City@dc63602:src/game/depots/siting.ts:75-92`); one `sim/rules` predicate draws the tint, writes the card and checks the command (GD-05).
    - **Price** $150k × 1.5ⁿ for the nth depot, to $5k (V1 ladder); 6 buses each; upkeep $300 a day.
    - **A depot comes first:** no line or bus before a depot (V1).
@@ -88,9 +88,9 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Depot upkeep + deadhead a day | $300 + under $20 | Items 2, 5 |
 | Income a day | **$3,060.75 measured** (795 boardings × $3.85) | M1 |
 | Net on day 2 | **≈ +$1,390**: a profitable first line inside "profit by 8 minutes" (PLAN §3) | Sum |
-| Depot land | 3–8% of Inner Boston's land; at least one legal site within 2 km of the debug line on the fixture | V1's rule, Boston's industrial strips |
-| Gateways; inbound commuters | Logan + 6–12 road entries; several hundred thousand (873k jobs against 332k resident workers) | Inner Boston bake |
-| `sim.json` with depot land and gateways | ≤1 MB gzip (Inner Boston 785 KiB today) | G7 |
+| Depot land | 3–8% of Inner Boston's land; **7.36 km² in 155 areas measured**; the fixture's three parcels, nearest 330 m from the debug line | V1's rule, Boston's industrial strips |
+| Gateways; inbound commuters | Logan + 6–12 road entries; **20 + Logan and 597,181 measured** | Inner Boston bake |
+| `sim.json` with depot land and gateways | ≤1 MB gzip; **818 KiB measured** | G7 |
 | Vehicle layer | one draw call; 0 frames while paused (I14) | PLAN §6 |
 | Recompute with stretched headways | unchanged, ≤150 ms (I14) | Bench |
 

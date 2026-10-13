@@ -12,15 +12,24 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { gzipSync } from 'node:zlib';
+import { areaRings, inRing, isAerodrome, isDepotLand, isWater, ringCentre } from './areas.mjs';
 import { buildCells, readLodes } from './cells.mjs';
 import { cutExtent, extentDir, playExtent } from './extent.mjs';
 import { fixtureDir } from './fixture.mjs';
 import { readCity, ROOT, sha256 } from './lib.mjs';
+import { airportGateway, assignInbound, roadGateways } from './gateways.mjs';
 import { buildStreets, parseOpl } from './streets.mjs';
 
 export const SIM_FORMAT = 1;
 /** Residents count as served when a kept street passes within this distance (G3). */
 export const STREET_REACH_M = 300;
+/** The map file covers the extent and this much around it (src/cities.ts paddedBounds); G6 holds the sim to it. */
+export const MAP_PAD_M = 1_500;
+/** G7: sim.json's budget, gzipped (PLAN §5). */
+export const SIM_GZIP_BUDGET = 1_048_576;
+/** G5: the airport gateway must lie this close to its aerodrome. */
+export const AIRPORT_REACH_M = 500;
 
 /** The city frame: metres per degree on WGS 84 at the extent's centre, origin at its south-west corner. Same series as src/sim/core/geo.ts frameFor. */
 export function cityFrame(extent) {
@@ -90,7 +99,19 @@ function readInputs(dir) {
     const v = line.split(',');
     return { geoid: v[0], lon: Number(v[1]), lat: Number(v[2]), pop20: Number(v[3]) };
   });
-  return { osm: parseOpl(text('osm.opl')), blocks, ...readLodes(text('lodes-rac.csv'), text('lodes-wac.csv')) };
+  const inbound = existsSync(join(dir, 'lodes-inbound.csv'))
+    ? {
+        rows: text('lodes-inbound.csv').trim().split('\n').slice(1).map((line) => {
+          const [tract, w, jobs] = line.split(',');
+          return { tract, w, jobs: Number(jobs) };
+        }),
+        centres: new Map(text('tracts.csv').trim().split('\n').slice(1).map((line) => {
+          const [tract, lon, lat] = line.split(',');
+          return [tract, [Number(lon), Number(lat)]];
+        })),
+      }
+    : null;
+  return { osm: parseOpl(text('osm.opl')), blocks, inbound, ...readLodes(text('lodes-rac.csv'), text('lodes-wac.csv')) };
 }
 
 /** Bakes sim.json for one extent of a city; throws, naming the gate, if one fails. */
@@ -106,12 +127,60 @@ export function bakeSim(cityId, extentId) {
   const streets = buildStreets(inputs.osm, frame, adjust, box);
   const cells = buildCells({ blocks: inputs.blocks, rac: inputs.rac, wac: inputs.wac, frame, cellMetres: config.cellMetres });
   const near = residentsNearStreets(cells, streets);
+  const toXY = ([lon, lat]) => [(lon - frame.origin[0]) * frame.metresPerDegLon, (lat - frame.origin[1]) * frame.metresPerDegLat];
+  const inClip = ([lon, lat]) => lon >= box[0] && lon <= box[2] && lat >= box[1] && lat <= box[3];
+
+  // Depot land: industrial areas whose centre lies in the clip, as rings in decimetres (D11, PLAN §3).
+  const depotLand = areaRings(inputs.osm, isDepotLand)
+    .filter((a) => inClip(ringCentre(a.ring)))
+    .map((a) => a.ring.flatMap((p) => toXY(p).map((v) => Math.round(v * 10))));
+
+  // Gateways, where the inputs carry commuters from beyond the play area (the extent, not the fixture).
+  let gateways = [];
+  let unplacedInbound = 0;
+  if (inputs.inbound) {
+    const airport = airportGateway(areaRings(inputs.osm, isAerodrome), streets, frame);
+    const found = [...roadGateways(streets, frame, box), ...(airport ? [airport] : [])];
+    const cellIndex = new Map(cells.map((c, i) => [`${c.i}:${c.j}`, i]));
+    const blockAt = new Map(inputs.blocks.map((b) => [b.geoid, b]));
+    const cellOf = (geoid) => {
+      const b = blockAt.get(geoid);
+      if (!b) return undefined;
+      const [x, y] = toXY([b.lon, b.lat]);
+      return cellIndex.get(`${Math.floor(x / config.cellMetres)}:${Math.floor(y / config.cellMetres)}`);
+    };
+    const assigned = assignInbound(found, inputs.inbound.rows, inputs.inbound.centres, cellOf, frame);
+    unplacedInbound = assigned.unplaced;
+    gateways = found.map((g, i) => ({ ...g, inbound: assigned.inbound[i] }));
+  }
+
+  // G5: residents standing in water, and an airport gateway on its aerodrome where the profile asks.
+  const water = areaRings(inputs.osm, isWater).map((a) => a.ring.map(toXY));
+  let wet = 0;
+  for (const c of cells) {
+    for (const p of c.homes) if (water.some((ring) => inRing(ring, p.x / 10, p.y / 10))) wet += p.w;
+  }
+  const aerodromes = areaRings(inputs.osm, isAerodrome).map((a) => a.ring.map(toXY));
+  const airport = gateways.find((g) => g.kind === 'airport');
+  const airportOk = !profile.airport || (airport !== undefined && aerodromes.some((ring) => inRing(ring, airport.x, airport.y) || ring.some(([x, y]) => Math.hypot(x - airport.x, y - airport.y) <= AIRPORT_REACH_M)));
+
+  // G6: the sim describes the place the map shows: every street node inside the map file's bounds,
+  // every home and workplace inside the extent.
+  const [ex0, ey0] = toXY([entry.extent[0], entry.extent[1]]);
+  const [ex1, ey1] = toXY([entry.extent[2], entry.extent[3]]);
+  const inside = ([x, y], pad) => x >= ex0 - pad && x <= ex1 + pad && y >= ey0 - pad && y <= ey1 + pad;
+  const strays =
+    streets.nodes.filter(([x, y]) => !inside([x / 10, y / 10], MAP_PAD_M)).length +
+    cells.reduce((n, c) => n + [...c.homes, ...c.work].filter((p) => !inside([p.x / 10, p.y / 10], 0)).length, 0);
 
   const gates = [
     ['G1 cells', cells.length, cells.length >= profile.cells[0] && cells.length <= profile.cells[1], `${profile.cells[0]}–${profile.cells[1]}`],
     ['G2 nodes', streets.nodes.length, streets.nodes.length <= profile.maxNodes, `≤${profile.maxNodes}`],
     ['G2 kept share', Number(streets.report.keptShare.toFixed(4)), streets.report.keptShare >= profile.keptShare, `≥${profile.keptShare}`],
     ['G3 residents near a street', Number(near.toFixed(4)), near >= profile.residentsNearStreet, `≥${profile.residentsNearStreet}`],
+    ['G5 residents in water', wet, wet <= (profile.residentsInWater ?? 0), `≤${profile.residentsInWater ?? 0}`],
+    ['G5 airport gateway on its aerodrome', airport ? airport.name : 'none', airportOk, profile.airport ? 'required' : 'not required'],
+    ['G6 nodes or people outside the map', strays, strays === 0, '0'],
   ].map(([gate, value, ok, limit]) => ({ gate, value, ok, limit }));
   const failed = gates.filter((g) => !g.ok);
   if (failed.length) throw new Error(`sim: ${failed.map((g) => `${g.gate} ${g.value} (needs ${g.limit})`).join('; ')}`);
@@ -138,12 +207,16 @@ export function bakeSim(cityId, extentId) {
       homes: c.homes.flatMap((p) => [p.x, p.y, p.w]),
       work: c.work.flatMap((p) => [p.x, p.y, p.w]),
     })),
-    // Commutes with one end outside the play area enter at gateways (Logan, the main road entries),
-    // which land with visitors; until then both extents keep only commutes with both ends inside.
-    gateways: [],
+    // Commutes with one end outside the play area enter at gateways (Logan, the main road entries);
+    // demand reads them with visitors in week 5. The fixture keeps only commutes inside its box.
+    gateways: gateways.map((g) => ({ name: g.name, kind: g.kind, node: g.node, inbound: g.inbound.flat() })),
+    depotLand,
     calib: { tripScalePermille: config.calib?.[extentId]?.tripScalePermille ?? 1000 },
   };
   const text = `${JSON.stringify(sim)}\n`;
+  const gzipped = gzipSync(text, { level: 9 }).length;
+  if (gzipped > SIM_GZIP_BUDGET) throw new Error(`sim: G7 sim.json is ${gzipped} B gzipped (needs ≤${SIM_GZIP_BUDGET})`);
+  gates.push({ gate: 'G7 sim.json gzipped', value: gzipped, ok: true, limit: `≤${SIM_GZIP_BUDGET}` });
   return {
     text,
     sha256: sha256(text),
@@ -158,6 +231,9 @@ export function bakeSim(cityId, extentId) {
       workers: cells.reduce((s, c) => s + c.workers, 0),
       jobs: cells.reduce((s, c) => s + c.jobs, 0),
       gates,
+      depotLand: { areas: depotLand.length, km2: Number((depotLand.reduce((sum, r) => sum + Math.abs(r.reduce((a, _, k) => (k % 2 ? a : a + r[k] * r[(k + 3) % r.length] - r[(k + 2) % r.length] * r[k + 1]), 0)) / 2, 0) / 1e8).toFixed(2)) },
+      gateways: gateways.map((g) => ({ name: g.name, kind: g.kind, commuters: g.inbound.reduce((sum, [, n]) => sum + n, 0) })),
+      unplacedInbound,
       closed: streets.report.closed,
     },
   };
