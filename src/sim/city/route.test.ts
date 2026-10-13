@@ -13,7 +13,9 @@ function grid(w: number, h: number, seed: number, missing = 0.1): Graph {
     if (rng.next() < missing) return;
     const dm = 1000 + rng.int(0, 80); // a little longer than the straight line, as streets are
     const kmh = rng.pick([15, 25, 40, 60]);
-    edges.push({ a, b, dm, cs: Math.round((dm / 10 / (kmh / 3.6)) * 100) });
+    // A fifth of the streets one-way, either direction, as in Back Bay.
+    const oneway = rng.next() < 0.2 ? rng.pick([1, -1] as const) : 0;
+    edges.push({ a, b, dm, cs: Math.round((dm / 10 / (kmh / 3.6)) * 100), oneway });
   };
   for (let j = 0; j < h; j++) {
     for (let i = 0; i < w; i++) {
@@ -24,7 +26,7 @@ function grid(w: number, h: number, seed: number, missing = 0.1): Graph {
   return buildGraph(nodes, edges);
 }
 
-/** Plain Dijkstra over nodes: the yardstick. */
+/** Plain Dijkstra over nodes, honouring one-way streets: the yardstick. */
 function dijkstra(g: Graph, from: number): Float64Array {
   const dist = new Float64Array(g.nodeCount).fill(Infinity);
   const done = new Uint8Array(g.nodeCount);
@@ -35,6 +37,7 @@ function dijkstra(g: Graph, from: number): Float64Array {
     if (u === -1) return dist;
     done[u] = 1;
     for (let k = g.start[u]!; k < g.start[u + 1]!; k++) {
+      if (!g.slotOpen[k]) continue;
       const v = g.slotNode[k]!;
       dist[v] = Math.min(dist[v]!, dist[u]! + g.edgeCs[g.slotEdge[k]!]!);
     }
@@ -109,6 +112,21 @@ describe('A* (ported from V2, on directed half-edges)', () => {
     const trips = Array.from({ length: 200 }, () => [rng.int(0, 399), rng.int(0, 399)] as const);
     for (let i = 0; i < 50; i++) for (const [f, t] of trips) a.route(f, t);
     for (const [f, t] of trips) expect(a.route(f, t)).toEqual(b.route(f, t));
+  });
+
+  it('never drives against a one-way street', () => {
+    // 0 → 1 one-way; the way back from 1 to 0 goes round by 2.
+    const g = buildGraph([[0, 0], [100, 0], [50, 80]], [
+      { a: 0, b: 1, dm: 1000, cs: 100, oneway: 1 },
+      { a: 1, b: 2, dm: 1000, cs: 100 },
+      { a: 2, b: 0, dm: 1000, cs: 100 },
+    ]);
+    const router = createRouter(g);
+    expect(router.route(0, 1)?.nodes).toEqual([0, 1]);
+    expect(router.route(1, 0)?.nodes).toEqual([1, 2, 0]);
+    const reversed = buildGraph([[0, 0], [100, 0]], [{ a: 0, b: 1, dm: 1000, cs: 100, oneway: -1 }]);
+    expect(createRouter(reversed).route(0, 1)).toBeNull();
+    expect(createRouter(reversed).route(1, 0)?.cs).toBe(100);
   });
 
   it('takes the better arrival when a turn costs time (K13)', () => {

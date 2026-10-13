@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 0f3ffdb, with the fixture's sim.json bake in review.
+**Updated:** 2026-10-13, at `main` 48c8c52, with the sim.json loader in review.
 
 ## Live now
 
@@ -54,7 +54,11 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - G1–G3 per extent;
     - a golden hash in `sim.lock.json` (I17).
   - [ ] the fixture's `sim.json` published by a dispatch-only job and named in `cities/index.json`, so the deploy ships it;
-  - [ ] the `sim.json` loader in the sim;
+  - [x] the `sim.json` loader (2026-10-13, `src/sim/city/simfile.ts`):
+    - strict, with refusals named;
+    - one-way streets honoured by the router;
+    - I10's network clauses hold on the fixture;
+    - Copley to Longwood is 3,480 m by street.
   - worker host;
   - demand dots and the catchment probe;
   - Inner Boston's height-tag count;
