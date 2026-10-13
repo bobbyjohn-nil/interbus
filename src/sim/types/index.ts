@@ -112,10 +112,31 @@ export interface LineView {
   readonly pullIn: readonly LngLatPair[];
   /** The day plan's inputs (sim/rules/schedule.ts): the page builds the same plan the costs bill, for the vehicle layer. */
   readonly plan: PlanInputsData;
+  /** While it settles after a change made with its buses out, its earlier versions, so trips under way finish as they began (sim/rules/transition.ts); null otherwise. */
+  readonly settling: SettlingView | null;
   /** A day's fares and subsidy at the modelled riders, in cents: whole paid boardings, so about what the rows bank. */
   readonly incomeCents: number;
   /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
   readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
+}
+
+/** A changed line's earlier versions, oldest first, in the frame of the day of its latest change: the page builds the same merged plan the costs bill. */
+export interface SettlingView {
+  /** The game day (Snapshot.day) whose midnight the frame counts from. */
+  readonly frameDay: number;
+  readonly earlier: readonly {
+    readonly plan: PlanInputsData;
+    /** The second of the frame from which the next version took the departures. */
+    readonly until: number;
+    readonly sameModel: boolean;
+    readonly sameStart: boolean;
+    /** Its streets, stops and depot drives, as LineView's. */
+    readonly route: readonly LngLatPair[];
+    readonly stopAt: readonly number[];
+    readonly stopDistM: readonly number[];
+    readonly pullOut: readonly LngLatPair[];
+    readonly pullIn: readonly LngLatPair[];
+  }[];
 }
 
 /** A stop's day over every line that calls there (sim/economy/stops.ts): QUIET under 5 boardings, LOSS under −$20. */

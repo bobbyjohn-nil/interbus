@@ -34,6 +34,7 @@ function render(change: Partial<LineView>, band: FareBandView | null = null, eve
     cycles: { peak: 1_539, offpeak: 1_539, overnight: 1_539 },
     rush: 0,
     worksM: 0,
+    settling: null,
     buses: 3,
     model: 'sparrow',
     forecastCents: { running: 0, wages: 0, deadhead: 0 },

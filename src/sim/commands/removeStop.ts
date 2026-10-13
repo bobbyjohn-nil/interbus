@@ -6,7 +6,7 @@ import type { LineId, StopId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 import { refund } from '../economy/ledger';
 import { checkRemoveStop, type RemoveStopRefusal } from '../rules/route';
-import { recompute, type World } from '../world';
+import { recomputeInService, type World } from '../world';
 
 export function removeStop(
   world: World,
@@ -26,6 +26,6 @@ export function removeStop(
     state.stops = state.stops.filter((s) => s.id !== stopId);
     if (verdict.refundCents > 0) refund(state.ledger, verdict.refundCents, toCalendarTime(state.elapsed).day);
   }
-  recompute(world);
+  recomputeInService(world);
   return ok({ orphaned: verdict.orphaned, refundCents: verdict.refundCents });
 }

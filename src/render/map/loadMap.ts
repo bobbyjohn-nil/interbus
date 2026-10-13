@@ -45,8 +45,8 @@ export interface MountedMap {
   setContracts(contracts: readonly ContractView[]): void;
   /** The city event's street, pending or on, or none. */
   setEvent(event: EventView | null): void;
-  /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day and game seconds per real second. */
-  setClock(second: number, rate: number): void;
+  /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day, game seconds per real second, and the game day. */
+  setClock(second: number, rate: number, day: number): void;
   /** How many dots the last settled frame drew. */
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), at most every 100 ms and always its last position. */
@@ -209,8 +209,8 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
       if (loaded) setLines(map, lines, stops);
       else pending.lines = { lines, stops };
     },
-    setClock: (second, rate) => {
-      fleet.setClock(second, rate, performance.now());
+    setClock: (second, rate, day) => {
+      fleet.setClock(second, rate, performance.now(), day);
       map.triggerRepaint();
     },
     setDepotLand: (rings) => (loaded ? setDepotLand(map, rings) : void (pending.depotLand = rings)),

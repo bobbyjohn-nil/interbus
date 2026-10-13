@@ -186,7 +186,7 @@ export function App() {
         draft={tool === "line" && clicks.length ? sim.draft : null}
         clock={
           sim.snapshot
-            ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate }
+            ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate, day: sim.snapshot.day }
             : null
         }
         {...(ready ? { onPointer, onClick } : {})}

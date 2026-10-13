@@ -9,7 +9,9 @@
 // per frame.
 import { DWELL_SEC } from '../config/demand';
 import type { LngLatPair } from '../types';
-import { tripTimes, type DayPlan } from './schedule';
+import { SECONDS_PER_DAY } from '../config/time';
+import { busesOut, tripTimes, type DayPlan, type Stint } from './schedule';
+import { inputsAt, versionAt, type PlanInEffect } from './transition';
 
 /** A line as the vehicle layer draws it: the route through its stops and the drives to and from its depot. */
 export interface LineGeometry {
@@ -101,40 +103,93 @@ function routeMetresAt(g: PreparedGeometry, oneWayS: number, u: number): number 
   return g.route.cum[stopAt[stops - 1]!]!;
 }
 
+/** How the placing reads a plan: its stints, and for each departure and each bus's drives, the times and the geometry they ran on. */
+interface Reading {
+  readonly stints: readonly Stint[];
+  timesOf(trip: number): { readonly cycle: number; readonly oneWayS: number };
+  tripGeometry(trip: number): PreparedGeometry;
+  pullOutS(s: Stint): number;
+  pullOutGeometry(s: Stint): PreparedGeometry;
+  pullInGeometry(s: Stint): PreparedGeometry;
+}
+
+const firstStopOf = (g: PreparedGeometry) => g.route.cum[g.geometry.stopAt[0]!]!;
+
+function place(r: Reading, second: number, out: Float64Array): number {
+  let n = 0;
+  for (const s of r.stints) {
+    if (second < s.leaveDepot || second >= s.arriveDepot) continue;
+    const at = 3 * n++;
+    const pullOutS = r.pullOutS(s);
+    if (second < s.leaveDepot + pullOutS) {
+      const g = r.pullOutGeometry(s);
+      if (g.pullOut.pts.length) placeAt(g.pullOut, ((second - s.leaveDepot) / pullOutS) * g.pullOut.cum[g.pullOut.cum.length - 1]!, false, out, at);
+      else placeAt(g.route, firstStopOf(g), false, out, at);
+      continue;
+    }
+    if (second >= s.lastArrival) {
+      const g = r.pullInGeometry(s);
+      const length = g.pullIn.cum[g.pullIn.cum.length - 1] ?? 0;
+      if (g.pullIn.pts.length) placeAt(g.pullIn, ((second - s.lastArrival) / (s.arriveDepot - s.lastArrival)) * length, false, out, at);
+      else placeAt(g.route, firstStopOf(g), false, out, at);
+      continue;
+    }
+    // The trip under way: the last departure at or before now; before its first, it waits at the first stop.
+    let trip: number | undefined;
+    for (const t of s.trips) if (t <= second) trip = t;
+    if (trip === undefined) {
+      const g = r.pullOutGeometry(s);
+      placeAt(g.route, firstStopOf(g), false, out, at);
+      continue;
+    }
+    // Its own period's round trip: a peak run takes longer than a midday one (tripTimes).
+    const g = r.tripGeometry(trip);
+    const { cycle, oneWayS } = r.timesOf(trip);
+    const half = cycle / 2;
+    const u = second - trip;
+    if (u >= half + oneWayS) placeAt(g.route, firstStopOf(g), false, out, at); // waiting at the first stop
+    else if (u < oneWayS) placeAt(g.route, routeMetresAt(g, oneWayS, u), false, out, at);
+    else if (u < half) placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS), true, out, at); // layover at the far end
+    else placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS - (u - half)), true, out, at);
+  }
+  return n;
+}
+
 /**
  * Every bus out at `second` (seconds from midnight of the plan's middle day; fractions allowed),
  * written into `out` as lon, lat, bearing triples. Returns how many buses it wrote; `out` must hold
  * three numbers for each bus the plan can have out (busesOut).
  */
 export function busPositionsAt(plan: DayPlan, g: PreparedGeometry, second: number, out: Float64Array): number {
-  const { pullOutS } = plan.inputs;
-  const firstStop = g.route.cum[g.geometry.stopAt[0]!]!;
-  let n = 0;
-  for (const s of plan.stints) {
-    if (second < s.leaveDepot || second >= s.arriveDepot) continue;
-    const at = 3 * n++;
-    if (second < s.leaveDepot + pullOutS) {
-      if (g.pullOut.pts.length) placeAt(g.pullOut, ((second - s.leaveDepot) / pullOutS) * g.pullOut.cum[g.pullOut.cum.length - 1]!, false, out, at);
-      else placeAt(g.route, firstStop, false, out, at);
-      continue;
-    }
-    if (second >= s.lastArrival) {
-      const length = g.pullIn.cum[g.pullIn.cum.length - 1] ?? 0;
-      if (g.pullIn.pts.length) placeAt(g.pullIn, ((second - s.lastArrival) / (s.arriveDepot - s.lastArrival)) * length, false, out, at);
-      else placeAt(g.route, firstStop, false, out, at);
-      continue;
-    }
-    // The trip under way: the last departure at or before now.
-    let trip = s.trips[0]!;
-    for (const t of s.trips) if (t <= second) trip = t;
-    // Its own period's round trip: a peak run takes longer than a midday one (tripTimes).
-    const { cycle, oneWayS } = tripTimes(plan.inputs, trip);
-    const half = cycle / 2;
-    const u = second - trip;
-    if (u < 0 || u >= half + oneWayS) placeAt(g.route, firstStop, false, out, at); // waiting at the first stop
-    else if (u < oneWayS) placeAt(g.route, routeMetresAt(g, oneWayS, u), false, out, at);
-    else if (u < half) placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS), true, out, at); // layover at the far end
-    else placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS - (u - half)), true, out, at);
-  }
-  return n;
+  const { inputs } = plan;
+  return place({ stints: plan.stints, timesOf: (t) => tripTimes(inputs, t), tripGeometry: () => g, pullOutS: () => inputs.pullOutS, pullOutGeometry: () => g, pullInGeometry: () => g }, second, out);
+}
+
+/**
+ * Every bus out at `second` of the frame on a line's plan in effect (rules/transition.ts): before its
+ * handover the merged plan, each trip and drive on the geometry of the version it ran on (`geos`,
+ * oldest first, the line's own last), and from then on its own day plan.
+ */
+export function positionsInEffect(p: PlanInEffect, geos: readonly PreparedGeometry[], second: number, out: Float64Array): number {
+  const m = p.merged;
+  if (!m || second >= m.handover) return busPositionsAt(p.periodic, geos[geos.length - 1]!, ((second % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY, out);
+  const geoAt = (t: number) => geos[versionAt(m, t)]!;
+  const lastOf = (s: Stint) => s.trips[s.trips.length - 1] ?? s.leaveDepot;
+  return place(
+    {
+      stints: m.stints,
+      timesOf: (t) => tripTimes(inputsAt(m, t), t),
+      tripGeometry: geoAt,
+      pullOutS: (s) => inputsAt(m, s.leaveDepot).pullOutS,
+      pullOutGeometry: (s) => geoAt(s.leaveDepot),
+      pullInGeometry: (s) => geoAt(lastOf(s)),
+    },
+    second,
+    out,
+  );
+}
+
+/** At most how many buses a plan in effect has out at once, for the caller's buffer: the merged plan's stints bound it. */
+export function mostOut(p: PlanInEffect): number {
+  return Math.max(busesOut(p.periodic), p.merged?.stints.length ?? 0);
 }

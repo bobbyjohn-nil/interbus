@@ -2,12 +2,13 @@
 // both (routes, the commuter matrix, who rides which line). Owned by the worker (PLAN §6).
 import { buildCommuters, type Commuters } from './demand/commuters';
 import { assign, type Assignment, type LinePlan } from './demand/assign';
-import { SpatialGrid, toXY, type XY } from './core/geo';
+import { SpatialGrid, toLngLat, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
-import { BUS_MODELS, LAYOVER_SECONDS } from './config/fleet';
+import { BUS_MODELS, LAYOVER_SECONDS, type BusModelId } from './config/fleet';
 import { STOP_TIERS } from './config/stops';
+import { SECONDS_PER_DAY } from './config/time';
 import { toCalendarTime } from './core/calendar';
 import type { DepotId, LineId } from './core/ids';
 import { driveSeconds, type LineCostInputs } from './economy/costs';
@@ -17,7 +18,8 @@ import { worksOn } from './rules/event';
 import type { FleetContext, Leg, LineDraftContext } from './rules/line';
 import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
-import type { Line, SimState } from './state';
+import { busesOutAt, planInEffect, type Earlier, type PlanInEffect } from './rules/transition';
+import type { EarlierRun, Line, SimState } from './state';
 import { classRush } from './traffic/congestion';
 
 /** What a line runs as, worked out from the state when the network changes (recompute()). */
@@ -26,6 +28,10 @@ export interface LineService {
   readonly timing: Timing;
   /** Every departure and every bus's stint: what the costs bill and the vehicles draw (I6). */
   readonly day: DayPlan;
+  /** Its day plan, and while it settles after a change made with its buses out, the merged plan before the handover (rules/transition.ts). */
+  readonly effect: PlanInEffect;
+  /** Its earlier versions as the merged plan reads them, in the frame of the latest change's day; null once settled. */
+  readonly settling: Settling | null;
   readonly costs: LineCostInputs;
   /** The depot its buses park at: the nearest by driving time with room (V3), or null with none. */
   readonly depotId: DepotId | null;
@@ -51,6 +57,49 @@ export function nearestNode(world: Pick<World, 'nodes' | 'city'>, p: XY): number
     if (hit) return hit.item;
   }
   return null;
+}
+
+/** A line's earlier versions in the frame of the day of its latest change (rules/transition.ts). */
+export interface Settling {
+  readonly frameDay: number;
+  readonly earlier: readonly Earlier[];
+}
+
+/** The day and the second of that day of a game second. */
+function frameOf(elapsed: number): { readonly day: number; readonly second: number } {
+  const t = toCalendarTime(elapsed);
+  return { day: t.day, second: t.secondOfDay };
+}
+
+/** A game second in a settling line's frame. */
+export const frameSecond = (settling: Pick<Settling, 'frameDay'> | null, elapsed: number): number => {
+  const f = frameOf(elapsed);
+  return settling ? (f.day - settling.frameDay) * SECONDS_PER_DAY + f.second : f.second;
+};
+
+/**
+ * A line's earlier versions as the merged plan reads them: each one's plan, the second of the frame it
+ * stopped taking departures, and whether its buses are the next version's model from the same first
+ * stop. `now` is the line as it runs now.
+ */
+export function settlingOf(earlier: readonly EarlierRun[], now: { readonly firstStop: { readonly lon: number; readonly lat: number }; readonly model: BusModelId }): Settling | null {
+  const latest = earlier[earlier.length - 1];
+  if (!latest) return null;
+  const frameDay = frameOf(latest.until).day;
+  return {
+    frameDay,
+    earlier: earlier.map((e, k) => {
+      const next = earlier[k + 1];
+      const start = next ? next.stops[0]! : now.firstStop;
+      const { cycle, cycles, headways, buses, oneWayS, pullOutS, pullInS } = e.plan;
+      return {
+        inputs: { timing: { cycle, cycles, headways, buses }, oneWayS, pullOutS, pullInS },
+        until: frameSecond({ frameDay }, e.until),
+        sameModel: e.model === (next ? next.model : now.model),
+        sameStart: e.stops[0]!.lon === start.lon && e.stops[0]!.lat === start.lat,
+      };
+    }),
+  };
 }
 
 /** The street edges roadworks hold today (the M4 spec, item 2), or null when none are on. */
@@ -196,11 +245,17 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
       pullOutS: driveSeconds(pullOutM, model),
       pullInS: driveSeconds(pullInM, model),
     });
+    const [lon, lat] = toLngLat(city.frame, plan.stops[0]!);
+    const settling = settlingOf(line.earlier ?? [], { firstStop: { lon, lat }, model: line.model });
+    const effect = planInEffect(day.inputs, settling?.earlier ?? []);
+    const earlierCosts = (line.earlier ?? []).map((e) => ({ routeM: e.routeM, model: BUS_MODELS[e.model], pullOutM: e.pullOutM, pullInM: e.pullInM }));
     services.set(line.id, {
       plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways, kmh: model.kmh, seats: model.seats },
       timing,
       day,
-      costs: { plan: day, routeM, model, pullOutM, pullInM },
+      effect,
+      settling,
+      costs: { plan: day, routeM, model, pullOutM, pullInM, ...(settling && effect.merged ? { settling: { merged: effect.merged, frameDay: settling.frameDay, earlier: earlierCosts } } : {}) },
       depotId: depot?.id ?? null,
       depotNode: depot?.node ?? null,
     });
@@ -224,6 +279,72 @@ export function runningPlans(world: Pick<World, 'services'>): LinePlan[] {
 export function recompute(world: World): void {
   world.services = lineServices(world);
   world.assignment = assign(world.city, world.commuters, runningPlans(world));
+}
+
+/**
+ * The network changed while it runs, by a command or roadworks starting or ending (the M4 spec,
+ * item 4; I6): a line whose plan changed with any of its buses out keeps the version it ran on, so
+ * every trip under way finishes on the route and the times it began with. Undo, a load and a
+ * rebased save recompute plainly: they put a game back as it was.
+ */
+export function recomputeInService(world: World): void {
+  const before = world.services;
+  const after = lineServices(world);
+  const at = world.state.elapsed;
+  for (const line of world.state.lines) {
+    const was = before.get(line.id);
+    const now = after.get(line.id);
+    if (!was || !now || sameRun(was, now)) continue;
+    const second = frameSecond(was.settling, at);
+    // Settled already, it needs nothing earlier; with no bus out now, nothing carries on at all.
+    const settled = !was.effect.merged || second >= was.effect.merged.handover;
+    line.earlier = busesOutAt(was.effect, second) > 0 ? [...(settled ? [] : (line.earlier ?? [])), runOf(world, was, at)] : [];
+  }
+  recompute(world);
+}
+
+/** Whether two services run the same: the same plan, the same stops, depot and model. */
+function sameRun(a: LineService, b: LineService): boolean {
+  return (
+    a.costs.model.id === b.costs.model.id &&
+    a.depotNode === b.depotNode &&
+    JSON.stringify(a.day.inputs) === JSON.stringify(b.day.inputs) &&
+    JSON.stringify(a.plan.stops) === JSON.stringify(b.plan.stops)
+  );
+}
+
+/** The version a service ran on until game second `at`, as the line keeps it. */
+function runOf(world: Pick<World, 'city' | 'state'>, s: LineService, at: number): EarlierRun {
+  const depot = world.state.depots.find((d) => d.id === s.depotId);
+  const { timing, oneWayS, pullOutS, pullInS } = s.day.inputs;
+  return {
+    until: at,
+    stops: s.plan.stops.map((p) => {
+      const [lon, lat] = toLngLat(world.city.frame, p);
+      return { lon, lat };
+    }),
+    depot: depot ? { lon: depot.lon, lat: depot.lat } : null,
+    model: s.costs.model.id,
+    routeM: s.costs.routeM,
+    pullOutM: s.costs.pullOutM,
+    pullInM: s.costs.pullInM,
+    plan: { cycle: timing.cycle, cycles: timing.cycles ?? { peak: timing.cycle, offpeak: timing.cycle, overnight: timing.cycle }, headways: { ...timing.headways }, buses: timing.buses, oneWayS, pullOutS, pullInS },
+  };
+}
+
+/** Lets go of the earlier versions of every line past its handover, and says whether any did: from there its day plan holds alone. */
+export function settle(world: World): boolean {
+  let any = false;
+  for (const line of world.state.lines) {
+    const s = world.services.get(line.id);
+    if (!line.earlier?.length || !s) continue;
+    const m = s.effect.merged;
+    if (m && frameSecond(s.settling, world.state.elapsed) < m.handover) continue;
+    line.earlier = [];
+    any = true;
+  }
+  if (any) world.services = lineServices(world);
+  return any;
 }
 
 export function createWorld(city: City, state: SimState): World {

@@ -29,7 +29,7 @@ async function nineDaysIn(page: Page, landmark: string, contract: Record<string,
   const [lon, lat] = onDepotLand();
   d.depots = [{ id: 1, lon, lat }];
   d.stops = DEBUG_STOPS.map((s, k) => ({ id: k + 1, lon: s.at[0], lat: s.at[1], tier: 1 }));
-  d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 900, offpeak: 900, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow' }];
+  d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 900, offpeak: 900, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow', earlier: [] }];
   d.nextIds = { ...d.nextIds, depot: 2, stop: 5, line: 2 };
   d.ledger.push({ day: 1, kind: 'fares', amountCents: 100_000, lineId: 1 }); // day 1 in profit, for the checklist
   Object.assign(d.contracts.find((c) => c.landmark === landmark)!, { ...contract, acceptedDay: 1, daysMet: 9, hoursMissedToday: 0 });

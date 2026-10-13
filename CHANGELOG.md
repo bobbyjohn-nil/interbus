@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changing a line while its buses run no longer throws them across the map: a bus already on its way finishes its trip on the route and the times it set out with, and the next departures follow the change as buses come free. That holds for taking a stop off, extending a line, a new headway or bus model, a new depot, and roadworks starting or ending.
 - A contract nobody takes is withdrawn after 10 days, and a new offer takes its place.
 - Riders a day, in the chips along the top, counts each trip once, even when it rides two lines.
 - Where several of your lines serve the same trip, riders take whichever comes first: lines sharing a stretch split its riders by how often each runs, and together, coming more often, they carry more than any one would.

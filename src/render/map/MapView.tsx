@@ -38,8 +38,8 @@ export interface MapViewProps {
   readonly contracts?: readonly ContractView[];
   /** The city event pending or on, drawn on its street. */
   readonly event?: EventView | null;
-  /** The sim's clock at the last snapshot: seconds of the day, and game seconds per real second (0 paused). */
-  readonly clock?: { readonly second: number; readonly rate: number } | null;
+  /** The sim's clock at the last snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
+  readonly clock?: { readonly second: number; readonly rate: number; readonly day: number } | null;
 }
 
 /** Sets the dots and, drawn rather than merely sent (TS-07), counts what the next settled frame shows. */
@@ -129,7 +129,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         mounted.setDraft(now.draft);
         mounted.setContracts(now.contracts);
         mounted.setEvent(now.event);
-        if (now.clock) mounted.setClock(now.clock.second, now.clock.rate);
+        if (now.clock) mounted.setClock(now.clock.second, now.clock.rate, now.clock.day);
         mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
         mounted.onClick((at, hit) => latest.current.onClick?.(at, hit));
         const rest = () => {
@@ -197,9 +197,10 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   // A snapshot about 10 times a second while time runs; the layer runs the clock on between them.
   const clockSecond = clock?.second ?? null;
   const clockRate = clock?.rate ?? 0;
+  const clockDay = clock?.day ?? 0;
   useEffect(() => {
-    if (clockSecond !== null) mountedRef.current?.setClock(clockSecond, clockRate);
-  }, [clockSecond, clockRate]);
+    if (clockSecond !== null) mountedRef.current?.setClock(clockSecond, clockRate, clockDay);
+  }, [clockSecond, clockRate, clockDay]);
 
   return (
     <div

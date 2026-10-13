@@ -42,11 +42,12 @@ import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
 import { landmarkFigures } from '../sim/economy/contracts';
 import { contractDaysLeft, contractMet } from '../sim/rules/contract';
 import { eventDaysLeft, eventPhase } from '../sim/rules/event';
-import { newGame, type CityEvent, type CityRef } from '../sim/state';
+import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { ContractView, DayCard, DepotSiteView, Dots, EventView, ExtendData, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
-import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
+import type { ContractView, DayCard, DepotSiteView, Dots, EventView, ExtendData, FinanceView, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import { createWorld, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
+import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
 
 /**
  * Game-seconds per real second at each speed. Speed 1 is about 10 game-minutes a second, so the
@@ -136,6 +137,7 @@ function lineViews(world: World): LineView[] {
       pullOut: driveOf(world, depotNode, first),
       pullIn: driveOf(world, first, depotNode),
       plan: service ? service.day.inputs : { timing: { cycle: 0, headways: line.headways, buses: 0 }, oneWayS: 0, pullOutS: 0, pullInS: 0 },
+      settling: service?.settling ? settlingView(world, service.settling, line.earlier ?? []) : null,
       ridersPerDay: demand?.perDay ?? 0,
       fareCents: line.fareCents,
       turnedAwayPerDay: demand?.shedPerDay ?? 0,
@@ -149,9 +151,27 @@ function lineViews(world: World): LineView[] {
       worksM: service?.plan.worksM ?? 0,
       buses: line.buses,
       model: line.model,
-      forecastCents: service ? forecastDay(service.costs) : { running: 0, wages: 0, deadhead: 0 },
+      forecastCents: service ? forecastDay(service.costs, 0, toCalendarTime(state.elapsed).day) : { running: 0, wages: 0, deadhead: 0 },
     };
   });
+}
+
+/** A settling line's earlier versions with their streets and depot drives, for the vehicle layer (the M4 spec, item 4). */
+function settlingView(world: World, settling: Settling, runs: readonly EarlierRun[]): SettlingView {
+  return {
+    frameDay: settling.frameDay,
+    earlier: settling.earlier.map((e, k) => {
+      const run = runs[k]!;
+      const xy = run.stops.map((p) => toXY(world.city.frame, [p.lon, p.lat]));
+      const { route, stopAt } = routeOf(world, xy);
+      const stopDistM = [0];
+      for (let i = 1; i < xy.length; i++) stopDistM.push(stopDistM[i - 1]! + (legBetween(world, xy[i - 1]!, xy[i]!)?.m ?? 0));
+      const first = xy.length ? nearestNode(world, xy[0]!) : null;
+      const at = run.depot ? toXY(world.city.frame, [run.depot.lon, run.depot.lat]) : null;
+      const depot = at ? (world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at)) : null;
+      return { plan: e.inputs, until: e.until, sameModel: e.sameModel, sameStart: e.sameStart, route, stopAt, stopDistM, pullOut: driveOf(world, depot, first), pullIn: driveOf(world, first, depot) };
+    }),
+  };
 }
 
 /** The city event pending or on (the M4 spec, item 2) for its marker, or null. */

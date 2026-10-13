@@ -73,7 +73,7 @@ Work starts now, ahead of the calendar, money first; P1 may reorder it.
 
 - **I11** over both kinds: contract income over 100 seeds within ±30% of the median; no RIDERSHIP day met by changes counted twice.
 - **I8** with events: the same seed and commands give the same events and fingerprint; adding the event stream leaves the contract deck as it was.
-- **I6** across route edits mid-run: no bus moves more than 5 m at an edit's instant, and buses out never exceed buses owned.
+- **I6** across route edits mid-run: no bus moves more than 5 m at an edit's instant, and buses out never exceed buses owned (a model swap's old buses, sold at the click, finishing their trips beside the new ones).
 - **I3** in the full sweep (and with express, if it ships): interior optima, starving ≤60%, best fare under $5.
 - **I7** for the save format with events, medals and the new contract kind, and the r1→r2 save test.
 - **e2e (I15)**: the exit check, items 1–4, on the fixture.

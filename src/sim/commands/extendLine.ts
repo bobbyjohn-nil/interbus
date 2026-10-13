@@ -8,7 +8,7 @@ import { mint, type LineId, type StopId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 import { spend } from '../economy/ledger';
 import { checkExtend, type ExtendRefusal, type LineEnd } from '../rules/route';
-import { lineDraftContext, recompute, type World } from '../world';
+import { lineDraftContext, recomputeInService, type World } from '../world';
 
 export function extendLine(
   world: World,
@@ -47,6 +47,6 @@ export function extendLine(
     return id;
   });
   line.buses += extraBuses;
-  recompute(world);
+  recomputeInService(world);
   return ok({ priceCents: draft.priceCents, extraBuses });
 }

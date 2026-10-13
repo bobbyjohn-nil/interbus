@@ -34,7 +34,7 @@ export type Infer<F> = F extends 'int' | 'uint32' | 'number'
 
 /**
  * Intent only (PLAN §6, K12): no demand, geometry, camera or theme. Stops are anchored by place.
- * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7, the Interest row and the closes below the credit floor in 8, HEADWAY contracts and their Contracts row in 9, each contract's kind and ask in 10, the events' stream and the latest event in 11.
+ * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7, the Interest row and the closes below the credit floor in 8, HEADWAY contracts and their Contracts row in 9, each contract's kind and ask in 10, the events' stream and the latest event in 11, each line's earlier versions while it settles after a change in 12.
  */
 export const SAVE_SCHEMA = {
   object: {
@@ -57,6 +57,30 @@ export const SAVE_SCHEMA = {
           boardedMilli: 'int',
           buses: 'int',
           model: { oneOf: MODEL_IDS },
+          earlier: {
+            array: {
+              object: {
+                until: 'int',
+                stops: { array: { object: { lon: 'number', lat: 'number' } } },
+                depot: { nullable: { object: { lon: 'number', lat: 'number' } } },
+                model: { oneOf: MODEL_IDS },
+                routeM: 'number',
+                pullOutM: 'number',
+                pullInM: 'number',
+                plan: {
+                  object: {
+                    cycle: 'number',
+                    cycles: { object: { peak: 'number', offpeak: 'number', overnight: 'number' } },
+                    headways: { object: { peak: 'int', offpeak: 'int', overnight: { nullable: 'int' } } },
+                    buses: 'int',
+                    oneWayS: 'number',
+                    pullOutS: 'number',
+                    pullInS: 'number',
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },

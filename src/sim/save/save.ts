@@ -19,7 +19,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 11;
+export const SAVE_FORMAT = 12;
 
 export interface BuildRef {
   readonly sha: string;
@@ -86,6 +86,7 @@ export function toSaveData(state: SimState): SaveData {
       boardedMilli: l.boardedMilli,
       buses: l.buses,
       model: l.model,
+      earlier: (l.earlier ?? []).map((e) => ({ ...e, stops: e.stops.map((p) => ({ lon: p.lon, lat: p.lat })), depot: e.depot && { lon: e.depot.lon, lat: e.depot.lat }, plan: { ...e.plan, cycles: { ...e.plan.cycles }, headways: { ...e.plan.headways } } })),
     })),
     ledger: state.ledger.rows.map((r) => ({ day: r.day, kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
     closesBelowFloor: state.closesBelowFloor,
@@ -121,6 +122,7 @@ export function fromSaveData(data: SaveData): SimState {
       boardedMilli: l.boardedMilli,
       buses: l.buses,
       model: l.model,
+      earlier: l.earlier.map((e) => ({ ...e, stops: e.stops.map((p) => ({ ...p })), depot: e.depot && { ...e.depot }, plan: { ...e.plan, cycles: { ...e.plan.cycles }, headways: { ...e.plan.headways } } })),
     })),
     ledger: { rows, cashCents: rows.reduce((sum, r) => sum + r.amountCents, 0) },
     closesBelowFloor: data.closesBelowFloor,
@@ -175,6 +177,7 @@ export function integrityProblem(data: SaveData): string | null {
     if (line.boardedMilli < 0) return `line ${line.id} has negative boardings`;
     if (line.buses < 0) return `line ${line.id} has negative buses`;
     if (!checkHeadways(line.headways).ok) return `line ${line.id} breaks the headway rules`;
+    if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0)) return `line ${line.id} has an impossible earlier version`;
   }
   if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with Founding capital';
   if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one Founding capital row';

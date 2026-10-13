@@ -51,7 +51,7 @@ test.describe('roadworks a day ahead', () => {
       const [lon, lat] = onDepotLand();
       d.depots = [{ id: 1, lon, lat }];
       d.stops = DEBUG_STOPS.map((s, k) => ({ id: k + 1, lon: s.at[0], lat: s.at[1], tier: 1 }));
-      d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow' }];
+      d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow', earlier: [] }];
       d.nextIds = { ...d.nextIds, depot: 2, stop: 5, line: 2 };
       d.eventRng = { state: rollingState() };
       d.event = null;
