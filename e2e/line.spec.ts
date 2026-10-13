@@ -134,6 +134,12 @@ test.describe('the line tool on the fixture', () => {
     await expect(stopCard).toHaveAttribute('data-quiet', 'no');
     await expect(stopCard).toHaveAttribute('data-loss', 'no');
     expect(Number(await stopCard.getAttribute('data-net'))).toBeGreaterThan(0);
+    // A Shelter there: $12k off the cash, paused, and the stop's tier on its card.
+    const cashBefore = Number(await panel.getAttribute('data-cash'));
+    await stopCard.getByRole('button', { name: 'Make it a Shelter · $12k' }).click();
+    await expect(stopCard).toHaveAttribute('data-tier', '2');
+    await expect(panel).toHaveAttribute('data-cash', String(cashBefore - 1_200_000));
+    await expect(stopCard).toContainText('Back to Sign · $6k back');
     await stopCard.getByRole('button', { name: /Line 1/ }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();
     // It runs on from there (overnight, so no buses until about 05:00).

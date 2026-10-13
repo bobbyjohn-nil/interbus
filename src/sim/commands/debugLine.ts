@@ -27,7 +27,7 @@ export function addDebugLine(world: World): Result<{ lineId: LineId }, DebugLine
   const stopIds = DEBUG_STOPS.map((s) => {
     const [id, next] = mint(state.nextIds, 'stop');
     state.nextIds = next;
-    state.stops.push({ id, lon: s.at[0], lat: s.at[1] });
+    state.stops.push({ id, lon: s.at[0], lat: s.at[1], tier: 1 });
     return id;
   });
   const [lineId, next] = mint(state.nextIds, 'line');

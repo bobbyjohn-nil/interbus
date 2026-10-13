@@ -80,7 +80,7 @@ export function refund(ledger: Ledger, amountCents: number, day: number): void {
   post(ledger, { day, kind: 'refund', amountCents });
 }
 
-/** What buses sold back fetch (a line changing model, the M3 spec item 2), as one Sales row. */
+/** What buses or a stop's fittings sold back fetch (a new model, the M3 spec item 2; a lower tier, item 5), as one Sales row. */
 export function sell(ledger: Ledger, amountCents: number, day: number): void {
   assertCents(amountCents, 'sale');
   if (amountCents < 0) throw new RangeError(`a sale is never negative, got ${amountCents}`);

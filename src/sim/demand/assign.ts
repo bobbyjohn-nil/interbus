@@ -44,6 +44,7 @@ import {
   WAIT_PAIN_REF_MIN,
   WALK_MIN_PER_KM,
 } from '../config/demand';
+import { MIN_WALK_MIN } from '../config/stops';
 import { SpatialGrid, type XY } from '../core/geo';
 import type { LineId } from '../core/ids';
 import type { City, SubPoint } from '../city/simfile';
@@ -69,6 +70,8 @@ export interface LinePlan {
   /** The line's model's speed and seats (BUS_KMH and BUS_SEATS, the Sparrow's, when absent). */
   readonly kmh?: number;
   readonly seats?: number;
+  /** Minutes off the walk to each stop, by its tier (config/stops.ts); none when absent. */
+  readonly walkBonusMin?: readonly number[];
 }
 
 export interface LineDemand {
@@ -108,6 +111,12 @@ export function waitMin(headwaySeconds: number): number {
 /** What a wait is worth against a minute of riding: itself up to 10 minutes, convex past it (V2's perceivedWaitMin). */
 export function perceivedWaitMin(wait: number): number {
   return wait <= WAIT_PAIN_REF_MIN ? wait : WAIT_PAIN_REF_MIN * (wait / WAIT_PAIN_REF_MIN) ** WAIT_PAIN_EXPONENT;
+}
+
+/** The minutes a walk of `distM` to a stop feels like: less its tier's bonus, never below 0.2 nor above the walk itself (V1). */
+export function walkMinutes(distM: number, bonusMin = 0): number {
+  const walk = (distM / 1000) * WALK_MIN_PER_KM;
+  return bonusMin > 0 ? Math.max(Math.min(walk, MIN_WALK_MIN), walk - bonusMin) : walk;
 }
 
 /** How hard a fare bites on a ride of this many km along the line: 1 at 3 km, more on a shorter ride (V2's fareSensOf). */
@@ -186,8 +195,8 @@ export interface Catchments {
 
 /** Every line's catchments (Catchments) for these plans. */
 export function catchments(city: City, plans: readonly LinePlan[]): Catchments {
-  const stopsGrid = new SpatialGrid<{ line: number; pos: number }>(MAX_WALK_M);
-  plans.forEach((plan, line) => plan.stops.forEach((p, pos) => stopsGrid.add(p, { line, pos })));
+  const stopsGrid = new SpatialGrid<{ line: number; pos: number; bonus: number }>(MAX_WALK_M);
+  plans.forEach((plan, line) => plan.stops.forEach((p, pos) => stopsGrid.add(p, { line, pos, bonus: plan.walkBonusMin?.[pos] ?? 0 })));
 
   /** Each line's access groups in every cell, by line: [cell, groups][]. */
   const accessOf = (sides: readonly (readonly SubPoint[])[]) => {
@@ -214,7 +223,7 @@ export function catchments(city: City, plans: readonly LinePlan[]): Catchments {
             at--;
           }
           r.pos[at] = s.pos;
-          r.walk[at] = (distM / 1000) * WALK_MIN_PER_KM;
+          r.walk[at] = walkMinutes(distM, s.bonus);
         });
         for (const line of reached) {
           const r = reach[line]!;

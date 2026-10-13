@@ -36,7 +36,7 @@ export function innerBoston(): { world: World; plans: LinePlan[]; names: string[
       const t = k / (count - 1);
       const [id, next] = mint(world.state.nextIds, 'stop');
       world.state.nextIds = next;
-      world.state.stops.push({ id, lon: from[0] + (to[0] - from[0]) * t, lat: from[1] + (to[1] - from[1]) * t });
+      world.state.stops.push({ id, lon: from[0] + (to[0] - from[0]) * t, lat: from[1] + (to[1] - from[1]) * t, tier: 1 });
       return id;
     });
     const [id, next] = mint(world.state.nextIds, 'line');

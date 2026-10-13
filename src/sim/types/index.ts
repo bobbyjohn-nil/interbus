@@ -102,6 +102,8 @@ export interface LineView {
 export interface StopView {
   readonly id: number;
   readonly at: LngLatPair;
+  /** Sign 1 to Transfer Hub 5 (sim/rules/stopTier.ts). */
+  readonly tier: number;
   /** The lines that call here. */
   readonly lineIds: readonly number[];
   readonly boardings: number;
@@ -189,6 +191,7 @@ export type ToWorker =
   | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData }
   | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }
   | { readonly type: 'set-fare'; readonly lineId: number; readonly fareCents: number }
+  | { readonly type: 'set-stop-tier'; readonly stopId: number; readonly tier: number }
   /** Asks for a line's fare band, for its open card. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 

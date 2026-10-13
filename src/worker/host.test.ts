@@ -198,6 +198,21 @@ describe('the sim host', () => {
     expect(stops.some((s) => s.quiet || s.loss)).toBe(false);
   });
 
+  it('sets a stop’s tier on the stop card’s rule: a Shelter for $12k, an Interchange refused for one line (the M3 spec, item 5)', () => {
+    const { host, last } = started();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const before = last('snapshot')!.snapshot;
+    const symphony = before.lines[0]!.stopIds[1]!;
+    host.handle({ type: 'set-stop-tier', stopId: symphony, tier: 4 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-stop-tier', reason: 'needs_lines', limit: 3 });
+    host.handle({ type: 'set-stop-tier', stopId: symphony, tier: 2 });
+    const after = last('snapshot')!.snapshot;
+    expect(after.stops.find((s) => s.id === symphony)).toMatchObject({ tier: 2 });
+    expect(after.cashCents).toBe(before.cashCents - 1_200_000);
+    expect(after.lines[0]!.ridersPerDay).toBeGreaterThan(before.lines[0]!.ridersPerDay);
+  });
+
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
     createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1, build: BUILD });

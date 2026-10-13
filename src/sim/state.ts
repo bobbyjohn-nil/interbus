@@ -6,6 +6,7 @@ import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
 import type { Headways } from './rules/periods';
 import type { BusModelId } from './config/fleet';
+import type { StopTier } from './config/stops';
 
 /** Which city file the game runs on; a save names it so a different city or revision is refused, never substituted. */
 export interface CityRef {
@@ -18,6 +19,8 @@ export interface Stop {
   readonly id: StopId;
   readonly lon: number;
   readonly lat: number;
+  /** Sign to Transfer Hub (config/stops.ts); every stop starts a Sign. */
+  tier: StopTier;
 }
 
 /** A depot, anchored by place; its street node is found again from the city on load. */

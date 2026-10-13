@@ -46,7 +46,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   subsidy: 'City subsidy',
   purchase: 'Purchases',
   refund: 'Refunds',
-  sale: 'Buses sold',
+  sale: 'Sales',
   running: 'Running (per km)',
   wages: 'Driver wages',
   deadhead: 'Deadhead',

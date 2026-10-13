@@ -10,6 +10,7 @@ const CODES = [
   'depot_full', 'insufficient_funds', 'no_such_line', 'not_started',
   'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
   'fare_out_of_range', 'fare_not_a_step', 'same_fare',
+  'same_tier', 'no_such_tier', 'needs_lines', 'no_such_stop',
 ];
 
 describe('refusal copy (UX-03)', () => {

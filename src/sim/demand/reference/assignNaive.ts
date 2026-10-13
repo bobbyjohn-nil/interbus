@@ -1,12 +1,12 @@
 // The straightforward assignment loop as it stood before the week-3 speed-up (every cell pair, every
 // sub-point pair, every stop pair, each with its own walk and distance), kept as the yardstick that
 // assign.test.ts and `npm run bench compare` hold the fast loop to. Nothing in the game uses it.
-import { CENTS_PER_MINUTE, DWELL_SEC, BUS_KMH, MAX_WALK_M, REFERENCE_FARE_CENTS, WALK_MIN_PER_KM } from '../../config/demand';
+import { CENTS_PER_MINUTE, DWELL_SEC, BUS_KMH, MAX_WALK_M, REFERENCE_FARE_CENTS } from '../../config/demand';
 import { distXY, SpatialGrid } from '../../core/geo';
 import type { City, SubPoint } from '../../city/simfile';
 import { PERIODS, runsIn, type Period } from '../../rules/periods';
 import type { Commuters } from '../commuters';
-import { busShare, fareSensitivity, perceivedWaitMin, waitMin, type LinePlan } from '../assign';
+import { busShare, fareSensitivity, perceivedWaitMin, waitMin, walkMinutes, type LinePlan } from '../assign';
 
 interface Reach {
   readonly line: number;
@@ -35,7 +35,7 @@ export function assignNaive(
   const stopsGrid = new SpatialGrid<{ line: number; pos: number }>(MAX_WALK_M);
   plans.forEach((plan, line) => plan.stops.forEach((p, pos) => stopsGrid.add(p, { line, pos })));
   const reach = (p: SubPoint): Reach[] =>
-    stopsGrid.within([p.x, p.y], MAX_WALK_M).map((s) => ({ line: s.item.line, pos: s.item.pos, walkMin: (s.distM / 1000) * WALK_MIN_PER_KM }));
+    stopsGrid.within([p.x, p.y], MAX_WALK_M).map((s) => ({ line: s.item.line, pos: s.item.pos, walkMin: walkMinutes(s.distM, plans[s.item.line]!.walkBonusMin?.[s.item.pos] ?? 0) }));
   const homes = city.cells.map((c) => c.homes.map((p) => ({ p, reach: reach(p) })).filter((h) => h.reach.length > 0));
   const work = city.cells.map((c) => c.work.map((p) => ({ p, reach: reach(p) })).filter((w) => w.reach.length > 0));
   const totals = city.cells.map((c) => [c.residents, c.jobs] as const);
