@@ -17,7 +17,7 @@ import { createRng } from './core/rng';
 import { fareBand } from './economy/fareBand';
 import { pickFestivalStop, pickRoadworks } from './events/roll';
 import type { EventKind } from './config/events';
-import type { LineId } from './core/ids';
+import { mint, type LineId } from './core/ids';
 import { busesNeeded } from './rules/cycle';
 import { FARES_CENTS } from './rules/fare';
 import { checkHeadways, type Headways } from './rules/periods';
@@ -47,6 +47,21 @@ export function corridorStops(world: World, from: LngLat, to: LngLat, spacingM =
     if (picked[picked.length - 1] !== best) picked.push(best);
   }
   return picked.map((i) => toLngLat(world.city.frame, nodes[i]!));
+}
+
+/** A world on `city` whose only line runs `stops`, the founding way (20 minutes, two Sparrows, $2.25), with no depot: its id. */
+export function soleLine(world: World, name: string, stops: readonly LngLat[]): LineId {
+  const stopIds = stops.map(([lon, lat]) => {
+    const [id, next] = mint(world.state.nextIds, 'stop');
+    world.state.nextIds = next;
+    world.state.stops.push({ id, lon, lat, tier: 1 });
+    return id;
+  });
+  const [id, next] = mint(world.state.nextIds, 'line');
+  world.state.nextIds = next;
+  world.state.lines.push({ id, name, colour: '#1f6fb2', stopIds, fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow' });
+  recompute(world);
+  return id;
 }
 
 /** The tiers a stop may take with one line calling (config/stops.ts minLines). */

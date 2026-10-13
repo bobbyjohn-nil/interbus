@@ -56,6 +56,8 @@ import { MIN_WALK_MIN, STOP_TIERS } from '../config/stops';
 import { distXY, SpatialGrid, type XY } from '../core/geo';
 import type { LineId } from '../core/ids';
 import type { City, SubPoint } from '../city/simfile';
+import { EXPRESS_FARE_WEIGHT, EXPRESS_RIDE_WEIGHT } from '../config/express';
+import { planIsExpress } from '../rules/express';
 import { PERIODS, periodAt, runsIn, type Headways, type Period } from '../rules/periods';
 import { periodCongestion } from '../traffic/congestion';
 import type { Commuters } from './commuters';
@@ -416,8 +418,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     }),
   );
   const stopCount = Int32Array.from(plans, (plan) => plan.stops.length);
-  // Each line's fare in minutes beyond the reference.
-  const fareExtra = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
+  // Each line's fare in minutes beyond the reference, an express line's minded half as much.
+  const express = plans.map(planIsExpress);
+  const fareExtra = plans.map((plan, line) => ((plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE) * (express[line] ? EXPRESS_FARE_WEIGHT : 1));
   // Minutes along each line to each stop, and exp(wait / τ) for each line and period.
   const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / (plan.kmh ?? BUS_KMH)) * 60));
   const expWait = wait.map((w) => Math.exp(w / MODE_TAU_MIN));
@@ -428,9 +431,10 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     return PERIODS.map((p) => factor[p] - 1);
   });
   const rushy = rushExtra.some((extra) => extra.some((v) => v !== 0));
-  // A ride's minutes at period k's traffic, or the day's average at k = -1.
+  // A ride's minutes at period k's traffic, or the day's average at k = -1, as riders feel them: an
+  // express ride's at EXPRESS_RIDE_WEIGHT.
   const rideMin = (line: number, a: number, b: number, k = -1) =>
-    Math.abs(stopMin[line]![b]! - stopMin[line]![a]!) * (k < 0 ? 1 : 1 + rushExtra[line]![k]!) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60);
+    (Math.abs(stopMin[line]![b]! - stopMin[line]![a]!) * (k < 0 ? 1 : 1 + rushExtra[line]![k]!) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60)) * (express[line] ? EXPRESS_RIDE_WEIGHT : 1);
   // Each line's ride between two of its stops with its fare felt (weighed against the ride's km), at
   // [from * stops + to]: a bargain fare makes the ride feel shorter, never free (V1
   // demand.worker.ts:342-344). Infinity from a stop to itself.

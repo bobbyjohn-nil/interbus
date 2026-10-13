@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Express lines: a line of 5 km or more whose stops stand at least 1.2 km apart on average runs express. Riders feel its ride a little quicker and mind its fare half as much, so it draws more of them over the long trips it serves, though a line with more stops on the same street can still carry more. The line card says Express beside its name, and the new-line card says so as you draw one.
 - Snow: now and then it snows for a day or two, named on the midnight card the evening before ("Snow tomorrow, for 1 day"). Every bus drives slower in the snow, so a round trip takes about a quarter longer (the line card says how much) and a line without a spare bus runs a little less often until it stops. Riders' own rides are no slower.
 - Festivals: now and then a festival gathers near one of your busier stops for a day or two, named the evening before and ringed on the map. Trips to and from anywhere within about 900 m of it are 2.6 times as many while it lasts, enough to carry a RIDERSHIP contract through a day or two, though not for ten.
 - Medals: bronze for a quarter's report card of 55 or better, silver for 25,000 trips carried, and gold for a quarter of 75 or better with no grade under 60 on a day of 5,000 trips. The midnight card says when you win one, the medals you hold show as dots on the Contracts chip, and the Contracts panel lists all three with the trips left to silver.

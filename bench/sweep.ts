@@ -8,6 +8,7 @@ import { loadCity } from '../src/sim/city/simfile';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { mint, type LineId } from '../src/sim/core/ids';
 import { newGame } from '../src/sim/state';
+import { planIsExpress } from '../src/sim/rules/express';
 import { CORRIDOR_SPACING_M, corridorStops, i3Verdict, SETTINGS, SLICES, sweepSlice, type Point } from '../src/sim/sweep';
 import { fixtureGame } from '../src/sim/testing';
 import { createWorld, recompute, type World } from '../src/sim/world';
@@ -48,10 +49,12 @@ if (process.argv[3] === 'inner') {
   if (!existsSync(path)) throw new Error(`no ${path}: run npm run cities`);
   const inner = loadCity(readFileSync(path, 'utf8'));
   if (!inner.ok) throw new Error(inner.problem);
-  for (const corridor of ['Huntington Avenue', 'Massachusetts Avenue']) {
-    const [name, from, to] = CORRIDORS.find(([n]) => n === corridor)!;
+  // Massachusetts Avenue twice: every 400 m as a local line, and every 1,300 m as an express one (behind I3).
+  for (const [corridor, spacing] of [['Huntington Avenue', CORRIDOR_SPACING_M], ['Massachusetts Avenue', CORRIDOR_SPACING_M], ['Massachusetts Avenue', 1_300]] as const) {
+    const [base, from, to] = CORRIDORS.find(([n]) => n === corridor)!;
+    const name = spacing === CORRIDOR_SPACING_M ? base : `${base}, express`;
     const world = createWorld(inner.city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
-    const stops = corridorStops(world, from, to);
+    const stops = corridorStops(world, from, to, spacing);
     if (!stops) throw new Error(`${name}: no street between its ends`);
     const stopIds = stops.map(([lon, lat]) => {
       const [id, next] = mint(world.state.nextIds, 'stop');
@@ -64,7 +67,7 @@ if (process.argv[3] === 'inner') {
     world.state.lines.push({ id, name, colour: '#1f6fb2', stopIds, fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow' });
     recompute(world);
     const s = world.services.get(id)!;
-    console.log(`${name}: ${stops.length} stops every ${CORRIDOR_SPACING_M} m or so along ${((s.plan.stopDistM.at(-1) ?? 0) / 1000).toFixed(1)} km of street; ${(s.timing.cycles!.peak / 60).toFixed(0)} min round trip at peak`);
+    console.log(`${name}: ${stops.length} stops every ${spacing} m or so along ${((s.plan.stopDistM.at(-1) ?? 0) / 1000).toFixed(1)} km of street, ${planIsExpress(s.plan) ? 'express' : 'local'}; ${(s.timing.cycles!.peak / 60).toFixed(0)} min round trip at peak`);
     failures += sweep(name, world, id);
   }
 }

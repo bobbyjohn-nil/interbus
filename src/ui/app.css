@@ -707,3 +707,15 @@ button.chip.checklist,
 .checklist {
   font-weight: 600;
 }
+
+/* An express line (the M4 spec, below the cut): a small word beside its name. */
+.line-card h2 .express {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ui-ink);
+  color: var(--ui-paper);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}

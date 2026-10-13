@@ -146,3 +146,27 @@ describe('assign against the reference loop', () => {
     expect(off(changes(fast, plans[1]!.id), changes(ref, plans[1]!.id))).toBeLessThan(0.09);
   });
 });
+
+describe('an express line (the M4 spec, below the cut: V1’s rule)', () => {
+  // The debug line's four stops with their street stretched: 5,300 m (1,767 m apart) is express,
+  // 4,900 m is not, so the express line's ride is longer and still feels shorter (0.85 × 5.3 < 4.9).
+  const stretched = (metres: number): LinePlan => ({ ...debug, stopDistM: debug.stopDistM.map((m) => (m * metres) / debug.stopDistM[debug.stopDistM.length - 1]!) });
+  const riders = (plan: LinePlan) => assign(world.city, world.commuters, [plan]).lines.get(debug.id)!.perDay;
+
+  it('draws more riders than a shorter line that is not express, and the reference loop agrees', () => {
+    const express = stretched(5_300);
+    expect(riders(express)).toBeGreaterThan(riders(stretched(4_900)));
+    const { fast, ref } = both([express]);
+    expect(off(fast.lines.get(debug.id)!.perDay, ref.lines.get(debug.id)!.perDay)).toBeLessThan(0.015);
+  });
+
+  it('loses fewer of its riders to a dear fare: its fare is minded half as much', () => {
+    // The same 5,300 m with two stops more, each standing on one of its own, is not express (1,060 m apart).
+    const express = stretched(5_300);
+    const local: LinePlan = { ...express, stops: [express.stops[0]!, express.stops[1]!, express.stops[1]!, express.stops[2]!, express.stops[2]!, express.stops[3]!], stopDistM: [express.stopDistM[0]!, express.stopDistM[1]!, express.stopDistM[1]!, express.stopDistM[2]!, express.stopDistM[2]!, express.stopDistM[3]!] };
+    // Measured: a $4.00 fare loses the express line 43% of its riders and the local one 62% (61% for
+    // the express one were its fare minded fully).
+    const lost = (plan: LinePlan) => 1 - riders({ ...plan, fareCents: 400 }) / riders(plan);
+    expect(lost(express)).toBeLessThan(0.8 * lost(local));
+  });
+});

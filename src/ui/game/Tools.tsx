@@ -1,4 +1,5 @@
 import { BUS_MODELS, MODEL_IDS } from "../../sim/rules/line";
+import { isExpress } from "../../sim/rules/express";
 import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
 import type { BusModelId } from "../../sim/types";
 import { refusalText } from "../copy";
@@ -121,6 +122,12 @@ export function DraftCard({
           <p>
             {draft.stops.length} {draft.stops.length === 1 ? "stop" : "stops"} ·{" "}
             {km(draft.routeM)}
+            {isExpress(draft.routeM, draft.stops.length) ? (
+              <span className="express" data-testid="express">
+                {" "}
+                · express
+              </span>
+            ) : null}
           </p>
           <p>{about(draft.people)} people within a walk</p>
           {draft.detour && draft.detour.addedM > 0 ? (
