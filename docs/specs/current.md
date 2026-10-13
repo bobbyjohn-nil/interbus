@@ -28,6 +28,7 @@ Work starts now, ahead of the calendar, money first; P1 may reorder it.
    - Counted as the day's paid boardings (a change onto a line boards free and is not counted, EC-04) at every stop within the 650 m reach, all lines together, from the modelled day (V2 read the same, `:3255-3269`); graded at the close like HEADWAY, 10 days met in a row within 20, paid once.
    - Dealt from one shuffled deck of the six asks, HEADWAY's three and RIDERSHIP's three, so every six offers hold each once and I11's bound holds across kinds (V2 drew kind and ask independently).
    - The card shows today's boardings against the ask; the map's contract ring names the kind.
+   - An offer nobody takes for 10 days is withdrawn and its slot dealt again, so an ask a company cannot reach never holds a slot for good (added in building it; DECISIONS, Measured).
 2. **Events, one at a time, hatched a day ahead** (PLAN §3; V2's rates, `…:Gaming/src/10-core.js:276-285`, `30-sim.js:4576-4709`; fuel shock is out with fuel):
    - Rolled at a day's start from their own saved RNG stream, never the contracts' (DECISIONS, Measured: the contracts' draws): a 0.18 chance a day, none while one is pending or running or for 2 days after, starting the next day.
    - **Roadworks** (3–6 days): one stretch of street a running line drives, up to 400 m of one named street, at 0.65 of its speed; every line over it takes the longer round trip in every period (rules/cycle.ts).

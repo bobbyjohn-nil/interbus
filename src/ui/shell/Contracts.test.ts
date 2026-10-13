@@ -10,8 +10,8 @@ import { Contracts } from './Contracts';
 import { TopBar } from './TopBar';
 
 const offer: ContractView = {
-  id: 2, landmark: 'Longwood', at: [-71.1, 42.34], reachM: 650, askSeconds: 900, rewardCents: 15_000_000, held: false,
-  daysMet: 0, daysNeeded: 10, daysLeft: null, figureSeconds: 1_200, met: false, onTrack: true,
+  id: 2, landmark: 'Longwood', at: [-71.1, 42.34], reachM: 650, kind: 'headway', ask: 900, rewardCents: 15_000_000, held: false,
+  daysMet: 0, daysNeeded: 10, daysLeft: null, figure: 1_200, met: false, onTrack: true,
 };
 
 function sim(over: Partial<Snapshot>): Sim {
@@ -39,10 +39,14 @@ describe('contracts on the page', () => {
     expect(offered).toContain('10 days in a row · $150,000');
     expect(offered).toContain('Today: every 20 min');
     expect(offered).toContain('Take it');
-    const held = panel(sim({ contracts: [{ ...offer, held: true, daysMet: 3, daysLeft: 17, figureSeconds: 900, met: true, onTrack: false }] }));
+    const held = panel(sim({ contracts: [{ ...offer, held: true, daysMet: 3, daysLeft: 17, figure: 900, met: true, onTrack: false }] }));
     expect(held).toContain('Today: every 15 min');
     expect(held).toContain('3 of 10 days · 17 days left · missed today');
     expect(held).not.toContain('Take it');
-    expect(panel(sim({ contracts: [{ ...offer, figureSeconds: null }] }))).toContain('Today: no bus within a walk');
+    expect(panel(sim({ contracts: [{ ...offer, figure: null }] }))).toContain('Today: no bus within a walk');
+    const riders = panel(sim({ contracts: [{ ...offer, landmark: 'Copley Square', kind: 'ridership', ask: 400, figure: 254.9, met: false }] }));
+    expect(riders).toContain('400 boardings a day at Copley Square');
+    expect(riders).toContain('Today: 254 boardings a day');
+    expect(riders).toContain('data-kind="ridership"');
   });
 });

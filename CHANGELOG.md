@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- RIDERSHIP contracts: beside the ones asking for a bus every so often, the city now offers contracts for 150, 400 or 800 paying riders a day boarding near a landmark, at $60,000, $150,000 or $240,000. Every stop within a walk of the landmark counts, all your lines together, but a rider changing onto your line there boards free and is not counted. The card shows today's boardings against the ask, and the ring on the map shows the ask. Every six offers hold each of the six asks once.
 - Rush hour slows your buses: on main streets a bus drives about 11% slower than the day's average at the peaks and 11% quicker off-peak, on motorways a little more and on side streets hardly at all. Each line's round trips, the buses it needs and the bus count on its cards follow, so a busy line on main streets may need one more bus at peak. Riders feel it too: across Inner Boston about 7% fewer ride at the peaks and 7% more off-peak, and the day's riders hardly change.
 - Extend a line from either end: in Lines, press Extend from its first or last stop and click the map beyond it. The card shows the whole line as it would run, the new stops and any bus its longer round trip needs; Extend buys them.
 - Take a stop off a line from the stop's card: the line runs on without it, and a stop no other line calls at comes down, giving back half of what it and its fittings cost ($2,000 for a Sign). A line keeps at least two stops.
@@ -56,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A contract nobody takes is withdrawn after 10 days, and a new offer takes its place.
 - Riders a day, in the chips along the top, counts each trip once, even when it rides two lines.
 - Where several of your lines serve the same trip, riders take whichever comes first: lines sharing a stretch split its riders by how often each runs, and together, coming more often, they carry more than any one would.
 - The preview now plays all of Inner Boston, not just Back Bay to Longwood: Boston, Cambridge, Somerville and Brookline, with homes and jobs across all four and contracts offered at Kendall Square, Harvard Square and Downtown Crossing too. Demand is scaled so a first line from Copley to Longwood carries about what it did.

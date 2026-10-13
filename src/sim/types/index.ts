@@ -1,6 +1,7 @@
 // What crosses between the sim worker and the page: the only sim module besides sim/rules that
 // src/ui and src/render may import (CLAUDE.md "Architecture guardrails"). Plain data: anything here
 // must survive structured cloning.
+import type { ContractKind } from '../config/contracts';
 import type { BusModelId } from '../config/fleet';
 
 export type { BusModelId };
@@ -201,7 +202,7 @@ export interface Snapshot {
   readonly contractTaken: boolean;
 }
 
-/** A HEADWAY contract for its card and its ring on the map (sim/economy/contracts.ts, sim/rules/contract.ts). */
+/** A contract for its card and its ring on the map (sim/economy/contracts.ts, sim/rules/contract.ts). */
 export interface ContractView {
   readonly id: number;
   readonly landmark: string;
@@ -209,7 +210,9 @@ export interface ContractView {
   readonly at: readonly [number, number];
   /** The walk a stop must be within to count, in metres. */
   readonly reachM: number;
-  readonly askSeconds: number;
+  /** HEADWAY: a bus at least every `ask` seconds; RIDERSHIP: at least `ask` paid boardings a day (sim/config/contracts.ts). */
+  readonly kind: ContractKind;
+  readonly ask: number;
   readonly rewardCents: number;
   readonly held: boolean;
   /** Days in a row met so far, of `daysNeeded`. */
@@ -217,8 +220,8 @@ export interface ContractView {
   readonly daysNeeded: number;
   /** Days left to hold it, today included; null while it is an offer. */
   readonly daysLeft: number | null;
-  /** Today's headway at the landmark's best stop, the slower of peak and off-peak; null if no stop in reach is served. */
-  readonly figureSeconds: number | null;
+  /** Today's figure: HEADWAY's headway at the landmark's best stop, the slower of peak and off-peak, or RIDERSHIP's paid boardings a day at its stops; null if no stop in reach counts. */
+  readonly figure: number | null;
   /** The rule's verdict on that figure: met now. */
   readonly met: boolean;
   /** No service hour today has missed it yet. */
@@ -247,7 +250,7 @@ export interface DayCard {
     readonly payoutCents: number;
   } | null;
   /** Contracts paid or lapsed at this close. */
-  readonly contracts: readonly { readonly landmark: string; readonly askSeconds: number; readonly rewardCents: number; readonly outcome: 'paid' | 'lapsed' }[];
+  readonly contracts: readonly { readonly landmark: string; readonly kind: ContractKind; readonly ask: number; readonly rewardCents: number; readonly outcome: 'paid' | 'lapsed' }[];
 }
 
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */

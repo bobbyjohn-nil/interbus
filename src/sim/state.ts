@@ -5,6 +5,7 @@ import { FIRST_IDS } from './core/ids';
 import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
 import type { Headways } from './rules/periods';
+import type { ContractKind } from './config/contracts';
 import type { BusModelId } from './config/fleet';
 import type { StopTier } from './config/stops';
 
@@ -53,14 +54,16 @@ export interface Contract {
   readonly id: ContractId;
   /** The landmark's name in the city file. */
   readonly landmark: string;
-  readonly askSeconds: number;
+  /** HEADWAY: a bus at least every `ask` seconds; RIDERSHIP: at least `ask` paid boardings a day (config/contracts.ts). */
+  readonly kind: ContractKind;
+  readonly ask: number;
   readonly rewardCents: number;
   readonly offeredDay: number;
   /** The day it was taken, or null while it is an offer. */
   acceptedDay: number | null;
   /** Days in a row it has been met, counted at each close. */
   daysMet: number;
-  /** Service hours today (05:00–24:00) that ended with the landmark served less often than the ask. */
+  /** Service hours today (05:00–24:00) that ended with the landmark short of the ask. */
   hoursMissedToday: number;
 }
 
@@ -80,6 +83,7 @@ export interface SimState {
   /** Offered and held HEADWAY contracts, at most three (config/contracts.ts). */
   contracts: Contract[];
   /** The asks (seconds) still to deal before the next shuffle, so every three offers hold one of each (I11). */
+  /** Indices into CONTRACT_ASKS still to deal, from the last shuffle. */
   contractDeck: number[];
 }
 

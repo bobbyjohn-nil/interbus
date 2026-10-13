@@ -1,6 +1,6 @@
-// HEADWAY contract income across seeds (the M3 spec, item 11; I11; GD-04): I11's company
-// (src/sim/testing.ts: the debug line every 10 minutes, taking every offer it meets) for DAYS days
-// (default 40, four quarters) on each of SEEDS seeds (default 100). Prints the spread (min, median,
+// Contract income across seeds, HEADWAY and RIDERSHIP together (the M3 spec, item 11; the M4 spec,
+// item 1; I11; GD-04): I11's company (src/sim/testing.ts: the debug line and Copley–Kenmore, both every
+// 10 minutes, taking every offer they meet) for DAYS days (default 40) on each of SEEDS seeds (default 100). Prints the spread (min, median,
 // max), how many seeds land more than 30% from the median, and how many runs of ten seeds would pass
 // I11's test, which holds seeds 1–10. `npm run bench contracts [seeds] [days]`.
 import { contractIncome } from '../src/sim/testing';

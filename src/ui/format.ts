@@ -28,6 +28,17 @@ export function every(seconds: number): string {
   return `every ${Number.isInteger(seconds / 60) ? seconds / 60 : (seconds / 60).toFixed(1)} min`;
 }
 
+/** A contract's ask in words (sim/config/contracts.ts): "every 15 min" for HEADWAY, "400 boardings a day" for RIDERSHIP. */
+export function askText(kind: 'headway' | 'ridership', ask: number): string {
+  return kind === 'headway' ? every(ask) : `${ask.toLocaleString('en-US')} boardings a day`;
+}
+
+/** Today's figure against it, the same way; or why there is none. */
+export function figureText(kind: 'headway' | 'ridership', figure: number | null): string {
+  if (figure === null) return kind === 'headway' ? 'no bus within a walk' : 'no stop within a walk';
+  return kind === 'headway' ? every(Math.round(figure)) : `${Math.floor(figure).toLocaleString('en-US')} boardings a day`;
+}
+
 /** "≈9,000": two significant figures, for counts the sim models rather than knows. */
 export function about(n: number): string {
   if (n <= 0) return '0';

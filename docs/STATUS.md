@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` bcc55e7 (data licences and third-party notices): M3's items are all in but week 5's presentation items, and the M4 spec (Goals, by Sun Dec 6) is in review; its first step, RIDERSHIP contracts, is next.
+**Updated:** 2026-10-13, at `main` f19f01a (the M4 spec): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: RIDERSHIP contracts are in review, and roadworks a day ahead are next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bcc55e7. Deploy preview run 38431603674's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` f19f01a. Deploy preview run 38433202412's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -214,7 +214,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 ## Next: M4, Goals, by Sun Dec 6 (week 8; started early, 2026-10-13)
 
 The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m3-money-loop.md`](specs/m3-money-loop.md)). Money first, each a small pull request (items are the spec's); P1's notes (Nov 16–22) may reorder them. M3's item 12 above, the presentation work, stays at most one session in three.
-1. [ ] **RIDERSHIP contracts** (item 1): 150, 400 or 800 paid boardings a day near a landmark for $60k, $150k or $240k, dealt with HEADWAY's asks from one deck of six; I11 over both kinds.
+1. [x] **RIDERSHIP contracts** (item 1; 2026-10-13): 150, 400 or 800 paid boardings a day near a landmark for $60k, $150k or $240k, a change onto a line not counted, dealt with HEADWAY's asks from one deck of six; an offer untaken for 10 days is withdrawn (save format 10). I11's company, now two lines reaching every fixture landmark, earns $900k–$1.02M over 40 days on 100 seeds. On Inner Boston the debug line gives Copley 136.1, and a second line from Copley to Downtown Crossing at 20 minutes lifts it to 400.5, so exit check 1 holds with little to spare (DECISIONS, Measured).
 2. [ ] **Roadworks a day ahead** (item 2), from the events' own RNG stream; then festival and snow (below the cut's second).
 3. [ ] **No bus jumps on route edits** (item 4): measure remove and extend first, then keep a trip under way on the plan it began with.
 4. [ ] **Route insert** (item 4): point at a leg, one command and one undo.

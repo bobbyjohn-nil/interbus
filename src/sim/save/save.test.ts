@@ -35,7 +35,7 @@ function playedGame(): SimState {
   for (const acceptedDay of [2, null]) {
     const [id, next] = mint(state.nextIds, 'contract');
     state.nextIds = next;
-    state.contracts.push({ id, landmark: 'Longwood', askSeconds: 900, rewardCents: 15_000_000, offeredDay: 1, acceptedDay, daysMet: acceptedDay ? 1 : 0, hoursMissedToday: 3 });
+    state.contracts.push({ id, landmark: 'Longwood', kind: 'headway', ask: 900, rewardCents: 15_000_000, offeredDay: 1, acceptedDay, daysMet: acceptedDay ? 1 : 0, hoursMissedToday: 3 });
   }
   state.elapsed = 3 * 86_400 + 4_321;
   return state;

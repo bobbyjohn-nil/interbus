@@ -143,12 +143,18 @@ test.describe('the line tool on the fixture', () => {
     await stopCard.getByRole('button', { name: 'Line 1', exact: true }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();
     // The checklist's last step opens Contracts (the M3 spec, items 11 and 12; exit check 2): the line
-    // every 20 minutes serves Longwood, whose offer shows that against its ask; taking it ends the
-    // checklist, the Contracts chip takes its place, and its ring on the map is held.
+    // every 20 minutes serves Longwood, whose offer shows that against its ask, a headway or boardings
+    // a day as the deck dealt it (the M4 spec, item 1); taking it ends the checklist, the Contracts
+    // chip takes its place, and its ring on the map is held.
     await page.getByTestId('checklist').click();
     const longwood = page.getByTestId('contracts').locator('[data-landmark="Longwood"]');
-    await expect(longwood).toContainText('Today: every 20 min');
-    await expect(longwood).toContainText(/Every (10|15|20) min at Longwood/);
+    if ((await longwood.getAttribute('data-kind')) === 'headway') {
+      await expect(longwood).toContainText('Today: every 20 min');
+      await expect(longwood).toContainText(/Every (10|15|20) min at Longwood/);
+    } else {
+      await expect(longwood).toContainText(/Today: \d+ boardings a day/);
+      await expect(longwood).toContainText(/(150|400|800) boardings a day at Longwood/);
+    }
     await longwood.getByRole('button', { name: 'Take it' }).click();
     await expect(longwood).toHaveAttribute('data-held', 'yes');
     await expect(longwood).toContainText('0 of 10 days · 20 days left');

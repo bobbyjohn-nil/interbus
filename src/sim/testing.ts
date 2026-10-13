@@ -3,16 +3,17 @@
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { loadCity, type City } from './city/simfile';
 import { acceptContract } from './commands/acceptContract';
+import { createLine } from './commands/createLine';
 import { addDebugLine } from './commands/debugLine';
 import { placeDepot } from './commands/placeDepot';
-import { SPARROW } from './config/fleet';
 import { SECONDS_PER_DAY } from './config/time';
 import { pointInRing, toLngLat, type LngLat, type XY } from './core/geo';
-import { landmarkHeadways, rollOffers } from './economy/contracts';
-import { busesNeeded, cycleSeconds } from './rules/cycle';
+import { landmarkFigures, rollOffers } from './economy/contracts';
+import { contractMet } from './rules/contract';
+import { busesNeeded } from './rules/cycle';
 import { newGame } from './state';
 import { advance } from './step';
-import { createWorld, planLine, recompute, type World } from './world';
+import { createWorld, recompute, type World } from './world';
 
 let city: City | null = null;
 
@@ -39,6 +40,10 @@ export function onDepotLand(): LngLat {
   throw new Error('no point inside the parcel');
 }
 
+/** The fixture's Copley Square stop on the debug line, and a stop at Kenmore (e2e/transfer.spec.ts). */
+export const COPLEY: LngLat = [-71.077, 42.3499];
+export const KENMORE: LngLat = [-71.09721, 42.34883];
+
 /** A game with a depot on the fixture's largest parcel. */
 export function gameWithDepot(seed = 7): World {
   const world = fixtureGame(seed);
@@ -48,23 +53,25 @@ export function gameWithDepot(seed = 7): World {
 }
 
 /**
- * I11's company (the M3 spec, item 11): the debug line every 10 minutes all day, so it meets any ask
- * at Copley Square and Longwood, taking every offer it meets at each day's start. Its contract income
- * over `days`, in cents: the test holds 10 seeds within 30% of their median; `npm run bench contracts`
- * measures more.
+ * I11's company (the M3 spec, item 11; the M4 spec, item 1): the debug line and a line from Copley to
+ * Kenmore, both every 10 minutes all day, so it serves every fixture landmark and meets any HEADWAY ask
+ * and RIDERSHIP's 150 at Copley and Kenmore, taking every offer it meets at each day's start. A company
+ * that serves only some landmarks earns by where the asks land, not by how they are dealt (GD-04:
+ * "comparable play"; DECISIONS, Measured). Its contract income over `days`, in cents: the test holds
+ * 10 seeds within 30% of their median; `npm run bench contracts` measures more.
  */
 export function contractIncome(seed: number, days: number): number {
   const world = gameWithDepot(seed);
   if (!addDebugLine(world).ok) throw new Error('no debug line');
+  if (!createLine(world, [COPLEY, KENMORE]).ok) throw new Error('no Kenmore line');
   rollOffers(world, 1);
-  const line = world.state.lines[0]!;
-  line.headways = { peak: 600, offpeak: 600, overnight: null };
-  const plan = planLine(world, line)!;
-  line.buses = busesNeeded(cycleSeconds(plan.stopDistM.at(-1)!, plan.stops.length, SPARROW.kmh), line.headways);
+  for (const line of world.state.lines) line.headways = { peak: 600, offpeak: 600, overnight: null };
+  recompute(world);
+  for (const line of world.state.lines) line.buses = busesNeeded(world.services.get(line.id)!.timing.cycles!, line.headways);
   recompute(world);
   for (let day = 1; day <= days; day++) {
-    const figures = landmarkHeadways(world);
-    for (const c of world.state.contracts) if (c.acceptedDay === null && (figures.get(c.landmark) ?? Infinity) <= c.askSeconds) acceptContract(world, c.id);
+    const figures = landmarkFigures(world);
+    for (const c of world.state.contracts) if (c.acceptedDay === null && contractMet(c.kind, figures.get(c.landmark)?.[c.kind] ?? null, c.ask)) acceptContract(world, c.id);
     advance(world, SECONDS_PER_DAY);
   }
   return world.state.ledger.rows.filter((r) => r.kind === 'contract').reduce((s, r) => s + r.amountCents, 0);
