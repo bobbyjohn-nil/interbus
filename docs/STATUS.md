@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 328d40d, with the raw tilt in review.
+**Updated:** 2026-10-13, at `main` 47fdf77, with the M1 spec in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 328d40d. Deploy preview run 38341074688's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 47fdf77, where `T` tilts Boston into 3D. Deploy preview run 38342415689's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window.
 - **The first redeploy kept the previous build's files** on the real site ("kept 1 earlier build(s), fetched 2 file(s)").
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -48,11 +48,11 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
   - `T` eases to pitch 50° at zoom ≥14 and swaps the flat buildings for extrusions; `T` again flattens. Untagged buildings stand 10 m until the bake's heights.
   - V1's board mask greys beyond the play area behind a dashed edge.
   - Style tests (extrusions, mask, spec validation) and `e2e/tilt.spec.ts`; `measure:bundle` now fails a board over 520 KiB (433.0 KiB).
-- [ ] **Item 13:** `docs/specs/current.md` for M1, ≤150 lines, with "first dollar on the fixture by Nov 1" on top. Due **Sun Oct 25**.
+- [x] **Item 13** (2026-10-13): [`docs/specs/current.md`](specs/current.md), the M1 spec. It has the exit check, the magnitudes expected before measuring, the tests, the cut line, and Claude's calls (gates per extent, β = 4.0 km, k = 1.2, the day closing at 24:00).
 
 ## Next
 
-1. Week 2 as above, in this order: M1 spec (item 13) → ports (10) → the city on the fixture (11) → tilt (12).
+1. Week 2 as above: the ports (item 10), then the city on the fixture (item 11), with the fare-row signal by **Sun Oct 25**. Items 12 and 13 are done. Each port PR cites the V1–V3 lines it ports and the defects it fixes on the way in.
 2. Week 3, **M1 first dollar by Sun Nov 1**. Money before presentation: from week 3 no look work starts until the first dollar.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
