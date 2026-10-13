@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Working rules for Claude sessions on interbus, a calm bus-company game on real Boston: flat 2D that tilts into 3D, in light and dark; a GitHub Pages preview now, a free Steam demo for macOS and Windows at Next Fest in June 2027, then Steam as the only release. Read [docs/STATUS.md](docs/STATUS.md) first (what is live, in progress, waiting on the owner and next), then [PLAN.md](PLAN.md) §0, [docs/DECISIONS.md](docs/DECISIONS.md) and `docs/specs/current.md` once it exists. If they disagree, `docs/DECISIONS.md` and `docs/SCOPE.md` win over the plan.
+Working rules for Claude sessions on interbus, a calm bus-company game on real Boston: flat 2D that tilts into 3D, in light and dark; a GitHub Pages preview now, a free Steam demo for macOS and Windows at Next Fest in June 2027, then Steam as the only release. Read [docs/STATUS.md](docs/STATUS.md) first (what is live, in progress, waiting on the owner and next), then [PLAN.md](PLAN.md) §0, [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/specs/current.md](docs/specs/current.md), the current milestone's spec. If they disagree, `docs/DECISIONS.md` and `docs/SCOPE.md` win over the plan.
 
 ## Writing in this repo (it is public)
 
