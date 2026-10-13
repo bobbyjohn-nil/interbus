@@ -28,6 +28,8 @@ function render(change: Partial<LineView>, band: FareBandView | null = null): st
     incomeCents: 0,
     headways: { peak: 600, offpeak: 900, overnight: null },
     cycle: 1_539,
+    cycles: { peak: 1_539, offpeak: 1_539, overnight: 1_539 },
+    rush: 0,
     buses: 3,
     model: 'sparrow',
     forecastCents: { running: 0, wages: 0, deadhead: 0 },

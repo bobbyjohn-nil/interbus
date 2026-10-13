@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR } from '../config/time';
 import { busesNeeded } from './cycle';
-import { busesOut, dayDepartures, dayPlan, hourOfPlan, type PlanInputs } from './schedule';
+import { busesOut, dayDepartures, dayPlan, hourOfPlan, tripTimes, type PlanInputs } from './schedule';
 import type { Timing } from './timetable';
 
 // The debug line: a 1,539 s cycle, every 20 minutes by day, overnight off, 2 Sparrows; its depot
@@ -82,6 +82,34 @@ describe('the day plan (I6)', () => {
       const plan = dayPlan(inputs(timing, { pullOutS: rng.int(0, 900), pullInS: rng.int(0, 900) }));
       expect(busesOut(plan), JSON.stringify(timing)).toBeLessThanOrEqual(Math.min(owned, busesNeeded(cycle, headways)));
     }
+  });
+
+  it('with a round trip per period (item 15), never needs more buses than it owns or its headways need, and loops each bus in its own trip’s round trip (property, 300 timings)', () => {
+    const rng = createRng(15);
+    const minutes = [5, 6, 8, 10, 12, 15, 20, 30, 45, 60];
+    for (let i = 0; i < 300; i++) {
+      const offpeak = rng.pick(minutes) * 60;
+      const headways = { peak: rng.pick(minutes) * 60, offpeak, overnight: rng.next() < 0.3 ? Math.max(offpeak, rng.pick(minutes) * 60) : null };
+      // Traffic stretches the peak's round trip up to a third and shortens the night's.
+      const cycle = rng.int(600, 6_000);
+      const cycles = { peak: Math.round(cycle * (1 + rng.next() / 3)), offpeak: cycle, overnight: Math.round(cycle * (1 - rng.next() / 4)) };
+      const owned = rng.int(1, 10);
+      const timing = { cycle, cycles, headways, buses: owned };
+      const plan = dayPlan(inputs(timing, { pullOutS: rng.int(0, 900), pullInS: rng.int(0, 900) }));
+      expect(busesOut(plan), JSON.stringify(timing)).toBeLessThanOrEqual(Math.min(owned, busesNeeded(cycles, headways)));
+      for (const s of plan.stints) for (let k = 1; k < s.trips.length; k++) expect(s.trips[k]! - s.trips[k - 1]!).toBeGreaterThanOrEqual(tripTimes(plan.inputs, s.trips[k - 1]!).cycle);
+    }
+  });
+
+  it('runs a peak trip out for longer than a midday one, with the same layovers: only the drive changes', () => {
+    const timing = { ...DEBUG, cycles: { peak: 1_641, offpeak: 1_442, overnight: 1_362 } };
+    const peak = tripTimes(inputs(timing), at(8));
+    const midday = tripTimes(inputs(timing), at(12));
+    expect([peak.cycle, midday.cycle]).toEqual([1_641, 1_442]);
+    expect(peak.oneWayS - midday.oneWayS).toBeCloseTo((1_641 - 1_442) / 2, 6);
+    expect(peak.cycle / 2 - peak.oneWayS).toBeCloseTo(midday.cycle / 2 - midday.oneWayS, 6);
+    // The day before's late trips and the day after's early ones take their own periods' too.
+    expect(tripTimes(inputs(timing), at(8) - SECONDS_PER_DAY).cycle).toBe(1_641);
   });
 
   it('adds up however the day is sliced', () => {

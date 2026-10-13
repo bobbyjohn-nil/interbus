@@ -37,9 +37,9 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
   const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents };
   const next = wanted ?? line.headways;
   const model = BUS_MODELS[line.model];
-  const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, buses: line.buses, model }, wanted) : null;
+  const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, cycles: line.cycles, buses: line.buses, model }, wanted) : null;
   const swap = wantedModel
-    ? checkModelChange(fleet, { routeM: line.stopDistM[line.stopDistM.length - 1] ?? 0, stops: line.stops.length, buses: line.buses, model, headways: line.headways }, BUS_MODELS[wantedModel])
+    ? checkModelChange(fleet, { routeM: line.stopDistM[line.stopDistM.length - 1] ?? 0, stops: line.stops.length, rush: line.rush, buses: line.buses, model, headways: line.headways }, BUS_MODELS[wantedModel])
     : null;
   const pick = (period: (typeof PERIODS)[number][0], value: string) => setWanted({ ...next, [period]: value === 'off' ? null : Number(value) * 60 });
   return (

@@ -23,9 +23,16 @@ export interface HeadwaysData {
   readonly overnight: number | null;
 }
 
+/** A line's round trip in each period, seconds (sim/rules/cycle.ts Cycles). */
+export interface CyclesData {
+  readonly peak: number;
+  readonly offpeak: number;
+  readonly overnight: number;
+}
+
 /** What a line's day plan is built from (sim/rules/schedule.ts PlanInputs), as plain data. */
 export interface PlanInputsData {
-  readonly timing: { readonly cycle: number; readonly headways: HeadwaysData; readonly buses: number };
+  readonly timing: { readonly cycle: number; readonly cycles?: CyclesData; readonly headways: HeadwaysData; readonly buses: number };
   readonly oneWayS: number;
   readonly pullOutS: number;
   readonly pullInS: number;
@@ -84,8 +91,11 @@ export interface LineView {
   readonly turnedAwayPerDay: number;
   readonly fullAtMinute: number | null;
   readonly headways: HeadwaysData;
-  /** Its round trip in seconds, for the headway card's bus count. */
+  /** Its round trip in seconds at the day's average traffic and in each period, for the headway card's bus count. */
   readonly cycle: number;
+  readonly cycles: CyclesData;
+  /** How much of the rush its route's streets take (sim/traffic/congestion.ts), for the model card's bus count. */
+  readonly rush: number;
   readonly buses: number;
   /** The one model the line runs (the M3 spec, item 2). */
   readonly model: BusModelId;

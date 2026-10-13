@@ -9,7 +9,7 @@
 // per frame.
 import { DWELL_SEC } from '../config/demand';
 import type { LngLatPair } from '../types';
-import type { DayPlan } from './schedule';
+import { tripTimes, type DayPlan } from './schedule';
 
 /** A line as the vehicle layer draws it: the route through its stops and the drives to and from its depot. */
 export interface LineGeometry {
@@ -107,8 +107,7 @@ function routeMetresAt(g: PreparedGeometry, oneWayS: number, u: number): number 
  * three numbers for each bus the plan can have out (busesOut).
  */
 export function busPositionsAt(plan: DayPlan, g: PreparedGeometry, second: number, out: Float64Array): number {
-  const { oneWayS, pullOutS, timing } = plan.inputs;
-  const half = timing.cycle / 2;
+  const { pullOutS } = plan.inputs;
   const firstStop = g.route.cum[g.geometry.stopAt[0]!]!;
   let n = 0;
   for (const s of plan.stints) {
@@ -128,6 +127,9 @@ export function busPositionsAt(plan: DayPlan, g: PreparedGeometry, second: numbe
     // The trip under way: the last departure at or before now.
     let trip = s.trips[0]!;
     for (const t of s.trips) if (t <= second) trip = t;
+    // Its own period's round trip: a peak run takes longer than a midday one (tripTimes).
+    const { cycle, oneWayS } = tripTimes(plan.inputs, trip);
+    const half = cycle / 2;
     const u = second - trip;
     if (u < 0 || u >= half + oneWayS) placeAt(g.route, firstStop, false, out, at); // waiting at the first stop
     else if (u < oneWayS) placeAt(g.route, routeMetresAt(g, oneWayS, u), false, out, at);

@@ -3,7 +3,7 @@
 // departures and buses for the costs, the forecast and the vehicle layer; the demand model reads the
 // running headways for its waits.
 import { PEAK_WINDOWS, SECONDS_PER_DAY, SERVICE_DAY } from '../config/time';
-import { headwayIn, runningHeadway } from './cycle';
+import { headwayIn, longestCycle, runningHeadway, type Cycles } from './cycle';
 import { periodAt, type Headways, type Period } from './periods';
 
 export interface Window {
@@ -20,15 +20,27 @@ export const DAY_WINDOWS: readonly Window[] = (() => {
   return windows;
 })();
 
-/** What the timetable reads: the line's round trip in seconds, its planned headways and the buses it owns. */
+/**
+ * What the timetable reads: the line's round trip in seconds at the day's average traffic, its
+ * round trip in each period where traffic sets one (rules/cycle.ts; absent, `cycle` all day), its
+ * planned headways and the buses it owns.
+ */
 export interface Timing {
   readonly cycle: number;
+  readonly cycles?: Cycles;
   readonly headways: Headways;
   readonly buses: number;
 }
 
-/** The headway the line runs in a period, or null if it does not run then (off, or no buses). */
+/** The round trip of a departure in `period`. */
+export const cycleIn = (t: Timing, period: Period): number => t.cycles?.[period] ?? t.cycle;
+
+/**
+ * The headway the line runs in a period, or null if it does not run then (off, or no buses). Short
+ * of buses, it spaces its departures by its longest round trip over the buses it has, so even a slow
+ * period's trips running on into the next never need one more (busesNeeded).
+ */
 export function runningHeadwayIn(t: Timing, period: Period): number | null {
   const planned = headwayIn(t.headways, period);
-  return planned === null ? null : runningHeadway(t.cycle, planned, t.buses);
+  return planned === null ? null : runningHeadway(t.cycles ? longestCycle(t.cycles, t.headways) : t.cycle, planned, t.buses);
 }

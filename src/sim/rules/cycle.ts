@@ -3,18 +3,48 @@
 // read it, so a bus loops in exactly the cycle it is billed for (I6). From V1
 // (`Intralines@7af45b1:src/game/sim/demand.worker.ts:211-229`, `src/game/constants.ts:353-361`),
 // without its refuelling term: fuel is out (PLAN §2).
+//
+// Since item 15 a round trip is as long as its period's traffic makes it: the drive at the period's
+// congestion (traffic/congestion.ts) for the streets the line takes, the dwells and layovers as they were.
 import { DWELL_SEC } from '../config/demand';
 import { LAYOVER_SECONDS } from '../config/fleet';
+import { periodCongestion } from '../traffic/congestion';
 import { PERIODS, runsIn, type Headways, type Period } from './periods';
 
 /**
  * Whole seconds for one round trip: the route out and back at `kmh`, a dwell at each stop between
  * the ends in each direction, and a layover at each end.
  */
-export function cycleSeconds(routeM: number, stopCount: number, kmh: number): number {
-  const driveSeconds = (routeM / 1000 / kmh) * 3600;
+export function cycleSeconds(routeM: number, stopCount: number, kmh: number, congestion = 1): number {
+  const driveSeconds = (routeM / 1000 / kmh) * 3600 * congestion;
   const dwellSeconds = Math.max(0, stopCount - 2) * DWELL_SEC;
   return Math.ceil(2 * (driveSeconds + dwellSeconds)) + 2 * LAYOVER_SECONDS;
+}
+
+/** A line's round trip in each period, whole seconds. */
+export type Cycles = Readonly<Record<Period, number>>;
+
+/** The round trip in each period on a route taking `rush` of the rush (its streets' metres-weighted class weight). */
+export function cyclesOf(routeM: number, stopCount: number, kmh: number, rush: number): Cycles {
+  const factor = periodCongestion(rush);
+  return { peak: cycleSeconds(routeM, stopCount, kmh, factor.peak), offpeak: cycleSeconds(routeM, stopCount, kmh, factor.offpeak), overnight: cycleSeconds(routeM, stopCount, kmh, factor.overnight) };
+}
+
+/** The longest round trip of the periods a line runs in (0 if it runs in none). */
+export function longestCycle(cycles: Cycles, h: Headways): number {
+  let most = 0;
+  for (const period of PERIODS) if (headwayIn(h, period) !== null) most = Math.max(most, cycles[period]);
+  return most;
+}
+
+/** The shortest headway a line runs at, or null if it runs in no period. */
+function shortestHeadway(h: Headways): number | null {
+  let least: number | null = null;
+  for (const period of PERIODS) {
+    const headway = headwayIn(h, period);
+    if (headway !== null && (least === null || headway < least)) least = headway;
+  }
+  return least;
 }
 
 /** Buses that keep one headway on a cycle: at least one. */
@@ -28,8 +58,18 @@ export function headwayIn(h: Headways, period: Period): number | null {
   return period === 'overnight' ? h.overnight : h[period];
 }
 
-/** Buses a line needs: the most any period it runs in needs (D7). */
-export function busesNeeded(cycle: number, h: Headways): number {
+/**
+ * Buses a line needs: the most any period it runs in needs (D7). With a round trip per period, its
+ * longest over its shortest headway: no trip outlasts the longest, and no two departures come closer
+ * than the shortest headway, even where a slow period's trips run on into a busier one, so the day
+ * plan never has more buses out (I6). Where one period is both the slowest and the busiest, as the
+ * peak usually is, that is its own count; otherwise it may be one bus more.
+ */
+export function busesNeeded(cycle: number | Cycles, h: Headways): number {
+  if (typeof cycle !== 'number') {
+    const headway = shortestHeadway(h);
+    return headway === null ? 0 : busesForHeadway(longestCycle(cycle, h), headway);
+  }
   let most = 0;
   for (const period of PERIODS) {
     const headway = headwayIn(h, period);

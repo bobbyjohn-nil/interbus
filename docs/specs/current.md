@@ -57,6 +57,9 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 12. **Checklist step 5 and Export session (both done 2026-10-13; a session restarts at a reload):** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
 13. **Transfers (EC-10, K23; done 2026-10-13: riders scanning every line, I5; then one transfer, I4):** one transfer, at a shared stop or two stops within 250 m (a 3-minute walk at the game's 12 min/km), with the boarding stop's tier's penalty; never onto a line the rider could walk to from home, nor off one that reaches work; riders scan every line at a stop, so every line at a 6-line hub boards riders (I5). Fare and subsidy are perceived and paid once per trip, on the first line, so splitting a line raises revenue plus subsidy by at most 1% (I4: it falls 4.8% to 40.6%, measured; V3 measured +69% on V1's model, `Intralines_City@dc63602:studio/DECISIONS.md:252-262`).
 14. **Route edits:** remove a stop (a line keeps ≥2; an orphaned stop refunds half its price, never V2's orphans; done 2026-10-13, on the stop card) and extend from either end (done 2026-10-13, from the line's card). Insert waits for M4.
+15. **Hourly congestion (PLAN cut 8, R10, K06; taken 2026-10-13 while ahead of the calendar; timing done 2026-10-13, ridership next):** one `congestionAt(rush, slot)` in `src/sim/traffic/`, read by both timing and ridership, never by routing.
+    - V2's hourly curve (`Intralines_City_dep@archive/intralines-city-v1:Gaming/src/10-core.js:171`), normalised so the day's trips meet it at 1.00 on average, and V2's class weights (`:177`, `:766-785`): motorway and trunk 1.35, primary and secondary 1.15, tertiary 0.55, every other street 0.18. A line's `rush` is its route's metres-weighted class weight; a ride takes `1 + (curve − 1) × rush` times its average.
+    - Applied per period (D7), at the trip-weighted mean of its half-hours, so a period's trips share one round trip and the bus count stays exact (I6); the demand model takes the same three factors for ride minutes. The trip-weighted mean of every factor is 1.00, so the day's riders keep their calibration.
 
 ## Magnitudes (expected before measuring, [TS-12](../history/lessons-ledger.md); out of range means find out why before tuning)
 
@@ -70,6 +73,9 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | HEADWAY payout over 10 seeds | within ±30% of the median (V2 varied $60k–$480k): **$1.11M–$1.29M over 40 days on 100 seeds, measured** | I11, GD-04 |
 | Days to recover from −$150k at +$1,400 a day | about 107 | Item 10 |
 | Recompute with crowding and transfers on Inner Boston | ≤150 ms p95 (44.6 ms without, measured): **81–96 ms p50 and 131–157 ms p95 with transfers, measured on a noisy container; take Nov 1's on GitHub's runner** | I14 |
+| Congestion by period, primary and secondary streets | peak 1.11×, off-peak 0.89×, overnight 0.81× of the average ride (the curve and weights above) | Item 15 |
+| The debug line (rush 1.07) under congestion | cycle 1,540 s → about 1,640 s at peak, 1,445 s off-peak; still 2 buses at 20 min, so the starting cash holds | Item 15 |
+| Inner Boston's ten corridors (rush 0.62–1.14) at 10/15 min | up to one more bus each at peak; the day's riders within ±3% of today's | Item 15 |
 | Export session for a quarter | the save (≈10 KB) plus a few KB of commands: **2,118 B from founding to day 2 with ten commands, measured** | Item 12 |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
@@ -83,7 +89,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 
 ## Below the cut line (cut in this order if Nov 29 is at risk)
 
-1. Hourly congestion (PLAN cut 8), to 1.1.
+1. Hourly congestion (PLAN cut 8), to 1.1 (taken early as item 15).
 2. Route extend, to M4 with insert.
 3. Save slots: the autosave and export only.
 4. Stop tiers above Shelter; QUIET and LOSS stay.

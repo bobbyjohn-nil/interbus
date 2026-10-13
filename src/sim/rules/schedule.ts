@@ -7,18 +7,19 @@
 //
 // A round trip that leaves the first stop at t runs out to the last stop, lays over there until
 // t + cycle/2, runs back and lays over until t + cycle, when the bus is free for the next departure.
+// Its cycle is its period's (tripTimes): traffic makes a peak trip longer than a midday one.
 // Departures leave every running headway (dayDepartures). A bus pulls out of the depot when no bus
 // is free at the first stop, and goes home when it would otherwise wait there over an hour. The plan repeats daily and is laid over three days, so a
 // trip that starts before midnight, and a bus still out at midnight, carry across.
 import { IDLE_HOME_SECONDS } from '../config/fleet';
 import { SECONDS_PER_DAY } from '../config/time';
 import { periodAt } from './periods';
-import { DAY_WINDOWS, runningHeadwayIn, type Timing } from './timetable';
+import { cycleIn, DAY_WINDOWS, runningHeadwayIn, type Timing } from './timetable';
 
 /** What a plan reads: the line's timetable, its one-way time and the drives to and from its depot, in seconds. */
 export interface PlanInputs {
   readonly timing: Timing;
-  /** First stop to last: the drive plus a dwell at each stop between, seconds (fractional). */
+  /** First stop to last at the timing's `cycle`: the drive plus a dwell at each stop between, seconds (fractional). */
   readonly oneWayS: number;
   /** Depot to first stop, and first stop to depot, seconds; 0 with no depot. */
   readonly pullOutS: number;
@@ -83,9 +84,20 @@ function departures(t: Timing, fromDay: number, toDay: number): number[] {
   return out;
 }
 
+/**
+ * The round trip and the one-way run of a trip leaving the first stop at `departure` (seconds from
+ * the plan's middle midnight): its period's cycle, and the one-way run longer or shorter by half the
+ * difference, since only the drive changes with traffic, never the layovers.
+ */
+export function tripTimes(inputs: PlanInputs, departure: number): { cycle: number; oneWayS: number } {
+  const { timing, oneWayS } = inputs;
+  if (!timing.cycles) return { cycle: timing.cycle, oneWayS };
+  const cycle = cycleIn(timing, periodAt(((departure % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY));
+  return { cycle, oneWayS: oneWayS + (cycle - timing.cycle) / 2 };
+}
+
 export function dayPlan(inputs: PlanInputs): DayPlan {
-  const { timing, oneWayS, pullOutS, pullInS } = inputs;
-  const cycle = timing.cycle;
+  const { timing, pullOutS, pullInS } = inputs;
   const trips = departures(timing, -1, 2);
   // A bus waits at the first stop for its next departure, unless that is over an hour off, or it
   // has no depot to go to.
@@ -94,7 +106,8 @@ export function dayPlan(inputs: PlanInputs): DayPlan {
   const stints: Stint[] = [];
   const close = (s: (typeof open)[number]) => {
     const last = s.trips[s.trips.length - 1]!;
-    const lastArrival = last + cycle / 2 + oneWayS;
+    const times = tripTimes(inputs, last);
+    const lastArrival = last + times.cycle / 2 + times.oneWayS;
     stints.push({ leaveDepot: s.leaveDepot, trips: s.trips, lastArrival, arriveDepot: lastArrival + pullInS });
   };
   for (const t of trips) {
@@ -104,6 +117,7 @@ export function dayPlan(inputs: PlanInputs): DayPlan {
     // The bus free longest takes the departure; none free means one more pulls out.
     let pick = -1;
     for (let i = 0; i < open.length; i++) if (open[i]!.free <= t && (pick < 0 || open[i]!.free < open[pick]!.free)) pick = i;
+    const cycle = tripTimes(inputs, t).cycle;
     if (pick >= 0) {
       open[pick]!.trips.push(t);
       open[pick]!.free = t + cycle;
@@ -139,10 +153,9 @@ export interface HourOfPlan {
 }
 
 export function hourOfPlan(plan: DayPlan, from: number, to: number): HourOfPlan {
-  const half = plan.inputs.timing.cycle / 2;
   const within = (t: number) => t >= from && t < to;
   let legs = 0;
-  for (const t of plan.trips) legs += Number(within(t)) + Number(within(t + half));
+  for (const t of plan.trips) legs += Number(within(t)) + Number(within(t + tripTimes(plan.inputs, t).cycle / 2));
   let serviceS = 0;
   let pullOuts = 0;
   let pullIns = 0;

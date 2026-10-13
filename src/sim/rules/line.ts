@@ -12,7 +12,7 @@ export { BUS_MODELS, MODEL_IDS, type BusModel, type BusModelId } from '../config
 import { MIN_LINE_STOPS } from '../config/lines';
 import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
-import { busesNeeded, cycleSeconds } from './cycle';
+import { busesNeeded, cycleSeconds, cyclesOf, type Cycles } from './cycle';
 import { checkHeadways, type HeadwayRefusal, type Headways } from './periods';
 import { spendableCents } from './credit';
 import { checkStopSite, type StopPick, type StopSiteContext } from './stop';
@@ -24,9 +24,15 @@ export interface FleetContext {
   readonly cashCents: number;
 }
 
+/** A leg as the line drives it: street metres, and those metres weighted by how much of the rush each street takes. */
+export interface Leg {
+  readonly m: number;
+  readonly rushM: number;
+}
+
 export interface LineDraftContext extends StopSiteContext, FleetContext {
-  /** Street metres from one stop to the next as the line drives it, or null if no street joins them. */
-  readonly legM: (from: XY, to: XY) => number | null;
+  /** The street from one stop to the next as the line drives it, or null if no street joins them. */
+  readonly leg: (from: XY, to: XY) => Leg | null;
 }
 
 /** A draft as far as it resolves: the card shows it even when the verdict is a refusal. */
@@ -35,7 +41,11 @@ export interface LineDraft {
   /** Street metres from the first stop to each stop. */
   readonly stopDistM: readonly number[];
   readonly routeM: number;
+  /** The round trip at the day's average traffic, and in each period (rules/cycle.ts). */
   readonly cycle: number;
+  readonly cycles: Cycles;
+  /** How much of the rush the route's streets take (traffic/congestion.ts). */
+  readonly rush: number;
   readonly buses: number;
   readonly newStops: number;
   readonly stopsCents: number;
@@ -58,6 +68,7 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   const stops: StopPick[] = [];
   const ids: number[] = [];
   const stopDistM: number[] = [];
+  let rushM = 0;
   const placed: { id: number; at: XY }[] = [];
   let problem: { reason: 'no_street_near' | 'stop_twice' | 'no_route'; at: number; limitM?: number } | null = null;
   for (let k = 0; k < clicks.length; k++) {
@@ -73,25 +84,28 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
       problem = { reason: 'stop_twice', at: k };
       break;
     }
-    const leg = stops.length ? ctx.legM(stops[stops.length - 1]!.at, pick.at) : 0;
+    const leg = stops.length ? ctx.leg(stops[stops.length - 1]!.at, pick.at) : { m: 0, rushM: 0 };
     if (leg === null) {
       problem = { reason: 'no_route', at: k };
       break;
     }
-    stopDistM.push((stopDistM[stopDistM.length - 1] ?? 0) + leg);
+    stopDistM.push((stopDistM[stopDistM.length - 1] ?? 0) + leg.m);
+    rushM += leg.rushM;
     stops.push(pick);
     ids.push(id);
     if (pick.kind === 'new') placed.push({ id, at: pick.at });
   }
   const routeM = stopDistM[stopDistM.length - 1] ?? 0;
   const enough = stops.length >= MIN_LINE_STOPS;
+  const rush = routeM > 0 ? rushM / routeM : 0;
   const cycle = enough ? cycleSeconds(routeM, stops.length, model.kmh) : 0;
+  const cycles = enough ? cyclesOf(routeM, stops.length, model.kmh, rush) : { peak: 0, offpeak: 0, overnight: 0 };
   const headwaysOk = checkHeadways(headways);
-  const buses = enough && headwaysOk.ok ? busesNeeded(cycle, headways) : 0;
+  const buses = enough && headwaysOk.ok ? busesNeeded(cycles, headways) : 0;
   const newStops = stops.filter((s) => s.kind === 'new').length;
   const stopsCents = newStops * STOP_COST_CENTS;
   const busesCents = buses * model.priceCents;
-  const draft: LineDraft = { stops, stopDistM, routeM, cycle, buses, newStops, stopsCents, busesCents, priceCents: stopsCents + busesCents };
+  const draft: LineDraft = { stops, stopDistM, routeM, cycle, cycles, rush, buses, newStops, stopsCents, busesCents, priceCents: stopsCents + busesCents };
 
   if (ctx.depots === 0) return refuse('needs_depot', { draft });
   if (model.locked) return refuse('model_locked', { draft });
@@ -106,15 +120,15 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
 
 export type HeadwayChangeRefusal = HeadwayRefusal | 'depot_full' | 'insufficient_funds';
 
-/** A headway change on a line with `cycle` and `buses` of `model`: the buses it needs, how many to buy, and their price. */
+/** A headway change on a line with round trips `cycles` (or one `cycle` all day) and `buses` of `model`: the buses it needs, how many to buy, and their price. */
 export function checkHeadwayChange(
   ctx: FleetContext,
-  line: { readonly cycle: number; readonly buses: number; readonly model: BusModel },
+  line: { readonly cycle: number; readonly cycles?: Cycles | undefined; readonly buses: number; readonly model: BusModel },
   headways: Headways,
 ): Result<{ needed: number; extra: number; priceCents: number }, HeadwayChangeRefusal, { limitSeconds?: number; room?: number; shortCents?: number }> {
   const valid = checkHeadways(headways);
   if (!valid.ok) return valid;
-  const needed = busesNeeded(line.cycle, headways);
+  const needed = busesNeeded(line.cycles ?? line.cycle, headways);
   const extra = Math.max(0, needed - line.buses);
   const room = depotRoom(ctx);
   if (extra > room) return refuse('depot_full', { room });
@@ -132,12 +146,12 @@ export type ModelChangeRefusal = 'same_model' | 'model_locked' | 'depot_full' | 
  */
 export function checkModelChange(
   ctx: FleetContext,
-  line: { readonly routeM: number; readonly stops: number; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
+  line: { readonly routeM: number; readonly stops: number; readonly rush?: number; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
   to: BusModel,
 ): Result<{ needed: number; buyCents: number; saleCents: number }, ModelChangeRefusal, { room?: number; shortCents?: number }> {
   if (to.id === line.model.id) return refuse('same_model');
   if (to.locked) return refuse('model_locked');
-  const needed = busesNeeded(cycleSeconds(line.routeM, line.stops, to.kmh), line.headways);
+  const needed = busesNeeded(cyclesOf(line.routeM, line.stops, to.kmh, line.rush ?? 0), line.headways);
   const room = depotRoom(ctx) + line.buses;
   if (needed > room) return refuse('depot_full', { room });
   const buyCents = needed * to.priceCents;

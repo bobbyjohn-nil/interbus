@@ -20,7 +20,7 @@ export function setModel(
   const plan = service.plan;
   const change = checkModelChange(
     fleetContext(world),
-    { routeM: plan.stopDistM[plan.stopDistM.length - 1]!, stops: plan.stops.length, buses: line.buses, model: BUS_MODELS[line.model], headways: line.headways },
+    { routeM: plan.stopDistM[plan.stopDistM.length - 1]!, stops: plan.stops.length, rush: plan.rush ?? 0, buses: line.buses, model: BUS_MODELS[line.model], headways: line.headways },
     BUS_MODELS[model],
   );
   if (!change.ok) return change;

@@ -2,12 +2,12 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` ca52138 (the heights join's tools), with the PR that points `cities/index.json` at the joined map file and credits Overture in review: step 7, `city-boston-r1`, is then done, and M3's items are all in but week 5's presentation items.
+**Updated:** 2026-10-13, at `main` 4224828 (buildings at their measured heights): M3's items are all in but week 5's presentation items, and hourly congestion (the spec's item 15, PLAN cut 8) is under way, its timing half in review and its ridership half next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ca52138. Deploy preview run 38419560692's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
-  - Boston with no transit on the map, flat or tilted with `T`;
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4224828. Deploy preview run 38421894933's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+  - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
   - the founding card, and the checklist chip naming the next step;
@@ -205,6 +205,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
     - [x] **Remove a stop** (item 14; 2026-10-13): the stop card takes it off each line, a line keeping two; a stop no other line calls at comes down for half of what it and its fittings cost, as a Refunds row, and the undo chip puts it back. Symphony off the debug line leaves 311.8 trips a day of 614.4 (DECISIONS, Measured).
     - [x] **Extend a line from either end** (item 14; 2026-10-13): Extend from its first or last stop in Lines, clicks beyond it, the draft card pricing the new stops and the buses the longer round trip needs beyond the line's own, on the line rule over the whole line; Extend buys them, and undo takes it back. A stop beyond Longwood costs $4,000 and no bus, and the debug line goes from 614.4 to 638.4 trips a day (DECISIONS, Measured).
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
+13. [ ] **Hourly congestion** (the spec's item 15, PLAN cut 8; taken early, 2026-10-13): one `congestionAt` in `src/sim/traffic/`, V2's curve and class weights, per period.
+    - [ ] **Timing** (in review): each line's round trip per period from its route's streets, its buses on the longest round trip over the shortest headway, each trip and each bus on the map at its own period's pace. The debug line runs 1,641 s at peak and 1,442 s midday against 1,540 s, still 2 buses at 20 minutes; Inner Boston's ten corridors need 68 buses at 10/15 minutes against 65 (DECISIONS, Measured).
+    - [ ] **Ridership:** the demand model's ride minutes at each period's factor, the reference loop exact per period and the fast loop correcting each option's ride, within the recompute budget.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 
