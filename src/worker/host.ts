@@ -3,15 +3,17 @@
 // while time runs, none while paused (I14). The page never computes a game number (AR-04).
 // Plain logic with an injected clock, so tests drive it without a real Worker.
 import { addDebugLine } from '../sim/commands/debugLine';
+import { placeDepot } from '../sim/commands/placeDepot';
 import { loadCity, type City } from '../sim/city/simfile';
 import { STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { peopleWithinWalk } from '../sim/rules/catchment';
+import { checkDepotSite } from '../sim/rules/depot';
 import { newGame } from '../sim/state';
 import { simStep } from '../sim/step';
-import type { Dots, FromWorker, LineView, Snapshot, Speed, ToWorker } from '../sim/types';
-import { nearestNode, type World, createWorld } from '../sim/world';
+import type { DepotSiteView, Dots, FromWorker, LineView, LngLatPair, Snapshot, Speed, ToWorker } from '../sim/types';
+import { createWorld, depotSiteContext, nearestNode, type World } from '../sim/world';
 
 /**
  * Game-seconds per real second at each speed. Speed 1 is about 10 game-minutes a second, so the
@@ -57,6 +59,10 @@ function dotsOf(city: City): Dots {
   };
 }
 
+function depotLandOf(city: City): LngLatPair[][] {
+  return city.depotLand.map((ring) => ring.map((p) => [...toLngLat(city.frame, p)] as LngLatPair));
+}
+
 export function createHost(post: (message: FromWorker) => void): Host {
   let world: World | null = null;
   let speed: Speed = 0;
@@ -84,6 +90,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       ridersPerDay: w.assignment.tripsPerDay,
       lines,
       linesVersion,
+      depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
     };
   };
 
@@ -95,7 +102,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
         world = createWorld(loaded.city, newGame(message.city, { name: 'Your company', colour: '#c0392b' }, message.seed));
         speed = 0;
         refreshLines();
-        post({ type: 'ready', dots: dotsOf(loaded.city), snapshot: snapshot() });
+        post({ type: 'ready', dots: dotsOf(loaded.city), depotLand: depotLandOf(loaded.city), snapshot: snapshot() });
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
@@ -110,6 +117,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'probe') {
         post({ type: 'probe', id: message.id, people: peopleWithinWalk(world.city, toXY(world.city.frame, message.at)) });
+      } else if (message.type === 'depot-site') {
+        const verdict = checkDepotSite(depotSiteContext(world), toXY(world.city.frame, message.at));
+        const site: DepotSiteView = verdict.ok
+          ? { ok: true, streetM: Math.round(verdict.streetM), priceCents: verdict.priceCents }
+          : { ok: false, reason: verdict.reason, ...(verdict.limitM === undefined ? {} : { limitM: verdict.limitM }), ...(verdict.nearestM === undefined ? {} : { nearestM: Math.round(verdict.nearestM) }) };
+        post({ type: 'depot-site', id: message.id, site });
+      } else if (message.type === 'place-depot') {
+        const result = placeDepot(world, message.at);
+        if (!result.ok) post({ type: 'refused', command: message.type, reason: result.reason, ...(result.shortCents === undefined ? {} : { shortCents: result.shortCents }) });
+        post({ type: 'snapshot', snapshot: snapshot() });
       }
     },
     tick(nowMs) {

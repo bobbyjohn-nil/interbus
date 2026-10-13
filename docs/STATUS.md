@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 3c1abf5, with depot land and gateways in review.
+**Updated:** 2026-10-13, at `main` ed95d7b, with depots in the sim in review.
 
 ## Live now
 
@@ -75,7 +75,7 @@ Per-period crowding (K27) and visitors, the last two items below M1's cut line, 
 
 The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a small pull request:
 1. [x] **The cycle function** (2026-10-13, `src/sim/rules/cycle.ts`): a round trip, the buses each running period needs, the headway a short line runs, and the founding recipe counted with it (two Sparrows; $427,200 at k = 1.2; D7's clarification). The Sparrow is a config row in `src/sim/config/fleet.ts`.
-2. [ ] **Depots in the sim:** the placement predicate, the place command, the price ladder, upkeep, and save format 3.
+2. [x] **Depots in the sim** (2026-10-13): the siting rule (`src/sim/rules/depot.ts`: depot land, a street node within 400 m, 120 m from other depots, five at most), the place command, V1's price ladder ($150k to $760k), save format 3, and the worker's `depot-site` and `place-depot` messages with depot land for the tint. Upkeep is a config row charged with the costs (step 3); the card and tint draw with the line tool (step 5).
 3. [ ] **Costs as ledger rows** (running, wages, depot upkeep, deadhead) and the line inspector's forecast, equal to the cent (I1, I6).
 4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze. Depot land, gateways and G5–G7 are done (2026-10-13; DECISIONS, Measured); G9 (load ≤300 ms) and G10 (no transit feature, including in the map file) remain.
 5. [ ] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.

@@ -5,6 +5,7 @@ import { assign, type Assignment, type LinePlan } from './demand/assign';
 import { SpatialGrid, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
+import type { DepotSiteContext } from './rules/depot';
 import type { Line, SimState } from './state';
 
 export interface World {
@@ -40,6 +41,18 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
     dist.push(dist[k - 1]! + path.dm / 10);
   }
   return { id: line.id, stops: xy, stopDistM: dist, headways: line.headways, fareCents: line.fareCents };
+}
+
+/** What the depot rule reads for this world: its depot land, street nodes and the depots built (GD-05). */
+export function depotSiteContext(world: Pick<World, 'nodes' | 'city' | 'state'>): DepotSiteContext {
+  return {
+    land: world.city.depotLand,
+    nearestNode: (at, withinM) => {
+      const hit = world.nodes.nearest(at, withinM);
+      return hit ? { node: hit.item, distM: hit.distM } : null;
+    },
+    depots: world.state.depots.map((d) => toXY(world.city.frame, [d.lon, d.lat])),
+  };
 }
 
 export function recompute(world: World): void {

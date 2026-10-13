@@ -67,6 +67,25 @@ describe('the sim host', () => {
     expect(probe.people).toBeLessThan(30_000);
   });
 
+  it('sends depot land, answers the depot card with the rule, and places a depot (M2 item 2)', () => {
+    const { host, last } = started();
+    const land = last('ready')!.depotLand;
+    expect(land).toHaveLength(3);
+    // A point inside the largest parcel: halfway from its first corner to the middle of its corners.
+    const ring = [...land].sort((a, b) => b.length - a.length)[0]!;
+    const mid = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
+    const at: [number, number] = [(ring[0]![0] + mid[0]!) / 2, (ring[0]![1] + mid[1]!) / 2];
+    host.handle({ type: 'depot-site', id: 3, at });
+    expect(last('depot-site')).toMatchObject({ id: 3, site: { ok: true, priceCents: 15_000_000 } });
+    host.handle({ type: 'place-depot', at });
+    expect(last('snapshot')!.snapshot.depots).toEqual([{ id: 1, at }]);
+    expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000);
+    host.handle({ type: 'depot-site', id: 4, at });
+    expect(last('depot-site')).toMatchObject({ id: 4, site: { ok: false, reason: 'too_close_to_depot', limitM: 120 } });
+    host.handle({ type: 'place-depot', at: [-71.0776, 42.3496] }); // Copley Square
+    expect(last('refused')).toEqual({ type: 'refused', command: 'place-depot', reason: 'not_depot_land' });
+  });
+
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
     createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1 });

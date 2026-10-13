@@ -69,7 +69,7 @@ describe('saves', () => {
 
   it('holds intent only: no demand, geometry, camera or theme (K12)', () => {
     expect(Object.keys((SAVE_SCHEMA as { object: object }).object).sort()).toEqual(
-      ['city', 'clock', 'company', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
+      ['city', 'clock', 'company', 'depots', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
     );
   });
 });
@@ -98,24 +98,33 @@ describe('the schema hash (SC-10)', () => {
 describe('I7: create, delete, save and load never reuse an id', () => {
   it('holds over a long random session with reloads', () => {
     let state = playedGame();
-    const issued = { stop: new Set<number>(state.stops.map((s) => s.id)), line: new Set<number>(state.lines.map((l) => l.id)) };
+    const issued = { stop: new Set<number>(state.stops.map((s) => s.id)), line: new Set<number>(state.lines.map((l) => l.id)), depot: new Set<number>() };
     for (let i = 0; i < 600; i++) {
       const roll = state.rng.next();
-      if (roll < 0.35) {
+      if (roll < 0.3) {
         const id = addStop(state, -71.1 + state.rng.next() * 0.03, 42.34 + state.rng.next() * 0.02);
         expect(issued.stop.has(id), `stop ${id} reissued`).toBe(false);
         issued.stop.add(id);
-      } else if (roll < 0.5 && state.stops.length >= 2) {
+      } else if (roll < 0.42 && state.stops.length >= 2) {
         const id = addLine(state, state.stops.slice(0, 2).map((s) => s.id));
         expect(issued.line.has(id), `line ${id} reissued`).toBe(false);
         issued.line.add(id);
-      } else if (roll < 0.7 && state.stops.length > 0) {
+      } else if (roll < 0.5) {
+        const [id, next] = mint(state.nextIds, 'depot');
+        state.nextIds = next;
+        state.depots.push({ id, lon: -71.1 + state.rng.next() * 0.03, lat: 42.34 });
+        expect(issued.depot.has(id), `depot ${id} reissued`).toBe(false);
+        issued.depot.add(id);
+      } else if (roll < 0.62 && state.stops.length > 0) {
         const gone = state.rng.pick(state.stops).id;
         state.stops = state.stops.filter((s) => s.id !== gone);
         for (const line of state.lines) line.stopIds = line.stopIds.filter((id) => id !== gone);
-      } else if (roll < 0.8 && state.lines.length > 0) {
+      } else if (roll < 0.7 && state.lines.length > 0) {
         const gone = state.rng.pick(state.lines).id;
         state.lines = state.lines.filter((l) => l.id !== gone);
+      } else if (roll < 0.76 && state.depots.length > 0) {
+        const gone = state.rng.pick(state.depots).id;
+        state.depots = state.depots.filter((d) => d.id !== gone);
       } else {
         const { result } = decode(encode(state, BUILD), CITY);
         if (result.outcome !== 'ok') throw new Error(`${result.outcome}: ${'problem' in result ? result.problem : ''}`);
@@ -123,6 +132,7 @@ describe('I7: create, delete, save and load never reuse an id', () => {
       }
     }
     expect(issued.stop.size).toBeGreaterThan(100);
+    expect(issued.depot.size).toBeGreaterThan(20);
   });
 });
 
