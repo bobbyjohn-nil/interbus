@@ -13,7 +13,7 @@ import type { ContractView, DepotView, Dots, EventView, LineDraftView, LineView,
 import { Fleet } from './fleet';
 import { addOverlays, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, setContracts, setDepotLand, setDepots, setDots, setDraft, setEvent, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
-import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
+import { BUILDINGS_2D, BUILDINGS_3D, buildingOpacity, buildingVisibility, cameraFor, CROSS_FADE_MS, draggedPitch, MAX_PITCH, MIN_ZOOM, settled, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
 import { LOW_GRAPHICS_FPS, type GraphicsRung } from './gpu';
 import { createVehicleLayer } from './vehicles';
@@ -32,8 +32,10 @@ function pmtilesProtocol(): Protocol {
 export interface MountedMap {
   readonly map: MapLibreMap;
   readonly tileReads: 'range' | 'whole';
-  /** Tilts or flattens the board (tilt.ts); call it only once the style has loaded. */
-  setMode(mode: ViewMode): void;
+  /** Tilts or flattens the board (tilt.ts), to `pitch` or the mode's own; call it only once the style has loaded. Low graphics stays flat. */
+  setMode(mode: ViewMode, pitch?: number): void;
+  /** The mode a right-drag or a two-finger pitch settled on, when it changed (tilt.ts settled). */
+  onModeChange(listener: (mode: ViewMode) => void): void;
   /** The game's layers (overlays.ts); safe to call before the style loads. */
   setDots(dots: Dots): void;
   setLines(lines: readonly LineView[], stops: readonly StopView[]): void;
@@ -103,7 +105,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     maxPitch: MAX_PITCH,
     dragRotate: false,
     pitchWithRotate: false,
-    touchPitch: false,
+    // Two fingers pitch the board; a right-drag does too, below (the M5 spec, item 6). Low graphics stays flat.
+    touchPitch: rung !== 'low',
     attributionControl: false,
     ...(rung === 'low' ? { pixelRatio: 1 } : {}),
   });
@@ -128,15 +131,68 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const tilt = (event as { [TILT_MOVE]?: ViewMode })[TILT_MOVE];
     if (tilt === '3d' && mode === '3d') map.setMinZoom(MIN_ZOOM['3d']);
   });
-  const setMode = (next: ViewMode) => {
-    if (next === mode) return;
+  // The buildings cross-fade once per mode change, never per frame (RN-04): both layers draw while
+  // MapLibre runs the opacity transitions, then the faded one stops. Reduced motion swaps at once.
+  let fadeTimer: number | undefined;
+  const fadeBuildings = (next: ViewMode) => {
+    const duration = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : CROSS_FADE_MS;
+    const opacity = buildingOpacity(next);
+    window.clearTimeout(fadeTimer);
+    map.setLayoutProperty(BUILDINGS_2D, 'visibility', 'visible');
+    map.setLayoutProperty(BUILDINGS_3D, 'visibility', 'visible');
+    map.setPaintProperty(BUILDINGS_2D, 'fill-opacity-transition', { duration, delay: 0 });
+    map.setPaintProperty(BUILDINGS_3D, 'fill-extrusion-opacity-transition', { duration, delay: 0 });
+    map.setPaintProperty(BUILDINGS_2D, 'fill-opacity', opacity[BUILDINGS_2D]);
+    map.setPaintProperty(BUILDINGS_3D, 'fill-extrusion-opacity', opacity[BUILDINGS_3D]);
+    fadeTimer = window.setTimeout(() => {
+      for (const [id, visibility] of Object.entries(buildingVisibility(next))) map.setLayoutProperty(id, 'visibility', visibility);
+    }, duration);
+  };
+  const setMode = (next: ViewMode, pitch?: number) => {
+    if (rung === 'low' && next === '3d') return;
+    if (next === mode) {
+      if (pitch !== undefined) map.easeTo({ pitch, duration: 300 });
+      return;
+    }
     mode = next;
-    // Once per mode change, never per frame (RN-04); week 10 cross-fades instead.
-    for (const [id, visibility] of Object.entries(buildingVisibility(next))) map.setLayoutProperty(id, 'visibility', visibility);
+    fadeBuildings(next);
     map.setMinZoom(MIN_ZOOM['2d']);
     // MapLibre jumps instead of easing when the system asks for reduced motion.
-    map.easeTo({ ...cameraFor(next, map.getZoom()), duration: 600 }, { [TILT_MOVE]: next });
+    map.easeTo({ ...cameraFor(next, map.getZoom()), ...(pitch === undefined ? {} : { pitch }), duration: 600 }, { [TILT_MOVE]: next });
   };
+
+  // A right-drag pitches the board, and a two-finger pitch too; released, either settles: flat below
+  // 12°, else 3D at 25–60° (tilt.ts). A change of mode is reported so the chip follows.
+  let modeListener: ((mode: ViewMode) => void) | null = null;
+  const settle = (pitch: number) => {
+    const to = settled(pitch);
+    const changed = to.mode !== mode;
+    setMode(to.mode, to.pitch);
+    if (changed) modeListener?.(to.mode);
+  };
+  let drag: { y: number; pitch: number } | null = null;
+  const box = map.getCanvasContainer();
+  const onContextMenu = (e: MouseEvent) => e.preventDefault();
+  const onDragStart = (e: MouseEvent) => {
+    if (e.button !== 2 || rung === 'low') return;
+    e.preventDefault();
+    drag = { y: e.clientY, pitch: map.getPitch() };
+  };
+  const onDragMove = (e: MouseEvent) => {
+    if (drag) map.setPitch(draggedPitch(drag.pitch, drag.y, e.clientY));
+  };
+  const onDragEnd = (e: MouseEvent) => {
+    if (!drag || e.button !== 2) return;
+    drag = null;
+    settle(map.getPitch());
+  };
+  box.addEventListener('contextmenu', onContextMenu);
+  box.addEventListener('mousedown', onDragStart);
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragEnd);
+  map.on('pitchend', (e) => {
+    if (e.originalEvent && 'touches' in e.originalEvent) settle(map.getPitch());
+  });
 
   // The game's layers go on once the style has loaded; data set before then waits.
   let loaded = false;
@@ -205,6 +261,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     map,
     tileReads: file.kind,
     setMode,
+    onModeChange: (listener) => void (modeListener = listener),
     setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
     setLines: (lines, stops) => {
       fleet.setLines(lines);
@@ -227,6 +284,9 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     onClick: (listener) => void (click = listener),
     dispose: () => {
       window.clearTimeout(trailing);
+      window.clearTimeout(fadeTimer);
+      window.removeEventListener('mousemove', onDragMove);
+      window.removeEventListener('mouseup', onDragEnd);
       map.remove();
     },
   };

@@ -110,6 +110,8 @@ test.describe('medals', () => {
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByTestId('undo')).toBeVisible();
     await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 10_000 });
-    expect(await chromeShare(page)).toBeLessThanOrEqual(0.06);
+    const rest = await chromeShare(page);
+    test.info().annotations.push({ type: 'chrome %', description: JSON.stringify({ restLate: Math.round(rest * 10_000) / 100, viewport: page.viewportSize() }) });
+    expect(rest).toBeLessThanOrEqual(0.06);
   });
 });

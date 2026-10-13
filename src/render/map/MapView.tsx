@@ -141,6 +141,8 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         if (disposed) return mounted.dispose();
         dispose = mounted.dispose;
         mountedRef.current = mounted;
+        // A right-drag or a two-finger pitch that settles in the other mode moves the chip with it.
+        mounted.onModeChange((next) => setMode(next));
         // A context lost and not given back leaves a blank board: say so, with Reload (gpu.ts).
         mounted.map.on('webglcontextlost', () => setStatus((now) => (now === 'replaced' ? now : 'lost')));
         mounted.map.on('webglcontextrestored', () => setStatus((now) => (now === 'lost' ? 'ready' : now)));
@@ -270,6 +272,16 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         <p className="map-notice top" role="status" data-testid="flat-notice">
           Low graphics: the map stays flat on this computer.
         </p>
+      ) : null}
+      {status === 'ready' ? (
+        // The 2D/3D chip (the M5 spec, item 6; PLAN §8 counts it in I13): `T` and a right-drag do the same.
+        <div className="mode-chip" role="group" aria-label="View" data-chrome="rest" data-testid="mode-chip" title={rung === 'low' ? 'Low graphics: the map stays flat on this computer' : 'Flat or tilted (T, or drag with the right button)'}>
+          {(['2d', '3d'] as const).map((m) => (
+            <button key={m} type="button" aria-pressed={mode === m} disabled={rung === 'low'} onClick={() => setMode(m)}>
+              {m.toUpperCase()}
+            </button>
+          ))}
+        </div>
       ) : null}
       {fps ? (
         <p className="fps" data-testid="fps">

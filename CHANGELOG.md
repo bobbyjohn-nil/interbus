@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The 2D/3D chip, in the corner above the map credits: flat or tilted at a click, as T does. Drag with the right mouse button (or two fingers) to tilt the map as far as you like between 25° and 60°; let go below 12° and it snaps flat. The buildings fade between flat and standing instead of jumping. In Low graphics the chip stays at 2D and says why.
 - Low graphics: on a computer that draws the map in software, the game keeps the map flat and its buses at a steady 30 frames a second or fewer, and says so when you press T. Without graphics acceleration at all, a card asks you to turn it on in the browser's settings, and your game, Saves and Export still work. If the browser takes the map's graphics away mid-game, a card says so with Reload. Add ?fps to the address to see the frame rate.
 - Home: the game opens on a home screen over the paused map. Continue goes on with the game you were playing, named by its company, day and cash; New game starts a new company, asking first when it would replace that game (your slots stay); Saves opens your slots. Back to Home, in Saves, pauses and returns there.
 - The save list: each slot in Saves names its buses beside its day, company, cash and lines, and when you saved it by your own clock. A slot can be deleted (Saves asks first), and a save set aside by a new build is listed there until you export it as a file or delete it.
@@ -68,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The dock's buttons are a little slimmer, to leave room on screen for the 2D/3D chip.
 - Changing a line while its buses run no longer throws them across the map: a bus already on its way finishes its trip on the route and the times it set out with, and the next departures follow the change as buses come free. That holds for taking a stop off, extending a line, a new headway or bus model, a new depot, and roadworks starting or ending.
 - A contract nobody takes is withdrawn after 10 days, and a new offer takes its place.
 - Riders a day, in the chips along the top, counts each trip once, even when it rides two lines.
