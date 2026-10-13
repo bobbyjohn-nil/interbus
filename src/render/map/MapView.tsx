@@ -5,7 +5,7 @@ import type { ContractView, DepotView, Dots, EventView, LineDraftView, LineView,
 import type { MapHit, MountedMap } from './loadMap';
 
 export type { MapHit };
-import { afterIdle, afterMountError, afterTimeout, type MapStatus as Status } from './status';
+import { afterIdle, afterMountError, afterTimeout, MAP_READY_MARK, type MapStatus as Status } from './status';
 import { FpsMeter, probeWebGL, rungFor, type GraphicsRung } from './gpu';
 import { buildingsLayer, isTiltKey, toggled, type ViewMode } from './tilt';
 
@@ -177,7 +177,10 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
           const drawn = mounted.map.queryRenderedFeatures().length;
           setFeatures(drawn);
           setStatus((now) => afterIdle(now, drawn));
-          if (drawn > 0) ready.current = mounted;
+          if (drawn > 0) {
+            ready.current = mounted;
+            performance.mark(MAP_READY_MARK);
+          }
         });
       })
       .catch((error: unknown) => {
