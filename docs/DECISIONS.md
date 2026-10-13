@@ -251,6 +251,28 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench day`; `src/sim/rules/schedule.test.ts`, `position.test.ts`): **one day plan per line now drives both the costs and the buses' positions.** The plan holds every departure, each departure's round trip and each bus's stint (`src/sim/rules/schedule.ts`).
+  - **Why.** The first cost model counted departures from each end of a line on separate clocks, each period window starting its own. Drawn as buses, a departure from the far end need not find a bus there, so the clocks could need more buses than the cycle function counts, and nothing tied the drawing to the bill.
+  - **How the plan runs:**
+    - Departures leave the first stop every running headway, each period its own. One clock runs through the day, and a shorter peak starts on time when the spacing allows.
+    - Each round trip runs out, lays over at the far end until half the cycle, runs back and lays over home. A bus loops in exactly the cycle it is billed for (I6).
+    - A bus pulls out when no bus is free at the first stop. It waits there unless its next departure is over an hour off, and goes home after its last trip.
+    - A 300-case property test holds the buses out at once to at most what the line owns and its headways need. It found the day's last departure crowding the next day's 00:00 when overnight runs, and that is fixed.
+  - **What the costs bill:**
+    - running per leg begun in the hour;
+    - wages for each bus from its first departure to its last arrival;
+    - deadhead per drive from the depot to the first stop and back.
+  - **The debug line's whole day** (day 2), parked 1,865 m out and 2,076 m back:
+
+    | Item | Amount |
+    |---|---|
+    | Running | $362.52, from 57 departures out and back; the spec's estimate was ≈$363 |
+    | Wages | $972.11, for 37.4 bus-hours |
+    | Deadhead | $15.00 |
+    | Upkeep | $300.00 |
+    | Fares and subsidy | $3,060.75 |
+    | **Net** | **+$1,411.12** |
+  - **busPositionsAt** reads the same plan. Sampled every second through the day, no bus moves more than 7.3 m; 26 km/h is 7.22 m a second. A bus pulls out before 05:00, dwells 20 s at each stop between the ends, and drives home after its last trip, fixing V3's three bugs.
 - **2026-10-13** (`npm run bench load`; City sim file runs 38358457962 and 38358460209 at b730673, check only): **G9 passes on both extents.** A sim.json's load is its text to a world ready to play, as the worker does on init.
   - **On GitHub's runner,** Inner Boston's 2,033,387 B file first-loads in 130.0 ms: 86.2 ms to parse and check it, and 43.8 ms for the street grid, router, commuter matrix and first recompute. Its warm median is 56.4 ms. Mini-Boston first-loads in 46.2 ms.
   - **On this container,** Inner Boston took 86–134 ms.

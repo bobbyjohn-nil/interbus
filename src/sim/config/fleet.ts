@@ -20,3 +20,6 @@ export const LAYOVER_SECONDS = 240;
 
 /** A driver's wage for each hour a bus is in service (V1 `DRIVER_WAGE_PER_HOUR`, constants.ts:110-113); a parked bus costs only its depot's upkeep. */
 export const WAGE_CENTS_PER_HOUR = 2_600;
+
+/** A bus with longer than this to wait at its first stop goes back to the depot instead (a tunable). */
+export const IDLE_HOME_SECONDS = 3_600;

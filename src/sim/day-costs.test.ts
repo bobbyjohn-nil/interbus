@@ -5,6 +5,7 @@ import { addDebugLine } from './commands/debugLine';
 import { placeDepot } from './commands/placeDepot';
 import { SECONDS_PER_DAY } from './config/time';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, forecastDay } from './economy/costs';
+import { busesOut } from './rules/schedule';
 import type { RowKind } from './economy/ledger';
 import { encode } from './save/save';
 import { advance } from './step';
@@ -47,11 +48,16 @@ describe('costs as ledger rows (the M2 spec, item 5)', () => {
   it('runs the debug line at $1,300–1,400 a day in running and wages, two Sparrows by day', () => {
     const world = game();
     expect(world.state.lines[0]!.buses).toBe(2);
-    const day = forecastDay([...world.services.values()][0]!.costs);
-    // 2 × 58 trips × 3.5 km × $0.90 ≈ $369, and 19 h × 2 buses × $26 = $988.
-    expect(day.wages).toBe(98_800);
-    expect(day.running).toBeGreaterThan(36_000);
-    expect(day.running).toBeLessThan(38_000);
+    const service = [...world.services.values()][0]!;
+    expect(busesOut(service.day)).toBe(2);
+    const day = forecastDay(service.costs);
+    // 57 departures out and back × 3.5 km × $0.90 ≈ $363 (the spec's magnitude), and two buses out
+    // about 18.7 hours each × $26 ≈ $972.
+    expect(day.running).toBe(114 * 318);
+    expect(day.wages).toBeGreaterThan(96_000);
+    expect(day.wages).toBeLessThan(98_000);
+    expect(day.running + day.wages).toBeGreaterThan(130_000);
+    expect(day.running + day.wages).toBeLessThan(140_000);
   });
 
   it('has no deadhead without a depot, and parks a line at a depot placed after it', () => {

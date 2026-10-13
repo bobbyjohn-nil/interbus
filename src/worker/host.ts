@@ -38,22 +38,34 @@ export interface Host {
   tick(nowMs: number): void;
 }
 
-/** The streets a bus drives through `stops` (frame metres), as [lon, lat] points. */
-function routeOf(world: World, stops: readonly XY[]): LngLatPair[] {
+/** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
+function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
   const { city } = world;
+  const path = from === null || to === null ? null : world.router.route(from, to);
+  path?.edges.forEach((e, i) => {
+    const street = city.streets[e]!;
+    // Edge i of a path leaves path.nodes[i]; the street's points run from edgeA to edgeB.
+    const pts = city.graph.edgeA[e] === path.nodes[i] ? street.points : [...street.points].reverse();
+    for (const p of route.length ? pts.slice(1) : pts) route.push([...toLngLat(city.frame, p as XY)] as LngLatPair);
+  });
+}
+
+/** The streets a bus drives through `stops` (frame metres), as [lon, lat] points, and where each stop falls in them. */
+function routeOf(world: World, stops: readonly XY[]): { route: LngLatPair[]; stopAt: number[] } {
   const route: LngLatPair[] = [];
+  const stopAt = [0];
   for (let k = 1; k < stops.length; k++) {
-    const from = nearestNode(world, stops[k - 1]!);
-    const to = nearestNode(world, stops[k]!);
-    const path = from === null || to === null ? null : world.router.route(from, to);
-    path?.edges.forEach((e, i) => {
-      const street = city.streets[e]!;
-      // Edge i of a path leaves path.nodes[i]; the street's points run from edgeA to edgeB.
-      const pts = city.graph.edgeA[e] === path.nodes[i] ? street.points : [...street.points].reverse();
-      for (const p of route.length ? pts.slice(1) : pts) route.push([...toLngLat(city.frame, p as XY)] as LngLatPair);
-    });
+    appendPath(world, nearestNode(world, stops[k - 1]!), nearestNode(world, stops[k]!), route);
+    stopAt.push(Math.max(0, route.length - 1));
   }
-  return route;
+  return { route, stopAt };
+}
+
+/** The drive between a depot's node and a stop, as [lon, lat] points; empty when there is none. */
+function driveOf(world: World, from: number | null, to: number | null): LngLatPair[] {
+  const out: LngLatPair[] = [];
+  appendPath(world, from, to, out);
+  return out.length > 1 ? out : [];
 }
 
 function lineViews(world: World): LineView[] {
@@ -61,12 +73,21 @@ function lineViews(world: World): LineView[] {
   return state.lines.map((line) => {
     const stops = line.stopIds.map((id) => state.stops.find((s) => s.id === id)!).map((s) => [s.lon, s.lat] as [number, number]);
     const service = world.services.get(line.id);
+    const xy = stops.map((p) => toXY(city.frame, p));
+    const { route, stopAt } = routeOf(world, xy);
+    const first = xy.length ? nearestNode(world, xy[0]!) : null;
+    const depotNode = service?.depotNode ?? null;
     return {
       id: line.id,
       name: line.name,
       colour: line.colour,
       stops,
-      route: routeOf(world, stops.map((p) => toXY(city.frame, p))),
+      route,
+      stopAt,
+      stopDistM: service?.plan.stopDistM ?? [],
+      pullOut: driveOf(world, depotNode, first),
+      pullIn: driveOf(world, first, depotNode),
+      plan: service ? service.day.inputs : { timing: { cycle: 0, headways: line.headways, buses: 0 }, oneWayS: 0, pullOutS: 0, pullInS: 0 },
       ridersPerDay: world.assignment.lines.get(line.id)?.perDay ?? 0,
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
@@ -83,7 +104,7 @@ function draftView(world: World, clicks: readonly LngLatPair[], headways: Headwa
   const stops = draft.stops.map((s) => s.at);
   return {
     stops: draft.stops.map((s) => ({ at: [...toLngLat(world.city.frame, s.at)] as LngLatPair, joins: s.kind === 'join' ? s.stopId : null })),
-    route: routeOf(world, stops),
+    route: routeOf(world, stops).route,
     routeM: Math.round(draft.routeM),
     people: peopleNearStops(world.city, stops),
     walkM: MAX_WALK_M,

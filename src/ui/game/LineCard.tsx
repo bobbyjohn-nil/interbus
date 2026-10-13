@@ -27,7 +27,7 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
   const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, buses: line.buses }, wanted) : null;
   const pick = (period: (typeof PERIODS)[number][0], value: string) => setWanted({ ...next, [period]: value === 'off' ? null : Number(value) * 60 });
   return (
-    <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id}>
+    <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-running={line.forecastCents.running}>
       <h2>
         <span className="swatch" style={{ background: line.colour }} /> {line.name}
       </h2>

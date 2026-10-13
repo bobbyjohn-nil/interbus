@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { STEP_SECONDS } from '../sim/config/time';
+import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
+import { busesOut, dayPlan } from '../sim/rules/schedule';
 import type { FromWorker } from '../sim/types';
 import { createHost, MAX_SLICE_MS, SPEEDS } from './host';
 
@@ -60,17 +62,30 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.lines[0]!.route.length).toBeGreaterThan(10);
     const line = last('snapshot')!.snapshot.lines[0]!;
     expect(line.forecastCents.deadhead).toBeGreaterThan(0);
+    // The page rebuilds the plan the costs bill from the view, and draws its buses on these streets (I6).
+    const plan = dayPlan(line.plan);
+    expect(busesOut(plan)).toBe(2);
+    expect(line.stopAt).toHaveLength(4);
+    expect(line.pullOut.at(-1)).toEqual(line.route[0]);
+    expect(line.pullIn[0]).toEqual(line.route[0]);
+    expect(busPositionsAt(plan, prepareGeometry(line), 12 * 3_600, new Float64Array(24))).toBe(2);
     expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead + 30_000);
     host.handle({ type: 'speed', speed: 3 });
-    for (let t = 0; out.every((m) => m.type !== 'day-card'); t += 250) host.tick(t);
+    const cards = () => out.filter((m) => m.type === 'day-card');
+    for (let t = 0; cards().length < 2; t += 250) host.tick(t);
+    for (const { card } of cards() as Extract<FromWorker, { type: 'day-card' }>[]) {
+      expect(card.rows.some((r) => r.kind === 'fares' && r.amountCents > 0)).toBe(true);
+      expect(card.rows.reduce((s, r) => s + r.amountCents, 0)).toBe(card.cashAfterCents - card.cashBeforeCents);
+    }
+    // Day 2 is a whole day: every cost row is the forecast, to the cent (I6). Day 1 opened at 05:00,
+    // after the first bus had left the depot.
     const card = last('day-card')!.card;
-    expect(card.day).toBe(1);
-    expect(card.rows.some((r) => r.kind === 'fares' && r.amountCents > 0)).toBe(true);
-    expect(card.rows.reduce((s, r) => s + r.amountCents, 0)).toBe(card.cashAfterCents - card.cashBeforeCents);
-    // Day 1 opens at 05:00: the line's day is whole (nothing runs overnight), the depot's upkeep 19 hours of 24 (I6).
+    expect(card.day).toBe(2);
     const sum = (...kinds: string[]) => card.rows.filter((r) => kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
-    expect(sum('running', 'wages', 'deadhead')).toBe(-(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead));
-    expect(sum('upkeep')).toBe(-19 * 1_250);
+    expect(sum('running')).toBe(-line.forecastCents.running);
+    expect(sum('wages')).toBe(-line.forecastCents.wages);
+    expect(sum('deadhead')).toBe(-line.forecastCents.deadhead);
+    expect(sum('upkeep')).toBe(-30_000);
   });
 
   it('answers a probe with the people within a walk', () => {

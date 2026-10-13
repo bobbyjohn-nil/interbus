@@ -6,12 +6,13 @@ import { SpatialGrid, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
-import { SPARROW } from './config/fleet';
+import { LAYOVER_SECONDS, SPARROW } from './config/fleet';
 import type { DepotId, LineId } from './core/ids';
-import type { LineCostInputs } from './economy/costs';
+import { driveSeconds, type LineCostInputs } from './economy/costs';
 import { cycleSeconds } from './rules/cycle';
 import type { DepotSiteContext } from './rules/depot';
 import type { FleetContext, LineDraftContext } from './rules/line';
+import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
 import type { Line, SimState } from './state';
 
@@ -19,9 +20,13 @@ import type { Line, SimState } from './state';
 export interface LineService {
   readonly plan: LinePlan;
   readonly timing: Timing;
+  /** Every departure and every bus's stint: what the costs bill and the vehicles draw (I6). */
+  readonly day: DayPlan;
   readonly costs: LineCostInputs;
   /** The depot its buses park at: the nearest by driving time with room (V3), or null with none. */
   readonly depotId: DepotId | null;
+  /** The street node its buses leave that depot from, or null. */
+  readonly depotNode: number | null;
 }
 
 export interface World {
@@ -110,11 +115,10 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     const routeM = plan.stopDistM[plan.stopDistM.length - 1]!;
     const timing: Timing = { cycle: cycleSeconds(routeM, plan.stops.length, SPARROW.kmh), headways: line.headways, buses: line.buses };
     const first = nearestNode(world, plan.stops[0]!);
-    const last = nearestNode(world, plan.stops[plan.stops.length - 1]!);
     let depot: { id: DepotId; node: number | null; room: number } | null = null;
     let pullOutM = 0;
     let pullInM = 0;
-    if (first !== null && last !== null && line.buses > 0) {
+    if (first !== null && line.buses > 0) {
       const options = depots
         .map((d) => ({ d, out: d.node === null ? null : world.router.route(d.node, first) }))
         .filter((o) => o.out !== null)
@@ -124,14 +128,23 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
         depot = pick.d;
         depot.room -= line.buses;
         pullOutM = pick.out!.dm / 10;
-        pullInM = (world.router.route(last, pick.d.node!)?.dm ?? pick.out!.dm) / 10;
+        // Every round trip ends back at the first stop, so a bus goes home from there.
+        pullInM = (world.router.route(first, pick.d.node!)?.dm ?? pick.out!.dm) / 10;
       }
     }
+    const day = dayPlan({
+      timing,
+      oneWayS: cycleSeconds(routeM, plan.stops.length, SPARROW.kmh) / 2 - LAYOVER_SECONDS,
+      pullOutS: driveSeconds(pullOutM, SPARROW),
+      pullInS: driveSeconds(pullInM, SPARROW),
+    });
     services.set(line.id, {
       plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways },
       timing,
-      costs: { timing, routeM, model: SPARROW, pullOutM, pullInM },
+      day,
+      costs: { plan: day, routeM, model: SPARROW, pullOutM, pullInM },
       depotId: depot?.id ?? null,
+      depotNode: depot?.node ?? null,
     });
   }
   return services;

@@ -83,11 +83,11 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Its round trip | 25.7 min: 2 × (8.2 min drive + 0.7 min dwell) + 8 min layover | Item 1 |
 | Sparrows for every 20 min | **2** (D7's $261k starter assumed 1) | ⌈25.7 ÷ 20⌉ |
 | Starter recipe; founding capital at k = 1.2 | $356,000; **$427,200** (was $313,200); $71k left after the starter | D7 |
-| Debug line running cost a day | 57 trips each way × 3.535 km × 2 = 403 km × $0.90 ≈ $363; **$368.88 measured** (58 trips each way, each window starting its own) | Item 5 |
-| Wages a day | 2 buses × 19 h × $26 ≈ $988; **$988.00 measured** | Item 5 |
-| Depot upkeep + deadhead a day | $300 + under $20; **$300 + $14.94 measured** (1.9 km out, 2.1 km back) | Items 2, 5 |
+| Debug line running cost a day | 57 trips each way × 3.535 km × 2 = 403 km × $0.90 ≈ $363; **$362.52 measured** (the day plan's 57 departures out and back) | Item 5 |
+| Wages a day | 2 buses × 19 h × $26 ≈ $988; **$972.11 measured** (each bus paid from its first departure to its last arrival: 37.4 bus-hours) | Item 5 |
+| Depot upkeep + deadhead a day | $300 + under $20; **$300 + $15.00 measured** (1.9 km out, 2.1 km back) | Items 2, 5 |
 | Income a day | **$3,060.75 measured** (795 boardings × $3.85) | M1 |
-| Net on day 2 | ≈ +$1,390: a profitable first line inside "profit by 8 minutes" (PLAN §3); **+$1,388.93 measured** | Sum |
+| Net on day 2 | ≈ +$1,390: a profitable first line inside "profit by 8 minutes" (PLAN §3); **+$1,411.12 measured** | Sum |
 | Depot land | 3–8% of Inner Boston's land; **7.36 km² in 155 areas measured**; the fixture's three parcels, nearest 330 m from the debug line | V1's rule, Boston's industrial strips |
 | Gateways; inbound commuters | Logan + 6–12 road entries; **20 + Logan and 597,181 measured** | Inner Boston bake |
 | `sim.json` with depot land and gateways | ≤1 MB gzip; **818 KiB measured** | G7 |
