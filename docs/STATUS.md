@@ -32,9 +32,9 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-da5ebb4b` holds mini-Boston's `sim.json` with depot land, the (empty) gateway list and three landmarks (135,551 B), published by **City sim file (manual)** run 38374308243, which matched the golden on GitHub's runner. The older `69866a1e`, `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
+  - release `city-boston-sim-mini-boston-72e7f8b9` holds mini-Boston's `sim.json` with depot land, the (empty) gateway list, three landmarks and Boston's fitted β (135,571 B), published by **City sim file (manual)** run 38396152811, which matched the golden on GitHub's runner. The older `da5ebb4b`, `69866a1e`, `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-a35f1831` holds Boston's map file with every transit feature stripped (15,347,095 B), published by **City tiles (manual)** run 38359580324 from the extract `57ac68da` (D17, G10). The older `57ac68da` stays for pages of older builds;
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `ef552579` (with six landmarks) in `cities/boston/sim-inner-boston.lock.json`, not yet published;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `3a93c0fb` (with six landmarks and its fitted β) in `cities/boston/sim-inner-boston.lock.json`, not yet published;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
