@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 096ce5c (rush hour in the round trips): M3's items are all in but week 5's presentation items, and hourly congestion (the spec's item 15, PLAN cut 8) is done once its ridership half, in review, merges.
+**Updated:** 2026-10-13, at `main` 4121d6c (riders feel rush hour): M3's items are all in, hourly congestion (the spec's item 15, PLAN cut 8) included, but week 5's presentation items; the data licences and third-party notices (week 5's "credits, `LICENSE-DATA.md`") are in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 096ce5c. Deploy preview run 38427745361's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4121d6c. Deploy preview run 38430424146's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -207,7 +207,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 13. [x] **Hourly congestion** (the spec's item 15, PLAN cut 8; taken early, 2026-10-13): one `congestionAt` in `src/sim/traffic/`, V2's curve and class weights, per period.
     - [x] **Timing** (2026-10-13): each line's round trip per period from its route's streets, its buses on the longest round trip over the shortest headway, each trip and each bus on the map at its own period's pace. The debug line runs 1,641 s at peak and 1,442 s midday against 1,540 s, still 2 buses at 20 minutes; Inner Boston's ten corridors need 68 buses at 10/15 minutes against 65 (DECISIONS, Measured).
-    - [x] **Ridership** (2026-10-13): a rider picks the stops the day's average traffic makes quickest and rides them at each period's, in both the fast loop and the reference. Inner Boston's riders a day move −0.27%, 7.0% fewer at peak and 7.5% more off-peak; the debug line carries 610.5 a day (614.4 before); recompute p50 rises about 4 ms (DECISIONS, Measured).
+    - [x] **Ridership** (2026-10-13, live at 4121d6c): a rider picks the stops the day's average traffic makes quickest and rides them at each period's, in both the fast loop and the reference. Inner Boston's riders a day move −0.27%, 7.0% fewer at peak and 7.5% more off-peak; the debug line carries 610.5 a day (614.4 before); recompute p50 rises about 4 ms (DECISIONS, Measured).
+
+14. [ ] **Credits and `LICENSE-DATA.md`** (PLAN §10's week 5; in review, 2026-10-13): every city source (OpenStreetMap, the Protomaps build, Overture's heights, the 2020 TIGER/Line blocks and county subdivisions, LODES 8.4), the font and the software, each with its licence and credit, and `public/THIRD_PARTY_NOTICES.txt` for the 33 packages the game is built with, generated from the lockfile and checked in CI. Three packages ship no licence text; their upstream texts join the notices before a Steam build. The credits screen stays in week 14.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 
