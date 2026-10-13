@@ -141,3 +141,17 @@ test('the fixture keeps lines off the River Roads and opens busways to all (PLAN
   assert.ok(sim.edges.some((e) => sim.classes[e[5]] === 'busway'), 'a Back Bay busway is a general street');
   assert.ok(sim.names.includes('Massachusetts Avenue') && sim.names.includes('Huntington Avenue'));
 });
+
+test('landmarks: the fixture bakes those in its box at their points, and G6 holds every listed one to the extent', () => {
+  const { config, entry } = readCity('boston');
+  const sim = JSON.parse(bakeSim('boston', 'mini-boston').text);
+  assert.deepEqual(sim.landmarks.map((l) => l.name), ['Copley Square', 'Longwood', 'Kenmore']);
+  for (const l of sim.landmarks) {
+    const listed = config.landmarks.list.find((m) => m.name === l.name);
+    const lon = FRAME.origin[0] + l.x / 10 / FRAME.metresPerDegLon;
+    const lat = FRAME.origin[1] + l.y / 10 / FRAME.metresPerDegLat;
+    assert.ok(Math.abs(lon - listed.lon) * FRAME.metresPerDegLon < 0.1 && Math.abs(lat - listed.lat) * FRAME.metresPerDegLat < 0.1, l.name);
+  }
+  const [x0, y0, x1, y1] = entry.extent;
+  for (const l of config.landmarks.list) assert.ok(l.lon >= x0 && l.lon <= x1 && l.lat >= y0 && l.lat <= y1, `${l.name} inside the extent`);
+});

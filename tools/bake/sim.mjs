@@ -165,14 +165,19 @@ export function bakeSim(cityId, extentId) {
   const airport = gateways.find((g) => g.kind === 'airport');
   const airportOk = !profile.airport || (airport !== undefined && aerodromes.some((ring) => inRing(ring, airport.x, airport.y) || ring.some(([x, y]) => Math.hypot(x - airport.x, y - airport.y) <= AIRPORT_REACH_M)));
 
+  // Landmarks, where contracts are offered (the M3 spec, item 1): those the clip holds, in decimetres.
+  const landmarkList = config.landmarks?.list ?? [];
+  const landmarks = landmarkList.filter((l) => inClip([l.lon, l.lat])).map((l) => ({ name: l.name, xy: toXY([l.lon, l.lat]).map((v) => Math.round(v * 10)) }));
+
   // G6: the sim describes the place the map shows: every street node inside the map file's bounds,
-  // every home and workplace inside the extent.
+  // every home and workplace and every listed landmark inside the extent.
   const [ex0, ey0] = toXY([entry.extent[0], entry.extent[1]]);
   const [ex1, ey1] = toXY([entry.extent[2], entry.extent[3]]);
   const inside = ([x, y], pad) => x >= ex0 - pad && x <= ex1 + pad && y >= ey0 - pad && y <= ey1 + pad;
   const strays =
     streets.nodes.filter(([x, y]) => !inside([x / 10, y / 10], MAP_PAD_M)).length +
-    cells.reduce((n, c) => n + [...c.homes, ...c.work].filter((p) => !inside([p.x / 10, p.y / 10], 0)).length, 0);
+    cells.reduce((n, c) => n + [...c.homes, ...c.work].filter((p) => !inside([p.x / 10, p.y / 10], 0)).length, 0) +
+    landmarkList.filter((l) => !inside(toXY([l.lon, l.lat]), 0)).length;
 
   // G10 (D17): no transit feature reaches sim.json. The clip keeps every public-transport element so
   // this runs on real tags: only drivable streets become edges (busways as general streets, D17), and
@@ -187,7 +192,7 @@ export function bakeSim(cityId, extentId) {
     ['G3 residents near a street', Number(near.toFixed(4)), near >= profile.residentsNearStreet, `≥${profile.residentsNearStreet}`],
     ['G5 residents in water', wet, wet <= (profile.residentsInWater ?? 0), `≤${profile.residentsInWater ?? 0}`],
     ['G5 airport gateway on its aerodrome', airport ? airport.name : 'none', airportOk, profile.airport ? 'required' : 'not required'],
-    ['G6 nodes or people outside the map', strays, strays === 0, '0'],
+    ['G6 nodes, people or landmarks outside the map', strays, strays === 0, '0'],
     ['G10 transit features in sim.json', transitKept, transitKept === 0, `0 of the clip's ${transitInInput}`],
   ].map(([gate, value, ok, limit]) => ({ gate, value, ok, limit }));
   const failed = gates.filter((g) => !g.ok);
@@ -219,6 +224,7 @@ export function bakeSim(cityId, extentId) {
     // demand reads them with visitors in week 5. The fixture keeps only commutes inside its box.
     gateways: gateways.map((g) => ({ name: g.name, kind: g.kind, node: g.node, inbound: g.inbound.flat() })),
     depotLand,
+    landmarks: landmarks.map((l) => ({ name: l.name, x: l.xy[0], y: l.xy[1] })),
     calib: { tripScalePermille: config.calib?.[extentId]?.tripScalePermille ?? 1000 },
   };
   const text = `${JSON.stringify(sim)}\n`;
@@ -241,6 +247,7 @@ export function bakeSim(cityId, extentId) {
       gates,
       depotLand: { areas: depotLand.length, km2: Number((depotLand.reduce((sum, r) => sum + Math.abs(r.reduce((a, _, k) => (k % 2 ? a : a + r[k] * r[(k + 3) % r.length] - r[(k + 2) % r.length] * r[k + 1]), 0)) / 2, 0) / 1e8).toFixed(2)) },
       gateways: gateways.map((g) => ({ name: g.name, kind: g.kind, commuters: g.inbound.reduce((sum, [, n]) => sum + n, 0) })),
+      landmarks: landmarks.map((l) => l.name),
       unplacedInbound,
       closed: streets.report.closed,
     },
