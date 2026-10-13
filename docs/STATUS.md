@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` a9f242c, with the error bus port in review.
+**Updated:** 2026-10-13, at `main` 0f3ffdb, with the fixture's sim.json bake in review.
 
 ## Live now
 
@@ -48,10 +48,14 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - one geo frame per city, held to the WGS 84 ellipsoid to within 1 m per degree.
   - [x] V3's error bus, in `src/ui/errors`, outside the sim with an injected clock, catching the page's uncaught errors from boot.
 - [ ] **Item 11, the city on the fixture:**
+  - [x] the street graph with bus access, census to cells, and `sim.json` format 1 for mini-Boston (2026-10-13, `tools/bake/{streets,cells,sim}.mjs`):
+    - 675 nodes and 1,028 edges;
+    - 84 cells;
+    - G1–G3 per extent;
+    - a golden hash in `sim.lock.json` (I17).
+  - [ ] the fixture's `sim.json` published by a dispatch-only job and named in `cities/index.json`, so the deploy ships it;
+  - [ ] the `sim.json` loader in the sim;
   - worker host;
-  - V1's pipeline and fixtures ported;
-  - census to cells, and the street graph with bus access (G2, G3);
-  - `sim.json` and its loader;
   - demand dots and the catchment probe;
   - Inner Boston's height-tag count;
   - smoke;
