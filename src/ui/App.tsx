@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CITIES } from '../cities';
 import { MapView } from '../render/map/MapView';
-import type { LngLatPair } from '../sim/types';
+import type { BusModelId, LngLatPair } from '../sim/types';
 import { Corner } from './Corner';
 import { DayCard } from './game/DayCard';
 import { FoundingCard } from './game/Founding';
@@ -19,6 +19,7 @@ export function App() {
   const [screen, setScreen] = useState<[number, number] | null>(null);
   const [tool, setTool] = useState<Tool>('none');
   const [clicks, setClicks] = useState<LngLatPair[]>([]);
+  const [draftModel, setDraftModel] = useState<BusModelId>('sparrow');
   // One panel at a time on the right: the line tool's draft card, or the lines' inspector.
   const [panel, setPanel] = useState<Panel>('none');
   const [lineId, setLineId] = useState<number | null>(null);
@@ -61,7 +62,7 @@ export function App() {
     [probeAt, depotSiteAt],
   );
 
-  useEffect(() => draftFor(clicks), [clicks, draftFor]);
+  useEffect(() => draftFor(clicks, draftModel), [clicks, draftModel, draftFor]);
 
   // A tool closes once its purchase lands: a new depot, or a new line.
   const started = sim.snapshot !== null;
@@ -122,7 +123,9 @@ export function App() {
         <DraftCard
           sim={sim}
           clicks={clicks.length}
-          onCreate={() => send({ type: 'create-line', clicks })}
+          model={draftModel}
+          onModel={setDraftModel}
+          onCreate={() => send({ type: 'create-line', clicks, model: draftModel })}
           onUndo={() => setClicks((c) => c.slice(0, -1))}
           onCancel={() => choose('none')}
         />

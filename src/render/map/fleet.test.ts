@@ -23,6 +23,7 @@ function line(buses = 2): LineView {
     headways: { peak: 1_200, offpeak: 1_200, overnight: null },
     cycle: 1_539,
     buses,
+    model: 'sparrow',
     forecastCents: { running: 0, wages: 0, deadhead: 0 },
   };
 }

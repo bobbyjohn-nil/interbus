@@ -5,16 +5,18 @@
 import { busPositionsAt, prepareGeometry, type PreparedGeometry } from '../../sim/rules/position';
 import { busesOut, dayPlan, type DayPlan } from '../../sim/rules/schedule';
 import type { LineView } from '../../sim/types';
+import { MODEL_GLYPHS } from './glyphs';
 
 const SECONDS_PER_DAY = 86_400;
 
-/** Floats per bus in a frame: lon, lat, heading (degrees), red, green, blue (0–1). */
-export const BUS_FLOATS = 6;
+/** Floats per bus in a frame: lon, lat, heading (degrees), red, green, blue (0–1), and the glyph's length and width in CSS pixels. */
+export const BUS_FLOATS = 8;
 
 interface Prepared {
   readonly plan: DayPlan;
   readonly geo: PreparedGeometry;
   readonly colour: readonly [number, number, number];
+  readonly glyph: { readonly lengthPx: number; readonly widthPx: number };
 }
 
 function rgb(hex: string): [number, number, number] {
@@ -38,7 +40,7 @@ export class Fleet implements BusSource {
   setLines(lines: readonly LineView[]): void {
     this.lines = lines
       .filter((l) => l.stopAt.length >= 2 && l.plan.timing.buses > 0)
-      .map((l) => ({ plan: dayPlan(l.plan), geo: prepareGeometry(l), colour: rgb(l.colour) }));
+      .map((l) => ({ plan: dayPlan(l.plan), geo: prepareGeometry(l), colour: rgb(l.colour), glyph: MODEL_GLYPHS[l.model] }));
     const most = this.lines.reduce((n, l) => Math.max(n, busesOut(l.plan)), 0);
     const total = this.lines.reduce((n, l) => n + busesOut(l.plan), 0);
     this.scratch = new Float64Array(3 * Math.max(1, most));
@@ -75,6 +77,8 @@ export class Fleet implements BusSource {
         d[at + 3] = line.colour[0];
         d[at + 4] = line.colour[1];
         d[at + 5] = line.colour[2];
+        d[at + 6] = line.glyph.lengthPx;
+        d[at + 7] = line.glyph.widthPx;
       }
     }
     return { count, data: this.frameData };

@@ -6,7 +6,7 @@ import { SpatialGrid, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
-import { LAYOVER_SECONDS, SPARROW } from './config/fleet';
+import { BUS_MODELS, LAYOVER_SECONDS } from './config/fleet';
 import type { DepotId, LineId } from './core/ids';
 import { driveSeconds, type LineCostInputs } from './economy/costs';
 import { cycleSeconds } from './rules/cycle';
@@ -113,7 +113,8 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     const plan = planLine(world, line);
     if (!plan) continue;
     const routeM = plan.stopDistM[plan.stopDistM.length - 1]!;
-    const timing: Timing = { cycle: cycleSeconds(routeM, plan.stops.length, SPARROW.kmh), headways: line.headways, buses: line.buses };
+    const model = BUS_MODELS[line.model];
+    const timing: Timing = { cycle: cycleSeconds(routeM, plan.stops.length, model.kmh), headways: line.headways, buses: line.buses };
     const first = nearestNode(world, plan.stops[0]!);
     let depot: { id: DepotId; node: number | null; room: number } | null = null;
     let pullOutM = 0;
@@ -134,15 +135,15 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     }
     const day = dayPlan({
       timing,
-      oneWayS: cycleSeconds(routeM, plan.stops.length, SPARROW.kmh) / 2 - LAYOVER_SECONDS,
-      pullOutS: driveSeconds(pullOutM, SPARROW),
-      pullInS: driveSeconds(pullInM, SPARROW),
+      oneWayS: timing.cycle / 2 - LAYOVER_SECONDS,
+      pullOutS: driveSeconds(pullOutM, model),
+      pullInS: driveSeconds(pullInM, model),
     });
     services.set(line.id, {
-      plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways },
+      plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways, kmh: model.kmh },
       timing,
       day,
-      costs: { plan: day, routeM, model: SPARROW, pullOutM, pullInM },
+      costs: { plan: day, routeM, model, pullOutM, pullInM },
       depotId: depot?.id ?? null,
       depotNode: depot?.node ?? null,
     });

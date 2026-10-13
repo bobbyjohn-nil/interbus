@@ -251,6 +251,15 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`e2e/i12.spec.ts`): **I12 passes for all three families.** Each line runs one model (the M3 spec, item 2), and each family's glyph has its own length, carried per bus into the one instanced draw. Fifty buses of each family, heading away from the camera at 1366×768, shortest of each:
+
+  | Camera | Sparrow (needs 20 px) | Metro 40 (24 px) | Goliath (32 px) |
+  |---|---|---|---|
+  | 2D zoom 14 | 21 | 25 | 33 |
+  | The `T` default (zoom 14, pitch 50°) | 21.5 | 25.4 | 33.4 |
+  | The mesh switch (zoom 17, pitch 60°) | 21.6 | 25.5 | 33.6 |
+
+  A Metro 40 drawn at the Sparrow's 20 px fails its check.
 - **2026-10-13** (`npm run bench strategies`; `src/sim/economy/strategies.test.ts`, `src/sim/demand/invariants.test.ts`): **I2's bus clause and I3's strategies pass on the fixture's debug line; I3's starving clause does not hold yet.**
   - **I2, adding a bus.** At every 10 minutes at peak (3 Sparrows needed), riders a day by buses owned, 0 to 4:
     - alone: 0, 726.2, 849.0, 862.5, 862.5;

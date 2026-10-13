@@ -1,6 +1,9 @@
 // What crosses between the sim worker and the page: the only sim module besides sim/rules that
 // src/ui and src/render may import (CLAUDE.md "Architecture guardrails"). Plain data: anything here
 // must survive structured cloning.
+import type { BusModelId } from '../config/fleet';
+
+export type { BusModelId };
 
 export type LngLatPair = [lon: number, lat: number];
 
@@ -71,6 +74,8 @@ export interface LineView {
   /** Its round trip in seconds, for the headway card's bus count. */
   readonly cycle: number;
   readonly buses: number;
+  /** The one model the line runs (the M3 spec, item 2). */
+  readonly model: BusModelId;
   /** Index in `route` of each stop. */
   readonly stopAt: readonly number[];
   /** Street metres from the first stop to each stop. */
@@ -148,9 +153,10 @@ export type ToWorker =
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'place-depot'; readonly at: LngLatPair }
   | { readonly type: 'found'; readonly name: string; readonly colour: string }
-  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData }
-  | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData }
-  | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData };
+  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
+  | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
+  | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData }
+  | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId };
 
 export type FromWorker =
   | {

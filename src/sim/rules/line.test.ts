@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { XY } from '../core/geo';
-import { checkHeadwayChange, checkLineDraft, type LineDraftContext } from './line';
+import { DEPOT_CAPACITY } from '../config/depots';
+import { GOLIATH, METRO_40, SPARROW } from '../config/fleet';
+import { checkHeadwayChange, checkLineDraft, checkModelChange, type LineDraftContext } from './line';
 import { checkStopSite } from './stop';
 
 // A street every 100 m along y = 0, from x = 0 to 5,000: every click snaps to the node below it.
@@ -79,7 +81,7 @@ describe('a line draft (the M2 spec, items 2–4)', () => {
 
 describe('a headway change (GD-09)', () => {
   const fleet = { depots: 1, busesOwned: 2, cashCents: 10_000_000 };
-  const line = { cycle: 1_539, buses: 2 };
+  const line = { cycle: 1_539, buses: 2, model: SPARROW };
   it('buys the buses a shorter headway needs: every 10 min needs 3, one more at $95k', () => {
     expect(checkHeadwayChange(fleet, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: true, needed: 3, extra: 1, priceCents: 9_500_000 });
   });
@@ -89,5 +91,22 @@ describe('a headway change (GD-09)', () => {
   it('refuses in money, or for want of depot room', () => {
     expect(checkHeadwayChange({ ...fleet, cashCents: 5_000_000 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 4_500_000 });
     expect(checkHeadwayChange({ ...fleet, busesOwned: 6 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+  });
+});
+
+describe('a model change (the M3 spec, item 2)', () => {
+  const fleet = { depots: 1, busesOwned: 2, cashCents: 50_000_000 };
+  // The debug line: 3,535 m, four stops, every 20 minutes by day, two Sparrows.
+  const line = { routeM: 3_535, stops: 4, buses: 2, model: SPARROW, headways: { peak: 1_200, offpeak: 1_200, overnight: null } };
+  it('sells the Sparrows at half price and buys the Metro 40s its headways need on its slower cycle', () => {
+    // At 25 km/h the round trip is 1,579 s, so every 20 minutes still needs 2: $520k less $95k back.
+    expect(checkModelChange(fleet, line, METRO_40)).toEqual({ ok: true, needed: 2, buyCents: 52_000_000, saleCents: 9_500_000 });
+  });
+  it('refuses the same model, a locked one, too little cash on the net, and too little depot room', () => {
+    expect(checkModelChange(fleet, line, SPARROW)).toEqual({ ok: false, reason: 'same_model' });
+    expect(checkModelChange(fleet, line, GOLIATH)).toEqual({ ok: false, reason: 'model_locked' });
+    expect(checkModelChange({ ...fleet, cashCents: 40_000_000 }, line, METRO_40)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 2_500_000 });
+    const tenMinutes = { ...line, headways: { peak: 600, offpeak: 1_200, overnight: null } };
+    expect(checkModelChange({ ...fleet, busesOwned: DEPOT_CAPACITY }, tenMinutes, METRO_40)).toEqual({ ok: false, reason: 'depot_full', room: 2 });
   });
 });

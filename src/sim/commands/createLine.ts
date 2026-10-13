@@ -2,6 +2,7 @@
 // stops and the buses the founding headway needs, and the line runs from the next hour. The card
 // read the same rule, so Create buys exactly what the card said (GD-05, I6).
 import { REFERENCE_FARE_CENTS } from '../config/economy';
+import { BUS_MODELS, type BusModelId } from '../config/fleet';
 import { FOUNDING_HEADWAYS, LINE_COLOURS } from '../config/lines';
 import { toCalendarTime } from '../core/calendar';
 import { toLngLat, toXY, type LngLat } from '../core/geo';
@@ -16,9 +17,10 @@ export function createLine(
   world: World,
   clicks: readonly LngLat[],
   headways: Headways = FOUNDING_HEADWAYS,
+  model: BusModelId = 'sparrow',
 ): Result<{ lineId: LineId; priceCents: number }, LineRefusal, { at?: number; limitM?: number; limitSeconds?: number; room?: number; shortCents?: number }> {
   const state = world.state;
-  const verdict = checkLineDraft(lineDraftContext(world), clicks.map((c) => toXY(world.city.frame, c)), headways);
+  const verdict = checkLineDraft(lineDraftContext(world), clicks.map((c) => toXY(world.city.frame, c)), headways, BUS_MODELS[model]);
   if (!verdict.ok) {
     // The card shows the draft; the command's refusal carries only the reason and its numbers.
     const { at, limitM, limitSeconds, room, shortCents } = verdict;
@@ -45,6 +47,7 @@ export function createLine(
     fareCents: REFERENCE_FARE_CENTS,
     headways: { ...headways },
     boardedMilli: 0,
+    model,
     buses: draft.buses,
   });
   recompute(world);

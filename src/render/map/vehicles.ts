@@ -1,8 +1,8 @@
 // The vehicle layer (the M2 spec, item 6; PLAN §6): one MapLibre custom layer that draws every bus
 // as a code-drawn top-down glyph, instanced in one draw call. The glyph is laid out in screen pixels
 // along the bus's heading, so it stays flat to the screen when the map tilts and never shrinks with
-// distance: a Sparrow is 20 px long at every camera, measured from the pixels drawn (I12, e2e/i12.spec.ts;
-// V3's buses were 5 px at zoom 15). A top-down glyph has no "up" to flip, so it is never upside down
+// distance: each family is its minimum long at every camera (Sparrow 20 px, Metro 40 24 px, Goliath
+// 32 px), measured from the pixels drawn (I12, e2e/i12.spec.ts; V3's buses were 5 px at zoom 15). A top-down glyph has no "up" to flip, so it is never upside down
 // westbound (V1). Positions come from
 // the fleet (fleet.ts) each frame; the layer repaints every frame only while the clock runs and
 // draws nothing new while paused (I14, RN-04).
@@ -11,19 +11,19 @@ import { BUS_FLOATS, type BusSource } from './fleet';
 
 export const VEHICLE_LAYER = 'vehicles';
 
-/** A Sparrow's glyph on screen, CSS pixels (PLAN §6's minimum length). */
-export const SPARROW_GLYPH = { lengthPx: 20, widthPx: 9 } as const;
+export { MODEL_GLYPHS, SPARROW_GLYPH } from './glyphs';
 
 const VERTEX = `#version 300 es
 uniform mat4 u_matrix;
 uniform vec2 u_viewport;
-uniform vec2 u_size;
 uniform float u_pixelRatio;
 in vec2 a_corner;
 in vec2 a_pos;
 in float a_heading;
 in vec3 a_colour;
+in vec2 a_size;
 out vec2 v_px;
+out vec2 v_size;
 out vec3 v_colour;
 void main() {
   vec4 c = u_matrix * vec4(a_pos, 0.0, 1.0);
@@ -36,9 +36,11 @@ void main() {
   fwd = length(fwd) > 0.0 ? normalize(fwd) : vec2(0.0, 1.0);
   vec2 side = vec2(-fwd.y, fwd.x);
   // A pixel of margin all round, so the antialiased edge is never clipped by the quad.
-  vec2 px = a_corner * (u_size + 2.0 * u_pixelRatio);
+  vec2 size = a_size * u_pixelRatio;
+  vec2 px = a_corner * (size + 2.0 * u_pixelRatio);
   gl_Position = vec4((here + fwd * px.x + side * px.y) / (u_viewport * 0.5) * c.w, c.z, c.w);
   v_px = px;
+  v_size = size;
   v_colour = a_colour;
 }`;
 
@@ -47,9 +49,9 @@ void main() {
 // pixels, its outer edge exactly the glyph's size and the quad a pixel wider for the antialiasing.
 const FRAGMENT = `#version 300 es
 precision highp float;
-uniform vec2 u_size;
 uniform float u_pixelRatio;
 in vec2 v_px;
+in vec2 v_size;
 in vec3 v_colour;
 out vec4 colour;
 float box(vec2 p, vec2 half_, float r) {
@@ -57,7 +59,7 @@ float box(vec2 p, vec2 half_, float r) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 void main() {
-  vec2 half_ = u_size * 0.5;
+  vec2 half_ = v_size * 0.5;
   float outline = 1.5 * u_pixelRatio;
   // The antialiased edge is centred half a pixel outside the size, so every pixel the shape touches shows.
   float d = box(v_px, half_ + 0.5 * u_pixelRatio, 3.0 * u_pixelRatio);
@@ -87,7 +89,7 @@ export interface VehicleLayer extends CustomLayerInterface {
   readonly drawn: () => number;
 }
 
-export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx: number; readonly widthPx: number } = SPARROW_GLYPH): VehicleLayer {
+export function createVehicleLayer(fleet: BusSource): VehicleLayer {
   let map: MapLibreMap | null = null;
   let program: WebGLProgram | null = null;
   let corners: WebGLBuffer | null = null;
@@ -111,7 +113,7 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
       g.attachShader(program, compile(g, g.FRAGMENT_SHADER, FRAGMENT));
       g.linkProgram(program);
       if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(`vehicles: ${g.getProgramInfoLog(program) ?? 'link failed'}`);
-      for (const name of ['u_matrix', 'u_viewport', 'u_size', 'u_pixelRatio']) where[name] = g.getUniformLocation(program, name);
+      for (const name of ['u_matrix', 'u_viewport', 'u_pixelRatio']) where[name] = g.getUniformLocation(program, name);
       vao = g.createVertexArray();
       g.bindVertexArray(vao);
       corners = g.createBuffer();
@@ -123,7 +125,7 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
       instances = g.createBuffer();
       g.bindBuffer(g.ARRAY_BUFFER, instances);
       const stride = BUS_FLOATS * 4;
-      for (const [name, size, offset] of [['a_pos', 2, 0], ['a_heading', 1, 2], ['a_colour', 3, 3]] as const) {
+      for (const [name, size, offset] of [['a_pos', 2, 0], ['a_heading', 1, 2], ['a_colour', 3, 3], ['a_size', 2, 6]] as const) {
         const at = g.getAttribLocation(program, name);
         g.enableVertexAttribArray(at);
         g.vertexAttribPointer(at, size, g.FLOAT, false, stride, offset * 4);
@@ -153,6 +155,8 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
           relative[at + 3] = data[at + 3]!;
           relative[at + 4] = data[at + 4]!;
           relative[at + 5] = data[at + 5]!;
+          relative[at + 6] = data[at + 6]!;
+          relative[at + 7] = data[at + 7]!;
         }
         const m = options.defaultProjectionData.mainMatrix as ArrayLike<number>;
         const matrix = new Float32Array(16);
@@ -162,7 +166,6 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
         g.useProgram(program);
         g.uniformMatrix4fv(where.u_matrix!, false, matrix);
         g.uniform2f(where.u_viewport!, g.drawingBufferWidth, g.drawingBufferHeight);
-        g.uniform2f(where.u_size!, glyph.lengthPx * ratio, glyph.widthPx * ratio);
         g.uniform1f(where.u_pixelRatio!, ratio);
         g.bindVertexArray(vao);
         g.bindBuffer(g.ARRAY_BUFFER, instances);

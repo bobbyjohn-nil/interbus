@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import type { City } from '../../cities';
-import type { DayCard, DepotSiteView, Dots, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, Snapshot, ToWorker } from '../../sim/types';
+import type { BusModelId, DayCard, DepotSiteView, Dots, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 
 export type SimStatus = 'none' | 'loading' | 'ready' | 'failed';
@@ -32,7 +32,7 @@ export interface Sim {
   probeAt(at: LngLatPair | null): void;
   depotSiteAt(at: LngLatPair | null): void;
   /** Asks for the draft card of these clicks; an empty list clears it. */
-  draftFor(clicks: readonly LngLatPair[]): void;
+  draftFor(clicks: readonly LngLatPair[], model?: BusModelId): void;
   closeDayCard(): void;
 }
 
@@ -143,14 +143,14 @@ export function useSim(city: City | undefined): Sim {
     sites.current.set(id, at);
     worker.current?.postMessage({ type: 'depot-site', id, at } satisfies ToWorker);
   }, []);
-  const draftFor = useCallback((clicks: readonly LngLatPair[]) => {
+  const draftFor = useCallback((clicks: readonly LngLatPair[], model: BusModelId = 'sparrow') => {
     if (!clicks.length) {
       asked.current.draft = 0;
       return setDraft(null);
     }
     const id = asked.current.next++;
     asked.current.draft = id;
-    worker.current?.postMessage({ type: 'line-draft', id, clicks } satisfies ToWorker);
+    worker.current?.postMessage({ type: 'line-draft', id, clicks, model } satisfies ToWorker);
   }, []);
   const closeDayCard = useCallback(() => setDayCard(null), []);
 

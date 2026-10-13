@@ -157,6 +157,19 @@ describe('the sim host', () => {
     expect(last('refused')).toEqual({ type: 'refused', command: 'set-headways', reason: 'insufficient_funds', shortCents: 2_380_000 });
   });
 
+  it('prices a model change on the line card’s rule: the starter cannot yet afford Metro 40s, and the Goliath is locked (the M3 spec, item 2)', () => {
+    const { host, last } = started();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    host.handle({ type: 'set-model', lineId: line.id, model: 'goliath' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'model_locked' });
+    // Two Metro 40s are $520k against $95k back for the Sparrows; $71,200 is left after the starter.
+    host.handle({ type: 'set-model', lineId: line.id, model: 'metro40' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 - 7_120_000 });
+    expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
+  });
+
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
     createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1, build: BUILD });

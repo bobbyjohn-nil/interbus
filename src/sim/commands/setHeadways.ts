@@ -1,6 +1,7 @@
 // A headway change (the M2 spec, item 4): the rule says how many more buses the new headways need,
 // the ledger pays for them as one Purchases row, and the line runs them from the next hour. Fewer
 // buses are never sold here; a line with spare buses parks them and pays no driver for them.
+import { BUS_MODELS } from '../config/fleet';
 import { toCalendarTime } from '../core/calendar';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
@@ -17,7 +18,7 @@ export function setHeadways(
   const line = world.state.lines.find((l) => l.id === lineId);
   const service = world.services.get(lineId);
   if (!line || !service) return refuse('no_such_line');
-  const change = checkHeadwayChange(fleetContext(world), { cycle: service.timing.cycle, buses: line.buses }, headways);
+  const change = checkHeadwayChange(fleetContext(world), { cycle: service.timing.cycle, buses: line.buses, model: BUS_MODELS[line.model] }, headways);
   if (!change.ok) return change;
   if (change.priceCents > 0) {
     const paid = spend(world.state.ledger, change.priceCents, toCalendarTime(world.state.elapsed).day);

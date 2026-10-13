@@ -46,8 +46,14 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   subsidy: 'City subsidy',
   purchase: 'Purchases',
   refund: 'Refunds',
+  sale: 'Buses sold',
   running: 'Running (per km)',
   wages: 'Driver wages',
   deadhead: 'Deadhead',
   upkeep: 'Depot upkeep',
 };
+
+/** "2 Sparrows", "1 Metro 40": a count of buses of one model. */
+export function busCount(n: number, model: string): string {
+  return `${n} ${n === 1 ? model : `${model}s`}`;
+}
