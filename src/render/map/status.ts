@@ -1,6 +1,14 @@
 // What the map says about itself (data-status). Pure, so each transition is tested on its own.
 // 'no-gpu': the GPU ladder's last rung, no map at all; 'lost': the browser took the map's graphics
 // away mid-game (gpu.ts).
+/**
+ * Performance marks for I14's first frame (e2e/first-frame.spec.ts; a browser's performance panel shows
+ * them too): MapLibre's 'load', its first visually complete frame, and the board ready, the first idle
+ * frame with every overlay drawn.
+ */
+export const MAP_LOADED_MARK = 'interbus:map-load';
+export const MAP_READY_MARK = 'interbus:map-ready';
+
 export type MapStatus = 'loading' | 'ready' | 'empty' | 'no-city-file' | 'failed' | 'replaced' | 'no-gpu' | 'lost';
 
 /**

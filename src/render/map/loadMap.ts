@@ -16,6 +16,7 @@ import { buildStyle } from './style';
 import { BUILDINGS_2D, BUILDINGS_3D, buildingOpacity, buildingVisibility, cameraFor, CROSS_FADE_MS, draggedPitch, MAX_PITCH, MIN_ZOOM, settled, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
 import { LOW_GRAPHICS_FPS, type GraphicsRung } from './gpu';
+import { MAP_LOADED_MARK } from './status';
 import { createVehicleLayer } from './vehicles';
 
 let protocol: Protocol | null = null;
@@ -209,6 +210,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
   const fleet = new Fleet();
   map.once('load', () => {
+    performance.mark(MAP_LOADED_MARK);
     addOverlays(map, GAME_LIGHT, LIGHT);
     map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
     loaded = true;

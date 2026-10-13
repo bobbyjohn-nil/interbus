@@ -245,7 +245,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 
 Filled in as they are measured, with the date and the commit, each by a committed script ([TS-08](history/lessons-ledger.md)):
 - Boston's map file size (`pmtiles extract --dry-run`); whether GitHub Pages answers Range requests with `206` and no `Content-Encoding`; and the `Cache-Control` it sends for `index.html`, hashed assets and `version.json` (D12).
-- Gzip size per chunk, the menu's critical path including its font bytes (D13), and the first map frame under software GL.
+- Gzip size per chunk, the menu's critical path including its font bytes (D13), and the first map frame under software GL. **First frame done 2026-10-13: 1.2–1.5 s on Inner Boston (Measured, below).**
 - Whether census.gov, LEHD and Geofabrik accept downloads from GitHub's runners (measured below: they do).
 - The number of Inner Boston buildings with OSM `height` or `building:levels` (week 2). Rule: under about half, the Overture height join goes into the r1 bake in week 5 and off cut 1; otherwise it is dropped. Record the count and the result here. **Done 2026-10-13: 14.1%, so the join goes in (Measured, below).**
 - Sessions merged against sessions planned (PLAN §10), on Sun Oct 18, Oct 25 and Nov 1.
@@ -253,6 +253,11 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`e2e/first-frame.spec.ts`, on the shipped build in CI's smoke step): **I14's first frame on software GL** (PLAN §6; the first map frame, above).
+  - **On Inner Boston**, in this container's SwiftShader, four runs of three cold loads: MapLibre's first visually complete frame (its 'load') came at **1.23–1.47 s** from the page's start, under I14's 2.5 s. The board was ready, every overlay drawn and idle, at 2.21–2.68 s. On the fixture, two runs: 1.13–1.34 s, the board ready at 1.97–2.58 s.
+  - **Where the time goes**, in one run with a mark at each stage: the map's code was in by about 0.3 s, and a first frame before the style's tiles by about 0.5 s. The overlays added at 'load' (the demand dots, lines, depots and buses) took about a second more to the board ready.
+  - **The test** takes the median of three cold loads, and prints both times in CI's log. The two moments are performance marks (`interbus:map-load`, `interbus:map-ready`), so a browser's performance panel shows them too.
+  - **TS-04:** with a 1.5 s wait before the map mounts, the median was 2.68 s and the test failed. With a 1.2 s wait it held, at 2.39 s.
 - **2026-10-13** (`npm run bench scene`; `src/sim/scene.test.ts`, `src/render/map/vehicles.test.ts`, `e2e/scene.spec.ts` on both builds): **a busy scene for the slow-laptop run, and the vehicle draw-call budget** (the M5 spec, item 9; PLAN §6's budgets on real laptops).
   - **No company can own 200 buses.** Five depots of six park 30 (`config/depots.ts`, V1's level-1 depot), and PLAN §6 sets the slowest laptop's 2D frame rate at 200. So the scene steps past that one rule: the line rule drafts each line as if its depots had room, and every other rule still decides.
   - **The scene** (`src/sim/scene.ts`): corridor lines every 5 minutes, every third in Metro 40s, played on to 08:00 on day 1, when every bus is out. On Inner Boston: 209 buses on 29 lines from 5 depots, built in 7.8 s. On the fixture: 62 buses on 13 lines from 1 depot, all its corridors hold. `npm run bench scene` writes Inner Boston's as a save file for Saves → Import a save file, from the city file the preview ships.
