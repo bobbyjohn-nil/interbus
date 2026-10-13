@@ -1,6 +1,8 @@
-// Measures the built preview (DECISIONS.md "Measurements to record"): gzip size of every chunk and
-// the menu's critical path, meaning index.html, the entry script and stylesheet, and both interface
-// fonts (D13). Budget: the critical path stays at or under 200 KiB gzip (PLAN I14).
+// Measures the built preview (DECISIONS.md "Measurements to record"): gzip size of every chunk,
+// the menu's critical path (index.html, the entry script and stylesheet, and both interface fonts,
+// D13) and the board (every other script and stylesheet, all loaded when the map opens: MapLibre,
+// its worker, PMTiles and the style). Budgets (PLAN I14): menu ≤200 KiB gzip, board ≤520 KiB. The
+// week-5 model chunk loads only at the first tilted mesh switch and gets its own 200 KiB budget.
 //
 //   npm run build && node scripts/measure/bundle.mjs [dist]
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -23,4 +25,11 @@ let critical = gz(join(dist, 'index.html'));
 for (const f of entry) critical += gz(join(dist, f));
 for (const f of fonts) critical += statSync(join(dist, f)).size; // woff2 is already compressed
 console.log(`menu critical path: ${kib(critical)} (index.html, ${entry.join(', ')}, ${fonts.length} fonts); budget 200 KiB`);
-process.exitCode = critical <= 200 * 1024 ? 0 : 1;
+
+const lazy = readdirSync(join(dist, 'assets')).filter((f) => /\.(js|css)$/.test(f) && !entry.includes(`assets/${f}`));
+const board = lazy.reduce((sum, f) => sum + gz(join(dist, 'assets', f)), 0);
+console.log(`board: ${kib(board)} (${lazy.length} lazy chunks); budget 520 KiB`);
+
+const over = [critical > 200 * 1024 && 'menu', board > 520 * 1024 && 'board'].filter(Boolean);
+if (over.length) console.error(`over budget: ${over.join(', ')}`);
+process.exitCode = over.length ? 1 : 0;

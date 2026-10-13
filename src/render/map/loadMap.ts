@@ -10,6 +10,7 @@ import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platfo
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
 import { buildStyle } from './style';
+import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { LIGHT } from './tokens';
 
 let protocol: Protocol | null = null;
@@ -26,8 +27,13 @@ function pmtilesProtocol(): Protocol {
 export interface MountedMap {
   readonly map: MapLibreMap;
   readonly tileReads: 'range' | 'whole';
+  /** Tilts or flattens the board (tilt.ts); call it only once the style has loaded. */
+  setMode(mode: ViewMode): void;
   dispose(): void;
 }
+
+/** Marks the tilt's own camera moves, so their end can be told from a drag's. */
+const TILT_MOVE = 'interbusTilt';
 
 export async function mountMap(container: HTMLElement, city: City): Promise<MountedMap> {
   if (!city.tiles) throw new Error(`${city.name} has no tile file in this build`);
@@ -46,15 +52,20 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
   const [w, s, e, n] = paddedBounds(city.extent);
   const map = new MapLibreMap({
     container,
-    style: buildStyle({ tilesUrl: `pmtiles://${tiles.source.getKey()}`, assetBase: assetBase(), tokens: LIGHT }),
+    style: buildStyle({
+      tilesUrl: `pmtiles://${tiles.source.getKey()}`,
+      assetBase: assetBase(),
+      tokens: LIGHT,
+      extent: city.extent,
+    }),
     center: [city.view.center[0], city.view.center[1]],
     zoom: city.view.zoom,
-    minZoom: 11,
+    minZoom: MIN_ZOOM['2d'],
     maxZoom: 18,
     maxBounds: [w, s, e, n],
-    // Flat in week 1; the T key tilts from week 2 (PLAN §14).
+    // Only the T key pitches the board until week 10's chip and right-drag (tilt.ts).
     pitch: 0,
-    maxPitch: 0,
+    maxPitch: MAX_PITCH,
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,
@@ -73,9 +84,28 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     else console.error(event.error);
   });
 
+  let mode: ViewMode = '2d';
+  map.on('moveend', (event) => {
+    // 3D raises the zoom floor only once its own ease has ended (or a drag cut it short): raising it
+    // sooner would jump the camera and stop the ease short of 50°. MapLibre copies easeTo's event
+    // data onto the move's events.
+    const tilt = (event as { [TILT_MOVE]?: ViewMode })[TILT_MOVE];
+    if (tilt === '3d' && mode === '3d') map.setMinZoom(MIN_ZOOM['3d']);
+  });
+  const setMode = (next: ViewMode) => {
+    if (next === mode) return;
+    mode = next;
+    // Once per mode change, never per frame (RN-04); week 10 cross-fades instead.
+    for (const [id, visibility] of Object.entries(buildingVisibility(next))) map.setLayoutProperty(id, 'visibility', visibility);
+    map.setMinZoom(MIN_ZOOM['2d']);
+    // MapLibre jumps instead of easing when the system asks for reduced motion.
+    map.easeTo({ ...cameraFor(next, map.getZoom()), duration: 600 }, { [TILT_MOVE]: next });
+  };
+
   return {
     map,
     tileReads: file.kind,
+    setMode,
     dispose: () => map.remove(),
   };
 }

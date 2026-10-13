@@ -22,6 +22,10 @@ export interface MapTokens {
   readonly industrial: string;
   readonly aerodrome: string;
   readonly boundary: string;
+  /** The grey laid over everything beyond the play area: V1's board mask. */
+  readonly mask: string;
+  /** The play area's dashed edge. */
+  readonly maskEdge: string;
   readonly label: string;
   readonly labelMinor: string;
   readonly labelHalo: string;
@@ -46,6 +50,9 @@ export const LIGHT: MapTokens = {
   industrial: '#e2ded5',
   aerodrome: '#e4e0d8',
   boundary: '#b9b2a5',
+  // V1's mask and edge (Intralines@7af45b1:src/map/overlays.ts:98, 107).
+  mask: '#75746e',
+  maskEdge: '#3c3728',
   label: '#5c574d',
   labelMinor: '#7a7468',
   labelHalo: '#ebe7df',

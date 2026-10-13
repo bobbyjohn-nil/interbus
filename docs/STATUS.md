@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 24ea515.
+**Updated:** 2026-10-13, at `main` 328d40d, with the raw tilt in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 24ea515. Deploy preview run 38340282409's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 328d40d. Deploy preview run 38341074688's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window.
 - **The first redeploy kept the previous build's files** on the real site ("kept 1 earlier build(s), fetched 2 file(s)").
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -44,7 +44,10 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
   - Inner Boston's height-tag count;
   - smoke;
   - the fare-row signal, due **Sun Oct 25**.
-- [ ] **Item 12, raw tilt:** `T` sets pitch 50° with extrusions (≤0.5 session), plus the board mask and the style and bundle tests.
+- [x] **Item 12, raw tilt** (2026-10-13):
+  - `T` eases to pitch 50° at zoom ≥14 and swaps the flat buildings for extrusions; `T` again flattens. Untagged buildings stand 10 m until the bake's heights.
+  - V1's board mask greys beyond the play area behind a dashed edge.
+  - Style tests (extrusions, mask, spec validation) and `e2e/tilt.spec.ts`; `measure:bundle` now fails a board over 520 KiB (433.0 KiB).
 - [ ] **Item 13:** `docs/specs/current.md` for M1, ≤150 lines, with "first dollar on the fixture by Nov 1" on top. Due **Sun Oct 25**.
 
 ## Next
