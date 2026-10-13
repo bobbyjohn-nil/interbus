@@ -15,7 +15,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 3;
+export const SAVE_FORMAT = 4;
 
 export interface BuildRef {
   readonly sha: string;
@@ -60,6 +60,7 @@ export function toSaveData(state: SimState): SaveData {
       fareCents: l.fareCents,
       headways: { peak: l.headways.peak, offpeak: l.headways.offpeak, overnight: l.headways.overnight },
       boardedMilli: l.boardedMilli,
+      buses: l.buses,
     })),
     ledger: state.ledger.rows.map((r) => ({ day: r.day, kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
   };
@@ -88,6 +89,7 @@ export function fromSaveData(data: SaveData): SimState {
       fareCents: l.fareCents,
       headways: { ...l.headways },
       boardedMilli: l.boardedMilli,
+      buses: l.buses,
     })),
     ledger: { rows, cashCents: rows.reduce((sum, r) => sum + r.amountCents, 0) },
   };
@@ -114,6 +116,7 @@ export function integrityProblem(data: SaveData): string | null {
     if (line.stopIds.some((id) => !stops.has(id))) return `line ${line.id} names a missing stop`;
     if (line.fareCents < 0) return `line ${line.id} has a negative fare`;
     if (line.boardedMilli < 0) return `line ${line.id} has negative boardings`;
+    if (line.buses < 0) return `line ${line.id} has negative buses`;
     if (!checkHeadways(line.headways).ok) return `line ${line.id} breaks the headway rules`;
   }
   if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with Founding capital';

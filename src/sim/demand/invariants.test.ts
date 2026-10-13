@@ -58,7 +58,7 @@ describe('I2: adding a line or a stop never cuts linked trips by more than 0.1%'
     const ids = at.map((p) => addStop(world, p));
     const [lineId, next] = mint(world.state.nextIds, 'line');
     world.state.nextIds = next;
-    world.state.lines.push({ id: lineId, name: 'Second', colour: '#1f6fb2', stopIds: ids, fareCents: 225, headways: { peak: 900, offpeak: 1800, overnight: null }, boardedMilli: 0 });
+    world.state.lines.push({ id: lineId, name: 'Second', colour: '#1f6fb2', stopIds: ids, fareCents: 225, headways: { peak: 900, offpeak: 1800, overnight: null }, boardedMilli: 0, buses: 10 }); // more buses than its headways need, so it runs as planned
     recompute(world);
     expect(world.assignment.tripsPerDay).toBeGreaterThanOrEqual(before * 0.999);
   });
@@ -75,7 +75,7 @@ describe('I2, crowded stops (EC-02: V1 kept each home’s 4 nearest stops, so ne
     const ids = [[-80, -60], [80, -60], [80, 60], [-80, 60]].map(([dx, dy]) => addStop(world, toLngLat(city.frame, [symphony[0] + dx!, symphony[1] + dy!])));
     const [lineId, next] = mint(world.state.nextIds, 'line');
     world.state.nextIds = next;
-    world.state.lines.push({ id: lineId, name: 'Loop', colour: '#1f6fb2', stopIds: ids, fareCents: 2000, headways: { peak: 600, offpeak: 600, overnight: null }, boardedMilli: 0 });
+    world.state.lines.push({ id: lineId, name: 'Loop', colour: '#1f6fb2', stopIds: ids, fareCents: 2000, headways: { peak: 600, offpeak: 600, overnight: null }, boardedMilli: 0, buses: 10 });
     recompute(world);
     expect(world.assignment.tripsPerDay).toBeGreaterThanOrEqual(before * 0.999);
   });

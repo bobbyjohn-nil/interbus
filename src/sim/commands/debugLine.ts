@@ -1,11 +1,13 @@
 // M1's debug line (docs/specs/m1-first-dollar.md): four stops from Back Bay to Longwood, every 20 minutes by
-// day, overnight off, $2.25. The seed of M2's line tool, cut when the tool lands. In M1 it runs its
-// timetable with no bus and no cost; week 4 gives every line buses and their costs (K42).
+// day, overnight off, $2.25. The seed of M2's line tool, cut when the tool lands. It is given the
+// buses its headways need, free, and from M2 runs them at their costs (K42).
 import { toXY, type LngLat } from '../core/geo';
 import { mint, type LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 import { REFERENCE_FARE_CENTS } from '../config/economy';
-import { nearestNode, recompute, type World } from '../world';
+import { SPARROW } from '../config/fleet';
+import { busesNeeded, cycleSeconds } from '../rules/cycle';
+import { nearestNode, planLine, recompute, type World } from '../world';
 
 export const DEBUG_STOPS: readonly { readonly name: string; readonly at: LngLat }[] = [
   { name: 'Copley', at: [-71.077, 42.3499] },
@@ -38,7 +40,11 @@ export function addDebugLine(world: World): Result<{ lineId: LineId }, DebugLine
     fareCents: REFERENCE_FARE_CENTS,
     headways: { peak: DEBUG_HEADWAY_SECONDS, offpeak: DEBUG_HEADWAY_SECONDS, overnight: null },
     boardedMilli: 0,
+    buses: 0,
   });
+  const line = state.lines[state.lines.length - 1]!;
+  const plan = planLine(world, line);
+  if (plan) line.buses = busesNeeded(cycleSeconds(plan.stopDistM[plan.stopDistM.length - 1]!, plan.stops.length, SPARROW.kmh), line.headways);
   recompute(world);
   return ok({ lineId });
 }

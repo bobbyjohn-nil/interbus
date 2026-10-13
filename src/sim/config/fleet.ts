@@ -17,3 +17,6 @@ export const SPARROW: BusModel = { id: 'sparrow', name: 'Sparrow', seats: 28, pr
 
 /** A bus waits this long at each end of its route before turning back (V1, demand.worker.ts:211-219). */
 export const LAYOVER_SECONDS = 240;
+
+/** A driver's wage for each hour a bus is in service (V1 `DRIVER_WAGE_PER_HOUR`, constants.ts:110-113); a parked bus costs only its depot's upkeep. */
+export const WAGE_CENTS_PER_HOUR = 2_600;

@@ -5,13 +5,14 @@
 // - founding capital is derived, k × the starter line (D7), not a fixed $500,000;
 // - amounts are integer cents end to end, and a caller bug (a negative or fractional amount) throws
 //   instead of V3's console.error and a misleading 'insufficient_funds'.
-// Income rows (K40: V3's income was always zero) are posted by the demand step from M1.
+// Income rows (K40: V3's income was always zero) are posted by the demand step from M1; cost rows
+// (running, wages, deadhead, depot upkeep) from M2, by the hour.
 import { STARTING_CASH_K_PERMILLE } from '../config/economy';
 import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
-export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund'] as const;
+export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'running', 'wages', 'deadhead', 'upkeep'] as const;
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
@@ -77,6 +78,26 @@ export function refund(ledger: Ledger, amountCents: number, day: number): void {
   assertCents(amountCents, 'refund');
   if (amountCents < 0) throw new RangeError(`a refund is never negative, got ${amountCents}`);
   post(ledger, { day, kind: 'refund', amountCents });
+}
+
+/**
+ * Closes a day: its rows merge into one per kind and line, in ROW_KINDS order then by line, so a save
+ * grows by a day card a day rather than by every hour's rows. Cash and the day card's totals are
+ * unchanged (I1). A day's rows sit together at the end of the ledger when it closes.
+ */
+export function closeDay(ledger: Ledger, day: number): void {
+  const first = ledger.rows.findIndex((r) => r.day === day);
+  if (first < 0) return;
+  const merged = new Map<string, LedgerRow>();
+  for (const r of ledger.rows.slice(first)) {
+    if (r.day !== day) throw new RangeError(`day ${day} closes with a row of day ${r.day} after it`);
+    const key = `${r.kind} ${r.lineId ?? ''}`;
+    const had = merged.get(key);
+    merged.set(key, had ? { ...had, amountCents: had.amountCents + r.amountCents } : r);
+  }
+  const order = (r: LedgerRow) => ROW_KINDS.indexOf(r.kind);
+  ledger.rows.length = first;
+  for (const r of [...merged.values()].sort((a, b) => order(a) - order(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
 }
 
 /** The rows of one day, which are its day card (I1). */

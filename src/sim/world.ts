@@ -5,8 +5,23 @@ import { assign, type Assignment, type LinePlan } from './demand/assign';
 import { SpatialGrid, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
+import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
+import { SPARROW } from './config/fleet';
+import type { DepotId, LineId } from './core/ids';
+import type { LineCostInputs } from './economy/costs';
+import { cycleSeconds } from './rules/cycle';
 import type { DepotSiteContext } from './rules/depot';
+import { runningHeadwayIn, type Timing } from './rules/timetable';
 import type { Line, SimState } from './state';
+
+/** What a line runs as, worked out from the state when the network changes (recompute()). */
+export interface LineService {
+  readonly plan: LinePlan;
+  readonly timing: Timing;
+  readonly costs: LineCostInputs;
+  /** The depot its buses park at: the nearest by driving time with room (V3), or null with none. */
+  readonly depotId: DepotId | null;
+}
 
 export interface World {
   readonly city: City;
@@ -16,6 +31,7 @@ export interface World {
   state: SimState;
   /** Recomputed whenever the network changes (recompute()). */
   assignment: Assignment;
+  services: Map<LineId, LineService>;
 }
 
 export function nearestNode(world: Pick<World, 'nodes' | 'city'>, p: XY): number | null {
@@ -55,8 +71,59 @@ export function depotSiteContext(world: Pick<World, 'nodes' | 'city' | 'state'>)
   };
 }
 
+/** Each line's timetable, depot and costs, in line order; buses fill the nearest depot with room first. */
+export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>): Map<LineId, LineService> {
+  const { city, state } = world;
+  const depots = state.depots.map((d) => {
+    const at = toXY(city.frame, [d.lon, d.lat]);
+    return { id: d.id, node: world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at), room: DEPOT_CAPACITY };
+  });
+  const services = new Map<LineId, LineService>();
+  for (const line of state.lines) {
+    const plan = planLine(world, line);
+    if (!plan) continue;
+    const routeM = plan.stopDistM[plan.stopDistM.length - 1]!;
+    const timing: Timing = { cycle: cycleSeconds(routeM, plan.stops.length, SPARROW.kmh), headways: line.headways, buses: line.buses };
+    const first = nearestNode(world, plan.stops[0]!);
+    const last = nearestNode(world, plan.stops[plan.stops.length - 1]!);
+    let depot: { id: DepotId; node: number | null; room: number } | null = null;
+    let pullOutM = 0;
+    let pullInM = 0;
+    if (first !== null && last !== null && line.buses > 0) {
+      const options = depots
+        .map((d) => ({ d, out: d.node === null ? null : world.router.route(d.node, first) }))
+        .filter((o) => o.out !== null)
+        .sort((a, b) => Number(b.d.room >= line.buses) - Number(a.d.room >= line.buses) || a.out!.cs - b.out!.cs || a.d.id - b.d.id);
+      const pick = options[0];
+      if (pick) {
+        depot = pick.d;
+        depot.room -= line.buses;
+        pullOutM = pick.out!.dm / 10;
+        pullInM = (world.router.route(last, pick.d.node!)?.dm ?? pick.out!.dm) / 10;
+      }
+    }
+    services.set(line.id, {
+      plan: { ...plan, headways: runningHeadways(timing) ?? plan.headways },
+      timing,
+      costs: { timing, routeM, model: SPARROW, pullOutM, pullInM },
+      depotId: depot?.id ?? null,
+    });
+  }
+  return services;
+}
+
+/** The headways a line actually runs, or null if it runs at no time (no buses). */
+function runningHeadways(t: Timing): Line['headways'] | null {
+  const peak = runningHeadwayIn(t, 'peak');
+  const offpeak = runningHeadwayIn(t, 'offpeak');
+  if (peak === null || offpeak === null) return null;
+  return { peak, offpeak, overnight: runningHeadwayIn(t, 'overnight') };
+}
+
 export function recompute(world: World): void {
-  const plans = world.state.lines.map((l) => planLine(world, l)).filter((p): p is LinePlan => p !== null);
+  world.services = lineServices(world);
+  // A line with no buses runs at no time, so nobody can ride it.
+  const plans = [...world.services.values()].filter((s) => s.timing.buses > 0).map((s) => s.plan);
   world.assignment = assign(world.city, world.commuters, plans);
 }
 
@@ -70,6 +137,7 @@ export function createWorld(city: City, state: SimState): World {
     nodes,
     state,
     assignment: { lines: new Map(), tripsPerDay: 0 },
+    services: new Map(),
   };
   recompute(world);
   return world;
