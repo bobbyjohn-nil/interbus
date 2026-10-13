@@ -34,6 +34,7 @@ import { checkLineDraft } from '../sim/rules/line';
 import { decode, encode, fromSaveData, saveKey } from '../sim/save/save';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
+import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
 import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
@@ -203,6 +204,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
     linesVersion++;
   };
 
+  // Every command taken since the last unpause, newest last (sim/undo.ts, I9).
+  let undoStack = newUndo();
+  /** Runs a command; while paused, keeps the game from before it so an undo can put it back. */
+  const command = <R extends { readonly ok: boolean }>(label: UndoLabel, run: () => R): R => {
+    const kept = speed === 0 ? before(world!) : null;
+    const result = run();
+    if (result.ok && kept) remember(undoStack, label, kept);
+    return result;
+  };
+
   // Worked out again only when a row is posted, the day turns or the network changes.
   let financeKey = '';
   let financeView: FinanceView | null = null;
@@ -236,6 +247,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       linesVersion,
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
       finance: financeNow(w),
+      undo: speed === 0 ? nextUndo(undoStack) : null,
     };
   };
 
@@ -260,6 +272,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
         const { result, effects } = decode(message.text, ref);
         world = createWorld(city, result.outcome === 'ok' ? fromSaveData(result.envelope.data) : newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed));
         speed = 0;
+        undoStack = newUndo();
         savedHour = Math.floor(world.state.elapsed / 3_600);
         refreshLines();
         if (effects.length) post({ type: 'store', effects });
@@ -268,6 +281,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
       if (message.type === 'speed') {
+        if (message.speed > 0) timeRuns(undoStack);
         speed = message.speed;
         lastMs = null;
         // A part-step of game time is dropped, as a save drops it, so a reload carries on in step.
@@ -283,7 +297,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
           : { ok: false, reason: verdict.reason, ...(verdict.limitM === undefined ? {} : { limitM: verdict.limitM }), ...(verdict.nearestM === undefined ? {} : { nearestM: Math.round(verdict.nearestM) }) };
         post({ type: 'depot-site', id: message.id, site });
       } else if (message.type === 'place-depot') {
-        const result = placeDepot(world, message.at);
+        const result = command({ command: 'place-depot', subject: `Depot ${world.state.nextIds.depot}` }, () => placeDepot(world!, message.at));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines(); // a line's deadhead now runs from the depot
@@ -298,7 +312,9 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'line-draft') {
         post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow') });
       } else if (message.type === 'create-line') {
-        const result = createLine(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow');
+        const result = command({ command: 'create-line', subject: `Line ${world.state.nextIds.line}` }, () =>
+          createLine(world!, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow'),
+        );
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();
@@ -306,7 +322,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-model') {
-        const result = setModel(world, message.lineId as LineId, message.model);
+        const result = command({ command: 'set-model', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setModel(world!, message.lineId as LineId, message.model));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();
@@ -314,7 +330,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-fare') {
-        const result = setFare(world, message.lineId as LineId, message.fareCents);
+        const result = command({ command: 'set-fare', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setFare(world!, message.lineId as LineId, message.fareCents));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();
@@ -322,8 +338,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-stop-tier') {
-        const result = setStopTier(world, message.stopId as StopId, message.tier);
+        const result = command({ command: 'set-stop-tier', subject: `Stop ${message.stopId}` }, () => setStopTier(world!, message.stopId as StopId, message.tier));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'undo') {
+        const result = undo(world, undoStack);
+        if (!result.ok) post({ type: 'refused', command: message.type, reason: result.reason });
         else {
           refreshLines();
           save();
@@ -332,7 +356,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'fare-band') {
         post({ type: 'fare-band', id: message.id, lineId: message.lineId, band: fareBand(world, message.lineId as LineId) });
       } else if (message.type === 'set-headways') {
-        const result = setHeadways(world, message.lineId as LineId, message.headways);
+        const result = command({ command: 'set-headways', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setHeadways(world!, message.lineId as LineId, message.headways));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();

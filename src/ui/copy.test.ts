@@ -11,6 +11,7 @@ const CODES = [
   'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
   'fare_out_of_range', 'fare_not_a_step', 'same_fare',
   'same_tier', 'no_such_tier', 'needs_lines', 'no_such_stop',
+  'time_has_run', 'nothing_to_undo',
 ];
 
 describe('refusal copy (UX-03)', () => {
