@@ -3,9 +3,11 @@
 // (so no one-way stub traps a bus). Reads the OPL text osm.py writes. Ported in spirit from V1's
 // pipeline (`Intralines@7af45b1:src/game/data/pipeline.js:240-420`, S14), with:
 // - OPL escapes decoded before any tag is read ("25%20%mph" is 25 mph, not 25 km/h);
-// - bus access by a written precedence: bus, then psv, then motor_vehicle, then access, then hgv
-//   (PLAN §5: hgv=no closes Storrow and Memorial Drives); maxheight under 3.5 m closes a street,
-//   whether tagged on the way or on a barrier node it passes, in metres or feet and inches;
+// - bus access by OSM's hierarchy for a bus: bus, then psv, then motor_vehicle, then vehicle, then
+//   access. hgv is the goods-vehicle branch and never reaches a bus: as a closure it shut 353
+//   Inner Boston ways, Summer Street and Columbia Road among them, to catch a few parkways, which
+//   adjust.json now closes by name. maxheight under 3.5 m closes a street, whether tagged on the
+//   way or on a barrier node it passes, in metres or feet and inches;
 // - D17: busways and bus-only streets open to all traffic, and nothing else of transit survives;
 // - one-way streets kept one-way (oneway=-1 reversed; oneway:bus=no exempts buses);
 // - integer output: positions in decimetres in the city frame, lengths in decimetres, times in
@@ -17,6 +19,9 @@ export const GRAPH_CLASSES = new Set([
   'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'living_street',
   'road', 'busway', 'bus_guideway',
 ]);
+
+/** Motorways and their ramps. G2 measures connectivity without them: clipping strands their ends, and ramps that lead only to a closed parkway are rightly unreachable. */
+export const MOTORWAY_CLASSES = new Set(['motorway', 'motorway_link']);
 
 /** Free-flow speeds where a street carries no maxspeed, km/h (a tunable; buses rarely beat them in Boston). */
 export const CLASS_KMH = {
@@ -85,18 +90,17 @@ const YES = new Set(['yes', 'designated', 'permissive', 'destination']);
 const NO = new Set(['no', 'private', 'delivery', 'agricultural', 'forestry', 'customers', 'discouraged']);
 
 /**
- * May a bus drive this street? The first of bus, psv, motor_vehicle, access that says yes or no
- * decides; then hgv=no closes it (Massachusetts parkways), and a low clearance always does.
- * Returns the reason when closed, for the bake report.
+ * May a bus drive this street? The first of bus, psv, motor_vehicle, vehicle, access that says yes
+ * or no decides, as OSM's access hierarchy reads for a bus; hgv (goods vehicles) is not on that
+ * path. A low clearance always closes it. Returns the reason when closed, for the bake report.
  */
 export function busAccess(tags) {
   const clearance = parseMetres(tags.maxheight);
   if (clearance !== null && clearance < MIN_CLEARANCE_M) return `maxheight ${tags.maxheight}`;
-  for (const key of ['bus', 'psv', 'motor_vehicle', 'access']) {
+  for (const key of ['bus', 'psv', 'motor_vehicle', 'vehicle', 'access']) {
     if (YES.has(tags[key])) return null;
     if (NO.has(tags[key])) return `${key}=${tags[key]}`;
   }
-  if (tags.hgv === 'no') return 'hgv=no';
   return null;
 }
 
@@ -170,8 +174,11 @@ export function buildStreets(osm, frame, adjust = { closeToBuses: [] }) {
 
   // 5. Keep the largest strongly connected piece (by drivable length).
   const kept = largestStrongPiece(segments);
-  const totalMetres = segments.reduce((s, e) => s + e.metres, 0);
-  const keptMetres = kept.reduce((s, e) => s + e.metres, 0);
+  const metres = (list, keep = () => true) => list.reduce((s, e) => s + (keep(e) ? e.metres : 0), 0);
+  const offMotorways = (e) => !MOTORWAY_CLASSES.has(e.cls);
+  const totalMetres = metres(segments);
+  const keptMetres = metres(kept);
+  const localMetres = metres(segments, offMotorways);
 
   // 6. Number nodes by OSM id, edges by (a, b, way), so a rebake of the same inputs is identical.
   const nodeIds = [...new Set(kept.flatMap((e) => [e.a, e.b]))].sort((a, b) => a - b);
@@ -199,7 +206,8 @@ export function buildStreets(osm, frame, adjust = { closeToBuses: [] }) {
       edges: edges.length,
       keptKm: Math.round(keptMetres) / 1000,
       droppedKm: Math.round(totalMetres - keptMetres) / 1000,
-      keptShare: totalMetres > 0 ? keptMetres / totalMetres : 0,
+      /** G2: the share of drivable km off motorways that the kept piece holds. */
+      keptShare: localMetres > 0 ? metres(kept, offMotorways) / localMetres : 0,
       closed,
     },
   };

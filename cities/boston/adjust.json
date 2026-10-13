@@ -1,13 +1,17 @@
 {
-  "about": "Corrections the bake applies where OpenStreetMap's tags leave a fact out (PLAN §5). Each names what it changes and why; the bake report lists every street it closes.",
+  "about": "Corrections the bake applies where OpenStreetMap's tags leave a fact out (PLAN §5). Each names what it changes and why; the bake report lists every street it closes. The closures are DCR's three 'River Roads', which it restricts to cars only: Storrow Drive, Soldiers Field Road and Memorial Drive (DCR press releases, e.g. https://www.mass.gov/news/dcr-warns-drivers-about-storrowing-ahead-of-greater-boston-move-in-day and https://www.mass.gov/news/state-officials-remind-public-of-roadway-height-restrictions-for-move-in-day, checked 2026-10-13 through search excerpts; check before relying on it). OSM marks them mostly with hgv=no, which restricts goods vehicles, not buses, and with clearances, which close only the low pieces. Other parkways stay open unless a tag or a clearance closes them.",
   "closeToBuses": [
     {
       "name": "Storrow Drive",
-      "why": "A DCR parkway closed to buses and trucks; most of it is tagged hgv=no or with clearances under 3.5 m, and this catches any piece that is not."
+      "why": "A DCR River Road, cars only; OSM tags it hgv=no or with clearances, which miss some pieces."
+    },
+    {
+      "name": "Soldiers Field Road",
+      "why": "A DCR River Road, cars only; OSM tags it hgv=no or with clearances, which miss some pieces."
     },
     {
       "name": "Memorial Drive",
-      "why": "A DCR parkway closed to buses and trucks; OSM tags only some of its ways (1.4 km of it in the fixture carried no restriction on 2026-10-13)."
+      "why": "A DCR River Road, cars only; OSM tags only some of its ways (1.4 km of it in the fixture carried no restriction on 2026-10-13)."
     }
   ]
 }
