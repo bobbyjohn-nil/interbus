@@ -2,8 +2,9 @@
 # can ship it (PLAN §5: city files come only from a dispatch-only job; the deploy never bakes).
 # The fixture bakes from its committed inputs; the play extent (inner-boston) from the mirrored
 # sources, cut by tools/bake/extent.mjs (pyosmium, about 5 minutes). Either must match its golden
-# hash (the fixture's sim.lock.json, or cities/<city>/sim-<extent>.lock.json) byte for byte before
-# anything is published. After a published run, put the summary's entry in cities/index.json in a PR.
+# hash (the fixture's sim.lock.json, or cities/<city>/sim-<extent>.lock.json) byte for byte, and
+# load in 300 ms or less (G9, bench/load.ts), before anything is published. After a published run,
+# put the summary's entry in cities/index.json in a PR.
 name: City sim file (manual)
 
 on:
@@ -45,6 +46,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install npm packages (for G9's timing)
+        run: npm ci
+
       - name: Install pyosmium (pinned, hashed)
         run: |
           pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt
@@ -64,6 +68,9 @@ jobs:
           CITY: ${{ inputs.city }}
           EXTENT: ${{ inputs.extent }}
         run: node tools/bake/sim.mjs "$CITY" "$EXTENT" --check --out "sim.json"
+
+      - name: 'G9: the file loads in 300 ms or less'
+        run: npm run bench load sim.json
 
       - name: Publish as a release asset
         if: ${{ inputs.publish }}
