@@ -251,6 +251,24 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench strategies`; `src/sim/economy/strategies.test.ts`, `src/sim/demand/invariants.test.ts`): **I2's bus clause and I3's strategies pass on the fixture's debug line; I3's starving clause does not hold yet.**
+  - **I2, adding a bus.** At every 10 minutes at peak (3 Sparrows needed), riders a day by buses owned, 0 to 4:
+    - alone: 0, 726.2, 849.0, 862.5, 862.5;
+    - sharing streets with a second line: 74.4, 762.5, 882.3, 895.4, 895.4.
+
+    A short-handed line runs slower and carries fewer, and a spare bus changes nothing. A rule that lengthened the headway with each bus failed at bus 2 (848.96 against 861.64).
+  - **I3, the sweep.** All 245 headway settings the rules allow, each with the buses it needs, no depot and so no deadhead:
+
+    | Peak, off-peak, overnight (min) | Buses | Riders a day | Net a day |
+    |---|---|---|---|
+    | 15, 60, off (best) | 2 | 767.4 | $2,354.45 |
+    | 60, 60, off | 1 | 681.0 | $2,318.75 |
+    | 60, 60, 60 ("daytime longest, overnight shortest") | 1 | 689.2 | $2,274.65 |
+    | 20, 20, off (the starter) | 2 | 795.3 | $2,163.01 |
+    | 5, 5, off | 6 | 991.3 | $224.54 |
+
+    "Daytime longest, overnight shortest" earns less than the best, as the M2 spec asks. A night-only line cannot be set: overnight runs no more often than off-peak, and daytime at least hourly. A line off overnight carries nobody then.
+  - **The finding.** PLAN §6's I3 also asks that starving a line earn 60% of the optimum or less. Here hourly all day on one bus earns 98.5% of it, and the best off-peak headway is the longest allowed. Riders barely leave a line for a long wait: 4 times the peak service adds 12.7% more riders. PLAN puts per-period crowding (K27) and the fare band in week 5; both should make starving cost, and the sweep re-runs then. Until then the starving clause is not a test.
 - **2026-10-13** (`e2e/i13.spec.ts`): **I13 passes in the light theme at the three laptop sizes.** The calm shell's share of the screen is the area of every element marked `data-chrome` (the chip row, the dock, notices, the credits and build chip, and the one panel open), clipped to the window. The test founds a company, places a depot and draws the debug line's four stops, so each panel is measured as a player sees it:
 
   | Size | At rest | At rest with a line | Founding card | Draft card | Inspector |

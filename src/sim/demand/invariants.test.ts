@@ -64,6 +64,37 @@ describe('I2: adding a line or a stop never cuts linked trips by more than 0.1%'
   });
 });
 
+describe('I2’s bus clause (the M2 spec): adding a bus never cuts linked trips by more than 0.1%', () => {
+  // Every 10 minutes at peak needs 3 Sparrows on the debug line's 1,539 s round trip, so buses 0 to 4
+  // run it from not at all, through short-handed, to one spare.
+  const HEADWAYS = { peak: 600, offpeak: 1_200, overnight: 3_600 };
+  const tripsWith = (buses: number, second = false) => {
+    const world = game();
+    world.state.lines[0]!.headways = HEADWAYS;
+    world.state.lines[0]!.buses = buses;
+    if (second) {
+      const ids = ([[-71.0857, 42.3424], [-71.0905, 42.3445], [-71.095, 42.3375]] as LngLat[]).map((p) => addStop(world, p));
+      const [lineId, next] = mint(world.state.nextIds, 'line');
+      world.state.nextIds = next;
+      world.state.lines.push({ id: lineId, name: 'Second', colour: '#1f6fb2', stopIds: ids, fareCents: 225, headways: { peak: 900, offpeak: 1800, overnight: null }, boardedMilli: 0, buses: 10 });
+    }
+    recompute(world);
+    return world.assignment.tripsPerDay;
+  };
+
+  it('holds for each bus added to a line, from none to one spare', () => {
+    const trips = [0, 1, 2, 3, 4].map((b) => tripsWith(b));
+    for (let b = 1; b < trips.length; b++) expect(trips[b], `bus ${b}`).toBeGreaterThanOrEqual(trips[b - 1]! * 0.999);
+    expect(trips[3]).toBeGreaterThan(trips[1]!); // short-handed runs slower and carries fewer
+    expect(trips[4]).toBe(trips[3]); // a spare bus changes nothing
+  });
+
+  it('holds for each bus added to a line that shares its streets with another', () => {
+    const trips = [0, 1, 2, 3, 4].map((b) => tripsWith(b, true));
+    for (let b = 1; b < trips.length; b++) expect(trips[b], `bus ${b}`).toBeGreaterThanOrEqual(trips[b - 1]! * 0.999);
+  });
+});
+
 describe('I2, crowded stops (EC-02: V1 kept each home’s 4 nearest stops, so new stops pushed useful ones out)', () => {
   it('holds when a short line packs four stops around one of the first line’s', () => {
     const world = game();
