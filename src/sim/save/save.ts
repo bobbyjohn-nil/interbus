@@ -156,7 +156,8 @@ export function integrityProblem(data: SaveData): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
   if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
   if (data.tripsToday < 0 || data.tripsCarried < data.tripsToday) return 'more trips today than since founding';
-  if (Object.values(data.medals).some((d) => d !== null && (d < 1 || d > toCalendarTime(data.clock.elapsed).day))) return 'a medal awarded on a day not yet played';
+  const today = toCalendarTime(data.clock.elapsed).day;
+  if (Object.values(data.medals).some((d) => d !== null && (d < 1 || d > today))) return 'a medal awarded on a day not yet played';
   for (const c of data.contracts) {
     if (c.daysMet < 0 || c.hoursMissedToday < 0 || c.ask <= 0 || c.rewardCents < 0) return `contract ${c.id}: a negative count or amount`;
     if (c.acceptedDay !== null && c.acceptedDay < c.offeredDay) return `contract ${c.id}: taken before it was offered`;
@@ -190,6 +191,9 @@ export function integrityProblem(data: SaveData): string | null {
   if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with Founding capital';
   if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one Founding capital row';
   if (data.ledger.some((r) => r.day < 1)) return 'a ledger row before day 1';
+  // A day's close merges its rows and refuses any other day's after them (economy/ledger.ts closeDay),
+  // so a file with rows out of day order, or from a day not yet played, would stop the game there.
+  if (data.ledger.some((r, i) => r.day > today || (i > 0 && r.day < data.ledger[i - 1]!.day))) return 'a ledger out of day order';
   // A row may name a line since deleted, never one not yet made.
   if (data.ledger.some((r) => r.lineId !== null && (r.lineId < 1 || r.lineId >= data.nextIds.line))) return 'a ledger row names a line never made';
   return null;
