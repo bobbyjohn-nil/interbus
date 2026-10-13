@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 44e9eb4, with bus access in review.
+**Updated:** 2026-10-13, at `main` b175c05, with the Inner Boston bake in review.
 
 ## Live now
 
@@ -74,7 +74,8 @@ What is left, in order:
 2. [x] **I2** and **I3 per period** (2026-10-13, `src/sim/demand/invariants.test.ts`). The bus clause of I2 waits for week 4's buses.
 3. [x] **The recompute bench** (2026-10-13, `bench/`, `npm run bench`): 52 ms p50 and 65–78 ms p95 for three periods on a synthetic 812-cell grid with T03, under I14's 150 ms and R2's 100 ms. It was 13 s before trips were timed per group of sub-points reaching the same stops. `npm run bench compare` holds the result within 1.5% of the old loop per line and period, except where lines overlap (DECISIONS, Measured). Boston's own number comes from the Inner Boston bake, on Nov 1.
 4. [x] **Bus access** (2026-10-13): `hgv=no` restricts trucks, not buses, and no longer closes a street; DCR's River Roads close by name in `adjust.json`; G2 measures connectivity off motorways. A trial bake of Inner Boston found the old rule closed 353 ways, Summer Street and Columbia Road among them (DECISIONS, Measured).
-5. **Next, below the cut line:** the Inner Boston bake job (it gives R2's Boston number), then per-period crowding, then visitors. A trial bake already passes G1 (735 cells in the play area), G2 (11,687 nodes; 98.45% off motorways inside the extent) and G3 (99.98%); the job still needs the extent cut, G2 measured inside the extent, the workflow's Python step, a golden, and a Boston network for the bench.
+5. [x] **The Inner Boston bake** (2026-10-13; `node tools/bake/sim.mjs boston inner-boston`, the **City sim file** workflow with extent `inner-boston`): 735 cells, 11,687 nodes, G1–G4 pass, golden `8b87dfc2`. Its recompute is **44.6 ms p95** with ten lines along real corridors, under R2's 100 ms (D11) for the Nov 1 check. The game still plays on the fixture; gateways and Inner Boston's `calib` come later (DECISIONS, Measured).
+6. **Next, below the cut line:** per-period crowding (K27), then visitors. Then week 4 (M2): buses, costs, purchases and the line tool.
 
 Open from the research critique, for week 4:
 - **The starter recipe's bus count.** V1's cycle formula says a 3–4 km line every 20 min needs 2 Sparrows, not the 1 in D7's $261k starter. Make the recipe count its buses with the one cycle function (K07).

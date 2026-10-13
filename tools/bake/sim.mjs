@@ -3,13 +3,17 @@
 // write, naming the number, if one fails. Each extent has its own gate profile in city.json: the
 // fixture box cannot hold 400 cells, and clipping it strands one-way streets at its edges.
 //
-//   node tools/bake/sim.mjs <city> <extent> [--out <file>]   bake (only the fixture until week 3)
+// The fixture bakes from its committed inputs; the play extent (Inner Boston) from the mirrored
+// sources, cut first by extent.mjs (about 5 minutes the first time, then reused).
+//
+//   node tools/bake/sim.mjs <city> <extent> [--out <file>]   bake
 //   node tools/bake/sim.mjs <city> <extent> --lock            bake and record the golden hash
-//   node tools/bake/sim.mjs <city> <extent> --check           bake and compare with the golden (PR CI)
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+//   node tools/bake/sim.mjs <city> <extent> --check           bake and compare with the golden
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildCells, readLodes } from './cells.mjs';
+import { cutExtent, extentDir, playExtent } from './extent.mjs';
 import { fixtureDir } from './fixture.mjs';
 import { readCity, ROOT, sha256 } from './lib.mjs';
 import { buildStreets, parseOpl } from './streets.mjs';
@@ -70,9 +74,16 @@ export function residentsNearStreets(cells, streets, reach = STREET_REACH_M) {
   return total === 0 ? 1 : served / total;
 }
 
-function readFixtureInputs(cityId) {
+/** Where an extent's inputs are, and the box they were clipped to. */
+function inputsOf(cityId, extentId) {
   const { config } = readCity(cityId);
-  const dir = fixtureDir(config.fixture.id);
+  if (extentId === config.fixture.id) return { dir: fixtureDir(extentId), box: config.fixture.box };
+  const play = playExtent(cityId);
+  if (extentId !== play.id) throw new Error(`sim: ${extentId} is neither the fixture nor the play extent of ${cityId}`);
+  return { dir: extentDir(cityId, extentId), box: play.box };
+}
+
+function readInputs(dir) {
   const text = (name) => readFileSync(join(dir, name), 'utf8');
   const [, ...rows] = text('blocks.csv').trim().split('\n');
   const blocks = rows.map((line) => {
@@ -87,11 +98,12 @@ export function bakeSim(cityId, extentId) {
   const { entry, config } = readCity(cityId);
   const profile = config.gates?.[extentId];
   if (!profile) throw new Error(`sim: no gate profile for ${extentId} in cities/${cityId}/city.json`);
-  if (extentId !== config.fixture.id) throw new Error(`sim: only the fixture bakes in week 2; ${extentId} waits for the week-3 bake job`);
-  const inputs = readFixtureInputs(cityId);
+  const { dir, box } = inputsOf(cityId, extentId);
+  if (!existsSync(join(dir, 'osm.opl'))) throw new Error(`sim: ${extentId}'s inputs are not cut yet; run \`node tools/bake/extent.mjs ${cityId}\``);
+  const inputs = readInputs(dir);
   const frame = cityFrame(entry.extent);
   const adjust = JSON.parse(readFileSync(join(ROOT, 'cities', cityId, 'adjust.json'), 'utf8'));
-  const streets = buildStreets(inputs.osm, frame, adjust);
+  const streets = buildStreets(inputs.osm, frame, adjust, box);
   const cells = buildCells({ blocks: inputs.blocks, rac: inputs.rac, wac: inputs.wac, frame, cellMetres: config.cellMetres });
   const near = residentsNearStreets(cells, streets);
 
@@ -126,7 +138,8 @@ export function bakeSim(cityId, extentId) {
       homes: c.homes.flatMap((p) => [p.x, p.y, p.w]),
       work: c.work.flatMap((p) => [p.x, p.y, p.w]),
     })),
-    // The fixture keeps only commutes with both ends inside the box, so it has no gateways.
+    // Commutes with one end outside the play area enter at gateways (Logan, the main road entries),
+    // which land with visitors; until then both extents keep only commutes with both ends inside.
     gateways: [],
     calib: { tripScalePermille: config.calib?.[extentId]?.tripScalePermille ?? 1000 },
   };
@@ -150,19 +163,21 @@ export function bakeSim(cityId, extentId) {
   };
 }
 
-/** Where an extent's golden hash lives: the fixture's beside its inputs (Inner Boston's arrives with the week-3 bake job). */
+/** Where an extent's golden hash lives: the fixture's beside its inputs, the play extent's under cities/<city>/. */
 export function simLockPath(cityId, extentId) {
   const { config } = readCity(cityId);
-  if (extentId !== config.fixture.id) throw new Error(`sim: no golden for ${extentId} yet`);
-  return join(fixtureDir(config.fixture.id), 'sim.lock.json');
+  if (extentId === config.fixture.id) return join(fixtureDir(config.fixture.id), 'sim.lock.json');
+  inputsOf(cityId, extentId);
+  return join(ROOT, 'cities', cityId, `sim-${extentId}.lock.json`);
 }
 
-function main() {
+async function main() {
   const [cityId, extentId, ...flags] = process.argv.slice(2);
   if (!cityId || !extentId) {
     console.error('usage: node tools/bake/sim.mjs <city> <extent> [--out <file>] [--lock] [--check]');
     process.exit(2);
   }
+  if (extentId !== readCity(cityId).config.fixture.id) await cutExtent(cityId);
   const baked = bakeSim(cityId, extentId);
   for (const g of baked.report.gates) console.log(`sim: ${g.gate} ${g.value} (${g.limit}) ok`);
   console.log(`sim: ${baked.report.nodes} nodes, ${baked.report.edges} edges, ${baked.report.cells} cells, ${baked.report.closed.length} ways closed to buses; ${baked.report.bytes} B, sha256 ${baked.sha256}`);
@@ -178,7 +193,7 @@ function main() {
   if (flags.includes('--lock')) {
     const { closed, ...summary } = baked.report;
     const lock = {
-      about: 'The golden hash of this fixture\'s sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.',
+      about: 'The golden hash of this extent\'s sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.',
       format: SIM_FORMAT,
       sha256: baked.sha256,
       ...summary,
@@ -194,10 +209,8 @@ function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     console.error(error.message ?? error);
     process.exit(1);
-  }
+  });
 }

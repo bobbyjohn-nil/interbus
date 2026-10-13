@@ -97,7 +97,7 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 | Boardings per day after `tripScale` | 600–1,000; **795.3 measured at 111‰** after the recompute speed-up (799.3 before; 7,164.6 at 1,000‰), 2026-10-13 | Calibration target above; PLAN §3 expects Inner Boston 7–10× Riverton |
 | Income per day | $2,300–$3,900 (boardings × $3.85); **$3,060.75 measured** on a full day (`npm run bench day`) | Fare plus subsidy |
 | Recompute, fixture, three periods | ≤20 ms; **3.3 ms p50 measured** with three lines (`npm run bench`; 37 ms with one line before the speed-up) | About 70 cells |
-| Recompute, synthetic 800 cells, three periods | ≤150 ms p95 (I14); R2 needs ≤100 ms; **52 ms p50, 65–78 ms p95 measured** on 812 cells with T03 | PLAN §5: 50–130 ms for one period, interpolated |
+| Recompute, synthetic 800 cells, three periods | ≤150 ms p95 (I14); R2 needs ≤100 ms; **52 ms p50, 65–78 ms p95 measured** on 812 cells with T03; **44.6 ms p95 on Inner Boston** (735 cells, ten corridor lines) | PLAN §5: 50–130 ms for one period, interpolated |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
 
@@ -117,8 +117,8 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 
 ## Below the cut line (cut in this order if Nov 1 is at risk)
 
-1. Recompute measured on Inner Boston itself. Keep the fixture and the synthetic 800-cell bench, and stay at Inner Boston (R2 needs a Boston number).
-2. The Inner Boston bake run. The Nov 8 pack trigger covers it.
+1. Recompute measured on Inner Boston itself. Keep the fixture and the synthetic 800-cell bench, and stay at Inner Boston (R2 needs a Boston number). **Done 2026-10-13: 44.6 ms p95.**
+2. The Inner Boston bake run. The Nov 8 pack trigger covers it. **Done 2026-10-13: 735 cells, G1–G4 pass.**
 3. Per-period crowding ([K27](../history/salvage-matrix.md)). It moves to week 4 with buses and costs; I3's conservation bound stays.
 4. The visitor matrix (weeks 4–5).
 5. Day-card polish beyond rows and their sum.
@@ -135,6 +135,7 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 - **Gates per extent.** The fixture touches at most 99 of Boston's cells, has no airport, and clipping it strands the Mass Pike (no ramps inside) and one-way grids whose way back lies outside the box. So the gates read a profile per extent in `cities/boston/city.json`:
   - the fixture checks 40–99 cells, 70% of drivable km kept and 97% of residents within 300 m of a street;
   - Inner Boston keeps 400–1,000 cells, 98% kept, 99% near a street, and the Logan gateway.
+- **The play extent's bake** (2026-10-13). The play area is the four municipalities inside the extent box (D11), so blocks in Chelsea or Winthrop are left out, while streets are every drivable way that touches the box. G2 counts only streets whose middle lies inside the box the inputs were clipped to: the clip keeps whole ways, and their far ends are stranded by design. Gateways wait for visitors.
 - **Bus access follows OSM's hierarchy** (2026-10-13). `hgv=no` restricts trucks, not buses, so it no longer closes a street. The parkways it was meant to close are DCR's River Roads, which `adjust.json` closes by name. G2 measures connectivity off motorways, because clipping and the River Roads' closure strand motorway pieces that no bus could use (DECISIONS, Measured).
 - **Gravity inside the box.** On the fixture, gravity runs only between cells inside the box, so jobs inside it are over-weighted. That is accepted: `tripScale` is re-measured on `city-boston-r1` in week 5.
 - **Errors stay outside the sim.** The sim returns reason codes. V3's error bus (it calls `Date.now()`) lives in the worker host or the UI, with an injected clock.

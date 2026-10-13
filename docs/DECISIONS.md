@@ -254,6 +254,30 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - **2026-10-13, commit 1bae419** (`scripts/deploy/live-check.mjs`, Deploy preview run 38339935614, job "live-check"): the first deploy is live at https://bobbyjohn-nil.github.io/interbus/. Its build chip and `version.json` show `1bae419`, and the map is ready (features drawn) and fills the window. **GitHub Pages answers Range requests on the city file with `206`** and `accept-ranges: bytes`, so tiles are read by range as planned (PLAN §6), and it sends `cache-control: max-age=600`, the ten minutes deploy gate 5 allows for. Deploy gate 2 bit as V1's notes warned: turning Pages on created the `github-pages` environment allowing only the branch that was default at the time, so `main`'s deploy was refused in about 2 s with no logs ("Branch "main" is not allowed to deploy to github-pages due to environment protection rules") until the owner set the environment to "Selected branches and tags" with one Branch rule, `main`.
 - **2026-10-12, commit 8fea306** (`node scripts/measure/bundle.mjs` after `npm run build`): the menu's critical path is **76.6 KiB** gzip against the 200 KiB budget: entry script 45.8 KiB, stylesheet 0.6 KiB, `index.html`, and the two Afacad Flux woff2 files. The lazy map chunk is 280.2 KiB gzip (MapLibre, PMTiles and the basemap layers) plus 10.1 KiB of map CSS.
 - **2026-10-13, on 328d40d plus the raw tilt** (`node scripts/measure/bundle.mjs` after `npm run build`; the script now also fails a board over budget): the menu's critical path is **77.6 KiB** gzip, its entry script 46.6 KiB with the `T` key. **The board is 433.0 KiB** gzip against I14's 520 KiB: the map chunk 281.2 KiB (MapLibre, PMTiles, and the style with its extrusions and board mask), map CSS 10.1 KiB, and MapLibre's worker 141.7 KiB, which the 2026-10-12 entry left out. Importing the style's layer ids from the menu pulled the Protomaps layers into the entry script (+8.6 KiB) until the ids moved to `tilt.ts`, which imports nothing.
+- **2026-10-13** (`node tools/bake/sim.mjs boston inner-boston`, then `npm run bench`): **Inner Boston bakes, and its recompute takes 34.7 ms p50 and 44.6 ms p95** for three periods. The network is ten lines along real corridors with 116 stops, as in T03. That is under I14's 150 ms and **R2's 100 ms (D11)**, for the Nov 1 check to read.
+  - **The play area:** the four municipalities inside the extent box. 5,610 of the box's 6,496 blocks lie in them; the 886 left out are in Chelsea, Everett, Winthrop and the like. That gives:
+    - **735 cells**, against PLAN §5's 790–840 estimate;
+    - 654,983 residents, 331,536 resident workers and 873,428 jobs.
+  - **Gates:**
+    - G1: 735 cells, in 400–1,000;
+    - G2: 11,687 nodes and 17,221 edges, with 98.45% of drivable km off motorways inside the box in one piece;
+    - G3: 99.98% of residents within 300 m of a kept street;
+    - G4: exact for all four municipalities.
+  - **Closed to buses: 258 ways.** By reason:
+    - `adjust.json` 93 (River Roads pieces);
+    - private access 70;
+    - clearances 45;
+    - `bus=no` 31;
+    - `motor_vehicle=no` 13;
+    - other access tags 6.
+  - **The file:**
+    - `sim.json` is 1,928,801 B, or 785 KiB gzip, against PLAN §5's 1 MB;
+    - the golden is `8b87dfc2`, in `cities/boston/sim-inner-boston.lock.json`;
+    - the cut takes about 4 min 40 s locally, almost all of it `osm.py clip`, and is reused while sources and box match.
+  - **Mini-Boston's G2** reads 87.5%, now that it is measured inside the fixture box (82.0% counting whole clipped ways). Its `sim.json` is unchanged.
+  - **Still to come:**
+    - gateways (Logan, the main road entries) land with visitors; until then the play extent keeps only commutes with both ends inside, as the fixture does;
+    - `calib` waits for r1 in week 5, so `tripScale` is 1000‰.
 - **2026-10-13** (a trial bake of Inner Boston from the mirrored sources, to be re-measured by the committed bake job; then `npm run bake:sim` and `tools/bake/sim.test.mjs`): **`hgv=no` no longer closes a street to buses.**
   - **Why:** PLAN §5 honoured `hgv=no` to close the parkways, but in OSM it is a truck exclusion. OSM's access hierarchy for a bus runs `bus`, `psv`, `motor_vehicle`, `vehicle`, `access` and never reaches `hgv`. Sources: [the tagging list](https://lists.openstreetmap.org/pipermail/tagging/2017-February/031282.html) and [the OSM help site](https://help.openstreetmap.org/questions/20675/what-does-access-tag-vehicle-no/), checked 2026-10-13 through search excerpts.
   - **What the old rule did inside the Inner Boston extent:** it closed 353 ways of the routable classes, including bus streets such as Summer Street, Columbia Road, Rindge Avenue and Prospect Street. The closures fragmented the network: 97.8% of drivable km off motorways stayed in one piece, against G2's 98%.

@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildCells, cluster, MAX_POINTS } from './cells.mjs';
-import { ROOT } from './lib.mjs';
+import { playExtent } from './extent.mjs';
+import { readCity, ROOT } from './lib.mjs';
 import { bakeSim, cityFrame, simLockPath } from './sim.mjs';
 import { buildStreets, busAccess, decodeOpl, onewayOf, parseKmh, parseMetres, parseOpl } from './streets.mjs';
 
@@ -83,6 +84,9 @@ test('G2 counts connectivity off motorways: a stranded ramp leaves it whole, a s
   assert.ok(ramp.report.droppedKm > 0.09);
   const street = buildStreets(line(['w10 Thighway=residential Nn1,n2,n3', 'w11 Thighway=residential,oneway=yes Nn3,n4']), FRAME);
   assert.ok(Math.abs(street.report.keptShare - 2 / 3) < 1e-9);
+  // The clip keeps whole ways, so a stranded end beyond the box it was cut to is not counted.
+  const box = [FRAME.origin[0] - 0.001, FRAME.origin[1] - 0.001, FRAME.origin[0] + 210 / FRAME.metresPerDegLon, FRAME.origin[1] + 0.001];
+  assert.equal(buildStreets(line(['w10 Thighway=residential Nn1,n2,n3', 'w11 Thighway=residential,oneway=yes Nn3,n4']), FRAME, undefined, box).report.keptShare, 1);
 });
 
 test('a barrier node under 3.5 m closes the street it sits on', () => {
@@ -120,6 +124,15 @@ test("mini-Boston's sim.json bakes to its golden hash, twice, with every person 
   const manifest = JSON.parse(readFileSync(join(ROOT, 'tools/bake/fixtures/mini-boston/fixture.json'), 'utf8'));
   assert.equal(a.report.residents, manifest.residents);
   assert.ok(a.report.gates.every((g) => g.ok));
+});
+
+test('the play extent bakes from its own cut, beside its own golden, and nothing else bakes', () => {
+  assert.deepEqual(playExtent('boston'), { id: 'inner-boston', box: readCity('boston').entry.extent });
+  assert.equal(simLockPath('boston', 'inner-boston'), join(ROOT, 'cities/boston/sim-inner-boston.lock.json'));
+  const golden = JSON.parse(readFileSync(simLockPath('boston', 'inner-boston'), 'utf8'));
+  assert.ok(golden.gates.every((g) => g.ok) && golden.cells >= 400 && golden.cells <= 1000);
+  assert.throws(() => bakeSim('boston', 'nowhere'), /no gate profile for nowhere/);
+  assert.throws(() => simLockPath('boston', 'nowhere'), /neither the fixture nor the play extent/);
 });
 
 test('the fixture keeps lines off the River Roads and opens busways to all (PLAN §5, D17)', () => {
