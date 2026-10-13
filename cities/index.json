@@ -17,11 +17,11 @@
         "zoom": 14
       },
       "tiles": {
-        "file": "boston-20261012-a35f1831.pmtiles",
-        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-tiles-20261012-a35f1831/boston-20261012-a35f1831.pmtiles",
-        "sha256": "a35f18319f2de3f2adfde704994c89651f7901876789cee92cd41174a54cec38",
-        "bytes": 15347095,
-        "source": "Protomaps daily build 20261012",
+        "file": "boston-20261012-d7e64e4c.pmtiles",
+        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-tiles-20261012-d7e64e4c/boston-20261012-d7e64e4c.pmtiles",
+        "sha256": "d7e64e4c98c0d71c9f906c5986284f4f3a9c02bb3e5ac875e46865b4fc1c3867",
+        "bytes": 15750925,
+        "source": "Protomaps daily build 20261012, with Overture 2026-09-23.1 heights",
         "maxzoom": 15
       },
       "sim": {

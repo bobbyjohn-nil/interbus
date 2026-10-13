@@ -20,7 +20,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Sun Nov 1 | M1's checks: capacity; recompute (R2, D11); velocity |
 | Sun Nov 8 | M2 on the preview (the owner's exit check, from day 2's card); **`sim.json` format 1 frozen**, with the landmarks (item 1) in it; the light token pick (≤0.5) |
 | Nov 9–15 | Week 5, 6 sessions: items 1–8, and the art check (≤0.5) and three.js proof (≤1) |
-| Sun Nov 15 | **`city-boston-r1`**: β fit (done 2026-10-13: 3,260 m), `tripScale` re-measured (done: 279‰ on Inner Boston), starting cash derived (checked: four starters pay), Overture heights; the preview plays Inner Boston (done: the e2e play a fixture build) |
+| Sun Nov 15 | **`city-boston-r1`**: β fit (done 2026-10-13: 3,260 m), `tripScale` re-measured (done: 279‰ on Inner Boston), starting cash derived (checked: four starters pay), Overture heights (done: 82.1% of footprints at a measured height, from 9.3%); the preview plays Inner Boston (done: the e2e play a fixture build) |
 | Nov 16–22 | Week 6, 5 sessions: items 9–12; **P1** (the owner and the artist) |
 | Nov 23–29 | Week 7, 2.5 sessions (Thanksgiving): items 13–14. **M3 deadline Sun Nov 29** |
 

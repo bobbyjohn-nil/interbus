@@ -37,3 +37,30 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
 
   expect(errors).toEqual([]);
 });
+
+// PLAN §5's height row: at zoom 15, where the map file draws every footprint, most buildings stand at
+// a height of their own, OSM's or else Overture's, rather than the style's three storeys. Zoom 14's
+// tiles keep mostly big buildings, which OSM tags, so the opening camera would not tell the files apart.
+// Measured 2026-10-13 over Back Bay: 5,637 of 5,825 with Overture's heights joined, 2,536 of 5,819 before.
+const MEASURED_SHARE = 0.9;
+
+test('tilted at zoom 15, most buildings stand at their own height', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  const [, , opening] = (await map.getAttribute('data-view'))!.split(',').map(Number);
+  const box = (await map.boundingBox())!;
+  await page.mouse.click(box.width / 2, box.height * 0.3);
+  await page.keyboard.press('=');
+  await expect.poll(async () => Number((await map.getAttribute('data-view'))!.split(',')[2]), { timeout: 10_000 }).toBeCloseTo(opening! + 1, 2);
+
+  await page.keyboard.press('t');
+  await expect(map).toHaveAttribute('data-pitch', '50', { timeout: 30_000 });
+  const drawn = Number(await map.getAttribute('data-buildings'));
+  const measured = Number(await map.getAttribute('data-measured'));
+  test.info().annotations.push({ type: 'buildings with a height', description: `${measured} of ${drawn}` });
+  expect(drawn, '3D buildings drawn').toBeGreaterThan(0);
+  expect(measured / drawn, `${measured} of ${drawn} buildings in view with a height`).toBeGreaterThanOrEqual(MEASURED_SHARE);
+});

@@ -69,7 +69,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   const ready = useRef<MountedMap | null>(null);
   const [mode, setMode] = useState<ViewMode>('2d');
   // What the camera settled on after the last mode change, for the e2e tests.
-  const [settled, setSettled] = useState<{ pitch: number; buildings: number } | null>(null);
+  const [settled, setSettled] = useState<{ pitch: number; buildings: number; measured: number } | null>(null);
   // Where the camera rests after each move ("lon,lat,zoom"), so the e2e tests can aim at a place.
   const [view, setView] = useState('');
 
@@ -90,12 +90,12 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
     if (!mounted) return;
     mounted.setMode(mode);
     const { map } = mounted;
-    // Idle waits for the ease to end and the swapped layer's tiles to draw.
-    const onIdle = () =>
-      setSettled({
-        pitch: Math.round(map.getPitch()),
-        buildings: map.queryRenderedFeatures({ layers: [buildingsLayer(mode)] }).length,
-      });
+    // Idle waits for the ease to end and the swapped layer's tiles to draw. Measured: those in view
+    // with a height of their own, OSM's or Overture's (PLAN §5), not the style's default.
+    const onIdle = () => {
+      const drawn = map.queryRenderedFeatures({ layers: [buildingsLayer(mode)] });
+      setSettled({ pitch: Math.round(map.getPitch()), buildings: drawn.length, measured: drawn.filter((f) => typeof f.properties.height === 'number').length });
+    };
     map.once('idle', onIdle);
     return () => void map.off('idle', onIdle);
   }, [mode]);
@@ -204,6 +204,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
       data-mode={mode}
       data-pitch={settled?.pitch ?? ''}
       data-buildings={settled?.buildings ?? ''}
+      data-measured={settled?.measured ?? ''}
       data-dots={dotsDrawn ?? ''}
       data-tint={tint ? 'on' : 'off'}
       data-view={view}

@@ -1,6 +1,6 @@
 // External links leave the game only through here, so the desktop build can route them to the
 // system browser and refuse anything else (PLAN §6 "Platform seams").
-export const ALLOWED_LINKS: readonly string[] = ['https://www.openstreetmap.org/copyright', 'https://protomaps.com/'];
+export const ALLOWED_LINKS: readonly string[] = ['https://www.openstreetmap.org/copyright', 'https://protomaps.com/', 'https://overturemaps.org/'];
 
 export interface ExternalLinkProps {
   readonly href: string;
