@@ -1,13 +1,13 @@
 // simStep(): the only door that advances time (PLAN §6, AR-09). Each call moves the clock one fixed
 // step. At every game-hour boundary each line banks the hour's boardings as ledger rows, fares and
-// the city's subsidy, in whole boardings and whole cents, and the hour's costs (running, wages,
+// the city's subsidy at that fare (rules/fare.ts), in whole boardings and whole cents, and the hour's costs (running, wages,
 // deadhead; economy/costs.ts), and each depot its upkeep; at 24:00 the day closes, its rows merge
 // by kind and line, and they are the day card (I1).
-import { SUBSIDY_PER_BOARDING_CENTS } from './config/economy';
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour } from './economy/costs';
 import { closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
+import { subsidyCents } from './rules/fare';
 import type { World } from './world';
 
 export type SimEvent = {
@@ -29,7 +29,7 @@ function bankHour(world: World, hour: number, day: number): void {
     const boardings = Math.floor(line.boardedMilli / 1000) - Math.floor(before / 1000);
     if (boardings <= 0) continue;
     post(world.state.ledger, { day, kind: 'fares', amountCents: boardings * line.fareCents, lineId: line.id });
-    post(world.state.ledger, { day, kind: 'subsidy', amountCents: boardings * SUBSIDY_PER_BOARDING_CENTS, lineId: line.id });
+    post(world.state.ledger, { day, kind: 'subsidy', amountCents: boardings * subsidyCents(line.fareCents), lineId: line.id });
   }
   for (const [lineId, service] of world.services) {
     const costs = lineCostsInHour(service.costs, hour);

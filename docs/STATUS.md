@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 7a20198 (V2's waits), with M3 step 2c, crowding, in review.
+**Updated:** 2026-10-13, at `main` d11357f (crowding), with M3 step 3, the fare band, in review.
 
 ## Live now
 
@@ -164,7 +164,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
      The starter cannot afford Metro 40s: the debug line's two cost $520k against $71,200 left after the starter.
    - [x] **V2's waits** (EC-08's verdict; 2026-10-13): riders time the stop only at a headway they can plan around, and a long wait counts convexly. A starved line (hourly, one bus) now loses $72.10 a day against the best's +$1,905.82 (it earned 98.5% of the best), and both daytime optima are inside the range. The debug line carries 636.3 riders and nets +$798.97 on day 2 (DECISIONS, Measured). I2's stop clause is now held with the dwell at zero, and the owner's call is under DECISIONS, Open.
    - [x] **Crowding** (K27; 2026-10-13): each half-hour, riders past the seats on a line's busiest leg are turned away in that half-hour only, and the line card reads "Full at 17:00 · ≈2,400 riders a day turned away". On Inner Boston's ten corridor lines only Washington Street fills: on Sparrows every 10 minutes it turns away 2,377.8 of 7,508 riders a day, on Metro 40s 131.4. The fixture's debug line never fills, so its sweep is unchanged (DECISIONS, Measured).
-3. [ ] **The fare band** (item 4): per-line fares, perceived once per trip, the subsidy taper, the printed band; I3's fare optimum and I4.
+3. [x] **The fare band** (item 4; 2026-10-13): a fare per line from $1.00 to $5.00, felt against the ride's length, the subsidy tapering to nothing at $5.00, and the line card's band of fares within 5% of the best net. The debug line does best at $1.75 on the starter's headways (band $1.75–$2.00), inside the spec's $1.75–$3.25, which `strategies.test.ts` holds as I3's fare clause. Riders turned out very fare-sensitive, which week 9's tuning should look at (DECISIONS, Measured). I4 waits for transfers (item 13).
 4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).
 5. [ ] **Undo while paused** (item 7, I9).
 6. [ ] **Saves for r1** (item 8): stops by place and the r1→r2 save test, the missing-pack refusal, slots, export and import.

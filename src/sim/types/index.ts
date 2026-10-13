@@ -70,6 +70,8 @@ export interface LineView {
   /** The streets it drives, stop to stop. */
   readonly route: readonly LngLatPair[];
   readonly ridersPerDay: number;
+  /** What a ride costs, $1.00–$5.00 (sim/rules/fare.ts). */
+  readonly fareCents: number;
   /** Riders a day its full buses turn away (K27), and the minute of the day of the half-hour that turns away the most, or null when none are. */
   readonly turnedAwayPerDay: number;
   readonly fullAtMinute: number | null;
@@ -97,6 +99,15 @@ export interface LineView {
 export interface DepotView {
   readonly id: number;
   readonly at: LngLatPair;
+}
+
+/** The day's net at every fare a line may charge, and the fares within 5% of the best (sim/economy/fareBand.ts). */
+export interface FareBandView {
+  /** In the order of sim/rules/fare.ts FARES_CENTS. */
+  readonly netCents: readonly number[];
+  readonly bestCents: number;
+  readonly fromCents: number;
+  readonly toCents: number;
 }
 
 /** The depot rule's verdict for a spot, as the cursor card reads it (sim/rules/depot.ts). */
@@ -159,7 +170,10 @@ export type ToWorker =
   | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
   | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
   | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData }
-  | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId };
+  | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }
+  | { readonly type: 'set-fare'; readonly lineId: number; readonly fareCents: number }
+  /** Asks for a line's fare band, for its open card. */
+  | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 
 export type FromWorker =
   | {
@@ -179,5 +193,7 @@ export type FromWorker =
   | { readonly type: 'probe'; readonly id: number; readonly people: number }
   | { readonly type: 'depot-site'; readonly id: number; readonly site: DepotSiteView }
   | { readonly type: 'line-draft'; readonly id: number; readonly draft: LineDraftView }
+  /** Null for a line that runs no buses. */
+  | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number; readonly band: FareBandView | null }
   | ({ readonly type: 'refused'; readonly command: string } & RefusalView)
   | { readonly type: 'failed'; readonly problem: string };

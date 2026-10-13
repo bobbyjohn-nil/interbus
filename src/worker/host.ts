@@ -9,22 +9,24 @@ import { createLine } from '../sim/commands/createLine';
 import { found } from '../sim/commands/found';
 import { placeDepot } from '../sim/commands/placeDepot';
 import { setHeadways } from '../sim/commands/setHeadways';
+import { setFare } from '../sim/commands/setFare';
 import { setModel } from '../sim/commands/setModel';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
 import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
-import { SUBSIDY_PER_BOARDING_CENTS } from '../sim/config/economy';
 import { FOUNDING_HEADWAYS } from '../sim/config/lines';
 import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { forecastDay } from '../sim/economy/costs';
+import { fareBand } from '../sim/economy/fareBand';
 import { profitableDays } from '../sim/economy/ledger';
 import type { LineId } from '../sim/core/ids';
 import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
+import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft } from '../sim/rules/line';
 import { decode, encode, fromSaveData, saveKey } from '../sim/save/save';
 import { newGame, type CityRef } from '../sim/state';
@@ -100,10 +102,11 @@ function lineViews(world: World): LineView[] {
       pullIn: driveOf(world, first, depotNode),
       plan: service ? service.day.inputs : { timing: { cycle: 0, headways: line.headways, buses: 0 }, oneWayS: 0, pullOutS: 0, pullInS: 0 },
       ridersPerDay: demand?.perDay ?? 0,
+      fareCents: line.fareCents,
       turnedAwayPerDay: demand?.shedPerDay ?? 0,
       // Each slot is a half-hour.
       fullAtMinute: demand && demand.fullSlot !== null ? demand.fullSlot * 30 : null,
-      incomeCents: Math.floor(demand?.perDay ?? 0) * (line.fareCents + SUBSIDY_PER_BOARDING_CENTS),
+      incomeCents: Math.floor(demand?.perDay ?? 0) * (line.fareCents + subsidyCents(line.fareCents)),
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
       buses: line.buses,
@@ -271,6 +274,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
           save();
         }
         post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'set-fare') {
+        const result = setFare(world, message.lineId as LineId, message.fareCents);
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'fare-band') {
+        post({ type: 'fare-band', id: message.id, lineId: message.lineId, band: fareBand(world, message.lineId as LineId) });
       } else if (message.type === 'set-headways') {
         const result = setHeadways(world, message.lineId as LineId, message.headways);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { FARES_CENTS } from '../../sim/rules/fare';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
-import type { BusModelId, HeadwaysData, LineView } from '../../sim/types';
+import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
-import { about, busCount, clock, usdK } from '../format';
+import { about, busCount, clock, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /** Headways a player picks from, in minutes; overnight adds "off". */
@@ -14,7 +15,8 @@ const PERIODS = [
 ] as const;
 
 /**
- * A line's card: its riders, when its buses fill (K27), its buses and their model, and three headways (D7). A headway that needs
+ * A line's card: its riders, when its buses fill (K27), its buses and their model, its fare and the
+ * band of fares that net the most (the M3 spec, item 4), and three headways (D7). A headway that needs
  * more buses reads "needs 3 buses, you have 2 · $95k" and confirming buys them (GD-09); another model
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
  * (sim/rules/line.ts, GD-05).
@@ -23,7 +25,15 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
   const [wanted, setWanted] = useState<HeadwaysData | null>(null);
   const [wantedModel, setWantedModel] = useState<BusModelId | null>(null);
   const s = sim.snapshot;
+  // The band is worked out for the open card, again whenever the network changes.
+  const { fareBandFor } = sim;
+  const version = s?.linesVersion;
+  useEffect(() => {
+    fareBandFor(line.id);
+    return () => fareBandFor(null);
+  }, [fareBandFor, line.id, version]);
   if (!s) return null;
+  const band = sim.fareBand?.lineId === line.id ? sim.fareBand.band : null;
   const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents };
   const next = wanted ?? line.headways;
   const model = BUS_MODELS[line.model];
@@ -83,6 +93,21 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
           </div>
         </div>
       ) : null}
+      <label className="fare">
+        Fare
+        <select value={String(line.fareCents)} onChange={(e) => sim.send({ type: 'set-fare', lineId: line.id, fareCents: Number(e.target.value) })}>
+          {FARES_CENTS.map((f) => (
+            <option key={f} value={String(f)}>
+              {usd(f, { cents: true })}
+            </option>
+          ))}
+        </select>
+      </label>
+      {band ? (
+        <p className="hint" data-testid="fare-band" data-from={band.fromCents} data-to={band.toCents}>
+          {bandText(band)}
+        </p>
+      ) : null}
       <div className="headways">
         {PERIODS.map(([period, label]) => (
           <label key={period}>
@@ -126,4 +151,10 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
       ) : null}
     </section>
   );
+}
+
+/** "Best net at $1.75–$2.00": the fares whose day nets within 5% of the best. */
+export function bandText(band: FareBandView): string {
+  const from = usd(band.fromCents, { cents: true });
+  return band.fromCents === band.toCents ? `Best net at ${from}` : `Best net at ${from}–${usd(band.toCents, { cents: true })}`;
 }

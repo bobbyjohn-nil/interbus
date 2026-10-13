@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LOAD_COPY, REFUSAL_COPY, refusalText } from './copy';
 
-// Every code a rule or command can return (sim/rules/depot.ts, line.ts, stop.ts, periods.ts and the
+// Every code a rule or command can return (sim/rules/depot.ts, line.ts, stop.ts, periods.ts, fare.ts and the
 // commands), so a new code without copy fails here.
 const CODES = [
   'depot_limit', 'not_depot_land', 'too_far_from_street', 'too_close_to_depot',
@@ -9,6 +9,7 @@ const CODES = [
   'headway_not_whole_seconds', 'daytime_headway_too_long', 'overnight_more_often_than_offpeak',
   'depot_full', 'insufficient_funds', 'no_such_line', 'not_started',
   'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
+  'fare_out_of_range', 'fare_not_a_step', 'same_fare',
 ];
 
 describe('refusal copy (UX-03)', () => {

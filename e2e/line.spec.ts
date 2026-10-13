@@ -114,6 +114,12 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('notice')).toHaveCount(0);
     await page.getByRole('button', { name: 'Lines' }).click();
     await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
+    // The fare: the card names the fares that net the most (the M3 spec, item 4), and a pick sets it.
+    const lineCard = page.getByTestId('line-card');
+    await expect(page.getByTestId('fare-band')).toHaveAttribute('data-from', '175', { timeout: 10_000 });
+    await expect(page.getByTestId('fare-band')).toContainText('Best net at $1.75');
+    await lineCard.getByLabel('Fare').selectOption('175');
+    await expect(lineCard.getByLabel('Fare')).toHaveValue('175');
     // It runs on from there (overnight, so no buses until about 05:00).
     await page.getByRole('button', { name: '1×' }).click();
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 10_000 }).toBeGreaterThan(Number(kept.elapsed));
