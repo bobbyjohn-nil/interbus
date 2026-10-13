@@ -276,6 +276,7 @@ export type ToWorker =
   | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }
   | { readonly type: 'set-fare'; readonly lineId: number; readonly fareCents: number }
   | { readonly type: 'set-stop-tier'; readonly stopId: number; readonly tier: number }
+  | { readonly type: 'remove-stop'; readonly lineId: number; readonly stopId: number }
   /** Takes back the newest command taken while paused (I9). */
   | { readonly type: 'undo' }
   /** The page's answer to read-keys: each key's text, in order, or null. */

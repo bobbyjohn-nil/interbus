@@ -447,7 +447,13 @@ button.chip.checklist,
   font-weight: 600;
 }
 
+/* Each line calling here: its button, and the button that takes the stop off it. */
 .stop-card .lines {
+  display: grid;
+  gap: 6px;
+}
+
+.stop-card .line-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

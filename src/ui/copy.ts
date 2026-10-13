@@ -37,6 +37,9 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   no_such_tier: () => 'No such kind of stop',
   needs_lines: (r) => `Needs ${r.limit ?? 3} lines calling here`,
   no_such_stop: () => 'That stop is gone',
+  // Route edits (sim/rules/route.ts)
+  not_on_line: () => 'The line doesn’t stop here',
+  line_keeps_two: (r) => `A line keeps at least ${r.limit ?? 2} stops`,
   // Undo (sim/undo.ts)
   time_has_run: () => 'Time has run since then',
   nothing_to_undo: () => 'Nothing to undo',
@@ -84,6 +87,7 @@ const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'set-model': (s) => `${s}’s buses`,
   'set-fare': (s) => `${s}’s fare`,
   'set-stop-tier': (s) => `${s}’s kind`,
+  'remove-stop': (s) => `Remove ${s}`,
   'accept-contract': (s) => `Take the ${s} contract`,
 };
 

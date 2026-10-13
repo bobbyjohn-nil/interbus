@@ -8,9 +8,9 @@ import type { Snapshot, StopView } from '../../sim/types';
 import { StopCard } from './StopCard';
 import type { Sim } from './useSim';
 
-function render(stop: Partial<StopView>): string {
+function render(stop: Partial<StopView>, lineStops: readonly number[] = [1, 2, 3]): string {
   const view: StopView = { id: 2, at: [-71.0857, 42.3424], tier: 1, lineIds: [1], boardings: 29.3, alightings: 8, transfers: 0, netCents: 1_234, quiet: false, loss: false, ...stop };
-  const snapshot = { stops: [view], lines: [{ id: 1, name: 'Line 1', colour: '#c0392b' }], cashCents: 7_120_000 } as unknown as Snapshot;
+  const snapshot = { stops: [view], lines: [{ id: 1, name: 'Line 1', colour: '#c0392b', stopIds: lineStops }], cashCents: 7_120_000 } as unknown as Snapshot;
   return renderToStaticMarkup(createElement(StopCard, { sim: { snapshot } as unknown as Sim, stopId: 2, onLine: () => undefined, onClose: () => undefined }));
 }
 
@@ -51,5 +51,11 @@ describe('a stop’s card', () => {
       'QUIET · LOSS',
       null,
     ]);
+  });
+
+  it('takes the stop off each line on the route rule: half its price back when no other line calls, never below two stops (item 14)', () => {
+    expect(render({})).toContain('<button type="button">Remove from Line 1 · $2k back</button>');
+    expect(render({ lineIds: [1, 2] })).toContain('<button type="button">Remove from Line 1</button>');
+    expect(render({}, [1, 2])).toContain('<button type="button" disabled="" title="A line keeps at least 2 stops">Remove from Line 1</button>');
   });
 });
