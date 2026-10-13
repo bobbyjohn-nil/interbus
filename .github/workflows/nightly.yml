@@ -1,8 +1,10 @@
 # Nightly checks (CLAUDE.md: PR checks stay within 8 minutes; slower checks go nightly and never
 # block). I3's full sweep (the M4 spec, item 5; bench/sweep.ts): every headway the line card offers,
 # every fare, every bus model and every tier a lone line's stops may take, with and without roadworks,
-# on the fixture's debug line and two Inner Boston corridors. A failing verdict fails the run; it
-# blocks no merge, and the next session reads it from the run's log.
+# on the fixture's debug line and two Inner Boston corridors. Beside it, on GitHub's runner, I14's
+# recompute on Inner Boston, a festival's first day included (bench/recompute.ts), and the scripted
+# pacing run (the M5 spec, item 1; bench/pacing.ts), which reports and never fails. A failing verdict
+# fails the run; it blocks no merge, and the next session reads it from the run's log.
 name: Nightly
 
 on:
@@ -42,3 +44,30 @@ jobs:
       - run: npm run cities
 
       - run: npm run bench sweep inner
+
+  measures:
+    name: I14's recompute and the pacing run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
+
+      - run: npm run bench recompute
+
+      - run: npm run bench pacing
+        if: ${{ !cancelled() }}
