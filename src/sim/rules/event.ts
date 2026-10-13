@@ -1,6 +1,7 @@
 // A city event's phase (the M4 spec, item 2): pending from the day it is rolled until it starts the
 // next day, on from its first day to its last, then over. One predicate for the map's marker (hatched
-// while pending, solid while on), the day card's notice and the round trips the sim times (GD-05).
+// while pending, solid while on), the day card's notice, the round trips the sim times and the riders
+// it draws (GD-05).
 
 export type EventPhase = 'pending' | 'on' | 'over';
 
@@ -22,4 +23,14 @@ export function eventDaysLeft(e: EventDays, day: number): number {
 /** The street edges roadworks hold on `day`: their stretch while they are on, else none. */
 export function worksOn(e: (EventDays & { readonly kind: string; readonly edges: readonly number[] }) | null, day: number): ReadonlySet<number> | null {
   return e && e.kind === 'roadworks' && eventPhase(e, day) === 'on' && e.edges.length > 0 ? new Set(e.edges) : null;
+}
+
+/** Whether snow is on `day`: every bus drives slower (rules/cycle.ts slowedM). */
+export function snowOn(e: (EventDays & { readonly kind: string }) | null, day: number): boolean {
+  return e !== null && e.kind === 'snow' && eventPhase(e, day) === 'on';
+}
+
+/** Where a festival is on `day`, its stop's place, or null when none is on. */
+export function festivalOn<P>(e: (EventDays & { readonly kind: string; readonly at: P | null }) | null, day: number): P | null {
+  return e && e.kind === 'festival' && eventPhase(e, day) === 'on' ? e.at : null;
 }

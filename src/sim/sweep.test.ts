@@ -1,5 +1,5 @@
 // I3's full sweep in small (the M4 spec, item 5): the debug line through each bus model, a Station
-// tier and roadworks on its own streets, on the headways every 5–60 minutes by day with overnight off
+// tier and each kind of event (roadworks on its own streets, snow, a festival), on the headways every 5–60 minutes by day with overnight off
 // and the night-heavy setting, at every fare. The whole sweep, every headway the card offers on the
 // debug line and two Inner Boston corridors, runs nightly (`npm run bench sweep inner`).
 import { describe, expect, it } from 'vitest';
@@ -12,10 +12,12 @@ import { fixtureGame } from './testing';
 const DAY = [300, 600, 900, 1_200, 1_800, 3_600];
 const SOME: Headways[] = [...DAY.flatMap((peak) => DAY.map((offpeak) => ({ peak, offpeak, overnight: null }))), { peak: 3_600, offpeak: 3_600, overnight: 3_600 }];
 const SLICES: Slice[] = [
-  { model: 'sparrow', tier: 1, works: false },
-  { model: 'sparrow', tier: 1, works: true },
-  { model: 'metro40', tier: 3, works: false },
-  { model: 'goliath', tier: 1, works: false },
+  { model: 'sparrow', tier: 1, event: 'none' },
+  { model: 'sparrow', tier: 1, event: 'roadworks' },
+  { model: 'metro40', tier: 3, event: 'none' },
+  { model: 'goliath', tier: 1, event: 'none' },
+  { model: 'sparrow', tier: 1, event: 'snow' },
+  { model: 'sparrow', tier: 1, event: 'festival' },
 ];
 
 describe('I3 in the full sweep, in small (the M4 spec, item 5)', () => {
@@ -29,10 +31,12 @@ describe('I3 in the full sweep, in small (the M4 spec, item 5)', () => {
     for (const r of results) expect(i3Verdict(r), JSON.stringify(r.slice)).toEqual({ failures: [], notes: [] });
   });
 
-  it('times roadworks on the line’s own street, and they cost it', () => {
-    const [clear, works] = results;
+  it('times roadworks on the line’s own street and snow on every drive, which cost it, and a festival, which pays', () => {
+    const [clear, works, , , snow, festival] = results;
     expect(works!.street).toBe('Huntington Avenue');
     expect(works!.best.netCents).toBeLessThan(clear!.best.netCents);
+    expect(snow!.best.netCents).toBeLessThan(works!.best.netCents);
+    expect(festival!.best.netCents).toBeGreaterThan(clear!.best.netCents);
   });
 
   it('leaves the game as it found it', () => {

@@ -38,7 +38,7 @@ function playedGame(): SimState {
     state.contracts.push({ id, landmark: 'Longwood', kind: 'headway', ask: 900, rewardCents: 15_000_000, offeredDay: 1, acceptedDay, daysMet: acceptedDay ? 1 : 0, hoursMissedToday: 3 });
   }
   for (let i = 0; i < 5; i++) state.eventRng.next();
-  state.event = { kind: 'roadworks', startDay: 3, endDay: 7, street: 'Huntington Avenue', edges: [12, 13, 40] };
+  state.event = { kind: 'roadworks', startDay: 3, endDay: 7, street: 'Huntington Avenue', edges: [12, 13, 40], at: null };
   state.medals = { bronze: 3, silver: null, gold: null };
   state.tripsCarried = 1_234;
   state.tripsToday = 56;
@@ -68,6 +68,14 @@ describe('saves', () => {
     expect(loaded.event).toEqual(state.event);
     expect([loaded.medals, loaded.tripsCarried, loaded.tripsToday]).toEqual([{ bronze: 3, silver: null, gold: null }, 1_234, 56]);
     expect(result.envelope.build).toEqual(BUILD);
+  });
+
+  it('keeps a festival’s place, by longitude and latitude (the M4 spec, item 2)', () => {
+    const state = playedGame();
+    state.event = { kind: 'festival', startDay: 4, endDay: 5, street: 'Copley Square', edges: [], at: { lon: -71.077, lat: 42.3499 } };
+    const { result } = decode(encode(state, BUILD), CITY);
+    if (result.outcome !== 'ok') throw new Error(result.outcome);
+    expect(fromSaveData(result.envelope.data).event).toEqual(state.event);
   });
 
   it('keeps cash as saved even if k is retuned before the load (I1)', () => {
@@ -216,6 +224,8 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a medal from a day not yet played', (e) => void ((dataOf(e).medals as { silver: number }).silver = 9), /a medal awarded on a day not yet played/],
     ['a medal with no day', (e) => void ((dataOf(e).medals as { gold: unknown }).gold = true), /medals.gold: not a whole number/],
     ['more trips today than since founding', (e) => void (dataOf(e).tripsToday = 2_000), /more trips today than since founding/],
+    ['snow on a stretch of street', (e) => void ((dataOf(e).event as { kind: string }).kind = 'snow'), /an event whose kind does not match its streets or place/],
+    ['a festival with no place', (e) => void Object.assign(dataOf(e).event as object, { kind: 'festival', edges: [] }), /an event whose kind does not match its streets or place/],
     ['a ledger out of day order', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 2, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
     ['a ledger row from a day not yet played', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 5, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
   ];

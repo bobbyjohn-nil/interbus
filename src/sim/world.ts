@@ -1,20 +1,21 @@
 // The running game: the city it plays on, the sim state the save holds, and what is derived from
 // both (routes, the commuter matrix, who rides which line). Owned by the worker (PLAN §6).
-import { buildCommuters, type Commuters } from './demand/commuters';
+import { buildCommuters, centre, type Commuters } from './demand/commuters';
 import { assign, type Assignment, type LinePlan } from './demand/assign';
-import { SpatialGrid, toLngLat, toXY, type XY } from './core/geo';
+import { distXY, SpatialGrid, toLngLat, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
 import { BUS_MODELS, LAYOVER_SECONDS, type BusModelId } from './config/fleet';
 import { STOP_TIERS } from './config/stops';
 import { SECONDS_PER_DAY } from './config/time';
+import { FESTIVAL_DEMAND, FESTIVAL_RADIUS_M } from './config/events';
 import { toCalendarTime } from './core/calendar';
 import type { DepotId, LineId } from './core/ids';
 import { driveSeconds, type LineCostInputs } from './economy/costs';
 import { cycleSeconds, cyclesOf, slowedM } from './rules/cycle';
 import type { DepotSiteContext } from './rules/depot';
-import { worksOn } from './rules/event';
+import { festivalOn, snowOn, worksOn } from './rules/event';
 import type { FleetContext, Leg, LineDraftContext } from './rules/line';
 import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
@@ -107,6 +108,37 @@ export function worksToday(state: Pick<SimState, 'event' | 'elapsed'>): Readonly
   return worksOn(state.event, toCalendarTime(state.elapsed).day);
 }
 
+/** Whether snow is on today (the M4 spec, item 2): every bus drives at SNOW_SPEED. */
+export function snowToday(state: Pick<SimState, 'event' | 'elapsed'>): boolean {
+  return snowOn(state.event, toCalendarTime(state.elapsed).day);
+}
+
+/** Each festival's commuters, worked out once for its place: the flows are the city's, so one is enough for a world. */
+const boosted = new WeakMap<Commuters, { key: string; commuters: Commuters }>();
+
+/**
+ * Today's commuters: the city's, or while a festival is on, those with every flow from a home or to a
+ * job within FESTIVAL_RADIUS_M of its stop FESTIVAL_DEMAND times as large (V2's ×2.6 on trips that start
+ * or end near it). Riders, the fare band and the contracts' figures all read them.
+ */
+export function commutersToday(world: Pick<World, 'city' | 'commuters' | 'state'>): Commuters {
+  const at = festivalOn(world.state.event, toCalendarTime(world.state.elapsed).day);
+  if (!at) return world.commuters;
+  const key = `${at.lon},${at.lat}`;
+  const kept = boosted.get(world.commuters);
+  if (kept?.key === key) return kept.commuters;
+  const p = toXY(world.city.frame, [at.lon, at.lat]);
+  const near = (c: XY | null) => c !== null && distXY(c, p) <= FESTIVAL_RADIUS_M;
+  const homes = world.city.cells.map((c) => near(centre(c.homes)));
+  const jobs = world.city.cells.map((c) => near(centre(c.work)));
+  const { n, flow, km } = world.commuters;
+  const more = new Float64Array(flow);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (homes[i] || jobs[j]) more[i * n + j] = flow[i * n + j]! * FESTIVAL_DEMAND;
+  const commuters = { n, flow: more, km };
+  boosted.set(world.commuters, { key, commuters });
+  return commuters;
+}
+
 /**
  * The street a bus drives from one stop position to the next, or null if no street joins them: its
  * metres, its metres weighted by how much of the rush each street takes (traffic/congestion.ts), and
@@ -187,6 +219,7 @@ export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' 
   const works = worksToday(world.state);
   return {
     ...fleetContext(world),
+    snow: snowToday(world.state),
     nearestNode: (at, withinM) => {
       const hit = world.nodes.nearest(at, withinM);
       return hit ? { node: hit.item, at: hit.p, distM: hit.distM } : null;
@@ -228,14 +261,15 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     return { id: d.id, node: world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at), room: DEPOT_CAPACITY };
   });
   const services = new Map<LineId, LineService>();
+  const snow = snowToday(state);
   for (const line of state.lines) {
     const plan = planLine(world, line);
     if (!plan) continue;
     const routeM = plan.stopDistM[plan.stopDistM.length - 1]!;
     const model = BUS_MODELS[line.model];
     const timing: Timing = {
-      cycle: cycleSeconds(slowedM(routeM, plan.worksM ?? 0), plan.stops.length, model.kmh),
-      cycles: cyclesOf(slowedM(routeM, plan.worksM ?? 0), plan.stops.length, model.kmh, plan.rush ?? 0),
+      cycle: cycleSeconds(slowedM(routeM, plan.worksM ?? 0, snow), plan.stops.length, model.kmh),
+      cycles: cyclesOf(slowedM(routeM, plan.worksM ?? 0, snow), plan.stops.length, model.kmh, plan.rush ?? 0),
       headways: line.headways,
       buses: line.buses,
     };
@@ -296,7 +330,7 @@ export function runningPlans(world: Pick<World, 'services'>): LinePlan[] {
 
 export function recompute(world: World): void {
   world.services = lineServices(world);
-  world.assignment = assign(world.city, world.commuters, runningPlans(world));
+  world.assignment = assign(world.city, commutersToday(world), runningPlans(world));
 }
 
 /**

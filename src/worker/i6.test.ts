@@ -129,7 +129,7 @@ describe('I6 across route edits mid-run (the M4 spec, item 4)', () => {
   const stretch = pickRoadworks(world, createRng(1))!;
   it('roadworks starting at a midnight with the last trips out: no bus moves, and every one drives on', () => {
     const s = started();
-    s.host.handle({ type: 'import', text: save(2 * 86_400 + 18 * 3_600 + 50 * 60, (d) => void (d.event = { kind: 'roadworks', startDay: 4, endDay: 6, ...stretch })) });
+    s.host.handle({ type: 'import', text: save(2 * 86_400 + 18 * 3_600 + 50 * 60, (d) => void (d.event = { kind: 'roadworks', startDay: 4, endDay: 6, ...stretch, at: null })) });
     const before = s.now();
     s.host.advanceTo(2 * 86_400 + 19 * 3_600); // day 3's close
     const after = s.now();

@@ -74,8 +74,14 @@ export function busCount(n: number, model: string): string {
 }
 
 /** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */
-export function eventNewsText(e: { readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
-  return e.news === 'tomorrow' ? `Roadworks on ${e.street} tomorrow, for ${e.days} ${e.days === 1 ? 'day' : 'days'}` : `Roadworks on ${e.street} are over`;
+export function eventNewsText(e: { readonly kind: 'roadworks' | 'festival' | 'snow'; readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
+  const forDays = `for ${e.days} ${e.days === 1 ? 'day' : 'days'}`;
+  if (e.kind === 'festival') {
+    const near = e.street ? ` near ${e.street}` : '';
+    return e.news === 'tomorrow' ? `A festival${near} tomorrow, ${forDays}: more riders to and from there` : `The festival${near} is over`;
+  }
+  if (e.kind === 'snow') return e.news === 'tomorrow' ? `Snow tomorrow, ${forDays}: every bus drives slower` : 'The snow is over';
+  return e.news === 'tomorrow' ? `Roadworks on ${e.street} tomorrow, ${forDays}` : `Roadworks on ${e.street} are over`;
 }
 
 export const MEDAL_NAMES: Readonly<Record<MedalId, string>> = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };

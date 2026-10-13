@@ -1,9 +1,10 @@
-// City events (the M4 spec, item 2): roadworks rolled a day ahead from the events' own stream, one at
-// a time with a gap after each, on up to 400 m of one named street a running line drives, slowing
-// every line over it in every period only while they are on (I8: the contract deck never moves).
+// City events (the M4 spec, item 2): roadworks, a festival or snow, rolled a day ahead from the events'
+// own stream, one at a time with a gap after each. Roadworks take up to 400 m of one named street a
+// running line drives and slow every line over it; snow slows every drive; a festival draws ×2.6 riders
+// to and from cells near a busy stop. Each only while it is on (I8: the contract deck never moves).
 import { describe, expect, it } from 'vitest';
 import { addDebugLine } from '../commands/debugLine';
-import { EVENT_GAP_DAYS, ROADWORKS_DAYS, ROADWORKS_MAX_M } from '../config/events';
+import { EVENT_DAYS, EVENT_GAP_DAYS, EVENT_KINDS, ROADWORKS_MAX_M } from '../config/events';
 import { SECONDS_PER_DAY } from '../config/time';
 import { toXY } from '../core/geo';
 import { checkLineDraft } from '../rules/line';
@@ -29,21 +30,22 @@ const rolledIn = (closes: readonly SimEvent[]) => closes.filter((c) => c.rolled)
 const metres = (world: World, edges: readonly number[]) => edges.reduce((s, e) => s + world.city.graph.edgeDm[e]! / 10, 0);
 
 describe('city events', () => {
-  it('rolls nothing while no line runs: roadworks need a street a bus drives', () => {
+  it('rolls nothing while no line runs: roadworks need a street a bus drives, a festival riders, snow a bus', () => {
     const world = gameWithDepot();
     expect(rolledIn(run(world, 40))).toEqual([]);
     expect(world.state.event).toBeNull();
   });
 
-  it('rolls one at a time, the day before it starts, for 3–6 days, and none in the two days after one ends', () => {
+  it('rolls one at a time, the day before it starts, each kind for its days, every kind in time, and none in the two days after one ends', () => {
     const rolled = rolledIn(run(running(), 200));
     expect(rolled.length).toBeGreaterThan(5);
     for (const { closed, event } of rolled) {
       // Rolled at the start of the day after the close, to start the day after that.
       expect(event.startDay).toBe(closed + 2);
-      expect(event.endDay - event.startDay + 1).toBeGreaterThanOrEqual(ROADWORKS_DAYS[0]);
-      expect(event.endDay - event.startDay + 1).toBeLessThanOrEqual(ROADWORKS_DAYS[1]);
+      expect(event.endDay - event.startDay + 1).toBeGreaterThanOrEqual(EVENT_DAYS[event.kind][0]);
+      expect(event.endDay - event.startDay + 1).toBeLessThanOrEqual(EVENT_DAYS[event.kind][1]);
     }
+    expect(new Set(rolled.map((r) => r.event.kind))).toEqual(new Set(EVENT_KINDS));
     for (let k = 1; k < rolled.length; k++) expect(rolled[k]!.closed + 1).toBeGreaterThan(rolled[k - 1]!.event.endDay + EVENT_GAP_DAYS);
   });
 
@@ -51,7 +53,8 @@ describe('city events', () => {
     const world = running();
     const driven = new Set(lineEdges(world, world.state.lines[0]!));
     const { graph, streets } = world.city;
-    const rolled = rolledIn(run(world, 200));
+    const rolled = rolledIn(run(world, 200)).filter((r) => r.event.kind === 'roadworks');
+    expect(rolled.length).toBeGreaterThan(0);
     for (const { event } of rolled) {
       expect(event.street).not.toBe('');
       expect(event.edges.every((e) => streets[e]!.name === event.street)).toBe(true);
@@ -79,8 +82,8 @@ describe('city events', () => {
     const line = world.state.lines[0]!;
     const calm = world.services.get(line.id)!.timing.cycles!;
     let event: CityEvent | null = null;
-    for (let day = 0; day < 60 && !event; day++) for (const c of advance(world, SECONDS_PER_DAY)) event = c.rolled ?? event;
-    if (!event) throw new Error('no event in 60 days');
+    for (let day = 0; day < 120 && !event; day++) for (const c of advance(world, SECONDS_PER_DAY)) if (c.rolled?.kind === 'roadworks') event = c.rolled;
+    if (!event) throw new Error('no roadworks in 120 days');
     // Pending: tomorrow's works change nothing yet, even when a command times the network again.
     recompute(world);
     expect(world.services.get(line.id)!.timing.cycles).toEqual(calm);
@@ -104,7 +107,7 @@ describe('city events', () => {
     const withEvents = running(3);
     const without = running(3);
     // Pending for good, so this one never rolls another.
-    without.state.event = { kind: 'roadworks', startDay: 1_000_000, endDay: 1_000_000, street: '', edges: [] };
+    without.state.event = { kind: 'roadworks', startDay: 1_000_000, endDay: 1_000_000, street: '', edges: [], at: null };
     const offers = (w: World) => w.state.contracts.map((c) => `${c.offeredDay} ${c.landmark} ${c.kind} ${c.ask}`);
     let rolled = 0;
     for (let day = 1; day <= 60; day++) {

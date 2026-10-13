@@ -96,7 +96,7 @@ for (const [name, edit] of EDITS) {
   addDebugLine(world);
   const stretch = pickRoadworks(world, createRng(1))!;
   const { host, now } = started();
-  host.handle({ type: 'import', text: baseSave(2 * 86_400 + 18 * 3_600 + 50 * 60, (d) => void (d.event = { kind: 'roadworks', startDay: 4, endDay: 6, ...stretch })) });
+  host.handle({ type: 'import', text: baseSave(2 * 86_400 + 18 * 3_600 + 50 * 60, (d) => void (d.event = { kind: 'roadworks', startDay: 4, endDay: 6, ...stretch, at: null })) });
   const before = now();
   host.advanceTo(2 * 86_400 + 19 * 3_600); // day 3's close
   const after = now();

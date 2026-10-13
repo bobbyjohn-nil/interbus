@@ -101,9 +101,12 @@ export interface CityEvent {
   readonly kind: EventKind;
   readonly startDay: number;
   readonly endDay: number;
-  /** Roadworks: the named street, and the stretch of its edges (the city graph's) driven at ROADWORKS_SPEED. */
+  /** Roadworks: the named street. A festival: the place it is at, a landmark or a street. Snow: ''. */
   readonly street: string;
+  /** Roadworks: the stretch of the street's edges (the city graph's) driven at ROADWORKS_SPEED; none for the others. */
   readonly edges: readonly number[];
+  /** A festival: the stop it gathers round, by place (it outlives the stop); null for the others. */
+  readonly at: { readonly lon: number; readonly lat: number } | null;
 }
 
 export interface SimState {

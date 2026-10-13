@@ -70,4 +70,11 @@ describe('the line card', () => {
     const html = render({ rush: 0.4, worksM: 300, cycles: slowed }, null, { street: 'Huntington Avenue', phase: 'on' });
     expect(html).toContain(`Round trip ${Math.round(slowed.peak / 60)} min at peak, ${Math.round(slowed.offpeak / 60)} min off-peak · roadworks on Huntington Avenue add 52 s`);
   });
+
+  it('says what snow adds to its round trip while it falls, and nothing the evening before (the M4 spec, item 2)', () => {
+    const clear = cyclesOf(3_535, 0, BUS_MODELS.sparrow.kmh, 0.4);
+    const snowy = { peak: clear.peak + 420, offpeak: clear.offpeak + 343, overnight: clear.overnight + 330 };
+    expect(render({ rush: 0.4, cycles: snowy }, null, { kind: 'snow', street: '', phase: 'on' })).toContain(' · snow adds 7 min<');
+    expect(render({ rush: 0.4, cycles: clear }, null, { kind: 'snow', street: '', phase: 'pending' })).not.toContain('snow adds');
+  });
 });

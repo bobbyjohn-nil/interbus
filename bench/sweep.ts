@@ -27,7 +27,7 @@ function sweep(name: string, world: World, lineId: LineId): number {
     failures += v.failures.length;
     notes += v.notes.length;
     console.log(
-      `  ${slice.model.padEnd(8)} tier ${slice.tier} ${slice.works ? `works (${r.street})` : 'no event'}: best ${show(r.best)}; starved $${(r.starved.netCents / 100).toFixed(0)}; night-heavy $${(r.nightHeavy.netCents / 100).toFixed(0)}; starter's best fare $${(r.starterFareCents / 100).toFixed(2)}${v.failures.length ? `\n    I3 FAILS: ${v.failures.join('; ')}` : ''}${v.notes.length ? '\n    nothing earns' : ''}`,
+      `  ${slice.model.padEnd(8)} tier ${slice.tier} ${slice.event === 'none' ? 'no event' : `${slice.event}${r.street ? ` (${r.street})` : ''}`}: best ${show(r.best)}; starved $${(r.starved.netCents / 100).toFixed(0)}; night-heavy $${(r.nightHeavy.netCents / 100).toFixed(0)}; starter's best fare $${(r.starterFareCents / 100).toFixed(2)}${v.failures.length ? `\n    I3 FAILS: ${v.failures.join('; ')}` : ''}${v.notes.length ? '\n    nothing earns' : ''}`,
     );
   }
   const s = (performance.now() - t0) / 1000;

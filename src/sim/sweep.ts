@@ -1,6 +1,7 @@
 // I3's full sweep (the M4 spec, item 5; PLAN §10 week 8): one line's day at every headway the line
 // card offers and every fare, for each bus model and each tier its stops may take with no other line
-// calling (Sign, Shelter, Station), with no event and with roadworks on its own streets. Each slice
+// calling (Sign, Shelter, Station), with no event and with each kind of event on (roadworks on its own
+// street, snow, a festival at a stop the roll would pick). Each slice
 // reports its best setting over headways and fares together, the starved line (hourly all day, no
 // overnight) at its own best fare, the night-heavy line (hourly all day and night), and the best fare
 // on the starter's headways. The verdicts are I3's on a slice whose best earns: an interior optimum,
@@ -14,7 +15,8 @@ import { toCalendarTime } from './core/calendar';
 import { distXY, toLngLat, toXY, type LngLat } from './core/geo';
 import { createRng } from './core/rng';
 import { fareBand } from './economy/fareBand';
-import { pickRoadworks } from './events/roll';
+import { pickFestivalStop, pickRoadworks } from './events/roll';
+import type { EventKind } from './config/events';
 import type { LineId } from './core/ids';
 import { busesNeeded } from './rules/cycle';
 import { FARES_CENTS } from './rules/fare';
@@ -53,10 +55,13 @@ export const LONE_TIERS: readonly StopTier[] = [1, 2, 3];
 export interface Slice {
   readonly model: BusModelId;
   readonly tier: StopTier;
-  readonly works: boolean;
+  /** The event on today, or none. */
+  readonly event: 'none' | EventKind;
 }
 
-export const SLICES: readonly Slice[] = MODEL_IDS.flatMap((model) => LONE_TIERS.flatMap((tier) => [false, true].map((works) => ({ model, tier, works }))));
+export const SLICE_EVENTS: readonly Slice['event'][] = ['none', 'roadworks', 'snow', 'festival'];
+
+export const SLICES: readonly Slice[] = MODEL_IDS.flatMap((model) => LONE_TIERS.flatMap((tier) => SLICE_EVENTS.map((event) => ({ model, tier, event }))));
 
 /** Every headway setting the line card offers that the rules allow: peak, off-peak, and overnight off or no more often than off-peak. */
 export const SETTINGS: readonly Headways[] = HEADWAY_MINUTES.flatMap((peak) =>
@@ -73,7 +78,7 @@ export interface Point {
 
 export interface SliceResult {
   readonly slice: Slice;
-  /** Roadworks' street, when the slice has them. */
+  /** Roadworks' street or a festival's place, when the slice has them. */
   readonly street: string | null;
   readonly best: Point;
   readonly starved: Point;
@@ -94,15 +99,24 @@ export function sweepSlice(world: World, lineId: LineId, slice: Slice, settings:
   world.state.event = null;
   recompute(world);
   let street: string | null = null;
-  if (slice.works) {
+  const today = toCalendarTime(world.state.elapsed).day;
+  const on = { startDay: today, endDay: today };
+  if (slice.event === 'roadworks') {
     // Roadworks on the line's own streets, on today: the stretch the roll would pick with this line alone.
     const stretch = pickRoadworks(world, createRng(1));
     if (!stretch) throw new Error('sweep: no street for roadworks');
-    const today = toCalendarTime(world.state.elapsed).day;
-    world.state.event = { kind: 'roadworks', startDay: today, endDay: today, street: stretch.street, edges: stretch.edges };
+    world.state.event = { kind: 'roadworks', ...on, street: stretch.street, edges: stretch.edges, at: null };
     street = stretch.street;
-    recompute(world);
+  } else if (slice.event === 'festival') {
+    // A festival at the stop the roll would pick, by its riders on the slice's model and tier.
+    const stop = pickFestivalStop(world, createRng(1));
+    if (!stop) throw new Error('sweep: no stop with riders for a festival');
+    world.state.event = { kind: 'festival', ...on, street: `stop ${stop.id}`, edges: [], at: { lon: stop.lon, lat: stop.lat } };
+    street = `stop ${stop.id}`;
+  } else if (slice.event === 'snow') {
+    world.state.event = { kind: 'snow', ...on, street: '', edges: [], at: null };
   }
+  if (slice.event !== 'none') recompute(world);
   const cycles = world.services.get(lineId)!.timing.cycles!;
   const points = settings.map((headways) => {
     line.headways = headways;
@@ -138,7 +152,7 @@ export function i3Verdict(r: SliceResult): Verdict {
   const failures: string[] = [];
   const dollars = (c: number) => `$${(c / 100).toFixed(2)}`;
   const min = (s: number | null) => (s === null ? 'off' : `${s / 60}`);
-  const where = `${r.slice.model}, tier ${r.slice.tier}${r.slice.works ? `, roadworks on ${r.street}` : ''}`;
+  const where = `${r.slice.model}, tier ${r.slice.tier}${r.slice.event === 'none' ? '' : `, ${r.slice.event}${r.street ? ` (${r.street})` : ''}`}`;
   if (r.best.netCents <= 0) return { failures, notes: [`${where}: no setting earns (best ${dollars(r.best.netCents)} a day, every ${min(r.best.headways.peak)}/${min(r.best.headways.offpeak)} min at ${dollars(r.best.fareCents)})`] };
   const lo = HEADWAY_MINUTES[0]! * 60;
   const hi = HEADWAY_MINUTES[HEADWAY_MINUTES.length - 1]! * 60;

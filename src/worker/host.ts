@@ -24,6 +24,7 @@ import { FOUNDING_HEADWAYS } from '../sim/config/lines';
 import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
+import { FESTIVAL_RADIUS_M } from '../sim/config/events';
 import { forecastDay } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
 import { finance } from '../sim/economy/finance';
@@ -181,11 +182,25 @@ function eventView(world: World, event: CityEvent | null, day: number): EventVie
   const phase = eventPhase(event, day);
   if (phase === 'over') return null;
   const { city } = world;
+  const lngLat = (p: XY) => [...toLngLat(city.frame, p)] as LngLatPair;
+  const base = { kind: event.kind, phase, street: event.street, startDay: event.startDay, endDay: event.endDay, daysLeft: eventDaysLeft(event, day) };
+  if (event.kind === 'festival' && event.at) {
+    // The reach it draws riders from, as a ring round its stop, its words at the stop.
+    const c = toXY(city.frame, [event.at.lon, event.at.lat]);
+    const ring = Array.from({ length: 49 }, (_, k) => lngLat([c[0] + FESTIVAL_RADIUS_M * Math.cos((2 * Math.PI * (k % 48)) / 48), c[1] + FESTIVAL_RADIUS_M * Math.sin((2 * Math.PI * (k % 48)) / 48)]));
+    return { ...base, path: [ring], at: [event.at.lon, event.at.lat] };
+  }
+  if (event.kind === 'snow') {
+    // Over the whole city: no shape, its words amid the company's stops.
+    const stops = world.state.stops.map((s) => toXY(city.frame, [s.lon, s.lat]));
+    const mid: XY = stops.length ? [stops.reduce((x, p) => x + p[0], 0) / stops.length, stops.reduce((y, p) => y + p[1], 0) / stops.length] : [0, 0];
+    return { ...base, path: [], at: lngLat(mid) };
+  }
   const pieces = event.edges.map((e) => city.streets[e]?.points ?? []).filter((pts) => pts.length > 1);
-  const path = pieces.map((pts) => pts.map((p) => [...toLngLat(city.frame, p as XY)] as LngLatPair));
+  const path = pieces.map((pts) => pts.map((p) => lngLat(p as XY)));
   // Its words sit at the middle point of its longest piece.
   const longest = path.reduce<readonly LngLatPair[]>((best, p) => (p.length > best.length ? p : best), []);
-  return { kind: event.kind, phase, street: event.street, startDay: event.startDay, endDay: event.endDay, daysLeft: eventDaysLeft(event, day), path, at: longest[Math.floor(longest.length / 2)] ?? [0, 0] };
+  return { ...base, path, at: longest[Math.floor(longest.length / 2)] ?? [0, 0] };
 }
 
 /** The day card's event notices: the event rolled at this close and the one whose last day it was. */

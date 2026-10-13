@@ -8,7 +8,7 @@
 // pays the lender's interest, and a close below the credit floor counts toward the end (D10). Held
 // contracts are checked at each service hour's end and graded at the close, which then rolls the
 // next day's offers (economy/contracts.ts) and may roll an event for the day after (events/roll.ts);
-// a close where roadworks start or end times every line's round trip again. Each close awards the
+// a close where an event starts or ends times every line's round trip and assigns the riders again. Each close awards the
 // medals its card and the trips carried earn (rules/medal.ts), once each, and starts the day's count again.
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
@@ -39,7 +39,7 @@ export type SimEvent = {
   /** The event rolled at this close, which starts the day after the one just begun, and the event whose last day was the day just closed. */
   readonly rolled: CityEvent | null;
   readonly ended: CityEvent | null;
-  /** Roadworks started or ended at this close, so every line's round trip was timed again, or a line settled onto its own day plan. */
+  /** An event started or ended at this close, so every line's round trip was timed and its riders assigned again, or a line settled onto its own day plan. */
   readonly retimed: boolean;
   /** Medals awarded at this close, bronze first (rules/medal.ts). */
   readonly medals: readonly MedalId[];
@@ -99,10 +99,11 @@ export function simStep(world: World): SimEvent[] {
   rollOffers(world, ended.day + 1);
   const last = state.event;
   const endedEvent = last && last.endDay === ended.day ? last : null;
-  const retimed = last !== null && (last.startDay === ended.day + 1 || endedEvent !== null) && last.kind === 'roadworks';
+  const retimed = last !== null && (last.startDay === ended.day + 1 || endedEvent !== null);
   const rolled = rollEvent(world, ended.day + 1);
-  // Lines settled onto their own day plans let go of their earlier versions; roadworks starting or
-  // ending time every line again, a trip under way finishing as it began (the M4 spec, item 4).
+  // Lines settled onto their own day plans let go of their earlier versions; an event starting or
+  // ending (roadworks or snow slow the buses, a festival draws riders) times every line and assigns the
+  // riders again, a trip under way finishing as it began (the M4 spec, item 4).
   const settled = settle(world);
   if (retimed) recomputeInService(world);
   return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed: retimed || settled, medals, trips }];

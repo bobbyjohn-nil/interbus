@@ -35,6 +35,8 @@ export interface Leg {
 }
 
 export interface LineDraftContext extends StopSiteContext, FleetContext {
+  /** Snow today: every drive at SNOW_SPEED (rules/cycle.ts slowedM); none when left out. */
+  readonly snow?: boolean;
   /** The street from one stop to the next as the line drives it, or null if no street joins them. */
   readonly leg: (from: XY, to: XY) => Leg | null;
   /** That street as a line of points, for finding the leg a click points at (rules/route.ts checkInsert). */
@@ -108,8 +110,8 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   const routeM = stopDistM[stopDistM.length - 1] ?? 0;
   const enough = stops.length >= MIN_LINE_STOPS;
   const rush = routeM > 0 ? rushM / routeM : 0;
-  const cycle = enough ? cycleSeconds(slowedM(routeM, worksM), stops.length, model.kmh) : 0;
-  const cycles = enough ? cyclesOf(slowedM(routeM, worksM), stops.length, model.kmh, rush) : { peak: 0, offpeak: 0, overnight: 0 };
+  const cycle = enough ? cycleSeconds(slowedM(routeM, worksM, ctx.snow), stops.length, model.kmh) : 0;
+  const cycles = enough ? cyclesOf(slowedM(routeM, worksM, ctx.snow), stops.length, model.kmh, rush) : { peak: 0, offpeak: 0, overnight: 0 };
   const headwaysOk = checkHeadways(headways);
   const buses = enough && headwaysOk.ok ? busesNeeded(cycles, headways) : 0;
   const newStops = stops.filter((s) => s.kind === 'new').length;
@@ -156,12 +158,12 @@ export type ModelChangeRefusal = 'same_model' | 'model_locked' | 'depot_full' | 
  */
 export function checkModelChange(
   ctx: FleetContext,
-  line: { readonly routeM: number; readonly stops: number; readonly rush?: number; readonly worksM?: number; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
+  line: { readonly routeM: number; readonly stops: number; readonly rush?: number; readonly worksM?: number; readonly snow?: boolean; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
   to: BusModel,
 ): Result<{ needed: number; buyCents: number; saleCents: number }, ModelChangeRefusal, { room?: number; shortCents?: number }> {
   if (to.id === line.model.id) return refuse('same_model');
   if (modelLocked(to, ctx.medals)) return refuse('model_locked');
-  const needed = busesNeeded(cyclesOf(slowedM(line.routeM, line.worksM ?? 0), line.stops, to.kmh, line.rush ?? 0), line.headways);
+  const needed = busesNeeded(cyclesOf(slowedM(line.routeM, line.worksM ?? 0, line.snow), line.stops, to.kmh, line.rush ?? 0), line.headways);
   const room = depotRoom(ctx) + line.buses;
   if (needed > room) return refuse('depot_full', { room });
   const buyCents = needed * to.priceCents;

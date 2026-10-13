@@ -5,18 +5,18 @@
 // close rolls them: the events' stream at a state whose next draws roll roadworks for three days.
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
-import { EVENT_CHANCE_PER_DAY, ROADWORKS_DAYS } from '../src/sim/config/events';
+import { EVENT_CHANCE_PER_DAY, EVENT_DAYS, EVENT_KINDS, type EventKind } from '../src/sim/config/events';
 import { createRng } from '../src/sim/core/rng';
 import { foundCompany } from './found';
 import { city, onDepotLand } from './shell';
 
-type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; eventRng: { state: number }; event: Record<string, unknown> | null };
+type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; eventRng: { state: number }; event: Record<string, unknown> | null; ledger: { day: number }[] };
 
-/** The first stream state whose next two draws roll an event and give it the shortest roadworks. */
-function rollingState(): number {
+/** The first stream state whose next draws roll an event of `kind` for its fewest days (events/roll.ts: the chance, the kind, the days). */
+function rollingState(kind: EventKind = 'roadworks'): number {
   for (let s = 1; ; s++) {
     const rng = createRng(s);
-    if (rng.next() < EVENT_CHANCE_PER_DAY && rng.int(ROADWORKS_DAYS[0], ROADWORKS_DAYS[1]) === ROADWORKS_DAYS[0]) return s;
+    if (rng.next() < EVENT_CHANCE_PER_DAY && rng.pick(EVENT_KINDS) === kind && rng.int(EVENT_DAYS[kind][0], EVENT_DAYS[kind][1]) === EVENT_DAYS[kind][0]) return s;
   }
 }
 
@@ -86,5 +86,48 @@ test.describe('roadworks a day ahead', () => {
     await page.getByRole('button', { name: '3×' }).click();
     await expect(page.getByTestId('day-card').getByTestId('event-news')).toHaveText(`Roadworks on ${street} are over`, { timeout: 30_000 });
     await expect(map).toHaveAttribute('data-event', '');
+  });
+  test('snow and a festival: named the evening before, and snow slows the line card’s round trip while it falls', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const company = (d: Data, kind: EventKind, day: number) => {
+      const [lon, lat] = onDepotLand();
+      d.depots = [{ id: 1, lon, lat }];
+      d.stops = DEBUG_STOPS.map((s, k) => ({ id: k + 1, lon: s.at[0], lat: s.at[1], tier: 1 }));
+      d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow', earlier: [] }];
+      d.nextIds = { ...d.nextIds, depot: 2, stop: 5, line: 2 };
+      d.eventRng = { state: rollingState(kind) };
+      d.event = null;
+      d.clock.elapsed = eveningOf(day);
+      // Back to an evening before the game had got to: no rows from days not yet played.
+      d.ledger = d.ledger.filter((r) => r.day <= day);
+    };
+    const map = page.getByTestId('map');
+    const news = page.getByTestId('day-card').getByTestId('event-news');
+
+    // Snow rolled at day 3's close for day 5, one day: named the evening before, hatched over the city.
+    await edited(page, (d) => company(d, 'snow', 3));
+    await page.getByRole('button', { name: 'Lines' }).click();
+    const roundTrip = page.getByTestId('round-trip');
+    const calm = Number(await roundTrip.getAttribute('data-peak'));
+    await page.getByRole('button', { name: '3×' }).click();
+    await expect(news).toHaveText('Snow tomorrow, for 1 day: every bus drives slower', { timeout: 30_000 });
+    await expect(map).toHaveAttribute('data-event', ':5:pending:1');
+    // Day 5: it falls, and the line card's round trip says what it adds.
+    await expect(map).toHaveAttribute('data-event', ':5:on:1', { timeout: 30_000 });
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await expect(roundTrip).toContainText('snow adds');
+    const snowy = Number(await roundTrip.getAttribute('data-peak'));
+    expect(snowy).toBeGreaterThan(calm);
+    expect(snowy - calm).toBe(Number(await roundTrip.getAttribute('data-snow-s')));
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    // A festival rolled the same way gathers at one of the line's stops, a ring round it.
+    await edited(page, (d) => company(d, 'festival', 3));
+    await page.getByRole('button', { name: '3×' }).click();
+    await expect(news).toHaveText(/^A festival near .+ tomorrow, for 1 day: more riders to and from there$/, { timeout: 30_000 });
+    await expect(map).toHaveAttribute('data-event', /^.+:5:pending:1$/);
   });
 });
