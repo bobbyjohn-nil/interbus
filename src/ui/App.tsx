@@ -4,6 +4,7 @@ import { MapView } from '../render/map/MapView';
 import type { LngLatPair } from '../sim/types';
 import { Corner } from './Corner';
 import { DayCard } from './game/DayCard';
+import { FoundingCard } from './game/Founding';
 import { LineCard } from './game/LineCard';
 import { ProbeCard } from './game/ProbeCard';
 import { SimPanel } from './game/SimPanel';
@@ -107,6 +108,7 @@ export function App() {
           ))}
         </div>
       ) : null}
+      <FoundingCard sim={sim} />
       <DayCard sim={sim} />
       <Corner />
       <ReplacedCard />

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { foundCompany } from './found';
 import { loadCity } from '../src/sim/city/simfile';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { pointInRing, toLngLat, type XY } from '../src/sim/core/geo';
@@ -32,8 +33,8 @@ function onDepotLand(): [number, number] {
   throw new Error('no point inside the parcel');
 }
 
-// The M2 spec's exit check, steps 2–5: a depot on the green tint, four stops from Copley to Longwood,
-// Create, its buses running, and a day whose cost rows land on the card (I1).
+// The M2 spec's exit check, steps 1–5: found, a depot on the green tint, four stops from Copley to
+// Longwood, Create, its buses running, and a day whose cost rows land on the card (I1).
 test.describe('the line tool on the fixture', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
@@ -46,7 +47,10 @@ test.describe('the line tool on the fixture', () => {
     const panel = page.getByTestId('sim-panel');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(panel).toBeVisible({ timeout: 30_000 });
+    // Step 1: name and colour the company; cash reads the founding capital.
     await expect(panel).toHaveAttribute('data-cash', '42720000');
+    await foundCompany(page);
+    await expect(page.getByTestId('checklist')).toHaveText('1/5 Place a depot');
     // One step out from the opening view, so the depot land and Longwood both fit on screen.
     const [, , opening] = (await map.getAttribute('data-view'))!.split(',').map(Number);
     await page.mouse.click((await map.boundingBox())!.width / 2, 200);
@@ -76,6 +80,7 @@ test.describe('the line tool on the fixture', () => {
     await page.mouse.click(dx, dy);
     await expect(panel).toHaveAttribute('data-cash', '27720000');
     await expect(map).toHaveAttribute('data-tint', 'off');
+    await expect(page.getByTestId('checklist')).toHaveText('2/5 Draw a line');
 
     // The line: four clicks, the card's price, Create.
     await page.getByRole('button', { name: 'Draw a line' }).click();
@@ -91,12 +96,14 @@ test.describe('the line tool on the fixture', () => {
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();
     await expect(panel).toHaveAttribute('data-cash', '7120000');
+    await expect(page.getByTestId('checklist')).toHaveText('3/5 Press play');
     const running = Number(await page.getByTestId('line-card').getAttribute('data-running'));
 
     // Its buses: drawn while time runs (TS-07), and the layer asks for no frame while paused (I14).
     await page.getByRole('button', { name: '1×' }).click();
     await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 10_000 }).toBeGreaterThan(0);
     await expect.poll(async () => Number(await map.getAttribute('data-asked')), { timeout: 10_000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId('checklist')).toHaveText('4/5 Close a day in profit');
     await page.getByRole('button', { name: 'Pause' }).click();
     await page.waitForTimeout(500);
     const asked = await map.getAttribute('data-asked');
@@ -115,6 +122,8 @@ test.describe('the line tool on the fixture', () => {
     // the host and sim tests: day 1 starts after the first bus left the depot.)
     expect(await cents('running')).toBe(-running);
     expect(await cents('upkeep')).toBe(-19 * 1_250);
+    // About $1,400 ahead on its running rows: the checklist moves on to contracts (M3).
+    await expect(page.getByTestId('checklist')).toHaveText('5/5 Take a contract');
     expect(errors).toEqual([]);
   });
 });

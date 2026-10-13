@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
-import { bankedBetween, foundingCapitalCents, foundLedger, post, refund, rowsOfDay, spend, type Ledger } from './ledger';
+import { bankedBetween, foundingCapitalCents, foundLedger, post, profitableDays, refund, rowsOfDay, spend, type Ledger } from './ledger';
 import { starterBuses, starterLineCents } from './starter';
 
 const sum = (l: Ledger) => l.rows.reduce((s, r) => s + r.amountCents, 0);
@@ -101,5 +101,19 @@ describe('banking a constant rate (ported from V3)', () => {
 
   it('refuses fractional counters, the one way it stops being exact', () => {
     expect(() => bankedBetween(2_600, 3_600, 0, 0.5)).toThrow(RangeError);
+  });
+});
+
+describe('profitable days (the checklist)', () => {
+  it('counts closed days whose running rows beat their costs, leaving out capital and today', () => {
+    const ledger = foundLedger();
+    spend(ledger, 20_600_000, 1); // a line bought on day 1 does not make day 1 a loss
+    post(ledger, { day: 1, kind: 'fares', amountCents: 50_000 });
+    post(ledger, { day: 1, kind: 'wages', amountCents: -40_000 });
+    post(ledger, { day: 2, kind: 'fares', amountCents: 10_000 });
+    post(ledger, { day: 2, kind: 'wages', amountCents: -40_000 });
+    post(ledger, { day: 3, kind: 'fares', amountCents: 90_000 });
+    expect(profitableDays(ledger, 3)).toBe(1); // day 1 only: founding capital is not profit, and day 3 is still open
+    expect(profitableDays(ledger, 4)).toBe(2);
   });
 });

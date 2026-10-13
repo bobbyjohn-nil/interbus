@@ -33,6 +33,8 @@ export interface RefusalView {
   readonly reason: string;
   /** Which click of a draft the refusal is about. */
   readonly at?: number;
+  /** A count the refusal names, such as a name's longest length. */
+  readonly limit?: number;
   readonly limitM?: number;
   /** How far the nearest thing in the way is, in metres. */
   readonly nearestM?: number;
@@ -99,11 +101,15 @@ export interface Snapshot {
   readonly hour: number;
   readonly minute: number;
   readonly speed: Speed;
+  /** The company, unnamed until founded. */
+  readonly company: { readonly name: string; readonly colour: string };
   /** Seconds since midnight of the game day, and game seconds per real second (0 paused): the vehicle layer runs the clock on between snapshots. */
   readonly secondOfDay: number;
   readonly rate: number;
   readonly cashCents: number;
   readonly ridersPerDay: number;
+  /** Closed days whose running rows came out ahead (the checklist's "a day in profit"). */
+  readonly profitableDays: number;
   /** Every line's forecast and every depot's upkeep for a whole day, in cents. */
   readonly costsPerDayCents: number;
   readonly lines: readonly LineView[];
@@ -131,6 +137,7 @@ export type ToWorker =
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'place-depot'; readonly at: LngLatPair }
+  | { readonly type: 'found'; readonly name: string; readonly colour: string }
   | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData }
   | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData }
   | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData };

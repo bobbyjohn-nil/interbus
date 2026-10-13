@@ -306,3 +306,94 @@ body,
   cursor: default;
   opacity: 0.5;
 }
+
+/* The founding card (src/ui/game/Founding.tsx). */
+.founding-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 300px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--ui-paper);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 0.18);
+  font-size: 14px;
+}
+
+.founding-card h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.founding-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.founding-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ui-ink-soft);
+}
+
+.founding-card input[type='text'],
+.founding-card input:not([type]) {
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  color: var(--ui-ink);
+}
+
+.founding-card fieldset {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.founding-card legend {
+  margin-bottom: 4px;
+  color: var(--ui-ink-soft);
+}
+
+.swatch-choice {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.swatch-choice:has(input:checked) {
+  outline: 2px solid var(--ui-ink);
+  outline-offset: 2px;
+}
+
+.swatch-choice input {
+  opacity: 0;
+  margin: 0;
+}
+
+.founding-card button {
+  font: inherit;
+  font-weight: 600;
+  min-height: 28px;
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.founding-card button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.checklist {
+  font-weight: 600;
+}

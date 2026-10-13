@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { foundCompany } from './found';
 import { loadCity } from '../src/sim/city/simfile';
 import { toXY } from '../src/sim/core/geo';
 import { peopleWithinWalk } from '../src/sim/rules/catchment';
@@ -18,6 +19,7 @@ test.describe('the city on the fixture', () => {
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(page.getByTestId('sim-panel')).toBeVisible({ timeout: 30_000 });
     await expect.poll(async () => Number(await map.getAttribute('data-dots')), { timeout: 30_000 }).toBeGreaterThan(100);
+    await foundCompany(page);
 
     const box = (await map.boundingBox())!;
     await page.mouse.move(box.width / 2, box.height / 2);

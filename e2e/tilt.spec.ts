@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { foundCompany } from './found';
 
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown }[] };
 
@@ -16,6 +17,8 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await expect(map).toHaveAttribute('data-mode', '2d');
+  // Founded first: until then the founding card's name field holds the keyboard.
+  await foundCompany(page);
   const shot = () => page.screenshot({ mask: [page.locator('.corner')] });
   const flat = await shot();
 

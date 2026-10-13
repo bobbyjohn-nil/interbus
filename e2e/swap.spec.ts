@@ -156,9 +156,9 @@ test('a tab whose city file disappears mid-session shows the card on its next ti
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
   await expect(map).toHaveAttribute('data-tile-reads', 'range');
   changing.hide(`cities/${CITY_FILE_A}`);
-  // Zoom in so MapLibre asks for tiles it has not read yet.
+  // Zoom in so MapLibre asks for tiles it has not read yet, over open map clear of the founding card.
   const box = (await map.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.8);
   for (let i = 0; i < 4; i++) {
     await page.mouse.wheel(0, -600);
     await page.waitForTimeout(150);
