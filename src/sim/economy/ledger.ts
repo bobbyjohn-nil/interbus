@@ -12,7 +12,7 @@ import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
-export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep'] as const;
+export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep', 'card'] as const;
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
@@ -108,7 +108,8 @@ export function closeDay(ledger: Ledger, day: number): void {
 }
 
 /** Rows that are capital, not the business's running: founding, purchases, their refunds and buses sold. */
-const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale']);
+/** Rows that are not a day's running: capital, and a quarter's report card. */
+const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card']);
 
 /** Closed days (before `today`) whose operating rows, everything but capital, sum above zero: the checklist's "a day in profit". */
 export function profitableDays(ledger: Ledger, today: number): number {

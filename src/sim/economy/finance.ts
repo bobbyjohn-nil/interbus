@@ -29,7 +29,8 @@ export interface Finance {
   readonly rows: readonly FinanceRow[];
 }
 
-const CAPITAL: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale']);
+/** Rows no day plans: capital, and a quarter's report card. */
+const CAPITAL: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card']);
 
 export function finance(world: World): Finance {
   const { state } = world;

@@ -51,6 +51,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   wages: 'Driver wages',
   deadhead: 'Deadhead',
   upkeep: 'Depot upkeep',
+  card: 'Report card',
 };
 
 /** "2 Sparrows", "1 Metro 40": a count of buses of one model. */

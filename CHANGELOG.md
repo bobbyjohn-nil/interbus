@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The tools sit in a dock along the bottom of the screen, and the day, the time, the speed, cash and riders a day sit in a row of chips along the top, leaving the city the rest of the screen.
 - When something can't be done, a notice in the bottom-left corner says why for a few seconds.
 - Riders weigh the wait: up to a bus every 12 minutes most of them time their trip to the timetable, but a bus every hour carries few, so a line pays best every 10 to 15 minutes.
+- Every ten days the quarter closes with a report card on the midnight card: Coverage, Reliability, Comfort and Money, each out of 100. A good card earns a grant from the city and a poor one a fine, as one of the day's rows.
 - Saves, in the dock: three slots to keep a game in beside the one that saves itself as you play, and Export and Import to keep a game as a file. A file the game cannot read is turned away with a note, and the game you are playing stays as it was.
 - A save made on an earlier map of Boston carries on when the map is updated, its stops moved onto the new map's streets. If a stop has no street near it any more, the save is kept aside and a note says so.
 - Undo while paused: the Undo chip (or Ctrl+Z, ⌘Z on a Mac) takes back the last thing you did since you paused, a depot, a line, a headway, a bus model, a fare or a stop, cash and all. Once the clock has run, it says so instead.

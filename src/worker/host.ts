@@ -469,6 +469,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
               rows: event.rows.map((r) => ({ kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
               cashBeforeCents: event.cashBeforeCents,
               cashAfterCents: event.cashAfterCents,
+              report: event.card,
             },
           });
         }

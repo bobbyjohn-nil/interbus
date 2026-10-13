@@ -188,6 +188,16 @@ export interface DayCard {
   readonly rows: readonly { readonly kind: string; readonly amountCents: number; readonly lineId: number | null }[];
   readonly cashBeforeCents: number;
   readonly cashAfterCents: number;
+  /** On a quarter's last day, its report card (sim/economy/reportCard.ts): four grades 0–100, the overall, and what it pays or fines. */
+  readonly report: {
+    readonly quarter: number;
+    readonly coverage: number;
+    readonly reliability: number;
+    readonly comfort: number;
+    readonly money: number;
+    readonly overall: number;
+    readonly payoutCents: number;
+  } | null;
 }
 
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */
