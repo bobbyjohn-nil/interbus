@@ -47,6 +47,12 @@ export interface RefusalView {
 }
 
 /** The line tool's draft card (sim/rules/line.ts): what the clicks make, and whether Create may buy it. */
+/** A line being extended from one end (the M3 spec, item 14): the line tool's clicks go beyond that end. */
+export interface ExtendData {
+  readonly lineId: number;
+  readonly end: 'start' | 'end';
+}
+
 export interface LineDraftView {
   readonly stops: readonly { readonly at: LngLatPair; readonly joins: number | null }[];
   readonly route: readonly LngLatPair[];
@@ -270,7 +276,8 @@ export type ToWorker =
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'place-depot'; readonly at: LngLatPair }
   | { readonly type: 'found'; readonly name: string; readonly colour: string }
-  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
+  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId; readonly extend?: ExtendData }
+  | { readonly type: 'extend-line'; readonly lineId: number; readonly end: 'start' | 'end'; readonly clicks: readonly LngLatPair[] }
   | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
   | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData }
   | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }

@@ -10,7 +10,7 @@ const CODES = [
   'depot_full', 'insufficient_funds', 'no_such_line', 'not_started',
   'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
   'fare_out_of_range', 'fare_not_a_step', 'same_fare',
-  'same_tier', 'no_such_tier', 'needs_lines', 'no_such_stop', 'not_on_line', 'line_keeps_two',
+  'same_tier', 'no_such_tier', 'needs_lines', 'no_such_stop', 'not_on_line', 'line_keeps_two', 'no_new_stops',
   'time_has_run', 'nothing_to_undo',
   'empty_slot', 'no_such_slot', 'save_unreadable', 'save_newer', 'save_older', 'save_other_city', 'save_off_street', 'save_none',
   'run_ended', 'no_quarter_save',
