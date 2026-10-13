@@ -2,12 +2,12 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` f7e851a (the save list): M3's items are all in but week 5's presentation items, M4's are all in, and in M5 the spec and the save list are in and Home is in review; the GPU ladder is next, then I14 with events on once the local sweep frees the bench.
+**Updated:** 2026-10-13, at `main` bb02c34 (Home, and the live check waiting for it): M3's items are all in but week 5's presentation items, M4's are all in, and in M5 the spec, the save list and Home are in and the GPU ladder is in review; the pacing run and I14 with events on are next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` f7e851a. Deploy preview run 38469214206's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
-  - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bb02c34. Deploy preview run 38471502139's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up (Home's own deploy, 16101e4, went out but its live check still waited for the chip row Home holds back; #78 fixed the check). What it shows:
+  - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
   - Home, the first screen: Continue, New game and Saves over the paused map, and Back to Home in Saves;
@@ -236,8 +236,8 @@ The spec is [`docs/specs/current.md`](specs/current.md). No new system after Sun
 1. [ ] **I14 with events on** (M4's last magnitude): the recompute on a festival's first day on Inner Boston, against 150 ms.
 2. [ ] **The scripted pacing run** (item 1): `bench/pacing.ts`, a scripted player on Inner Boston reporting real minutes on the speed ladder against PLAN §3's targets, with a fixture version in the PR checks.
 3. [x] **The save list** (item 4; 2026-10-13): each slot names its buses and when it was saved, by the page's clock in the save's envelope (no new format); Delete asks first; a save set aside by a new build is listed with Export and Delete until one is used. At its tallest, every slot full and a set-aside save listed, the panel takes 22.3% of 1152×720 (DECISIONS, Measured).
-4. [x] **Home** (item 3; 2026-10-13, in review): the first screen over the paused map, with Continue (the game's company, day and cash), New game (asking before it replaces that game; the slots stay) and Saves, the chip row and dock waiting for the game; Back to Home in Saves pauses and returns. 8.0% of 1152×720; the menu's critical path 95.9 KiB (DECISIONS, Measured).
-5. [ ] **The GPU ladder** (item 5): Low graphics (2D, 30 fps) and the hardware-acceleration card, each forced in e2e; the `?fps` readout.
+4. [x] **Home** (item 3; 2026-10-13): the first screen over the paused map, with Continue (the game's company, day and cash), New game (asking before it replaces that game; the slots stay) and Saves, the chip row and dock waiting for the game; Back to Home in Saves pauses and returns. 8.0% of 1152×720; the menu's critical path 95.9 KiB (DECISIONS, Measured).
+5. [x] **The GPU ladder** (item 5; 2026-10-13, in review): software rendering, by WebGL's caveat or its renderer's name, is Low graphics (flat, the buses' frames capped at 30 a second, one pixel a pixel); no WebGL2 is a calm card with Home, Saves and Export intact; a context lost mid-game is a card with Reload; `?gpu=` forces a rung and `?fps` shows the frame rate. The e2e tests' SwiftShader runs in Low graphics; the menu's critical path 96.9 KiB (DECISIONS, Measured).
 6. [ ] **The tuning freeze** (item 2): k, the speed ladder, the medal bars and Boston's balance bands, from the pacing run and P1, by Dec 13.
 7. [ ] **The 2D/3D chip, drag, snap and cross-fade** (item 6; look work), its room in I13 measured.
 8. [ ] **P2's fixes, the light style pass and the slow-laptop run** (items 7–9; week 10).

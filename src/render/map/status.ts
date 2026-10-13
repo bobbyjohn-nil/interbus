@@ -1,5 +1,7 @@
 // What the map says about itself (data-status). Pure, so each transition is tested on its own.
-export type MapStatus = 'loading' | 'ready' | 'empty' | 'no-city-file' | 'failed' | 'replaced';
+// 'no-gpu': the GPU ladder's last rung, no map at all; 'lost': the browser took the map's graphics
+// away mid-game (gpu.ts).
+export type MapStatus = 'loading' | 'ready' | 'empty' | 'no-city-file' | 'failed' | 'replaced' | 'no-gpu' | 'lost';
 
 /**
  * The first idle frame decides: a frame with features is ready, an empty one is broken. It also

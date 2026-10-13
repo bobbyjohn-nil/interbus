@@ -13,7 +13,7 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
     if (m.type() === 'error') errors.push(m.text());
   });
 
-  await page.goto('./');
+  await page.goto('./?gpu=full'); // 3D needs the full rung; CI's browser draws in software (gpu.ts)
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await expect(map).toHaveAttribute('data-mode', '2d');
@@ -46,7 +46,7 @@ const MEASURED_SHARE = 0.9;
 
 test('tilted at zoom 15, most buildings stand at their own height', async ({ page }) => {
   test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
-  await page.goto('./');
+  await page.goto('./?gpu=full'); // 3D needs the full rung; CI's browser draws in software (gpu.ts)
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await foundCompany(page);
