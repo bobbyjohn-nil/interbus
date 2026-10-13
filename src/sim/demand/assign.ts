@@ -82,6 +82,8 @@ export interface LinePlan {
   readonly walkBonusMin?: readonly number[];
   /** Minutes a transfer onto this line at each stop costs, by its tier (config/stops.ts); a Sign's 6 when absent. */
   readonly transferPenaltyMin?: readonly number[];
+  /** How much of the rush its route's streets take, their metres-weighted class weight (traffic/congestion.ts); none when absent. */
+  readonly rush?: number;
 }
 
 export interface LineDemand {

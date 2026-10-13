@@ -143,6 +143,8 @@ function lineViews(world: World): LineView[] {
       incomeCents: Math.floor(demand?.paidPerDay ?? 0) * (line.fareCents + subsidyCents(line.fareCents)),
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
+      cycles: service?.timing.cycles ?? { peak: 0, offpeak: 0, overnight: 0 },
+      rush: service?.plan.rush ?? 0,
       buses: line.buses,
       model: line.model,
       forecastCents: service ? forecastDay(service.costs) : { running: 0, wages: 0, deadhead: 0 },

@@ -52,6 +52,22 @@ describe('busPositionsAt (the M2 spec, item 6)', () => {
     expect(home!.bearing).toBeCloseTo(270, 6);
   });
 
+  it('drives each trip at its own period’s traffic: a peak run reaches the far end later than a midday one (item 15)', () => {
+    // Every 20 minutes all day; at peak the round trip is 1,641 s, at midday 1,442 s (the debug line's, cycle.test.ts).
+    const busy = dayPlan({ ...plan.inputs, timing: { ...plan.inputs.timing, cycles: { peak: 1_641, offpeak: 1_442, overnight: 1_362 } } });
+    const where = (second: number) => {
+      const n = busPositionsAt(busy, geo, second, out);
+      return Array.from({ length: n }, (_, i) => [out[3 * i]!, out[3 * i + 1]!] as LngLatPair);
+    };
+    // One-way runs: 529.5 s at the day's average, half the difference longer or shorter.
+    const peakOneWay = 529.5 + (1_641 - 1_539) / 2;
+    const middayOneWay = 529.5 + (1_442 - 1_539) / 2;
+    const farEnd = (second: number) => where(second).some((p) => metres(p, east(3_535)) < 0.01);
+    expect(farEnd(at(8) + peakOneWay - 5)).toBe(false);
+    expect(farEnd(at(8) + peakOneWay + 1)).toBe(true);
+    expect(farEnd(at(12) + middayOneWay + 1)).toBe(true);
+  });
+
   it('dwells 20 s at each stop between the ends', () => {
     // 1,339 m at 3,535 m in 489.5 s of driving: Symphony at 185.4 s, then 20 s there.
     for (const u of [186, 195, 205]) expect(metres(positions(at(5) + u)[0]!.at, east(1_339))).toBeLessThan(0.01);

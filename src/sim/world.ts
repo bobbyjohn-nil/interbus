@@ -10,12 +10,13 @@ import { BUS_MODELS, LAYOVER_SECONDS } from './config/fleet';
 import { STOP_TIERS } from './config/stops';
 import type { DepotId, LineId } from './core/ids';
 import { driveSeconds, type LineCostInputs } from './economy/costs';
-import { cycleSeconds } from './rules/cycle';
+import { cycleSeconds, cyclesOf } from './rules/cycle';
 import type { DepotSiteContext } from './rules/depot';
-import type { FleetContext, LineDraftContext } from './rules/line';
+import type { FleetContext, Leg, LineDraftContext } from './rules/line';
 import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
 import type { Line, SimState } from './state';
+import { classRush } from './traffic/congestion';
 
 /** What a line runs as, worked out from the state when the network changes (recompute()). */
 export interface LineService {
@@ -50,12 +51,19 @@ export function nearestNode(world: Pick<World, 'nodes' | 'city'>, p: XY): number
   return null;
 }
 
-/** Street metres a bus drives from one stop position to the next, or null if no street joins them: the line tool, the plan and the costs all read this. */
-export function legMetres(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): number | null {
+/**
+ * The street a bus drives from one stop position to the next, or null if no street joins them: its
+ * metres, and its metres weighted by how much of the rush each street takes (traffic/congestion.ts).
+ * The line tool, the plan and the costs all read this.
+ */
+export function legBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): Leg | null {
   const a = nearestNode(world, from);
   const b = nearestNode(world, to);
   const path = a === null || b === null ? null : world.router.route(a, b);
-  return path ? path.dm / 10 : null;
+  if (!path) return null;
+  let rushDm = 0;
+  for (const e of path.edges) rushDm += world.city.graph.edgeDm[e]! * classRush(world.city.streets[e]!.cls);
+  return { m: path.dm / 10, rushM: rushDm / 10 };
 }
 
 /** A line as the demand model sees it: stop positions and distances along its streets. */
@@ -64,15 +72,19 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
   if (stops.some((s) => !s) || stops.length < 2) return null;
   const xy = stops.map((s) => toXY(world.city.frame, [s!.lon, s!.lat]));
   const dist = [0];
+  let rushM = 0;
   for (let k = 1; k < xy.length; k++) {
-    const leg = legMetres(world, xy[k - 1]!, xy[k]!);
+    const leg = legBetween(world, xy[k - 1]!, xy[k]!);
     if (leg === null) return null;
-    dist.push(dist[k - 1]! + leg);
+    dist.push(dist[k - 1]! + leg.m);
+    rushM += leg.rushM;
   }
+  const routeM = dist[dist.length - 1]!;
   return {
     id: line.id,
     stops: xy,
     stopDistM: dist,
+    rush: routeM > 0 ? rushM / routeM : 0,
     headways: line.headways,
     fareCents: line.fareCents,
     walkBonusMin: stops.map((s) => STOP_TIERS[s!.tier].walkBonusMin),
@@ -94,7 +106,7 @@ export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' 
       return hit ? { node: hit.item, at: hit.p, distM: hit.distM } : null;
     },
     stops: world.state.stops.map((s) => ({ id: s.id, at: toXY(world.city.frame, [s.lon, s.lat]) })),
-    legM: (from, to) => legMetres(world, from, to),
+    leg: (from, to) => legBetween(world, from, to),
   };
 }
 
@@ -123,7 +135,12 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     if (!plan) continue;
     const routeM = plan.stopDistM[plan.stopDistM.length - 1]!;
     const model = BUS_MODELS[line.model];
-    const timing: Timing = { cycle: cycleSeconds(routeM, plan.stops.length, model.kmh), headways: line.headways, buses: line.buses };
+    const timing: Timing = {
+      cycle: cycleSeconds(routeM, plan.stops.length, model.kmh),
+      cycles: cyclesOf(routeM, plan.stops.length, model.kmh, plan.rush ?? 0),
+      headways: line.headways,
+      buses: line.buses,
+    };
     const first = nearestNode(world, plan.stops[0]!);
     let depot: { id: DepotId; node: number | null; room: number } | null = null;
     let pullOutM = 0;
