@@ -36,7 +36,9 @@ async function pollVersion() {
 }
 
 async function checkChip() {
-  const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
+  // PW_CHROMIUM points at a preinstalled Chromium locally, as in playwright.config.ts; CI installs Playwright's own.
+  const executablePath = process.env.PW_CHROMIUM || undefined;
+  const browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
   try {
     const page = await browser.newPage();
     await page.goto(`${base}?run=${run}`);
@@ -55,6 +57,11 @@ async function checkChip() {
       if (!box || !viewport || box.width < viewport.width * 0.99 || box.height < viewport.height * 0.99) {
         throw new Error(`live-check: the map is ${box?.width}x${box?.height}, not the full window`);
       }
+    }
+    if (cities.some((c) => c.sim)) {
+      // The sim worker started on this deploy's sim file: the panel appears only once it is ready.
+      await page.getByTestId('sim-panel').waitFor({ timeout: 60_000 });
+      console.log('live-check: the sim worker is running on the city\'s sim file');
     }
     console.log(`live-check: build chip shows ${sha.slice(0, 7)}; the map is ready and fills the window`);
   } finally {
