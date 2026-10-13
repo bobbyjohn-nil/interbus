@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 4121d6c (riders feel rush hour): M3's items are all in, hourly congestion (the spec's item 15, PLAN cut 8) included, but week 5's presentation items; the data licences and third-party notices (week 5's "credits, `LICENSE-DATA.md`") are in review.
+**Updated:** 2026-10-13, at `main` bcc55e7 (data licences and third-party notices): M3's items are all in but week 5's presentation items, and the M4 spec (Goals, by Sun Dec 6) is in review; its first step, RIDERSHIP contracts, is next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4121d6c. Deploy preview run 38430424146's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bcc55e7. Deploy preview run 38431603674's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -165,7 +165,7 @@ The spec is archived in [`docs/specs/m2-first-line.md`](specs/m2-first-line.md).
    - **I3's strategies:** all 245 allowed headway settings for the debug line (`npm run bench strategies`). "Daytime longest, overnight shortest" earns less than the best (15, 60, off: $2,354.45 a day), a night-only line cannot be set, and a line off overnight carries nobody then (`strategies.test.ts`).
    - **Not yet held: PLAN's starving clause** (60% of the optimum or less). Hourly all day on one bus earns 98.5% of the best, so for week 5: per-period crowding (K27) and the fare band should make starving cost, then the sweep re-runs.
 
-## Next: M3, the money loop, by Sun Nov 29 (weeks 5–7)
+## M3, the money loop, by Sun Nov 29 (weeks 5–7): done but week 5's presentation items
 
 The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in Nov 9–29; work starts now, money first. In this order, each a small pull request (items are the spec's):
 1. [x] **Landmarks in `sim.json`** (item 1; 2026-10-13): six in `cities/boston/city.json`, each the label the map file draws. They are Copley Square, Longwood, Kenmore, Kendall Square, Harvard Square and Downtown Crossing. The fixture holds the first three; G6 fails a bake on any outside the extent; the loader reads them strictly.
@@ -209,7 +209,18 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
     - [x] **Timing** (2026-10-13): each line's round trip per period from its route's streets, its buses on the longest round trip over the shortest headway, each trip and each bus on the map at its own period's pace. The debug line runs 1,641 s at peak and 1,442 s midday against 1,540 s, still 2 buses at 20 minutes; Inner Boston's ten corridors need 68 buses at 10/15 minutes against 65 (DECISIONS, Measured).
     - [x] **Ridership** (2026-10-13, live at 4121d6c): a rider picks the stops the day's average traffic makes quickest and rides them at each period's, in both the fast loop and the reference. Inner Boston's riders a day move −0.27%, 7.0% fewer at peak and 7.5% more off-peak; the debug line carries 610.5 a day (614.4 before); recompute p50 rises about 4 ms (DECISIONS, Measured).
 
-14. [ ] **Credits and `LICENSE-DATA.md`** (PLAN §10's week 5; in review, 2026-10-13): every city source (OpenStreetMap, the Protomaps build, Overture's heights, the 2020 TIGER/Line blocks and county subdivisions, LODES 8.4), the font and the software, each with its licence and credit, and `public/THIRD_PARTY_NOTICES.txt` for the 33 packages the game is built with, generated from the lockfile and checked in CI. Three packages ship no licence text; their upstream texts join the notices before a Steam build. The credits screen stays in week 14.
+14. [x] **Credits and `LICENSE-DATA.md`** (PLAN §10's week 5; 2026-10-13): every city source (OpenStreetMap, the Protomaps build, Overture's heights, the 2020 TIGER/Line blocks and county subdivisions, LODES 8.4), the font and the software, each with its licence and credit, and `public/THIRD_PARTY_NOTICES.txt` for the 33 packages the game is built with, generated from the lockfile and checked in CI. Three packages ship no licence text; their upstream texts join the notices before a Steam build. The credits screen stays in week 14.
+
+## Next: M4, Goals, by Sun Dec 6 (week 8; started early, 2026-10-13)
+
+The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m3-money-loop.md`](specs/m3-money-loop.md)). Money first, each a small pull request (items are the spec's); P1's notes (Nov 16–22) may reorder them. M3's item 12 above, the presentation work, stays at most one session in three.
+1. [ ] **RIDERSHIP contracts** (item 1): 150, 400 or 800 paid boardings a day near a landmark for $60k, $150k or $240k, dealt with HEADWAY's asks from one deck of six; I11 over both kinds.
+2. [ ] **Roadworks a day ahead** (item 2), from the events' own RNG stream; then festival and snow (below the cut's second).
+3. [ ] **No bus jumps on route edits** (item 4): measure remove and extend first, then keep a trip under way on the plan it began with.
+4. [ ] **Route insert** (item 4): point at a leg, one command and one undo.
+5. [ ] **Medals** (item 3): bronze and silver with the Goliath behind it, then gold, on the recommended ladder until the owner answers.
+6. [ ] **The full sweep** (item 5), nightly if it passes 8 minutes.
+7. [ ] Express behind I3 (below the cut's first).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 
