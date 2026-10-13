@@ -10,8 +10,8 @@ import { chromeShare, city, onDepotLand } from './shell';
 
 type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; ledger: unknown[] };
 
-/** This game, exported, edited by `edit`, and imported back. */
-async function edited(page: Page, edit: (d: Data) => void): Promise<void> {
+/** This game, exported, edited by `edit`, and imported back: on once the game is at `elapsed`, since an earlier import's notice may still show. */
+async function edited(page: Page, edit: (d: Data) => void, elapsed: number): Promise<void> {
   await page.getByRole('button', { name: 'Saves' }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export this game' }).click();
@@ -22,6 +22,7 @@ async function edited(page: Page, edit: (d: Data) => void): Promise<void> {
   await page.getByRole('button', { name: 'Import a save file' }).click();
   await (await chooser).setFiles({ name: 'medals.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
+  await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-elapsed', String(elapsed));
   await page.getByRole('button', { name: 'Close' }).click();
 }
 
@@ -36,7 +37,11 @@ const company = (day: number, trips: number, medals: Record<string, number | nul
   d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow', earlier: [] }];
   d.nextIds = { ...d.nextIds, depot: 2, stop: 5, line: 2 };
   d.clock.elapsed = eveningOf(day);
-  d.ledger = [...d.ledger, { day: day - 1, kind: 'fares', amountCents: 100_000, lineId: 1 }, { day: day - 1, kind: 'contract', amountCents: 6_000_000, lineId: null }];
+  // A day in profit and a contract paid, the day before: in day order, after any row of that day,
+  // since the game may have run on into the next before the edit (a close refuses rows out of order).
+  const before = d.ledger.filter((r) => (r as { day: number }).day < day);
+  const after = d.ledger.filter((r) => (r as { day: number }).day >= day);
+  d.ledger = [...before, { day: day - 1, kind: 'fares', amountCents: 100_000, lineId: 1 }, { day: day - 1, kind: 'contract', amountCents: 6_000_000, lineId: null }, ...after];
   d.tripsCarried = trips;
   d.tripsToday = 0;
   d.medals = { bronze: null, silver: null, gold: null, ...medals };
@@ -57,7 +62,7 @@ test.describe('medals', () => {
     const silver = ladder.locator('li[data-medal="silver"]');
 
     // The quarter's last evening, 5,000 trips short of silver: no medal yet, and the Goliath locked.
-    await edited(page, company(10, 20_000, {}));
+    await edited(page, company(10, 20_000, {}), eveningOf(10));
     await expect(dots).toHaveCount(0);
     await contracts.click();
     await expect(ladder).toHaveAttribute('data-to-silver', '5000');
@@ -87,7 +92,7 @@ test.describe('medals', () => {
     await page.getByRole('button', { name: 'Close' }).click();
 
     // One trip short, the next evening: its close gives silver, and the Goliath is for sale.
-    await edited(page, company(11, 24_999, { bronze: 10 }));
+    await edited(page, company(11, 24_999, { bronze: 10 }), eveningOf(11));
     await page.getByRole('button', { name: '3×' }).click();
     await expect(card.getByTestId('medal-news')).toHaveText('Silver medal: 25,000 trips carried. The Goliath is for sale', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Pause' }).click();
