@@ -1,0 +1,99 @@
+// I2 and I3's per-period part (PLAN §6) on the fixture, with the debug line.
+import { describe, expect, it } from 'vitest';
+import { bakeSim } from '../../../tools/bake/sim.mjs';
+import { addDebugLine } from '../commands/debugLine';
+import { loadCity } from '../city/simfile';
+import { toLngLat, toXY, type LngLat } from '../core/geo';
+import { mint, type StopId } from '../core/ids';
+import { PERIODS, periodAt } from '../rules/periods';
+import { newGame } from '../state';
+import { createWorld, nearestNode, recompute, type World } from '../world';
+import { SLOTS } from './assign';
+import { HOURLY_PROFILE } from '../config/demand';
+
+const loaded = loadCity(bakeSim('boston', 'mini-boston').text);
+if (!loaded.ok) throw new Error(loaded.problem);
+const city = loaded.city;
+
+function game(): World {
+  const world = createWorld(city, newGame({ id: 'boston', revision: 'mini-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
+  addDebugLine(world);
+  return world;
+}
+
+function addStop(world: World, at: LngLat): StopId {
+  const [id, next] = mint(world.state.nextIds, 'stop');
+  world.state.nextIds = next;
+  world.state.stops.push({ id, lon: at[0], lat: at[1] });
+  return id;
+}
+
+describe('I2: adding a line or a stop never cuts linked trips by more than 0.1%', () => {
+  it('holds for a stop inserted on the line’s own streets between any two of its stops', () => {
+    const world = game();
+    const before = world.assignment.tripsPerDay;
+    const line = world.state.lines[0]!;
+    const stops = line.stopIds.map((id) => world.state.stops.find((s) => s.id === id)!);
+    // A stop at the middle node of the streets the line already drives between neighbours, one at
+    // a time, as the line tool will insert it. (A stop off the route drags the line on a detour,
+    // which rightly costs riders: the straight midpoint of the MFA and Longwood, in the Fens, adds
+    // 436 m and cuts trips 4%.)
+    for (let k = 1; k < stops.length; k++) {
+      const from = nearestNode(world, toXY(city.frame, [stops[k - 1]!.lon, stops[k - 1]!.lat]))!;
+      const to = nearestNode(world, toXY(city.frame, [stops[k]!.lon, stops[k]!.lat]))!;
+      const path = world.router.route(from, to)!;
+      const middle = path.nodes[Math.floor(path.nodes.length / 2)]!;
+      const trial = game();
+      const id = addStop(trial, toLngLat(city.frame, [city.graph.x[middle]!, city.graph.y[middle]!]));
+      trial.state.lines[0]!.stopIds.splice(k, 0, id);
+      recompute(trial);
+      expect(trial.assignment.tripsPerDay, `a stop between stops ${k} and ${k + 1}`).toBeGreaterThanOrEqual(before * 0.999);
+    }
+  });
+
+  it('holds for a second line that shares the first one’s streets', () => {
+    const world = game();
+    const before = world.assignment.tripsPerDay;
+    const at: LngLat[] = [[-71.0857, 42.3424], [-71.0905, 42.3445], [-71.095, 42.3375]];
+    const ids = at.map((p) => addStop(world, p));
+    const [lineId, next] = mint(world.state.nextIds, 'line');
+    world.state.nextIds = next;
+    world.state.lines.push({ id: lineId, name: 'Second', colour: '#1f6fb2', stopIds: ids, fareCents: 225, headways: { peak: 900, offpeak: 1800, overnight: null }, boardedMilli: 0 });
+    recompute(world);
+    expect(world.assignment.tripsPerDay).toBeGreaterThanOrEqual(before * 0.999);
+  });
+});
+
+describe('I2, crowded stops (EC-02: V1 kept each home’s 4 nearest stops, so new stops pushed useful ones out)', () => {
+  it('holds when a short line packs four stops around one of the first line’s', () => {
+    const world = game();
+    const before = world.assignment.tripsPerDay;
+    // Four stops within about 120 m of Symphony, nearer to many homes than the debug line's own stop,
+    // on a line priced out of the market ($20), so all it can do to the first line's riders is crowd
+    // its stop out of a home's nearest few.
+    const symphony = toXY(city.frame, [-71.0857, 42.3424]);
+    const ids = [[-80, -60], [80, -60], [80, 60], [-80, 60]].map(([dx, dy]) => addStop(world, toLngLat(city.frame, [symphony[0] + dx!, symphony[1] + dy!])));
+    const [lineId, next] = mint(world.state.nextIds, 'line');
+    world.state.nextIds = next;
+    world.state.lines.push({ id: lineId, name: 'Loop', colour: '#1f6fb2', stopIds: ids, fareCents: 2000, headways: { peak: 600, offpeak: 600, overnight: null }, boardedMilli: 0 });
+    recompute(world);
+    expect(world.assignment.tripsPerDay).toBeGreaterThanOrEqual(before * 0.999);
+  });
+});
+
+describe('I3, per period: no line boards more riders in a period than that period generates', () => {
+  it('keeps every period within its share of the day’s commuter trips', () => {
+    const world = game();
+    const generated = 2 * world.commuters.flow.reduce((s, f) => s + f, 0) * (city.tripScalePermille / 1000);
+    for (const period of PERIODS) {
+      let boarded = 0;
+      let share = 0;
+      for (let s = 0; s < SLOTS; s++) {
+        if (periodAt(s * 1800 + 900) !== period) continue;
+        share += HOURLY_PROFILE[Math.floor(s / 2)]! / 2;
+        for (const line of world.assignment.lines.values()) boarded += line.bySlot[s]!;
+      }
+      expect(boarded, period).toBeLessThanOrEqual(generated * share);
+    }
+  });
+});

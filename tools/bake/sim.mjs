@@ -128,7 +128,7 @@ export function bakeSim(cityId, extentId) {
     })),
     // The fixture keeps only commutes with both ends inside the box, so it has no gateways.
     gateways: [],
-    calib: { tripScalePermille: 1000 },
+    calib: { tripScalePermille: config.calib?.[extentId]?.tripScalePermille ?? 1000 },
   };
   const text = `${JSON.stringify(sim)}\n`;
   return {
