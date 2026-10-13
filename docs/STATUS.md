@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 48c8c52, with the sim.json loader in review.
+**Updated:** 2026-10-13, at `main` 27dc1ab, with the fare-row signal in review.
 
 ## Live now
 
@@ -63,7 +63,12 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
   - demand dots and the catchment probe;
   - Inner Boston's height-tag count;
   - smoke;
-  - the fare-row signal, due **Sun Oct 25**.
+  - [x] **the fare-row signal, green 2026-10-13** (due Sun Oct 25), in `src/sim/fare-row.test.ts`:
+    - the debug line on the fixture writes fare and subsidy rows on day 1, and the day card adds up;
+    - I8 holds over three days in 72 chunks, and across a mid-day save and load;
+    - the demand rewrite is in `src/sim/demand`, the fixed step in `src/sim/step.ts`.
+    - Uncalibrated (`tripScale` 1): 7,200.7 boardings a day and $27,720 of income, about 7× V1's starter (1,058), as PLAN §3's density estimate predicts. Week 3 sets `tripScale`.
+    - Recompute takes 37 ms on the fixture with one line, against the spec's ≤20 ms guess: the 8 × 8 sub-point pairs per cell pair cost more than the spec assumed, and week 3's bench takes it from here.
 - [x] **Item 12, raw tilt** (2026-10-13):
   - `T` eases to pitch 50° at zoom ≥14 and swaps the flat buildings for extrusions; `T` again flattens. Untagged buildings stand 10 m until the bake's heights.
   - V1's board mask greys beyond the play area behind a dashed edge.

@@ -26,6 +26,8 @@ export interface Line {
   stopIds: StopId[];
   fareCents: number;
   headways: Headways;
+  /** Thousandths of a boarding carried so far, so fares bank in whole boardings and no cent is lost between hours or across a save. */
+  boardedMilli: number;
 }
 
 export interface SimState {

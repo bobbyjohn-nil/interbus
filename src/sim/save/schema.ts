@@ -50,6 +50,7 @@ export const SAVE_SCHEMA = {
           stopIds: { array: 'int' },
           fareCents: 'int',
           headways: { object: { peak: 'int', offpeak: 'int', overnight: { nullable: 'int' } } },
+          boardedMilli: 'int',
         },
       },
     },
