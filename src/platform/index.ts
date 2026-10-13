@@ -9,3 +9,4 @@ export { createWebSaveStore } from './web/saveStore';
 export { createMemorySaveStore } from './memory/saveStore';
 export { applyEffects, type SaveStore, type StoreEffect } from './types';
 export { readSimFile, startSimWorker } from './web/simFile';
+export { downloadText, pickTextFile } from './web/files';

@@ -40,6 +40,15 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   // Undo (sim/undo.ts)
   time_has_run: () => 'Time has run since then',
   nothing_to_undo: () => 'Nothing to undo',
+  // Saves: slots and files (the M3 spec, item 8)
+  empty_slot: () => 'That slot is empty',
+  no_such_slot: () => 'No such slot',
+  save_unreadable: () => 'Not a save this game can read',
+  save_newer: () => 'Saved by a newer build',
+  save_older: () => 'Saved by an older build',
+  save_other_city: () => 'A save from another city',
+  save_off_street: () => 'Its stops miss this map',
+  save_none: () => 'Not a save this game can read',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',
@@ -52,6 +61,12 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
 /** A refusal as words; an unknown code still reads as a sentence, never as itself. */
 export function refusalText(r: RefusalView): string {
   return (REFUSAL_COPY[r.reason] ?? (() => 'That can’t be done here'))(r);
+}
+
+/** A slot or a file that became the game, in one line. */
+export function loadedText(loaded: { readonly from: 'slot' | 'file'; readonly load: LoadView }): string {
+  if (loaded.load === 'rebaked') return 'Save carried onto the new map';
+  return loaded.from === 'slot' ? 'Slot loaded' : 'Save file loaded';
 }
 
 /** What Undo would take back, named (the M3 spec, item 7): "Create Line 2". */

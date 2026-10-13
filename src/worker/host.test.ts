@@ -3,7 +3,7 @@ import { bakeSim } from '../../tools/bake/sim.mjs';
 import { STEP_SECONDS } from '../sim/config/time';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
-import type { FromWorker, Snapshot } from '../sim/types';
+import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
 import { createHost, MAX_SLICE_MS, SPEEDS } from './host';
 
 const baked = bakeSim('boston', 'mini-boston');
@@ -381,5 +381,77 @@ describe('undo while paused (I9)', () => {
     host.handle({ type: 'undo' });
     expect(last('refused')).toMatchObject({ reason: 'nothing_to_undo' });
     expect(last('snapshot')!.snapshot.depots).toHaveLength(1);
+  });
+});
+
+// Save slots, export and import (the M3 spec, item 8). Shown failing (TS-04) with the live save
+// written before the import is read, as V1 did (`Intralines@7af45b1:src/game/store.ts:1883-1901`):
+// a file the game cannot read then costs the player their autosave.
+describe('save slots, export and import', () => {
+  /** A host with a page's store: its store effects carried out and its read-keys answered, in order. */
+  function withStore() {
+    const store = new Map<string, string>();
+    const out: FromWorker[] = [];
+    const host = createHost((m) => out.push(m));
+    let seen = 0;
+    const pump = () => {
+      while (seen < out.length) {
+        const m = out[seen++]!;
+        if (m.type === 'store') for (const e of m.effects) void (e.op === 'write' ? store.set(e.key, e.value) : store.delete(e.key));
+        else if (m.type === 'read-keys') host.handle({ type: 'key-texts', id: m.id, texts: m.keys.map((k) => store.get(k) ?? null) });
+      }
+    };
+    const send = (m: ToWorker) => {
+      host.handle(m);
+      pump();
+    };
+    send({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
+    send({ type: 'save-text', text: null });
+    const last = <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined;
+    send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    return { send, last, store };
+  }
+
+  it('saves into a slot, lists what each slot holds, and loads it back over the game and its autosave', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'save-slot', slot: 1 });
+    expect(store.has('interbus.slot.boston.1')).toBe(true);
+    expect(last('slots')!.slots).toEqual([
+      { slot: 1, about: { day: 1, hour: 5, minute: 0, company: 'Back Bay Transit', cashCents: 27_720_000, lines: 0 }, readable: true },
+      { slot: 2, about: null, readable: true },
+      { slot: 3, about: null, readable: true },
+    ]);
+    send({ type: 'create-line', clicks: CLICKS });
+    expect(last('snapshot')!.snapshot.lines).toHaveLength(1);
+    send({ type: 'load-slot', slot: 1 });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'slot', load: 'ok' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], cashCents: 27_720_000, speed: 0, undo: null });
+    expect(store.get(KEY)).toBe(store.get('interbus.slot.boston.1'));
+    send({ type: 'load-slot', slot: 2 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'load-slot', reason: 'empty_slot' });
+  });
+
+  it('exports this game as a file that imports back to the same game', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'export' });
+    const file = last('export')!;
+    expect(file.name).toBe('interbus-boston-day-1.json');
+    expect(file.text).toBe(store.get(KEY));
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'import', text: file.text });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'file', load: 'ok' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], depots: [{}], cashCents: 27_720_000 });
+  });
+
+  it('refuses a file it cannot read, or one from a newer build, and keeps the game and its autosave', () => {
+    const { send, last, store } = withStore();
+    const live = store.get(KEY);
+    send({ type: 'import', text: 'not a save' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_unreadable' });
+    send({ type: 'import', text: JSON.stringify({ ...JSON.parse(live!), format: 99 }) });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_newer' });
+    expect(store.get(KEY)).toBe(live);
+    expect(last('snapshot')!.snapshot).toMatchObject({ depots: [{}], cashCents: 27_720_000 });
   });
 });

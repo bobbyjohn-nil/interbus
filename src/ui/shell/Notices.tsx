@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LOAD_COPY, refusalText } from '../copy';
+import { LOAD_COPY, loadedText, refusalText } from '../copy';
 import type { Sim } from '../game/useSim';
 
 /** How long a notice stays, in milliseconds. */
@@ -7,7 +7,8 @@ const NOTICE_MS = 6_000;
 
 /**
  * Notices in one corner (PLAN §8, UX-05): the last thing the sim refused, in words, for a few
- * seconds; and once, when the game starts, a save it set aside (D12).
+ * seconds; once, when the game starts, a save it set aside (D12); and a slot or a file that became
+ * the game.
  */
 export function Notices({ sim }: { sim: Sim }) {
   const refusal = sim.refusal;
@@ -25,7 +26,15 @@ export function Notices({ sim }: { sim: Sim }) {
     const timer = window.setTimeout(() => setSetAsideDone(true), NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [setAside]);
-  const text = refusal && refusal !== expired ? refusalText(refusal) : setAside && !setAsideDone ? setAside : null;
+  const loaded = sim.loaded;
+  const [loadedDone, setLoadedDone] = useState<typeof loaded>(null);
+  useEffect(() => {
+    if (!loaded) return;
+    const timer = window.setTimeout(() => setLoadedDone(loaded), NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [loaded]);
+  const text =
+    refusal && refusal !== expired ? refusalText(refusal) : loaded && loaded !== loadedDone ? loadedText(loaded) : setAside && !setAsideDone ? setAside : null;
   if (!text) return null;
   return (
     <div className="notices" role="status" data-testid="notice" data-chrome="rest">

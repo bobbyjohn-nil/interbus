@@ -1,7 +1,7 @@
 // I13 (PLAN §8, the M2 spec item 7): the calm shell covers 6% of the screen or less at rest and 26%
 // or less with a panel open, at 1440×900, 1366×768 and 1152×720, in the light theme. Chrome is every
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, and the
-// one panel (the founding card, the draft card, the inspector, a stop's card, Finance).
+// one panel (the founding card, the draft card, the inspector, a stop's card, Finance, Saves).
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
@@ -61,12 +61,15 @@ test.describe('the screen budget (I13)', () => {
       await page.mouse.click(sx, sy);
       await expect(page.getByTestId('stop-card')).toBeVisible();
       shares.stop = await chromeShare(page);
+      await page.getByRole('button', { name: 'Saves' }).click();
+      await expect(page.getByTestId('slot-3')).toBeVisible();
+      shares.saves = await chromeShare(page);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['founding', 'draft', 'inspector', 'finance', 'stop']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['founding', 'draft', 'inspector', 'finance', 'stop', 'saves']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
 
