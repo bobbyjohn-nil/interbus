@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import { simOf, type City } from '../../cities';
-import type { BusModelId, DayCard, DepotSiteView, Dots, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, ToWorker } from '../../sim/types';
+import type { BusModelId, DayCard, DepotSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 
 export type SimStatus = 'none' | 'loading' | 'ready' | 'failed';
@@ -38,8 +38,8 @@ export interface Sim {
   send(message: ToWorker): void;
   probeAt(at: LngLatPair | null): void;
   depotSiteAt(at: LngLatPair | null): void;
-  /** Asks for the draft card of these clicks; an empty list clears it. */
-  draftFor(clicks: readonly LngLatPair[], model?: BusModelId): void;
+  /** Asks for the draft card of these clicks, or of a line extended by them; an empty list clears it. */
+  draftFor(clicks: readonly LngLatPair[], model?: BusModelId, extend?: ExtendData): void;
   /** Asks for a line's fare band; null forgets it. */
   fareBandFor(lineId: number | null): void;
   closeDayCard(): void;
@@ -165,14 +165,14 @@ export function useSim(city: City | undefined): Sim {
     sites.current.set(id, at);
     worker.current?.postMessage({ type: 'depot-site', id, at } satisfies ToWorker);
   }, []);
-  const draftFor = useCallback((clicks: readonly LngLatPair[], model: BusModelId = 'sparrow') => {
+  const draftFor = useCallback((clicks: readonly LngLatPair[], model: BusModelId = 'sparrow', extend?: ExtendData) => {
     if (!clicks.length) {
       asked.current.draft = 0;
       return setDraft(null);
     }
     const id = asked.current.next++;
     asked.current.draft = id;
-    worker.current?.postMessage({ type: 'line-draft', id, clicks, model } satisfies ToWorker);
+    worker.current?.postMessage({ type: 'line-draft', id, clicks, model, ...(extend ? { extend } : {}) } satisfies ToWorker);
   }, []);
   const fareBandFor = useCallback((lineId: number | null) => {
     if (lineId === null) {

@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 9999388 (one change of line, paid once a trip), with removing a stop from a line in review; extending a line next, then r1's Overture heights.
+**Updated:** 2026-10-13, at `main` 4146418 (a stop comes off a line from its card), with extending a line from either end in review; r1's Overture heights next (look work), then week 5's presentation items.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 9999388. Deploy preview run 38410345020's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4146418. Deploy preview run 38413436227's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -19,7 +19,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - riders changing line once, at a shared stop or within 250 m, paying one fare a trip to the first line, and each stop's card saying how many change there;
   - a fare per line from $1.00 to $5.00 on the line card, with the band of fares that net the most;
   - each stop's day on a click (boardings, alightings, net), and QUIET or LOSS stops ringed on the map;
-  - stop tiers from a Sign to a Transfer Hub on the stop card;
+  - stop tiers from a Sign to a Transfer Hub on the stop card, and each line's button there to take the stop off it;
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
   - undo while paused, on a chip and Ctrl+Z;
   - a save from another bake of the map carried onto it;
@@ -202,7 +202,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
     - [x] **Riders scan every line at a stop** (I5; 2026-10-13): of the lines serving a trip, they take the first bus among those worth waiting for, split by frequency, at the combined headway's wait; six lines along the same stops carry a sixth each, where the first took them all (DECISIONS, Measured).
     - [x] **One change of line, paid once a trip** (I4; 2026-10-13): at a shared stop or within 250 m, for the walk, the boarding stop's tier's penalty and the second wait, never onto a line the home can walk to nor off one that reaches work; fare and subsidy felt and paid once, on the first line. Splitting a line now loses 4.8% to 40.6% where charging each boarding gained up to +22.7%; Copley–Kenmore and Kenmore–Longwood carry 52.6 changes a day at Kenmore, on its stop card (exit check 5); Inner Boston's recompute is 81–96 ms p50 (DECISIONS, Measured).
     - [x] **Remove a stop** (item 14; 2026-10-13): the stop card takes it off each line, a line keeping two; a stop no other line calls at comes down for half of what it and its fittings cost, as a Refunds row, and the undo chip puts it back. Symphony off the debug line leaves 311.8 trips a day of 614.4 (DECISIONS, Measured).
-    - [ ] Extend a line from either end.
+    - [x] **Extend a line from either end** (item 14; 2026-10-13): Extend from its first or last stop in Lines, clicks beyond it, the draft card pricing the new stops and the buses the longer round trip needs beyond the line's own, on the line rule over the whole line; Extend buys them, and undo takes it back. A stop beyond Longwood costs $4,000 and no bus, and the debug line goes from 614.4 to 638.4 trips a day (DECISIONS, Measured).
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)

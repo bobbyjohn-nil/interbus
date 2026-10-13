@@ -1,0 +1,71 @@
+// Extending a line from either end (the M3 spec, item 14): one Purchases row for the new stops and
+// the buses the longer cycle needs, the line running on its new stops, and the line rule's refusals.
+import { describe, expect, it } from 'vitest';
+import { STOP_COST_CENTS } from '../config/economy';
+import { SPARROW } from '../config/fleet';
+import type { LngLat } from '../core/geo';
+import type { LineId } from '../core/ids';
+import { toSaveData } from '../save/save';
+import { gameWithDepot } from '../testing';
+import { before, newUndo, remember, undo } from '../undo';
+import { addDebugLine } from './debugLine';
+import { extendLine } from './extendLine';
+
+const BEYOND_LONGWOOD: LngLat = [-71.1085, 42.3395];
+const BEYOND_COPLEY: LngLat = [-71.0725, 42.3515];
+
+function game() {
+  const world = gameWithDepot();
+  addDebugLine(world);
+  const line = world.state.lines[0]!;
+  return { world, line };
+}
+
+describe('extending a line', () => {
+  it('adds a stop beyond Longwood, paying for it and any bus the longer cycle needs as one Purchases row', () => {
+    const { world, line } = game();
+    const [first, last] = [line.stopIds[0], line.stopIds.at(-1)];
+    const cash = world.state.ledger.cashCents;
+    const buses = line.buses;
+    const result = extendLine(world, line.id, 'end', [BEYOND_LONGWOOD]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(line.stopIds).toHaveLength(5);
+    expect(line.stopIds[0]).toBe(first);
+    expect(line.stopIds[3]).toBe(last);
+    expect(result.priceCents).toBe(STOP_COST_CENTS + result.extraBuses * SPARROW.priceCents);
+    expect(line.buses).toBe(buses + result.extraBuses);
+    expect(world.state.ledger.cashCents).toBe(cash - result.priceCents);
+    expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'purchase', amountCents: -result.priceCents });
+    expect(world.services.get(line.id)!.plan.stops).toHaveLength(5);
+  });
+
+  it('adds a stop before Copley, the new stop first', () => {
+    const { world, line } = game();
+    const first = line.stopIds[0];
+    expect(extendLine(world, line.id, 'start', [BEYOND_COPLEY]).ok).toBe(true);
+    expect(line.stopIds).toHaveLength(5);
+    expect(line.stopIds[1]).toBe(first);
+    expect(line.stopIds[0]).toBe(world.state.stops.at(-1)!.id);
+  });
+
+  it('refuses a stop the line already calls at, no stops at all, a line that is not there, and more than the cash and credit', () => {
+    const { world, line } = game();
+    const copley = world.state.stops.find((s) => s.id === line.stopIds[0])!;
+    expect(extendLine(world, line.id, 'end', [[copley.lon, copley.lat]])).toMatchObject({ ok: false, reason: 'stop_twice' });
+    expect(extendLine(world, line.id, 'end', [])).toEqual({ ok: false, reason: 'no_new_stops' });
+    expect(extendLine(world, 99 as LineId, 'end', [BEYOND_LONGWOOD])).toEqual({ ok: false, reason: 'no_such_line' });
+    world.state.ledger.cashCents = -14_900_000; // $1k of the $150k credit line left
+    expect(extendLine(world, line.id, 'end', [BEYOND_LONGWOOD])).toMatchObject({ ok: false, reason: 'insufficient_funds' });
+  });
+
+  it('is taken back whole by an undo while paused (I9)', () => {
+    const { world, line } = game();
+    const stack = newUndo();
+    const was = toSaveData(world.state);
+    remember(stack, { command: 'extend-line', subject: line.name }, before(world));
+    extendLine(world, line.id, 'end', [BEYOND_LONGWOOD]);
+    undo(world, stack);
+    expect(toSaveData(world.state)).toEqual(was);
+  });
+});

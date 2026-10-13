@@ -13,6 +13,8 @@ import { setFare } from '../sim/commands/setFare';
 import { setModel } from '../sim/commands/setModel';
 import { setStopTier } from '../sim/commands/setStopTier';
 import { removeStop } from '../sim/commands/removeStop';
+import { extendLine } from '../sim/commands/extendLine';
+import { checkExtend } from '../sim/rules/route';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
@@ -31,7 +33,7 @@ import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
-import { checkLineDraft } from '../sim/rules/line';
+import { checkLineDraft, type LineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
 import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
@@ -42,7 +44,7 @@ import { contractDaysLeft, contractMet } from '../sim/rules/contract';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { ContractView, DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { ContractView, DepotSiteView, Dots, ExtendData, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -79,7 +81,7 @@ export interface SessionFile {
 }
 
 /** Commands a session records: everything that changes the game or what undo would do. Loads and restarts begin a new session instead. */
-const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'remove-stop', 'accept-contract', 'undo']);
+const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'remove-stop', 'extend-line', 'accept-contract', 'undo']);
 
 /** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
@@ -171,7 +173,23 @@ function stopViews(world: World): StopView[] {
 /** The draft card for a list of clicks: the line rule's verdict and what it resolved. */
 function draftView(world: World, clicks: readonly LngLatPair[], headways: HeadwaysData, model: BusModelId): LineDraftView {
   const verdict = checkLineDraft(lineDraftContext(world), clicks.map((c) => toXY(world.city.frame, c)), headways, BUS_MODELS[model]);
-  const { draft } = verdict;
+  return viewOfDraft(world, verdict.draft, verdict.draft.buses, verdict.ok ? null : refusalView(verdict));
+}
+
+/** The draft card for a line extended by these clicks (the M3 spec, item 14): the whole line as it would run, priced at what the extension adds. */
+function extendDraftView(world: World, extend: ExtendData, clicks: readonly LngLatPair[]): LineDraftView {
+  const line = world.state.lines.find((l) => l.id === extend.lineId);
+  const stops = (line?.stopIds ?? []).map((id) => {
+    const stop = world.state.stops.find((s) => s.id === id)!;
+    return toXY(world.city.frame, [stop.lon, stop.lat]);
+  });
+  const model = BUS_MODELS[line?.model ?? 'sparrow'];
+  const verdict = checkExtend(lineDraftContext(world), { stops, buses: line?.buses ?? 0, headways: line?.headways ?? FOUNDING_HEADWAYS, model }, extend.end, clicks.map((c) => toXY(world.city.frame, c)));
+  const refusal = !line ? { reason: 'no_such_line' } : verdict.ok ? null : refusalView(verdict);
+  return viewOfDraft(world, verdict.draft, verdict.extraBuses, refusal);
+}
+
+function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: RefusalView | null): LineDraftView {
   const stops = draft.stops.map((s) => s.at);
   return {
     stops: draft.stops.map((s) => ({ at: [...toLngLat(world.city.frame, s.at)] as LngLatPair, joins: s.kind === 'join' ? s.stopId : null })),
@@ -179,12 +197,12 @@ function draftView(world: World, clicks: readonly LngLatPair[], headways: Headwa
     routeM: Math.round(draft.routeM),
     people: peopleNearStops(world.city, stops),
     walkM: MAX_WALK_M,
-    buses: draft.buses,
+    buses,
     newStops: draft.newStops,
     stopsCents: draft.stopsCents,
     busesCents: draft.busesCents,
     priceCents: draft.priceCents,
-    refusal: verdict.ok ? null : refusalView(verdict),
+    refusal,
   };
 }
 
@@ -498,10 +516,21 @@ export function createHost(post: (message: FromWorker) => void): Host {
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'line-draft') {
-        post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow') });
+        const draft = message.extend ? extendDraftView(world, message.extend, message.clicks) : draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow');
+        post({ type: 'line-draft', id: message.id, draft });
       } else if (message.type === 'create-line') {
         const result = command({ command: 'create-line', subject: `Line ${world.state.nextIds.line}` }, () =>
           createLine(world!, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow'),
+        );
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'extend-line') {
+        const result = command({ command: 'extend-line', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () =>
+          extendLine(world!, message.lineId as LineId, message.end, message.clicks),
         );
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
