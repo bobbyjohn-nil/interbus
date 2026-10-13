@@ -40,12 +40,21 @@ export interface GameTokens {
   readonly jobDot: string;
   /** Stop markers' fill, under the line's own colour. */
   readonly stopFill: string;
+  /** Where a depot may stand: the green tint over depot land while placing one. */
+  readonly depotLand: string;
+  /** A depot on the map. */
+  readonly depotMark: string;
+  /** A line still being drawn, before Create. */
+  readonly draft: string;
 }
 
 export const GAME_LIGHT: GameTokens = {
   homeDot: '#7a54e0',
   jobDot: '#0088c8',
   stopFill: '#ffffff',
+  depotLand: '#2f9e44',
+  depotMark: '#1f8a3a',
+  draft: '#2a2723',
 };
 
 export const LIGHT: MapTokens = {

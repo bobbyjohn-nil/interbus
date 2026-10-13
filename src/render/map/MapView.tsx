@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { onReplaced } from '../../platform';
 import { CITIES } from '../../cities';
-import type { Dots, LineView, LngLatPair } from '../../sim/types';
+import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
 import type { MountedMap } from './loadMap';
 import { afterIdle, afterMountError, afterTimeout, type MapStatus as Status } from './status';
 import { buildingsLayer, isTiltKey, toggled, type ViewMode } from './tilt';
@@ -23,6 +23,13 @@ export interface MapViewProps {
   /** Changes whenever `lines` does (Snapshot.linesVersion). */
   readonly linesVersion?: number;
   readonly onPointer?: (at: LngLatPair | null, screen: [number, number] | null) => void;
+  readonly onClick?: (at: LngLatPair) => void;
+  /** Where depots may stand, tinted while `tint` is on. */
+  readonly depotLand?: readonly (readonly LngLatPair[])[] | null;
+  readonly tint?: boolean;
+  readonly depots?: readonly DepotView[];
+  /** The line being drawn, or null. */
+  readonly draft?: LineDraftView | null;
 }
 
 /** Sets the dots and, drawn rather than merely sent (TS-07), counts what the next settled frame shows. */
@@ -33,15 +40,17 @@ function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void
   return () => void mounted.map.off('idle', onIdle);
 }
 
-export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer }: MapViewProps) {
+export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
   const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
-  const latest = useRef({ dots, lines, onPointer });
+  const latest = useRef({ dots, lines, onPointer, onClick, depotLand, tint, depots, draft });
   useEffect(() => {
-    latest.current = { dots, lines, onPointer };
+    latest.current = { dots, lines, onPointer, onClick, depotLand, tint, depots, draft };
   });
+  // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
+  const depotsKey = depots.map((d) => d.id).join(',');
   const city = CITIES[0];
   const [status, setStatus] = useState<Status>(city?.tiles ? 'loading' : 'no-city-file');
   const [tileReads, setTileReads] = useState<string>('');
@@ -51,6 +60,8 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer }
   const [mode, setMode] = useState<ViewMode>('2d');
   // What the camera settled on after the last mode change, for the e2e tests.
   const [settled, setSettled] = useState<{ pitch: number; buildings: number } | null>(null);
+  // Where the camera rests after each move ("lon,lat,zoom"), so the e2e tests can aim at a place.
+  const [view, setView] = useState('');
 
   useEffect(() => onReplaced(() => setStatus('replaced')), []);
 
@@ -99,7 +110,18 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer }
         const now = latest.current;
         if (now.dots) showDots(mounted, now.dots, setDotsDrawn);
         mounted.setLines(now.lines);
+        if (now.depotLand) mounted.setDepotLand(now.depotLand);
+        mounted.setDepots(now.depots);
+        mounted.setTint(now.tint);
+        mounted.setDraft(now.draft);
         mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
+        mounted.onClick((at) => latest.current.onClick?.(at));
+        const rest = () => {
+          const c = mounted.map.getCenter();
+          setView(`${c.lng.toFixed(6)},${c.lat.toFixed(6)},${mounted.map.getZoom().toFixed(3)}`);
+        };
+        rest();
+        mounted.map.on('moveend', rest);
         setTileReads(mounted.tileReads);
         // 'idle' also fires when nothing was drawn (a style that names layers the tiles lack), so
         // ready means the first idle frame holds at least one feature (status.ts).
@@ -132,6 +154,22 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer }
     mountedRef.current?.setLines(latest.current.lines);
   }, [linesVersion]);
 
+  useEffect(() => {
+    if (depotLand) mountedRef.current?.setDepotLand(depotLand);
+  }, [depotLand]);
+
+  useEffect(() => {
+    mountedRef.current?.setDepots(latest.current.depots);
+  }, [depotsKey]);
+
+  useEffect(() => {
+    mountedRef.current?.setTint(tint);
+  }, [tint]);
+
+  useEffect(() => {
+    mountedRef.current?.setDraft(draft);
+  }, [draft]);
+
   return (
     <div
       className="map"
@@ -144,6 +182,8 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer }
       data-pitch={settled?.pitch ?? ''}
       data-buildings={settled?.buildings ?? ''}
       data-dots={dotsDrawn ?? ''}
+      data-tint={tint ? 'on' : 'off'}
+      data-view={view}
     >
       {status in MESSAGES ? <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p> : null}
     </div>

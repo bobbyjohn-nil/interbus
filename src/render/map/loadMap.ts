@@ -9,8 +9,8 @@ import { FileSource, PMTiles, Protocol } from 'pmtiles';
 import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platform';
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
-import type { Dots, LineView, LngLatPair } from '../../sim/types';
-import { addOverlays, DOT_LAYERS, setDots, setLines } from './overlays';
+import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
+import { addOverlays, DOT_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
@@ -34,10 +34,17 @@ export interface MountedMap {
   /** The game's layers (overlays.ts); safe to call before the style loads. */
   setDots(dots: Dots): void;
   setLines(lines: readonly LineView[]): void;
+  setDepotLand(rings: readonly (readonly LngLatPair[])[]): void;
+  setDepots(depots: readonly DepotView[]): void;
+  /** Shows the depot-land tint while a depot is being placed. */
+  setTint(visible: boolean): void;
+  setDraft(draft: LineDraftView | null): void;
   /** How many dots the last settled frame drew. */
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), at most every 100 ms. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null) => void): void;
+  /** Where a click lands on the map (not a drag). */
+  onClick(listener: (at: LngLatPair) => void): void;
   dispose(): void;
 }
 
@@ -113,12 +120,23 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
 
   // The game's layers go on once the style has loaded; data set before then waits.
   let loaded = false;
-  const pending: { dots?: Dots; lines?: readonly LineView[] } = {};
+  const pending: {
+    dots?: Dots;
+    lines?: readonly LineView[];
+    depotLand?: readonly (readonly LngLatPair[])[];
+    depots?: readonly DepotView[];
+    tint?: boolean;
+    draft?: LineDraftView | null;
+  } = {};
   map.once('load', () => {
     addOverlays(map, GAME_LIGHT);
     loaded = true;
     if (pending.dots) setDots(map, pending.dots);
     if (pending.lines) setLines(map, pending.lines);
+    if (pending.depotLand) setDepotLand(map, pending.depotLand);
+    if (pending.depots) setDepots(map, pending.depots);
+    if (pending.tint !== undefined) setTint(map, pending.tint);
+    if (pending.draft !== undefined) setDraft(map, pending.draft);
   });
 
   let pointer: ((at: LngLatPair | null, screen: [number, number] | null) => void) | null = null;
@@ -130,6 +148,9 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     pointer([e.lngLat.lng, e.lngLat.lat], [e.point.x, e.point.y]);
   });
   map.getCanvas().addEventListener('mouseleave', () => pointer?.(null, null));
+  let click: ((at: LngLatPair) => void) | null = null;
+  // MapLibre fires 'click' only when the pointer did not drag between press and release.
+  map.on('click', (e) => click?.([e.lngLat.lng, e.lngLat.lat]));
 
   return {
     map,
@@ -137,8 +158,13 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     setMode,
     setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
     setLines: (lines) => (loaded ? setLines(map, lines) : void (pending.lines = lines)),
+    setDepotLand: (rings) => (loaded ? setDepotLand(map, rings) : void (pending.depotLand = rings)),
+    setDepots: (depots) => (loaded ? setDepots(map, depots) : void (pending.depots = depots)),
+    setTint: (visible) => (loaded ? setTint(map, visible) : void (pending.tint = visible)),
+    setDraft: (draft) => (loaded ? setDraft(map, draft) : void (pending.draft = draft)),
     dotsDrawn: () => (loaded ? map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).length : 0),
     onPointer: (listener) => void (pointer = listener),
+    onClick: (listener) => void (click = listener),
     dispose: () => map.remove(),
   };
 }

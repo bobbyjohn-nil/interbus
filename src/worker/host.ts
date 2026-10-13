@@ -3,10 +3,10 @@
 // while time runs, none while paused (I14). The page never computes a game number (AR-04).
 // Plain logic with an injected clock, so tests drive it without a real Worker.
 import { createLine } from '../sim/commands/createLine';
-import { addDebugLine } from '../sim/commands/debugLine';
 import { placeDepot } from '../sim/commands/placeDepot';
 import { setHeadways } from '../sim/commands/setHeadways';
 import { loadCity, type City } from '../sim/city/simfile';
+import { MAX_WALK_M } from '../sim/config/demand';
 import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
 import { FOUNDING_HEADWAYS } from '../sim/config/lines';
 import { STEP_SECONDS } from '../sim/config/time';
@@ -86,6 +86,7 @@ function draftView(world: World, clicks: readonly LngLatPair[], headways: Headwa
     route: routeOf(world, stops),
     routeM: Math.round(draft.routeM),
     people: peopleNearStops(world.city, stops),
+    walkM: MAX_WALK_M,
     buses: draft.buses,
     newStops: draft.newStops,
     stopsCents: draft.stopsCents,
@@ -161,11 +162,6 @@ export function createHost(post: (message: FromWorker) => void): Host {
       if (message.type === 'speed') {
         speed = message.speed;
         lastMs = null;
-        post({ type: 'snapshot', snapshot: snapshot() });
-      } else if (message.type === 'add-debug-line') {
-        const result = addDebugLine(world);
-        if (!result.ok) post({ type: 'refused', command: message.type, reason: result.reason });
-        else refreshLines();
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'probe') {
         post({ type: 'probe', id: message.id, people: peopleWithinWalk(world.city, toXY(world.city.frame, message.at)) });

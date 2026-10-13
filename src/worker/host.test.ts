@@ -14,6 +14,16 @@ function started() {
   return { host, out, last: <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined };
 }
 
+/** Copley to Longwood (the debug line's four stops), as the line tool's clicks. */
+const CLICKS: [number, number][] = [[-71.077, 42.3499], [-71.0857, 42.3424], [-71.095, 42.3375], [-71.1035, 42.336]];
+
+/** A point inside the fixture's largest parcel of depot land: halfway from its first corner to the middle of its corners. */
+function depotSpot(land: readonly (readonly [number, number])[][]): [number, number] {
+  const ring = [...land].sort((a, b) => b.length - a.length)[0]!;
+  const mid = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
+  return [(ring[0]![0] + mid[0]!) / 2, (ring[0]![1] + mid[1]!) / 2];
+}
+
 describe('the sim host', () => {
   it('starts paused at 05:00 on day 1 with the dots of every home and job', () => {
     const { last } = started();
@@ -41,32 +51,30 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.elapsed % STEP_SECONDS).toBe(0);
   });
 
-  it('runs the debug line, and the day card at 24:00 adds up (the M1 exit check, headless)', () => {
+  it('runs a line from its depot, and the day card at 24:00 adds up and meets the forecast (M1 and M2, headless)', () => {
     const { host, out, last } = started();
-    host.handle({ type: 'add-debug-line' });
-    expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ name: 'Debug line' });
-    expect(last('snapshot')!.snapshot.linesVersion).toBe(last('ready')!.snapshot.linesVersion + 1);
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ name: 'Line 1', buses: 2 });
+    expect(last('snapshot')!.snapshot.linesVersion).toBe(last('ready')!.snapshot.linesVersion + 2);
     expect(last('snapshot')!.snapshot.lines[0]!.route.length).toBeGreaterThan(10);
-    // Two Sparrows, no depot yet: the day's costs are its running and wages, and the card's rows meet them (I6).
     const line = last('snapshot')!.snapshot.lines[0]!;
-    expect(line.buses).toBe(2);
-    expect(line.forecastCents.deadhead).toBe(0);
-    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages);
+    expect(line.forecastCents.deadhead).toBeGreaterThan(0);
+    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead + 30_000);
     host.handle({ type: 'speed', speed: 3 });
     for (let t = 0; out.every((m) => m.type !== 'day-card'); t += 250) host.tick(t);
     const card = last('day-card')!.card;
     expect(card.day).toBe(1);
     expect(card.rows.some((r) => r.kind === 'fares' && r.amountCents > 0)).toBe(true);
     expect(card.rows.reduce((s, r) => s + r.amountCents, 0)).toBe(card.cashAfterCents - card.cashBeforeCents);
-    const costs = card.rows.filter((r) => r.kind === 'running' || r.kind === 'wages').reduce((s, r) => s + r.amountCents, 0);
-    expect(costs).toBe(-last('snapshot')!.snapshot.costsPerDayCents);
+    // Day 1 opens at 05:00: the line's day is whole (nothing runs overnight), the depot's upkeep 19 hours of 24 (I6).
+    const sum = (...kinds: string[]) => card.rows.filter((r) => kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
+    expect(sum('running', 'wages', 'deadhead')).toBe(-(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead));
+    expect(sum('upkeep')).toBe(-19 * 1_250);
   });
 
-  it('refuses a second debug line, and answers a probe with the people within a walk', () => {
+  it('answers a probe with the people within a walk', () => {
     const { host, last } = started();
-    host.handle({ type: 'add-debug-line' });
-    host.handle({ type: 'add-debug-line' });
-    expect(last('refused')).toEqual({ type: 'refused', command: 'add-debug-line', reason: 'already_running' });
     host.handle({ type: 'probe', id: 7, at: [-71.0857, 42.3424] }); // Symphony
     const probe = last('probe')!;
     expect(probe.id).toBe(7);
@@ -78,17 +86,14 @@ describe('the sim host', () => {
     const { host, last } = started();
     const land = last('ready')!.depotLand;
     expect(land).toHaveLength(3);
-    // A point inside the largest parcel: halfway from its first corner to the middle of its corners.
-    const ring = [...land].sort((a, b) => b.length - a.length)[0]!;
-    const mid = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
-    const at: [number, number] = [(ring[0]![0] + mid[0]!) / 2, (ring[0]![1] + mid[1]!) / 2];
+    const at = depotSpot(land as [number, number][][]);
     host.handle({ type: 'depot-site', id: 3, at });
     expect(last('depot-site')).toMatchObject({ id: 3, site: { ok: true, priceCents: 15_000_000 } });
     host.handle({ type: 'place-depot', at });
     expect(last('snapshot')!.snapshot.depots).toEqual([{ id: 1, at }]);
     expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000);
     expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(30_000); // $300 a day of upkeep
-    host.handle({ type: 'add-debug-line' });
+    host.handle({ type: 'create-line', clicks: CLICKS });
     expect(last('snapshot')!.snapshot.lines[0]!.forecastCents.deadhead).toBeGreaterThan(0);
     host.handle({ type: 'depot-site', id: 4, at });
     expect(last('depot-site')).toMatchObject({ id: 4, site: { ok: false, reason: 'too_close_to_depot', limitM: 120 } });
@@ -98,12 +103,10 @@ describe('the sim host', () => {
 
   it('answers the line tool: the draft card, Create and a headway change (M2 items 3 and 4)', () => {
     const { host, last } = started();
-    const clicks: [number, number][] = [[-71.077, 42.3499], [-71.0857, 42.3424], [-71.095, 42.3375], [-71.1035, 42.336]];
+    const clicks = CLICKS;
     host.handle({ type: 'line-draft', id: 1, clicks });
     expect(last('line-draft')!.draft.refusal).toEqual({ reason: 'needs_depot' });
-    const ring = [...last('ready')!.depotLand].sort((a, b) => b.length - a.length)[0]!;
-    const mid = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
-    host.handle({ type: 'place-depot', at: [(ring[0]![0] + mid[0]!) / 2, (ring[0]![1] + mid[1]!) / 2] });
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     host.handle({ type: 'line-draft', id: 2, clicks });
     const draft = last('line-draft')!;
     expect(draft.id).toBe(2);

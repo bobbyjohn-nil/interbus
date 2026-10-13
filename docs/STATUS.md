@@ -2,15 +2,15 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 6ebc76d (G9 and G10), with the stripped map file and then the line tool's sim side in review.
+**Updated:** 2026-10-13, at `main` bc6eeae (the line tool's sim side), with the depot and line tools on screen in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 65833d1. Deploy preview run 38358299542's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
-  - Boston, flat or tilted with `T`;
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bc6eeae. Deploy preview run 38360900824's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+  - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
-  - **Run the debug line** with its Costs/day chip, and a day card listing fares, subsidy, running costs and driver wages.
+  - **Run the debug line** with its Costs/day chip, and a day card listing fares, subsidy, running costs and driver wages (replaced by the depot and line tools in the next deploy).
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -83,7 +83,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - `sim.json`: neither clip lets a transit element through (789 and 6,286 in the clips);
      - the map file: `tools/bake/tiles.mjs` strips 9,785 transit features and opens 116 busway pieces, and the City tiles workflow runs it before publishing.
    - **The stripped map file ships** (2026-10-13): `boston-20261012-a35f1831.pmtiles`, which a script test checks on every PR. G1–G10 now pass on both extents.
-5. [ ] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.
+5. [x] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.
    - [x] **In the sim** (2026-10-13):
      - the stop rule (`src/sim/rules/stop.ts`: the nearest street node within 150 m, or a stop within 250 m joined);
      - the draft and headway rules (`src/sim/rules/line.ts`: a depot first, two stops, each once, joined by streets, D7's headways, depot room, cash);
@@ -91,7 +91,14 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - the worker's `line-draft`, `create-line` and `set-headways` messages.
 
      On the fixture, Copley to Longwood drafts as four new stops and two Sparrows: $206,000, leaving $71,200 after the depot. A third Sparrow every 10 minutes at peak is refused as $23,800 short.
-   - [ ] **On screen:** the depot tool with its tint and card, the line tool with its draft card, Create, and the headway card. The debug line is cut when they land.
+   - [x] **On screen** (2026-10-13):
+     - **Place a depot** tints depot land green, and the card beside the pointer reads the rule ("Industrial ✓ · street 65 m ✓ · $150k").
+     - **Draw a line** places stops on click (Backspace undoes, Esc cancels) and draws the draft dashed, with each stop's walk ring. Its card reads "4 stops · 3.7 km · ≈52,000 people within a walk · every 20 min needs 2 Sparrows · $190k · 4 new stops · $16k · Total $206k", then Create.
+     - **Each line's card** has its headways. A shorter one reads "needs 3 buses, you have 2", or "$23,800 short" with the starter's cash.
+     - **Refusals** read as words (`src/ui/copy.ts`).
+     - **The debug line's button and worker message are cut.** Its sim function stays as the tests' fixture line.
+     - **`e2e/line.spec.ts`** plays steps 2–5 of the exit check in the browser: depot, Copley to Longwood, Create, and a day whose cost rows meet the forecast.
+   - **Snapped stops.** Copley to Longwood drawn with the tool snaps its stops to street nodes, so it reads 3.7 km and ≈750 riders a day, against the debug line's 3,535 m and 795.
 6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
 7. [ ] **The calm shell** replacing the debug panel, and I13.
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.

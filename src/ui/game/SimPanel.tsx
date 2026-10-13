@@ -1,5 +1,7 @@
 import type { Speed } from '../../sim/types';
+import { refusalText } from '../copy';
 import { about, clock, usd } from '../format';
+import type { Tool } from './Tools';
 import type { Sim } from './useSim';
 
 const SPEED_LABELS: readonly [Speed, string][] = [
@@ -11,9 +13,10 @@ const SPEED_LABELS: readonly [Speed, string][] = [
 
 /**
  * M1's debug panel (docs/specs/m1-first-dollar.md): labelled chips for time, Cash and Riders/day (K20), the
- * speed control and the debug line; from M2, the day's forecast costs. The calm shell replaces it in week 4.
+ * speed control; from M2, the day's forecast costs and the depot and line tools, which replace M1's debug
+ * line. The calm shell replaces it in week 4.
  */
-export function SimPanel({ sim }: { sim: Sim }) {
+export function SimPanel({ sim, tool, onTool }: { sim: Sim; tool: Tool; onTool: (tool: Tool) => void }) {
   const s = sim.snapshot;
   if (sim.status !== 'ready' || !s) return null;
   return (
@@ -40,12 +43,18 @@ export function SimPanel({ sim }: { sim: Sim }) {
             {label}
           </button>
         ))}
-        {s.lines.length === 0 ? (
-          <button type="button" onClick={() => sim.send({ type: 'add-debug-line' })}>
-            Run the debug line
-          </button>
-        ) : null}
+        <button type="button" aria-pressed={tool === 'depot'} onClick={() => onTool('depot')}>
+          Place a depot
+        </button>
+        <button type="button" aria-pressed={tool === 'line'} onClick={() => onTool('line')}>
+          Draw a line
+        </button>
       </div>
+      {sim.refusal?.command === 'place-depot' ? (
+        <p className="refusal" role="status">
+          {refusalText(sim.refusal)}
+        </p>
+      ) : null}
     </section>
   );
 }
