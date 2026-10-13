@@ -5,7 +5,7 @@
 // no localStorage; the sim names every key and decides what is set aside.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, type SaveStore } from '../../platform';
-import type { City } from '../../cities';
+import { simOf, type City } from '../../cities';
 import type { BusModelId, DayCard, DepotSiteView, Dots, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 
@@ -47,7 +47,7 @@ export interface Sim {
 
 export function useSim(city: City | undefined): Sim {
   const worker = useRef<Worker | null>(null);
-  const [status, setStatus] = useState<SimStatus>(city?.sim ? 'loading' : 'none');
+  const [status, setStatus] = useState<SimStatus>(city && simOf(city) ? 'loading' : 'none');
   const [dots, setDots] = useState<Dots | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [dayCard, setDayCard] = useState<DayCard | null>(null);
@@ -67,7 +67,7 @@ export function useSim(city: City | undefined): Sim {
   const sites = useRef(new Map<number, LngLatPair>());
 
   useEffect(() => {
-    const sim = city?.sim;
+    const sim = city ? simOf(city) : null;
     if (!city || !sim) return;
     let stopped = false;
     // Saves run one after another: a set-aside's backup is written before anything replaces the key.

@@ -25,6 +25,13 @@
         "maxzoom": 15
       },
       "sim": {
+        "file": "sim-boston-inner-boston-52de265c.json",
+        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-sim-inner-boston-52de265c/sim-boston-inner-boston-52de265c.json",
+        "sha256": "52de265cb1b69b63362dd7b6637c74fd2169383096c34b983a2c3123ba17a1e7",
+        "bytes": 2033685,
+        "extent": "inner-boston"
+      },
+      "fixture": {
         "file": "sim-boston-mini-boston-72e7f8b9.json",
         "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-sim-mini-boston-72e7f8b9/sim-boston-mini-boston-72e7f8b9.json",
         "sha256": "72e7f8b998f9dabf79799b78fd389de603a1df19bc9815ed5016a44fe351a883",

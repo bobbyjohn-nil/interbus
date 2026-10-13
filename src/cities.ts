@@ -33,10 +33,18 @@ export interface City {
   readonly extent: Bbox;
   readonly view: { readonly center: LonLat; readonly zoom: number };
   readonly tiles: CityTiles | null;
+  /** The extent the game plays (city-boston-r1: Inner Boston). */
   readonly sim: CitySim | null;
+  /** Mini-Boston, which the e2e tests play: a build made with `--mode fixture` (npm run build:fixture) loads it instead. */
+  readonly fixture: CitySim | null;
 }
 
 export const CITIES: readonly City[] = registry.cities as unknown as City[];
+
+/** The sim file this build plays: the city's own, or the fixture in a `--mode fixture` build (the e2e tests'). */
+export function simOf(city: City): CitySim | null {
+  return import.meta.env.VITE_SIM === 'fixture' ? city.fixture : city.sim;
+}
 
 /** The camera may wander 1.5 km beyond the play area (PLAN §6). */
 export function paddedBounds(extent: Bbox, metres = 1500): Bbox {
