@@ -44,6 +44,8 @@ async function main() {
     // A sim file is optional until the first one is published (week 2); once named it is checked like tiles.
     if (city.sim) await fetchFile(city.sim);
     else console.log(`cities: ${city.name} has no sim file yet`);
+    // The fixture the e2e tests play (npm run build:fixture), checked the same way.
+    if (city.fixture) await fetchFile(city.fixture);
   }
 }
 

@@ -3,8 +3,10 @@ import { expect, type Page } from '@playwright/test';
 import { loadCity } from '../src/sim/city/simfile';
 import { pointInRing, toLngLat, type XY } from '../src/sim/core/geo';
 
-const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { id: string; sim: { file: string } | null }[] };
-export const city = registry.cities[0]!;
+const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { id: string; sim: { file: string } | null; fixture?: { file: string } | null }[] };
+const entry = registry.cities[0]!;
+/** The city as the e2e tests play it: the fixture build (npm run build:fixture) loads mini-Boston, so `sim` is the fixture. */
+export const city = { ...entry, sim: entry.fixture ?? entry.sim };
 
 /** Where [lon, lat] lands on screen with the camera at rest (the map's data-view; Web Mercator, 512 px tiles). */
 export async function toScreen(page: Page, [lon, lat]: readonly [number, number]): Promise<[number, number]> {

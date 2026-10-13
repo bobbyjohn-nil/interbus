@@ -22,7 +22,7 @@ async function distinctColours(page: Page, png: Buffer): Promise<number> {
 }
 
 const built = JSON.parse(readFileSync('dist/version.json', 'utf8')) as { sha: string };
-const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown }[] };
+const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown; sim: unknown }[] };
 const boston = registry.cities[0];
 
 test('the preview boots, names its build and draws Boston', async ({ page }) => {
@@ -46,7 +46,11 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
     if (url.protocol === 'http:' || url.protocol === 'https:') origins.add(url.origin);
   });
 
+  const opened = Date.now();
   await page.goto('./');
+  // The sim this build plays (Inner Boston in the shipped build, the fixture in the e2e tests'): the
+  // founding card shows only once its city file is read and its demand worked out. Timed from here.
+  const simReady = boston?.sim ? expect(page.getByTestId('founding-card')).toBeVisible({ timeout: 30_000 }).then(() => Date.now() - opened) : null;
 
   // The build chip names this exact build (CLAUDE.md "The build chip").
   const chip = page.getByTestId('build-chip');
@@ -82,6 +86,7 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
   }
 
   await expect(page.getByTestId('replaced-card')).toHaveCount(0);
+  if (simReady) test.info().annotations.push({ type: 'sim ready', description: `${await simReady} ms from navigation` });
 
   // Accessibility, proportionate (PLAN §8, UX-08): axe-core finds nothing on the opening screen.
   const axe = await new AxeBuilder({ page }).analyze();

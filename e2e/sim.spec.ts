@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
+import { city } from './shell';
 import { loadCity } from '../src/sim/city/simfile';
 import { toXY } from '../src/sim/core/geo';
 import { peopleWithinWalk } from '../src/sim/rules/catchment';
 
-const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { sim: { file: string } | null }[] };
-const sim = registry.cities[0]?.sim;
+// The fixture build's sim file (npm run build:fixture), which this page plays.
+const sim = city.sim;
 
 // PLAN §14 week 2's exit check, on the real page: dots sit where people live and work, and "people
 // within a walk" is the sim's own number. M1's day card, and M2's costs on it, are in line.spec.ts.

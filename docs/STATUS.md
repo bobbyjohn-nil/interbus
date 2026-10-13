@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` a6a95c2 (β fitted), with r1's Inner Boston calibration in review; r1's switch of the preview to Inner Boston is next, then its heights and step 11.
+**Updated:** 2026-10-13, at `main` 4d414f1 (Inner Boston at 279‰), with r1's switch of the preview to Inner Boston in review; r1's Overture heights and step 11 are next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 8044552. Deploy preview run 38395355345's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a6a95c2. Deploy preview run 38397015655's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -35,7 +35,8 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Data:**
   - release `city-boston-sim-mini-boston-72e7f8b9` holds mini-Boston's `sim.json` with depot land, the (empty) gateway list, three landmarks and Boston's fitted β (135,571 B), published by **City sim file (manual)** run 38396152811, which matched the golden on GitHub's runner. The older `da5ebb4b`, `69866a1e`, `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-a35f1831` holds Boston's map file with every transit feature stripped (15,347,095 B), published by **City tiles (manual)** run 38359580324 from the extract `57ac68da` (D17, G10). The older `57ac68da` stays for pages of older builds;
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `3a93c0fb` (with six landmarks and its fitted β) in `cities/boston/sim-inner-boston.lock.json`, not yet published;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `52de265c` (six landmarks, its fitted β and 279‰) in `cities/boston/sim-inner-boston.lock.json`;
+  - release `city-boston-sim-inner-boston-52de265c` holds Inner Boston's `sim.json` (2,033,685 B), published by **City sim file (manual)** run 38398135368, which matched the golden on GitHub's runner; `cities/index.json` names it as the city's `sim` and mini-Boston as its `fixture`;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
@@ -188,7 +189,8 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 7. [ ] **`city-boston-r1`** by Sun Nov 15 (next): β fit, `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston.
    - [x] **β fitted to LODES** (2026-10-13): 3,260 m on Inner Boston (V1's 4 km), the fixture taking the same; `sim.json` carries `calib.gravityBetaM`. The debug line carries 614.4 riders a day, inside the band, so the fixture keeps 111‰ (DECISIONS, Measured).
    - [x] **Inner Boston's `tripScale` and the starting cash** (2026-10-13): 279‰, so the debug line carries 613.9 there as on the fixture; 16 of 19 starters along T03's corridors fit the founding capital and four pay on day 2, the best Washington Street at +$2,267; at calibrated demand almost no one is turned away (DECISIONS, Measured).
-   - [ ] Overture heights in the map file; then publish Inner Boston's `sim.json` and point the preview at it (`cities/index.json`), with the e2e on the fixture.
+   - [x] **The preview plays Inner Boston** (2026-10-13): `cities/index.json` names Inner Boston's `sim.json` and the fixture beside it; `npm run build` and the deploy play Inner Boston, and CI smoke-tests that build before running every e2e test on `npm run build:fixture` (DECISIONS, Measured).
+   - [ ] Overture heights in the map file (look work, PLAN §10's week 5: at most one session in three).
 8. [x] **The report card** (item 9, done before step 7 because r1's bake work is not needed for it; 2026-10-13): Coverage, Reliability, Comfort and Money on the quarter's last day card, paid or fined as a Report card row. Ten seeded opening companies grade 53.7–63.8 (median 57.9), so V1's bars stay at 55 and 35; the card pays the debug line 3.9 times its quarter's net, for week 9 (DECISIONS, Measured).
 9. [x] **The failure floor** (item 10, also before step 7; 2026-10-13): cash may go to −$150k on a credit line, at 0.06% a day as an Interest row; a countdown chip from the first close below it, and on the fifth the run ends with **Restart this quarter**, from a save the game writes by itself at each quarter's start (save format 8; DECISIONS, Measured).
 10. [x] **HEADWAY contracts** (item 11, I11), checklist step 5 and **Export session** (item 12).
