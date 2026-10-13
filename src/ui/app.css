@@ -224,7 +224,7 @@ body,
   font-weight: 600;
 }
 
-/* The one panel: the line tool's draft card or the lines' inspector. */
+/* The one panel: the line tool's draft card, the lines' inspector, a stop's card or Finance. */
 .panel {
   position: absolute;
   right: 12px;
@@ -328,6 +328,42 @@ body,
 
 .forecast .total th,
 .forecast .total td {
+  font-weight: 600;
+  color: var(--ui-ink);
+  border-top: 1px solid var(--ui-line);
+}
+
+/* Finance: five columns, so the panel is wider than the others. */
+.panel.finance {
+  width: 440px;
+}
+
+.finance table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.finance th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ui-ink-soft);
+}
+
+.finance thead th {
+  text-align: right;
+  font-size: 12px;
+}
+
+.finance td {
+  padding-left: 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.finance .total th,
+.finance .total td {
   font-weight: 600;
   color: var(--ui-ink);
   border-top: 1px solid var(--ui-line);

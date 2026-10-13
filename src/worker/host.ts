@@ -22,6 +22,7 @@ import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { forecastDay } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
+import { finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
 import type { LineId, StopId } from '../sim/core/ids';
@@ -33,7 +34,7 @@ import { checkLineDraft } from '../sim/rules/line';
 import { decode, encode, fromSaveData, saveKey } from '../sim/save/save';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
-import type { DepotSiteView, Dots, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -202,6 +203,18 @@ export function createHost(post: (message: FromWorker) => void): Host {
     linesVersion++;
   };
 
+  // Worked out again only when a row is posted, the day turns or the network changes.
+  let financeKey = '';
+  let financeView: FinanceView | null = null;
+  const financeNow = (w: World): FinanceView => {
+    const key = `${w.state.ledger.rows.length}|${w.state.ledger.cashCents}|${toCalendarTime(w.state.elapsed).day}|${linesVersion}`;
+    if (key !== financeKey || !financeView) {
+      financeKey = key;
+      financeView = finance(w);
+    }
+    return financeView;
+  };
+
   const snapshot = (): Snapshot => {
     const w = world!;
     const t = toCalendarTime(w.state.elapsed);
@@ -222,6 +235,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       stops,
       linesVersion,
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
+      finance: financeNow(w),
     };
   };
 

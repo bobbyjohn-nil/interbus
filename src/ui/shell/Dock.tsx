@@ -1,8 +1,8 @@
 import type { Tool } from '../game/Tools';
 
-export type Panel = 'none' | 'lines' | 'stop';
+export type Panel = 'none' | 'lines' | 'stop' | 'finance';
 
-/** The calm shell's dock (PLAN §8: 8 slots or fewer): the tools, and the lines' inspector. */
+/** The calm shell's dock (PLAN §8: 8 slots or fewer): the tools, the lines' inspector and Finance. */
 export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; panel: Panel; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Panel) => void }) {
   return (
     <nav className="dock" aria-label="Tools" data-testid="dock" data-chrome="rest">
@@ -25,6 +25,12 @@ export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; p
           <path d="M4 6h12M4 10h12M4 14h8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
         Lines
+      </button>
+      <button type="button" aria-pressed={panel === 'finance'} onClick={() => onPanel(panel === 'finance' ? 'none' : 'finance')}>
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M4 16V9M8 16V5M12 16v-5M16 16V7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        Finance
       </button>
     </nav>
   );

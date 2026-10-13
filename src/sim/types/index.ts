@@ -132,6 +132,21 @@ export type DepotSiteView =
   | { readonly ok: true; readonly streetM: number; readonly priceCents: number }
   | { readonly ok: false; readonly reason: string; readonly limitM?: number; readonly nearestM?: number };
 
+/** Every ledger row by kind for today, yesterday and this quarter, beside a day's forecast (sim/economy/finance.ts). */
+export interface FinanceView {
+  readonly day: number;
+  readonly quarter: number;
+  readonly quarterFirstDay: number;
+  readonly rows: readonly {
+    readonly kind: string;
+    readonly todayCents: number;
+    readonly yesterdayCents: number;
+    readonly quarterCents: number;
+    /** Null for a capital row, which no day plans. */
+    readonly forecastCents: number | null;
+  }[];
+}
+
 export interface Snapshot {
   /** Whole game-seconds since founding (05:00 on day 1). */
   readonly elapsed: number;
@@ -156,6 +171,8 @@ export interface Snapshot {
   /** Changes whenever `lines` and `stops` do, so the map redraws them only then (RN-04). */
   readonly linesVersion: number;
   readonly depots: readonly DepotView[];
+  /** The Finance panel's table; changes when a row is posted or the network changes. */
+  readonly finance: FinanceView;
 }
 
 /** Where people live and work: each cell's sub-points, weighted. */
