@@ -44,6 +44,7 @@ npm run build && npm run e2e   # production build, then the browser tests
 npm run bake:plan  # what Boston's bake reads, writes and checks; no network
 npm run bake:fixture           # re-cut mini-Boston from the mirrored sources (downloads ~0.5 GB once)
 npm run bake:sim               # bake mini-Boston's sim.json and check it against its golden hash
+npm run bench                  # time the demand recompute (I14); `npm run bench compare` checks it against the reference loop
 ```
 
 Every merge to `main` deploys the preview to GitHub Pages; the build chip in the bottom-right

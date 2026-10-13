@@ -30,6 +30,6 @@ describe('calib.tripScale on mini-Boston', () => {
   it('scales riders in proportion, so the calibration is one division', () => {
     const one = debugLineRiders(1000);
     expect(debugLineRiders(500) / one).toBeCloseTo(0.5, 10);
-    expect(one).toBeGreaterThan(7000); // 7,200.7 measured 2026-10-13
+    expect(one).toBeGreaterThan(7000); // 7,164.6 measured 2026-10-13, after the recompute speed-up
   });
 });
