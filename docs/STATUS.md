@@ -2,13 +2,13 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 4d414f1 (Inner Boston at 279‰), with r1's switch of the preview to Inner Boston in review; r1's Overture heights and step 11 are next.
+**Updated:** 2026-10-13, at `main` f624685 (the preview plays Inner Boston), with step 11's first part, riders scanning every line, in review; transfers next, then r1's Overture heights.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a6a95c2. Deploy preview run 38397015655's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` f624685. Deploy preview run 38400247855's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
-  - the dots of homes and jobs on mini-Boston;
+  - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
   - the founding card, and the checklist chip naming the next step;
   - the calm shell: a chip row, a dock with **Place a depot**, **Draw a line** and **Lines**, the line inspector with its headways and a day's forecast, and notices in one corner;
@@ -197,6 +197,10 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
     - [x] **Contracts and the checklist's last step** (2026-10-13): three offers at landmarks, a bus every 10, 15 or 20 minutes for $240k, $150k or $60k, met at the best stop within a walk at the slower of peak and off-peak, paid after 10 days in a row within 20 as a Contracts row (save format 9). Asks come from a shuffled deck, so 100 seeds earn $1.11M–$1.29M over 40 days (I11). "5/5 Take a contract" opens them and gives way to a Contracts chip; rings on the map (DECISIONS, Measured).
     - [x] **Export session** (2026-10-13): in Saves, the session's save, its speed and every command since; the same host replays it to the same game fingerprint, a Chromium session in Node included, and `npm run bench replay <file>` replays a player's (DECISIONS, Measured).
 11. [ ] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
+    - [x] **Riders scan every line at a stop** (I5; 2026-10-13): of the lines serving a trip, they take the first bus among those worth waiting for, split by frequency, at the combined headway's wait; six lines along the same stops carry a sixth each, where the first took them all (DECISIONS, Measured).
+    - [ ] Two-leg trips: one transfer at a shared stop or within 250 m, with the tier's penalty.
+    - [ ] Fares and subsidy per trip, transfers free, so splitting a line gains at most 1% (I4).
+    - [ ] Route edits: remove a stop, extend from either end.
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
