@@ -56,11 +56,21 @@ test.describe('the line tool on the fixture', () => {
     // A depot: the tint shows, the card reads the rule, a click buys it for $150k.
     await page.getByRole('button', { name: 'Place a depot' }).click();
     await expect(map).toHaveAttribute('data-tint', 'on');
-    const [dx, dy] = await toScreen(page, onDepotLand());
-    await page.mouse.move(dx - 3, dy);
-    await page.mouse.move(dx, dy);
+    const spot = onDepotLand();
+    const [dx, dy] = await toScreen(page, spot);
+    // Two moves in the same moment, from 40 px away onto the spot: the card must describe where the
+    // pointer rests, not where it passed (CI's runner once moved fast enough to drop the last move).
+    await page.evaluate(
+      ([moves]) => {
+        const canvas = document.querySelector('.maplibregl-canvas')!;
+        for (const [x, y] of moves!) canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+      },
+      [[[dx - 40, dy], [dx, dy]]] as const,
+    );
     const depotCard = page.getByTestId('depot-card');
     await expect(depotCard).toHaveAttribute('data-ok', 'yes', { timeout: 10_000 });
+    const [lon, lat] = (await depotCard.getAttribute('data-at'))!.split(',').map(Number) as [number, number];
+    expect(Math.abs(lon - spot[0]) * 82_000 + Math.abs(lat - spot[1]) * 111_000).toBeLessThan(15); // metres, about 2 px
     await expect(depotCard).toContainText('Industrial ✓');
     await expect(depotCard).toContainText('$150k');
     await page.mouse.click(dx, dy);

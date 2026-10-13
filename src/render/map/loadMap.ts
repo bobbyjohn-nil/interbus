@@ -41,12 +41,15 @@ export interface MountedMap {
   setDraft(draft: LineDraftView | null): void;
   /** How many dots the last settled frame drew. */
   dotsDrawn(): number;
-  /** Where the pointer is over the map (null when it leaves), at most every 100 ms. */
+  /** Where the pointer is over the map (null when it leaves), at most every 100 ms and always its last position. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null) => void): void;
   /** Where a click lands on the map (not a drag). */
   onClick(listener: (at: LngLatPair) => void): void;
   dispose(): void;
 }
+
+/** The pointer is reported at most this often. */
+const POINTER_EVERY_MS = 100;
 
 /** Marks the tilt's own camera moves, so their end can be told from a drag's. */
 const TILT_MOVE = 'interbusTilt';
@@ -139,15 +142,30 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     if (pending.draft !== undefined) setDraft(map, pending.draft);
   });
 
+  // At most one pointer report every 100 ms, and always the last one: a move inside the interval is
+  // sent when it ends, so a card beside a resting pointer describes where it rests.
   let pointer: ((at: LngLatPair | null, screen: [number, number] | null) => void) | null = null;
-  let lastPointerMs = 0;
+  let lastPointerMs = -Infinity;
+  let trailing: number | undefined;
+  let latestMove: { at: LngLatPair; screen: [number, number] } | null = null;
+  const report = () => {
+    trailing = undefined;
+    lastPointerMs = performance.now();
+    if (latestMove) pointer?.(latestMove.at, latestMove.screen);
+  };
   map.on('mousemove', (e) => {
-    const now = e.originalEvent.timeStamp;
-    if (!pointer || now - lastPointerMs < 100) return;
-    lastPointerMs = now;
-    pointer([e.lngLat.lng, e.lngLat.lat], [e.point.x, e.point.y]);
+    if (!pointer) return;
+    latestMove = { at: [e.lngLat.lng, e.lngLat.lat], screen: [e.point.x, e.point.y] };
+    const wait = POINTER_EVERY_MS - (performance.now() - lastPointerMs);
+    if (wait <= 0) report();
+    else trailing ??= window.setTimeout(report, wait);
   });
-  map.getCanvas().addEventListener('mouseleave', () => pointer?.(null, null));
+  map.getCanvas().addEventListener('mouseleave', () => {
+    window.clearTimeout(trailing);
+    trailing = undefined;
+    latestMove = null;
+    pointer?.(null, null);
+  });
   let click: ((at: LngLatPair) => void) | null = null;
   // MapLibre fires 'click' only when the pointer did not drag between press and release.
   map.on('click', (e) => click?.([e.lngLat.lng, e.lngLat.lat]));
@@ -165,6 +183,9 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     dotsDrawn: () => (loaded ? map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).length : 0),
     onPointer: (listener) => void (pointer = listener),
     onClick: (listener) => void (click = listener),
-    dispose: () => map.remove(),
+    dispose: () => {
+      window.clearTimeout(trailing);
+      map.remove();
+    },
   };
 }
