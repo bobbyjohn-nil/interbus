@@ -46,7 +46,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install pyosmium (pinned, hashed)
-        run: pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt
 
       - name: Check the names
         env:
