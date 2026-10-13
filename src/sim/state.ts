@@ -1,6 +1,6 @@
 // The sim's whole state, owned by the worker (PLAN §6 "Boundaries"). Everything a save holds is
 // here; everything derived (demand, paths, positions) is rebuilt from it.
-import type { DepotId, LineId, NextIds, StopId } from './core/ids';
+import type { ContractId, DepotId, LineId, NextIds, StopId } from './core/ids';
 import { FIRST_IDS } from './core/ids';
 import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
@@ -44,6 +44,26 @@ export interface Line {
   model: BusModelId;
 }
 
+/**
+ * A HEADWAY contract (the M3 spec, item 11): offered near a landmark, taken with a click, then graded
+ * at each day's close until it is paid or can no longer be (economy/contracts.ts). Paid and lapsed
+ * contracts leave the list; a paid one stays in the ledger as its Contracts row.
+ */
+export interface Contract {
+  readonly id: ContractId;
+  /** The landmark's name in the city file. */
+  readonly landmark: string;
+  readonly askSeconds: number;
+  readonly rewardCents: number;
+  readonly offeredDay: number;
+  /** The day it was taken, or null while it is an offer. */
+  acceptedDay: number | null;
+  /** Days in a row it has been met, counted at each close. */
+  daysMet: number;
+  /** Service hours today (05:00–24:00) that ended with the landmark served less often than the ask. */
+  hoursMissedToday: number;
+}
+
 export interface SimState {
   city: CityRef;
   /** Whole game-seconds since founding (05:00 on day 1). */
@@ -57,6 +77,10 @@ export interface SimState {
   ledger: Ledger;
   /** Day closes in a row with cash below the credit line's floor; five end the run (rules/credit.ts, D10). */
   closesBelowFloor: number;
+  /** Offered and held HEADWAY contracts, at most three (config/contracts.ts). */
+  contracts: Contract[];
+  /** The asks (seconds) still to deal before the next shuffle, so every three offers hold one of each (I11). */
+  contractDeck: number[];
 }
 
 /** A new company at founding: 05:00 on day 1, Founding capital its only ledger row. */
@@ -72,5 +96,7 @@ export function newGame(city: CityRef, company: { name: string; colour: string }
     lines: [],
     ledger: foundLedger(),
     closesBelowFloor: 0,
+    contracts: [],
+    contractDeck: [],
   };
 }

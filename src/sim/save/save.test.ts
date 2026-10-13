@@ -32,6 +32,11 @@ function playedGame(): SimState {
   state.stops[1]!.tier = 3; // a Station, so the round trip carries a tier
   for (let day = 1; day <= 3; day++) post(state.ledger, { day, kind: 'fares', amountCents: 1_234 * day, lineId: line });
   for (let i = 0; i < 17; i++) state.rng.next();
+  for (const acceptedDay of [2, null]) {
+    const [id, next] = mint(state.nextIds, 'contract');
+    state.nextIds = next;
+    state.contracts.push({ id, landmark: 'Longwood', askSeconds: 900, rewardCents: 15_000_000, offeredDay: 1, acceptedDay, daysMet: acceptedDay ? 1 : 0, hoursMissedToday: 3 });
+  }
   state.elapsed = 3 * 86_400 + 4_321;
   return state;
 }
@@ -70,7 +75,7 @@ describe('saves', () => {
 
   it('holds intent only: no demand, geometry, camera or theme (K12)', () => {
     expect(Object.keys((SAVE_SCHEMA as { object: object }).object).sort()).toEqual(
-      ['city', 'clock', 'closesBelowFloor', 'company', 'depots', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
+      ['city', 'clock', 'closesBelowFloor', 'company', 'contractDeck', 'contracts', 'depots', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
     );
   });
 });
@@ -196,6 +201,8 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a field not in the schema', (e) => void (dataOf(e).camera = { zoom: 14 }), /camera: not in the schema/],
     ['a night-only line', (e) => void ((dataOf(e).lines as { headways: { overnight: number } }[])[0]!.headways.overnight = 60), /headway rules/],
     ['a stop of no tier', (e) => void ((dataOf(e).stops as { tier: number }[])[0]!.tier = 7), /a stop of no tier/],
+    ['a contract at its counter', (e) => void ((dataOf(e).contracts as { id: number }[])[0]!.id = 3), /contract id at or above its counter/],
+    ['a contract taken before its offer', (e) => void ((dataOf(e).contracts as { acceptedDay: number }[])[0]!.acceptedDay = 0), /taken before it was offered/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {

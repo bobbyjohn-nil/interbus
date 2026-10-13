@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { onReplaced } from '../../platform';
 import { CITIES } from '../../cities';
-import type { DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import type { ContractView, DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import type { MapHit, MountedMap } from './loadMap';
 
 export type { MapHit };
@@ -34,6 +34,8 @@ export interface MapViewProps {
   readonly depots?: readonly DepotView[];
   /** The line being drawn, or null. */
   readonly draft?: LineDraftView | null;
+  /** HEADWAY contracts, drawn as rings at their landmarks. */
+  readonly contracts?: readonly ContractView[];
   /** The sim's clock at the last snapshot: seconds of the day, and game seconds per real second (0 paused). */
   readonly clock?: { readonly second: number; readonly rate: number } | null;
 }
@@ -46,15 +48,17 @@ function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void
   return () => void mounted.map.off('idle', onIdle);
 }
 
-export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, clock = null }: MapViewProps) {
+export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, contracts = [], clock = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
   const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
-  const latest = useRef({ dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, clock });
+  const latest = useRef({ dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, contracts, clock });
   useEffect(() => {
-    latest.current = { dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, clock };
+    latest.current = { dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, contracts, clock };
   });
+  // Set only when what a ring shows changes (RN-04).
+  const contractsKey = contracts.map((c) => `${c.id}:${c.held ? 1 : 0}:${c.daysMet}`).join(',');
   // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
   const depotsKey = depots.map((d) => d.id).join(',');
   const city = CITIES[0];
@@ -120,6 +124,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         mounted.setDepots(now.depots);
         mounted.setTint(now.tint);
         mounted.setDraft(now.draft);
+        mounted.setContracts(now.contracts);
         if (now.clock) mounted.setClock(now.clock.second, now.clock.rate);
         mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
         mounted.onClick((at, hit) => latest.current.onClick?.(at, hit));
@@ -177,6 +182,10 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
     mountedRef.current?.setDraft(draft);
   }, [draft]);
 
+  useEffect(() => {
+    mountedRef.current?.setContracts(latest.current.contracts);
+  }, [contractsKey]);
+
   // A snapshot about 10 times a second while time runs; the layer runs the clock on between them.
   const clockSecond = clock?.second ?? null;
   const clockRate = clock?.rate ?? 0;
@@ -198,6 +207,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
       data-dots={dotsDrawn ?? ''}
       data-tint={tint ? 'on' : 'off'}
       data-view={view}
+      data-contracts={contractsKey}
       data-stops={stops.map((s) => `${s.id}:${s.at[0].toFixed(6)},${s.at[1].toFixed(6)}`).join(' ')}
     >
       {status in MESSAGES ? <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p> : null}

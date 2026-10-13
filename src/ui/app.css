@@ -172,8 +172,10 @@ body,
   font-weight: 600;
 }
 
-/* Undo while paused (I9): a chip that is a button. */
-.chip.undo {
+/* Undo while paused (I9), the checklist's last step and Contracts: chips that are buttons. */
+.chip.undo,
+button.chip.checklist,
+.chip.contracts {
   font: inherit;
   border: 0;
   color: var(--ui-ink);
@@ -365,6 +367,29 @@ body,
 
 .saves .slots .controls {
   margin-top: 4px;
+}
+
+/* Contracts: one a row, its ask above today's figure and its days or Take it. */
+.panel.contracts {
+  width: 300px;
+}
+
+.contract-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contract-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: 1px solid var(--ui-line);
+}
+
+.contract-list .short {
+  color: #a3271b;
 }
 
 /* Finance: five columns, so the panel is wider than the others. */

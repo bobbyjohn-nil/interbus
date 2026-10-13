@@ -13,6 +13,7 @@ import { useSim } from './game/useSim';
 import { ReplacedCard } from './ReplacedCard';
 import { Dock, type Panel } from './shell/Dock';
 import { Finance } from './shell/Finance';
+import { Contracts } from './shell/Contracts';
 import { Saves } from './shell/Saves';
 import { Inspector } from './shell/Inspector';
 import { Notices } from './shell/Notices';
@@ -127,11 +128,18 @@ export function App() {
         depotLand={sim.depotLand}
         tint={tool === 'depot'}
         depots={sim.snapshot?.depots ?? []}
+        contracts={sim.snapshot?.contracts ?? []}
         draft={tool === 'line' && clicks.length ? sim.draft : null}
         clock={sim.snapshot ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate } : null}
         {...(ready ? { onPointer, onClick } : {})}
       />
-      <TopBar sim={sim} />
+      <TopBar
+        sim={sim}
+        onContracts={() => {
+          choose('none');
+          setPanel('contracts');
+        }}
+      />
       {tool === 'none' ? <ProbeCard sim={sim} screen={screen} /> : null}
       {tool === 'depot' ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === 'line' ? (
@@ -148,6 +156,7 @@ export function App() {
       {tool === 'none' && panel === 'lines' ? <Inspector sim={sim} lineId={lineId} onLine={setLineId} onClose={() => setPanel('none')} /> : null}
       {tool === 'none' && panel === 'finance' ? <Finance sim={sim} onClose={() => setPanel('none')} /> : null}
       {tool === 'none' && panel === 'saves' ? <Saves sim={sim} onClose={() => setPanel('none')} /> : null}
+      {tool === 'none' && panel === 'contracts' ? <Contracts sim={sim} onClose={() => setPanel('none')} /> : null}
       {tool === 'none' && panel === 'stop' && stopId !== null ? (
         <StopCard
           sim={sim}

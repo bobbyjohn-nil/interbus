@@ -12,7 +12,7 @@ import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
-export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep', 'interest', 'card'] as const;
+export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep', 'interest', 'contract', 'card'] as const;
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
@@ -107,9 +107,8 @@ export function closeDay(ledger: Ledger, day: number): void {
   for (const r of [...merged.values()].sort((a, b) => order(a) - order(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
 }
 
-/** Rows that are capital, not the business's running: founding, purchases, their refunds and buses sold. */
-/** Rows that are not a day's running: capital, and a quarter's report card. */
-const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card']);
+/** Rows that are not a day's running: capital, a quarter's report card and a contract's reward. */
+const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card', 'contract']);
 
 /** Closed days (before `today`) whose operating rows, everything but capital, sum above zero: the checklist's "a day in profit". */
 export function profitableDays(ledger: Ledger, today: number): number {

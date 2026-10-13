@@ -1,5 +1,6 @@
-// The day card on a quarter's last day carries the report card (the M3 spec, item 9; exit check 3).
-// A quarter takes ten game days, too long for the e2e tests, so the card is rendered here.
+// The day card on a quarter's last day carries the report card (the M3 spec, item 9; exit check 3),
+// and any day's card a contract paid or lapsed (item 11). A quarter takes ten game days, too long for
+// the e2e tests, so the card is rendered here.
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +17,7 @@ const rows = [
 
 describe('the day card at a quarter’s close', () => {
   it('grades the quarter and says what the city pays, as one of the day’s rows', () => {
-    const html = render({ day: 10, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report });
+    const html = render({ day: 10, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report, contracts: [] });
     expect(html).toContain('Quarter 1 report card');
     for (const text of ['<th scope="row">Coverage</th><td>51</td>', '<th scope="row">Reliability</th><td>100</td>', '<th scope="row">Comfort</th><td>80</td>', '<th scope="row">Money</th><td>67</td>', '<th scope="row">Overall</th><td>74</td>']) {
       expect(html).toContain(text);
@@ -26,7 +27,17 @@ describe('the day card at a quarter’s close', () => {
   });
 
   it('says so when the city fines, and shows no card on other days', () => {
-    expect(render({ day: 10, rows: [], cashBeforeCents: 0, cashAfterCents: -800_000, report: { ...report, overall: 0, payoutCents: -800_000 } })).toContain('The city fines $8,000');
-    expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null })).not.toContain('report card');
+    expect(render({ day: 10, rows: [], cashBeforeCents: 0, cashAfterCents: -800_000, report: { ...report, overall: 0, payoutCents: -800_000 }, contracts: [] })).toContain('The city fines $8,000');
+    expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [] })).not.toContain('report card');
+  });
+});
+
+describe('the day card when a contract closes', () => {
+  it('names a contract paid, beside its Contracts row, and one lapsed', () => {
+    const paid = { landmark: 'Longwood', askSeconds: 900, rewardCents: 15_000_000, outcome: 'paid' as const };
+    const html = render({ day: 12, rows: [{ kind: 'contract', amountCents: 15_000_000, lineId: null }], cashBeforeCents: 0, cashAfterCents: 15_000_000, report: null, contracts: [paid] });
+    expect(html).toContain('Contract met: every 15 min at Longwood, $150,000');
+    expect(html).toContain('<th scope="row">Contracts</th><td>$150,000.00</td>');
+    expect(render({ day: 12, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [{ ...paid, outcome: 'lapsed' }] })).toContain('Contract lapsed: every 15 min at Longwood');
   });
 });

@@ -7,8 +7,9 @@
 // - versioned by the schema hash (schema.lock.json), and an older format is set aside under a
 //   backup key with a fresh start, never migrated (D12);
 // - the envelope names the build (SHA and version) instead of a typed version string (PR-15).
+import { CONTRACT_ASKS } from '../config/contracts';
 import { STOP_TIER_IDS, type StopTier } from '../config/stops';
-import { ID_KINDS, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
+import { ID_KINDS, type ContractId, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
 import { toCalendarTime } from '../core/calendar';
 import { createRng } from '../core/rng';
 import type { LedgerRow } from '../economy/ledger';
@@ -18,7 +19,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 8;
+export const SAVE_FORMAT = 9;
 
 export interface BuildRef {
   readonly sha: string;
@@ -88,6 +89,8 @@ export function toSaveData(state: SimState): SaveData {
     })),
     ledger: state.ledger.rows.map((r) => ({ day: r.day, kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
     closesBelowFloor: state.closesBelowFloor,
+    contracts: state.contracts.map((c) => ({ ...c })),
+    contractDeck: [...state.contractDeck],
   };
 }
 
@@ -119,6 +122,8 @@ export function fromSaveData(data: SaveData): SimState {
     })),
     ledger: { rows, cashCents: rows.reduce((sum, r) => sum + r.amountCents, 0) },
     closesBelowFloor: data.closesBelowFloor,
+    contracts: data.contracts.map((c) => ({ ...c, id: c.id as ContractId })),
+    contractDeck: [...data.contractDeck],
   };
 }
 
@@ -131,7 +136,17 @@ export function encode(state: SimState, build: BuildRef): string {
 export function integrityProblem(data: SaveData): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
   if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
-  const live: Partial<Record<IdKind, number[]>> = { stop: data.stops.map((s) => s.id), line: data.lines.map((l) => l.id), depot: data.depots.map((d) => d.id) };
+  for (const c of data.contracts) {
+    if (c.daysMet < 0 || c.hoursMissedToday < 0 || c.askSeconds <= 0 || c.rewardCents < 0) return `contract ${c.id}: a negative count or amount`;
+    if (c.acceptedDay !== null && c.acceptedDay < c.offeredDay) return `contract ${c.id}: taken before it was offered`;
+  }
+  if (data.contractDeck.some((s) => !CONTRACT_ASKS.some((a) => a.askSeconds === s))) return 'a contract deck card that is no ask';
+  const live: Partial<Record<IdKind, number[]>> = {
+    stop: data.stops.map((s) => s.id),
+    line: data.lines.map((l) => l.id),
+    depot: data.depots.map((d) => d.id),
+    contract: data.contracts.map((c) => c.id),
+  };
   for (const kind of ID_KINDS) {
     const next: number = (data.nextIds as NextIds)[kind];
     if (next < 1) return `nextIds.${kind} below 1`;

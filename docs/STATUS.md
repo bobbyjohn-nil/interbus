@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 5b7b718 (the report card), with M3 step 9, the failure floor, in review; step 7 (r1) is next, then step 10.
+**Updated:** 2026-10-13, at `main` 2976481 (the failure floor), with M3 step 10's contracts in review; Export session (step 10) is next, then step 7 (r1) by Nov 15.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 5b7b718. Deploy preview run 38390342092's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 2976481. Deploy preview run 38391535718's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -23,6 +23,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a save from another bake of the map carried onto it;
   - Saves in the dock: three slots beside the autosave, and a game exported and imported as a file;
   - a report card on each quarter's last day card, paying a grant or a fine;
+  - a credit line to -$150k with daily interest, a countdown chip below it, and Restart this quarter when the lender calls in the loan;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
   - the game saved in the browser as it plays, so a reload carries on where it was.
@@ -186,6 +187,8 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 8. [x] **The report card** (item 9, done before step 7 because r1's bake work is not needed for it; 2026-10-13): Coverage, Reliability, Comfort and Money on the quarter's last day card, paid or fined as a Report card row. Ten seeded opening companies grade 53.7–63.8 (median 57.9), so V1's bars stay at 55 and 35; the card pays the debug line 3.9 times its quarter's net, for week 9 (DECISIONS, Measured).
 9. [x] **The failure floor** (item 10, also before step 7; 2026-10-13): cash may go to −$150k on a credit line, at 0.06% a day as an Interest row; a countdown chip from the first close below it, and on the fifth the run ends with **Restart this quarter**, from a save the game writes by itself at each quarter's start (save format 8; DECISIONS, Measured).
 10. [ ] **HEADWAY contracts** (item 11, I11), checklist step 5 and **Export session** (item 12).
+    - [x] **Contracts and the checklist's last step** (2026-10-13): three offers at landmarks, a bus every 10, 15 or 20 minutes for $240k, $150k or $60k, met at the best stop within a walk at the slower of peak and off-peak, paid after 10 days in a row within 20 as a Contracts row (save format 9). Asks come from a shuffled deck, so 100 seeds earn $1.11M–$1.29M over 40 days (I11). "5/5 Take a contract" opens them and gives way to a Contracts chip; rings on the map (DECISIONS, Measured).
+    - [ ] **Export session** (item 12): the quarter-start save plus every command since, replayed by a test to the same state hash.
 11. [ ] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 

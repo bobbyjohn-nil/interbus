@@ -40,8 +40,8 @@ export interface ReportCard {
   readonly payoutCents: number;
 }
 
-/** Rows that are not the company's running: capital, and the cards themselves. */
-const NOT_RUNNING: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card']);
+/** Rows that are not the company's running: capital, the cards themselves and contracts' rewards. */
+const NOT_RUNNING: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card', 'contract']);
 const clamp100 = (v: number) => Math.min(100, Math.max(0, v));
 
 export function coverageGrade(world: World): number {

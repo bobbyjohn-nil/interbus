@@ -177,6 +177,34 @@ export interface Snapshot {
   readonly undo: { readonly command: string; readonly subject: string } | null;
   /** Below the credit line's −$150k, or counting closes below it: day closes left before the run ends, and whether it has (D10); null otherwise. */
   readonly floor: { readonly closesLeft: number; readonly ended: boolean } | null;
+  /** HEADWAY contracts on offer and held, at most three (the M3 spec, item 11). */
+  readonly contracts: readonly ContractView[];
+  /** A contract has been taken, held now or paid: the checklist's last step. */
+  readonly contractTaken: boolean;
+}
+
+/** A HEADWAY contract for its card and its ring on the map (sim/economy/contracts.ts, sim/rules/contract.ts). */
+export interface ContractView {
+  readonly id: number;
+  readonly landmark: string;
+  /** The landmark, as longitude and latitude. */
+  readonly at: readonly [number, number];
+  /** The walk a stop must be within to count, in metres. */
+  readonly reachM: number;
+  readonly askSeconds: number;
+  readonly rewardCents: number;
+  readonly held: boolean;
+  /** Days in a row met so far, of `daysNeeded`. */
+  readonly daysMet: number;
+  readonly daysNeeded: number;
+  /** Days left to hold it, today included; null while it is an offer. */
+  readonly daysLeft: number | null;
+  /** Today's headway at the landmark's best stop, the slower of peak and off-peak; null if no stop in reach is served. */
+  readonly figureSeconds: number | null;
+  /** The rule's verdict on that figure: met now. */
+  readonly met: boolean;
+  /** No service hour today has missed it yet. */
+  readonly onTrack: boolean;
 }
 
 /** Where people live and work: each cell's sub-points, weighted. */
@@ -200,6 +228,8 @@ export interface DayCard {
     readonly overall: number;
     readonly payoutCents: number;
   } | null;
+  /** Contracts paid or lapsed at this close. */
+  readonly contracts: readonly { readonly landmark: string; readonly askSeconds: number; readonly rewardCents: number; readonly outcome: 'paid' | 'lapsed' }[];
 }
 
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */
@@ -256,6 +286,8 @@ export type ToWorker =
   | { readonly type: 'export' }
   /** Reopens the save written as this quarter began (the failure floor's Restart this quarter). */
   | { readonly type: 'restart-quarter' }
+  /** Takes a HEADWAY contract on offer. */
+  | { readonly type: 'accept-contract'; readonly contractId: number }
   /** Asks for a line's fare band, for its open card. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 
