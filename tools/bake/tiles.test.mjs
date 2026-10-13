@@ -1,11 +1,14 @@
 // Tests for the map file's transit strip and G10 (D17, PLAN §5). Run: npm run test:scripts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { PMTiles, tileIdToZxy, zxyToTileId } from 'pmtiles';
 import { decodeValue, featuresOf, fields, rewriteTile } from './mvt.mjs';
 import { readPmtiles, writePmtiles } from './pmtiles.mjs';
 import { stripTransit, transitLeft } from './tiles.mjs';
+import { ROOT } from './lib.mjs';
 import { looksLikeTransit, tileVerdict } from './transit.mjs';
 
 // A tiny vector-tile encoder, so the tests build tiles by hand rather than trusting the code under test.
@@ -152,4 +155,17 @@ test('G10 reads kinds as words, so a transit kind the strip does not list still 
   for (const kind of ['fire_station', 'charging_station', 'trailhead', 'terminal', 'aerodrome', 'bicycle_rental']) assert.ok(!looksLikeTransit('pois', { kind }), kind);
   assert.ok(!looksLikeTransit('pois', { kind: 'fitness_centre', kind_detail: 'trampoline' }));
   assert.ok(!looksLikeTransit('roads', { kind: 'minor_road', kind_detail: 'service' }));
+});
+
+test('every map file cities/index.json ships holds no transit (G10, D17)', (t) => {
+  const index = JSON.parse(readFileSync(join(ROOT, 'cities', 'index.json'), 'utf8'));
+  for (const city of index.cities) {
+    const path = join(ROOT, 'public', 'cities', city.tiles.file);
+    // CI fetches the city files first (npm run cities); a checkout without them skips, saying so.
+    if (!existsSync(path)) {
+      t.skip(`${city.tiles.file} is not downloaded; run npm run cities`);
+      continue;
+    }
+    assert.deepEqual([...transitLeft(readFileSync(path))], [], city.tiles.file);
+  }
 });

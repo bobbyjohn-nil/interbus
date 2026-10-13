@@ -17,10 +17,10 @@
         "zoom": 14
       },
       "tiles": {
-        "file": "boston-20261012-57ac68da.pmtiles",
-        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-tiles-20261012-57ac68da/boston-20261012-57ac68da.pmtiles",
-        "sha256": "57ac68da9fd7c0796cde5dc8722e883d0238dc0a84be92b1765b9701854376e2",
-        "bytes": 15560031,
+        "file": "boston-20261012-a35f1831.pmtiles",
+        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-tiles-20261012-a35f1831/boston-20261012-a35f1831.pmtiles",
+        "sha256": "a35f18319f2de3f2adfde704994c89651f7901876789cee92cd41174a54cec38",
+        "bytes": 15347095,
         "source": "Protomaps daily build 20261012",
         "maxzoom": 15
       },

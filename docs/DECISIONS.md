@@ -266,6 +266,7 @@ Filled in as they are measured, with the date and the commit, each by a committe
 
     It also opens 116 busway and bus-lane pieces as service streets, as the sim already drives them (D17). The file goes from 15,560,031 B to 15,347,095 B. Logan's terminals stay: they are the airport, not transit.
   - **G10 reads every kind as words** (rail, bus, ferry, station, stop and so on), so a transit kind the strip does not list fails the bake. On this file the word check caught one false positive, a "trampoline" fitness centre, which is now allowed.
+  - **Published.** City tiles run 38359580324 re-cut build 20261012 to the same extract (sha256 `57ac68da…`), stripped it, and published `city-boston-tiles-20261012-a35f1831` (15,347,095 B). That is the same bytes as the local strip, so the strip is reproducible. `cities/index.json` ships it, and a script test runs G10 on every map file the index names.
   - **sim.json.** The clips hold 789 (fixture) and 6,286 (Inner Boston) transit-tagged elements, and none reaches sim.json. Both goldens are unchanged. Depot land now also refuses land tagged as transit, such as a rail yard tagged industrial; no such area exists in either clip.
 - **2026-10-13** (`npm run bench day`; `src/sim/day-costs.test.ts`): **costs are ledger rows, and the debug line nets +$1,388.93 on a whole day**, inside the M2 spec's magnitudes.
   - **Day 2's costs.** The line is parked at the fixture's largest depot parcel, 1,865 m out to Copley and 2,062 m back from Longwood. Its two Sparrows cost:
