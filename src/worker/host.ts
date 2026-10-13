@@ -9,6 +9,8 @@ import { createLine } from '../sim/commands/createLine';
 import { found } from '../sim/commands/found';
 import { placeDepot } from '../sim/commands/placeDepot';
 import { setHeadways } from '../sim/commands/setHeadways';
+import { setModel } from '../sim/commands/setModel';
+import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
 import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
@@ -101,14 +103,15 @@ function lineViews(world: World): LineView[] {
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
       buses: line.buses,
+      model: line.model,
       forecastCents: service ? forecastDay(service.costs) : { running: 0, wages: 0, deadhead: 0 },
     };
   });
 }
 
 /** The draft card for a list of clicks: the line rule's verdict and what it resolved. */
-function draftView(world: World, clicks: readonly LngLatPair[], headways: HeadwaysData): LineDraftView {
-  const verdict = checkLineDraft(lineDraftContext(world), clicks.map((c) => toXY(world.city.frame, c)), headways);
+function draftView(world: World, clicks: readonly LngLatPair[], headways: HeadwaysData, model: BusModelId): LineDraftView {
+  const verdict = checkLineDraft(lineDraftContext(world), clicks.map((c) => toXY(world.city.frame, c)), headways, BUS_MODELS[model]);
   const { draft } = verdict;
   const stops = draft.stops.map((s) => s.at);
   return {
@@ -247,9 +250,17 @@ export function createHost(post: (message: FromWorker) => void): Host {
         else save();
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'line-draft') {
-        post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS) });
+        post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow') });
       } else if (message.type === 'create-line') {
-        const result = createLine(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS);
+        const result = createLine(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow');
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'set-model') {
+        const result = setModel(world, message.lineId as LineId, message.model);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();

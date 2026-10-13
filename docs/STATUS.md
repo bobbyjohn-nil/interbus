@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` e97115d (the M3 spec), with M3 step 1, the landmarks, in review.
+**Updated:** 2026-10-13, at `main` 67d2c9c (the landmarks), with M3 step 2a, the bus models, in review.
 
 ## Live now
 
@@ -151,6 +151,15 @@ The spec is archived in [`docs/specs/m2-first-line.md`](specs/m2-first-line.md).
 The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in Nov 9–29; work starts now, money first. In this order, each a small pull request (items are the spec's):
 1. [x] **Landmarks in `sim.json`** (item 1; 2026-10-13): six in `cities/boston/city.json`, each the label the map file draws. They are Copley Square, Longwood, Kenmore, Kendall Square, Harvard Square and Downtown Crossing. The fixture holds the first three; G6 fails a bake on any outside the extent; the loader reads them strictly.
 2. [ ] **Three bus models, one per line** (item 2), and **crowding per period** (item 3), with the sweep re-run: a starved line should earn 60% of the best or less.
+   - [x] **The models** (2026-10-13):
+     - the Metro 40 and Goliath rows, with the Goliath locked until a medal (M4);
+     - a model on each line (save format 5), so its cycle, speed, costs and demand are that row's;
+     - the new-line card picks the model;
+     - the line card swaps it, selling the old buses at half price as a Sales row (`checkModelChange`, `setModel`);
+     - each family drawn at its own length, I12 passing for all three (DECISIONS, Measured).
+
+     The starter cannot afford Metro 40s: the debug line's two cost $520k against $71,200 left after the starter.
+   - [ ] **Crowding per period**, then the sweep re-run. The demand model has 70% of riders "timed", waiting 2 minutes whatever the headway (V1's EC-08 rule), which may be why a starved line keeps its riders; if crowding alone does not bring a starved line under 60%, V2's convex wait (EC-08) is the measured next step.
 3. [ ] **The fare band** (item 4): per-line fares, perceived once per trip, the subsidy taper, the printed band; I3's fare optimum and I4.
 4. [ ] **Stop tiers, QUIET and LOSS** (item 5), and **Finance** (item 6).
 5. [ ] **Undo while paused** (item 7, I9).

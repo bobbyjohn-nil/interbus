@@ -1,7 +1,6 @@
 // I12 (PLAN §6, docs/specs/current.md item 6): 50 buses of each family heading away from the camera
 // are each at least the family's minimum length at three cameras, at 1366×768 in the light theme,
 // measured from the pixels drawn (TS-07); and the same check fails a 4 px glyph, so it can bite.
-// M2 has the Sparrow (20 px); the Metro 40 (24) and Goliath (32) join in week 5.
 import { expect, test, type Page } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 
@@ -9,6 +8,11 @@ const CAMERAS = [
   ['2D zoom 14', 14, 0],
   ['the T default (zoom 14, pitch 50°)', 14, 50],
   ['the mesh switch (zoom 17, pitch 60°)', 17, 60],
+] as const;
+const FAMILIES = [
+  ['sparrow', 'Sparrow', 20],
+  ['metro40', 'Metro 40', 24],
+  ['goliath', 'Goliath', 32],
 ] as const;
 const SPARROW_MIN_PX = 20;
 
@@ -89,16 +93,19 @@ async function open(page: Page, query = '') {
   await page.waitForFunction(() => window.i12Ready === true, null, { timeout: 30_000 });
 }
 
-test('every Sparrow is at least 20 px long at the three cameras (I12)', async ({ page }) => {
-  await open(page);
-  for (const [name, zoom, pitch] of CAMERAS) {
-    await page.evaluate(([z, p]) => window.i12Camera!(z, p), [zoom, pitch] as const);
-    const verdict = i12(await measure(page), SPARROW_MIN_PX);
-    // The whole verdict, so a failure names the camera, the shortest bus and the pixels changed.
-    expect({ camera: name, ...verdict }).toEqual({ camera: name, ok: true, buses: 50, shortest: verdict.shortest, changed: verdict.changed });
-    expect(verdict.shortest, name).toBeGreaterThanOrEqual(SPARROW_MIN_PX);
-  }
-});
+for (const [family, label, minPx] of FAMILIES) {
+  test(`every ${label} is at least ${minPx} px long at the three cameras (I12)`, async ({ page }) => {
+    await open(page);
+    for (const [name, zoom, pitch] of CAMERAS) {
+      await page.evaluate(([z, p, f]) => window.i12Camera!(z, p, f), [zoom, pitch, family] as const);
+      const verdict = i12(await measure(page), minPx);
+      // The whole verdict, so a failure names the camera, the shortest bus and the pixels changed.
+      test.info().annotations.push({ type: `${label}, ${name}`, description: `shortest ${verdict.shortest} px` });
+      expect({ camera: name, ...verdict }).toEqual({ camera: name, ok: true, buses: 50, shortest: verdict.shortest, changed: verdict.changed });
+      expect(verdict.shortest, name).toBeGreaterThanOrEqual(minPx);
+    }
+  });
+}
 
 test('the check fails a 4 px glyph (the meta-test)', async ({ page }) => {
   await open(page, '?length=4&width=2');

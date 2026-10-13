@@ -1,5 +1,7 @@
+import { BUS_MODELS, MODEL_IDS } from '../../sim/rules/line';
+import type { BusModelId } from '../../sim/types';
 import { refusalText } from '../copy';
-import { about, every, km, usdK } from '../format';
+import { about, busCount, every, km, usdK } from '../format';
 import type { Sim } from './useSim';
 
 export type Tool = 'none' | 'depot' | 'line';
@@ -19,13 +21,43 @@ export function DepotCard({ sim, screen }: { sim: Sim; screen: [number, number] 
   );
 }
 
-/** The line tool's card (the M2 spec, item 3): the stops so far, km, people within a walk, the buses and the price, then Create. */
-export function DraftCard({ sim, clicks, onCreate, onUndo, onCancel }: { sim: Sim; clicks: number; onCreate: () => void; onUndo: () => void; onCancel: () => void }) {
+/**
+ * The line tool's card (the M2 spec, item 3): the stops so far, km, people within a walk, the model,
+ * the buses it needs and the price, then Create.
+ */
+export function DraftCard({
+  sim,
+  clicks,
+  model,
+  onModel,
+  onCreate,
+  onUndo,
+  onCancel,
+}: {
+  sim: Sim;
+  clicks: number;
+  model: BusModelId;
+  onModel: (model: BusModelId) => void;
+  onCreate: () => void;
+  onUndo: () => void;
+  onCancel: () => void;
+}) {
   const draft = clicks ? sim.draft : null;
   const refused = draft?.refusal ?? null;
   return (
     <section className="panel tool-card" aria-label="New line" data-testid="draft-card" data-chrome="panel" data-price={draft?.priceCents ?? ''} data-refusal={refused?.reason ?? ''}>
       <h2>New line</h2>
+      <label className="model">
+        Buses
+        <select value={model} onChange={(e) => onModel(e.target.value as BusModelId)}>
+          {MODEL_IDS.map((id) => (
+            <option key={id} value={id} disabled={BUS_MODELS[id].locked}>
+              {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats · {usdK(BUS_MODELS[id].priceCents)}
+              {BUS_MODELS[id].locked ? ' · locked' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
       {!draft ? (
         <p className="hint">Click the map to place stops.</p>
       ) : (
@@ -36,7 +68,7 @@ export function DraftCard({ sim, clicks, onCreate, onUndo, onCancel }: { sim: Si
           <p>{about(draft.people)} people within a walk</p>
           {draft.buses > 0 ? (
             <p>
-              {every(DRAFT_HEADWAY_SECONDS)} needs {draft.buses} {draft.buses === 1 ? 'Sparrow' : 'Sparrows'} · {usdK(draft.busesCents)}
+              {every(DRAFT_HEADWAY_SECONDS)} needs {busCount(draft.buses, BUS_MODELS[model].name)} · {usdK(draft.busesCents)}
             </p>
           ) : null}
           {draft.newStops > 0 ? (

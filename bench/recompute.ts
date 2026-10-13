@@ -86,7 +86,7 @@ if (existsSync(INNER)) {
     });
     const [id, next] = mint(boston.state.nextIds, 'line');
     boston.state.nextIds = next;
-    const line = { id, name, colour: '#1f6fb2', stopIds, fareCents: 225, headways: { peak: 600, offpeak: 900, overnight: n % 3 === 0 ? 1800 : null }, boardedMilli: 0, buses: 10 };
+    const line = { id, name, colour: '#1f6fb2', stopIds, fareCents: 225, headways: { peak: 600, offpeak: 900, overnight: n % 3 === 0 ? 1800 : null }, boardedMilli: 0, buses: 10, model: 'sparrow' as const };
     boston.state.lines.push(line);
     const plan = planLine(boston, line);
     if (!plan) throw new Error(`bench: ${name} does not route`);

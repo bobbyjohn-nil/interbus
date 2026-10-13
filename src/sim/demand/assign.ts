@@ -50,6 +50,8 @@ export interface LinePlan {
   readonly stopDistM: readonly number[];
   readonly headways: Headways;
   readonly fareCents: number;
+  /** The line's model's speed (BUS_KMH, the Sparrow's, when absent). */
+  readonly kmh?: number;
 }
 
 export interface LineDemand {
@@ -213,7 +215,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   );
   const fareMin = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
   // Minutes along each line to each stop, and exp(wait / τ) for each line and period.
-  const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / BUS_KMH) * 60));
+  const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / (plan.kmh ?? BUS_KMH)) * 60));
   const expWait = wait.map((w) => Math.exp(w / MODE_TAU_MIN));
   /** The quickest door-to-door minutes, before waiting, between two groups on one line. */
   const baseMin = (line: number, a: Access, b: Access) => {

@@ -40,6 +40,7 @@ export function addDebugLine(world: World): Result<{ lineId: LineId }, DebugLine
     fareCents: REFERENCE_FARE_CENTS,
     headways: { peak: DEBUG_HEADWAY_SECONDS, offpeak: DEBUG_HEADWAY_SECONDS, overnight: null },
     boardedMilli: 0,
+    model: 'sparrow',
     buses: 0,
   });
   const line = state.lines[state.lines.length - 1]!;

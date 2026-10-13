@@ -5,6 +5,7 @@ import { FIRST_IDS } from './core/ids';
 import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
 import type { Headways } from './rules/periods';
+import type { BusModelId } from './config/fleet';
 
 /** Which city file the game runs on; a save names it so a different city or revision is refused, never substituted. */
 export interface CityRef {
@@ -35,8 +36,9 @@ export interface Line {
   headways: Headways;
   /** Thousandths of a boarding carried so far, so fares bank in whole boardings and no cent is lost between hours or across a save. */
   boardedMilli: number;
-  /** Buses the line owns (Sparrows until week 5's models); with fewer than its headways need, it runs every cycle ÷ buses. */
+  /** Buses the line owns, all of its one model; with fewer than its headways need, it runs every cycle ÷ buses. */
   buses: number;
+  model: BusModelId;
 }
 
 export interface SimState {

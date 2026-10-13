@@ -12,7 +12,7 @@ import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
-export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'running', 'wages', 'deadhead', 'upkeep'] as const;
+export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep'] as const;
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
@@ -80,6 +80,13 @@ export function refund(ledger: Ledger, amountCents: number, day: number): void {
   post(ledger, { day, kind: 'refund', amountCents });
 }
 
+/** What buses sold back fetch (a line changing model, the M3 spec item 2), as one Sales row. */
+export function sell(ledger: Ledger, amountCents: number, day: number): void {
+  assertCents(amountCents, 'sale');
+  if (amountCents < 0) throw new RangeError(`a sale is never negative, got ${amountCents}`);
+  post(ledger, { day, kind: 'sale', amountCents });
+}
+
 /**
  * Closes a day: its rows merge into one per kind and line, in ROW_KINDS order then by line, so a save
  * grows by a day card a day rather than by every hour's rows. Cash and the day card's totals are
@@ -100,8 +107,8 @@ export function closeDay(ledger: Ledger, day: number): void {
   for (const r of [...merged.values()].sort((a, b) => order(a) - order(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
 }
 
-/** Rows that are capital, not the business's running: founding, purchases and their refunds. */
-const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund']);
+/** Rows that are capital, not the business's running: founding, purchases, their refunds and buses sold. */
+const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale']);
 
 /** Closed days (before `today`) whose operating rows, everything but capital, sum above zero: the checklist's "a day in profit". */
 export function profitableDays(ledger: Ledger, today: number): number {

@@ -16,6 +16,8 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   too_close_to_depot: (r) => `Another depot is${metres(r.nearestM)} away`,
   // Lines (sim/rules/line.ts, sim/rules/stop.ts)
   needs_depot: () => 'Place a depot first',
+  model_locked: () => 'A silver medal unlocks this bus',
+  same_model: () => 'The line already runs these',
   no_street_near: (r) => `No street within${metres(r.limitM)}`,
   stop_twice: () => 'A line stops here only once',
   no_route: () => 'No street leads to this stop',

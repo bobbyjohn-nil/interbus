@@ -20,7 +20,7 @@ function addStop(state: SimState, lon: number, lat: number): StopId {
 function addLine(state: SimState, stopIds: StopId[]): LineId {
   const [id, next] = mint(state.nextIds, 'line');
   state.nextIds = next;
-  state.lines.push({ id, name: `Line ${id}`, colour: '#c0392b', stopIds, fareCents: 225, headways: { peak: TWENTY_MIN, offpeak: TWENTY_MIN, overnight: null }, boardedMilli: 1_234_567, buses: 2 });
+  state.lines.push({ id, name: `Line ${id}`, colour: '#c0392b', stopIds, fareCents: 225, headways: { peak: TWENTY_MIN, offpeak: TWENTY_MIN, overnight: null }, boardedMilli: 1_234_567, buses: 2, model: 'sparrow' });
   return id;
 }
 

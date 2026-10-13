@@ -15,7 +15,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 4;
+export const SAVE_FORMAT = 5;
 
 export interface BuildRef {
   readonly sha: string;
@@ -61,6 +61,7 @@ export function toSaveData(state: SimState): SaveData {
       headways: { peak: l.headways.peak, offpeak: l.headways.offpeak, overnight: l.headways.overnight },
       boardedMilli: l.boardedMilli,
       buses: l.buses,
+      model: l.model,
     })),
     ledger: state.ledger.rows.map((r) => ({ day: r.day, kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
   };
@@ -90,6 +91,7 @@ export function fromSaveData(data: SaveData): SimState {
       headways: { ...l.headways },
       boardedMilli: l.boardedMilli,
       buses: l.buses,
+      model: l.model,
     })),
     ledger: { rows, cashCents: rows.reduce((sum, r) => sum + r.amountCents, 0) },
   };
