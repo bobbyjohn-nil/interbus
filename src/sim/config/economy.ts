@@ -1,8 +1,8 @@
 // Money config rows, in whole cents. Prices stay V1's (PLAN §3; `Intralines@7af45b1:src/game/constants.ts`),
 // and demand scales to them through calib.tripScale instead.
 
-/** The first depot (V1 `DEPOT_COST`, constants.ts:31). */
-export const DEPOT_COST_CENTS = 15_000_000;
+/** The first depot (V1 `DEPOT_COST`, constants.ts:31; the ladder is in config/depots.ts). */
+export { DEPOT_FIRST_PRICE_CENTS as DEPOT_COST_CENTS } from './depots';
 /** A sign stop (V1 `STOP_COST`, constants.ts:49). */
 export const STOP_COST_CENTS = 400_000;
 /** The reference fare, $2.25 (V1 `FARE_REFERENCE`, constants.ts:418). */

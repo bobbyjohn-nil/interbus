@@ -1,6 +1,6 @@
 // The sim's whole state, owned by the worker (PLAN §6 "Boundaries"). Everything a save holds is
 // here; everything derived (demand, paths, positions) is rebuilt from it.
-import type { LineId, NextIds, StopId } from './core/ids';
+import type { DepotId, LineId, NextIds, StopId } from './core/ids';
 import { FIRST_IDS } from './core/ids';
 import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
@@ -15,6 +15,13 @@ export interface CityRef {
 
 export interface Stop {
   readonly id: StopId;
+  readonly lon: number;
+  readonly lat: number;
+}
+
+/** A depot, anchored by place; its street node is found again from the city on load. */
+export interface Depot {
+  readonly id: DepotId;
   readonly lon: number;
   readonly lat: number;
 }
@@ -37,6 +44,7 @@ export interface SimState {
   rng: Rng;
   company: { name: string; colour: string };
   nextIds: NextIds;
+  depots: Depot[];
   stops: Stop[];
   lines: Line[];
   ledger: Ledger;
@@ -50,6 +58,7 @@ export function newGame(city: CityRef, company: { name: string; colour: string }
     rng: createRng(seedFor(seed, 'game')),
     company: { ...company },
     nextIds: FIRST_IDS,
+    depots: [],
     stops: [],
     lines: [],
     ledger: foundLedger(),

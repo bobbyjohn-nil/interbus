@@ -7,7 +7,7 @@
 // - versioned by the schema hash (schema.lock.json), and an older format is set aside under a
 //   backup key with a fresh start, never migrated (D12);
 // - the envelope names the build (SHA and version) instead of a typed version string (PR-15).
-import { ID_KINDS, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
+import { ID_KINDS, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
 import { createRng } from '../core/rng';
 import type { LedgerRow } from '../economy/ledger';
 import { checkHeadways } from '../rules/periods';
@@ -15,7 +15,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 2;
+export const SAVE_FORMAT = 3;
 
 export interface BuildRef {
   readonly sha: string;
@@ -50,6 +50,7 @@ export function toSaveData(state: SimState): SaveData {
     rng: { state: state.rng.state },
     company: { name: state.company.name, colour: state.company.colour },
     nextIds: { stop: state.nextIds.stop, line: state.nextIds.line, bus: state.nextIds.bus, depot: state.nextIds.depot, contract: state.nextIds.contract },
+    depots: state.depots.map((d) => ({ id: d.id, lon: d.lon, lat: d.lat })),
     stops: state.stops.map((s) => ({ id: s.id, lon: s.lon, lat: s.lat })),
     lines: state.lines.map((l) => ({
       id: l.id,
@@ -77,6 +78,7 @@ export function fromSaveData(data: SaveData): SimState {
     rng: createRng(data.rng.state),
     company: { ...data.company },
     nextIds: { ...data.nextIds },
+    depots: data.depots.map((d) => ({ id: d.id as DepotId, lon: d.lon, lat: d.lat })),
     stops: data.stops.map((s) => ({ id: s.id as StopId, lon: s.lon, lat: s.lat })),
     lines: data.lines.map((l) => ({
       id: l.id as LineId,
@@ -99,7 +101,7 @@ export function encode(state: SimState, build: BuildRef): string {
 /** What only a whole file can show: references, duplicates, counters and the ledger's shape. */
 export function integrityProblem(data: SaveData): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
-  const live: Partial<Record<IdKind, number[]>> = { stop: data.stops.map((s) => s.id), line: data.lines.map((l) => l.id) };
+  const live: Partial<Record<IdKind, number[]>> = { stop: data.stops.map((s) => s.id), line: data.lines.map((l) => l.id), depot: data.depots.map((d) => d.id) };
   for (const kind of ID_KINDS) {
     const next: number = (data.nextIds as NextIds)[kind];
     if (next < 1) return `nextIds.${kind} below 1`;

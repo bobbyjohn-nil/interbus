@@ -23,6 +23,16 @@ export interface LineView {
   readonly ridersPerDay: number;
 }
 
+export interface DepotView {
+  readonly id: number;
+  readonly at: LngLatPair;
+}
+
+/** The depot rule's verdict for a spot, as the cursor card reads it (sim/rules/depot.ts). */
+export type DepotSiteView =
+  | { readonly ok: true; readonly streetM: number; readonly priceCents: number }
+  | { readonly ok: false; readonly reason: string; readonly limitM?: number; readonly nearestM?: number };
+
 export interface Snapshot {
   /** Whole game-seconds since founding (05:00 on day 1). */
   readonly elapsed: number;
@@ -35,6 +45,7 @@ export interface Snapshot {
   readonly lines: readonly LineView[];
   /** Changes whenever `lines` does, so the map redraws them only then (RN-04). */
   readonly linesVersion: number;
+  readonly depots: readonly DepotView[];
 }
 
 /** Where people live and work: each cell's sub-points, weighted. */
@@ -54,12 +65,21 @@ export type ToWorker =
   | { readonly type: 'init'; readonly simText: string; readonly city: CityRefData; readonly seed: number }
   | { readonly type: 'speed'; readonly speed: Speed }
   | { readonly type: 'add-debug-line' }
-  | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair };
+  | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair }
+  | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
+  | { readonly type: 'place-depot'; readonly at: LngLatPair };
 
 export type FromWorker =
-  | { readonly type: 'ready'; readonly dots: Dots; readonly snapshot: Snapshot }
+  | {
+      readonly type: 'ready';
+      readonly dots: Dots;
+      /** Where depots may stand, for the green tint: rings of [lon, lat]. */
+      readonly depotLand: readonly (readonly LngLatPair[])[];
+      readonly snapshot: Snapshot;
+    }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }
   | { readonly type: 'day-card'; readonly card: DayCard }
   | { readonly type: 'probe'; readonly id: number; readonly people: number }
-  | { readonly type: 'refused'; readonly command: string; readonly reason: string }
+  | { readonly type: 'depot-site'; readonly id: number; readonly site: DepotSiteView }
+  | { readonly type: 'refused'; readonly command: string; readonly reason: string; readonly shortCents?: number }
   | { readonly type: 'failed'; readonly problem: string };

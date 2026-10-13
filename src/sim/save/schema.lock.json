@@ -2,6 +2,7 @@
   "about": "The save schema's hash for each SAVE_FORMAT (save.test.ts). Change the schema, bump SAVE_FORMAT in save.ts, and add the new format's hash here; never edit an existing line.",
   "formats": {
     "1": "b4da67484cbe5719",
-    "2": "3e0fe285600b6886"
+    "2": "3e0fe285600b6886",
+    "3": "bf6a6698fe5d8b27"
   }
 }
