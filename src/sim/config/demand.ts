@@ -1,5 +1,6 @@
 // Demand config rows, V1's numbers (`Intralines@7af45b1:src/game/constants.ts`, R01) unless noted.
 // M1 uses V1's β; the r1 bake fits β to LODES in week 5 (PLAN §5).
+import { SPARROW } from './fleet';
 
 /** Gravity decay length (V1's worker default, demand.worker.ts:93; the spec's call). */
 export const GRAVITY_BETA_KM = 4;
@@ -10,8 +11,8 @@ export const WALK_MIN_PER_KM = 12;
 export const MAX_WALK_M = 650;
 /** A stop's dwell (constants.ts:115). */
 export const DWELL_SEC = 20;
-/** The Sparrow's speed: M1 rides at the bus model's pace, as V1 did (constants.ts:170). */
-export const BUS_KMH = 26;
+/** Riders ride at the bus model's pace, as V1 did (constants.ts:170); the Sparrow until week 5's models. */
+export const BUS_KMH = SPARROW.kmh;
 /** Driving: average speed, the detour and traffic factor, and the parking hunt (demand.worker.ts:93, 486; constants.ts:127). */
 export const CAR_KMH = 35;
 export const CAR_TIME_FACTOR = 1.3;

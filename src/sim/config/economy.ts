@@ -5,8 +5,6 @@
 export const DEPOT_COST_CENTS = 15_000_000;
 /** A sign stop (V1 `STOP_COST`, constants.ts:49). */
 export const STOP_COST_CENTS = 400_000;
-/** A Sparrow minibus (V1 `BUS_MODELS[0].price`, constants.ts:166). */
-export const SPARROW_PRICE_CENTS = 9_500_000;
 /** The reference fare, $2.25 (V1 `FARE_REFERENCE`, constants.ts:418). */
 export const REFERENCE_FARE_CENTS = 225;
 /** The city's subsidy per boarding, $1.60 (V1 `SUBSIDY_PER_RIDER`, constants.ts:78). */
@@ -14,8 +12,11 @@ export const SUBSIDY_PER_BOARDING_CENTS = 160;
 
 /**
  * Starting cash is k × a starter line's cost, written once at founding (D7). The starter is one
- * depot, four sign stops and the one Sparrow its daytime headways need: $261,000.
+ * depot, four sign stops and the Sparrows its founding headway needs, counted by the cycle function
+ * (economy/starter.ts) on a line like the debug line (3,535 m by street): 3.5 km, every 20 minutes.
  */
-export const STARTER_LINE_CENTS = DEPOT_COST_CENTS + 4 * STOP_COST_CENTS + SPARROW_PRICE_CENTS;
-/** k in thousandths, so founding capital is whole cents: 1.2 gives $313,200 (V1 had $310,000). Week 9 tunes it within 1.0–1.8. */
+export const STARTER_ROUTE_M = 3_500;
+export const STARTER_STOPS = 4;
+export const STARTER_HEADWAY_SECONDS = 1_200;
+/** k in thousandths, so founding capital is whole cents: 1.2 gives $427,200 (V1 had $310,000). Week 9 tunes it within 1.0–1.8. */
 export const STARTING_CASH_K_PERMILLE = 1_200;

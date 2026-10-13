@@ -190,6 +190,6 @@ describe('refusals (first failure wins; the live key is never overwritten by one
 it('a new game starts at founding with one row and fresh counters', () => {
   const data = toSaveData(newGame(CITY, { name: 'X', colour: '#000000' }, 1));
   expect(data.clock.elapsed).toBe(0);
-  expect(data.ledger).toEqual([{ day: 1, kind: 'founding', amountCents: 31_320_000, lineId: null }]);
+  expect(data.ledger).toEqual([{ day: 1, kind: 'founding', amountCents: 42_720_000, lineId: null }]);
   expect(data.nextIds).toEqual({ stop: 1, line: 1, bus: 1, depot: 1, contract: 1 });
 });

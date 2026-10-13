@@ -18,7 +18,7 @@ describe('the sim host', () => {
   it('starts paused at 05:00 on day 1 with the dots of every home and job', () => {
     const { last } = started();
     const ready = last('ready')!;
-    expect(ready.snapshot).toMatchObject({ elapsed: 0, day: 1, hour: 5, minute: 0, speed: 0, cashCents: 31_320_000, lines: [] });
+    expect(ready.snapshot).toMatchObject({ elapsed: 0, day: 1, hour: 5, minute: 0, speed: 0, cashCents: 42_720_000, lines: [] });
     expect(ready.dots.homes.reduce((s, d) => s + d[2], 0)).toBe(105_620);
     expect(ready.dots.jobs.reduce((s, d) => s + d[2], 0)).toBe(186_144);
   });
