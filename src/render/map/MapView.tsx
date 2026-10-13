@@ -30,6 +30,8 @@ export interface MapViewProps {
   readonly depots?: readonly DepotView[];
   /** The line being drawn, or null. */
   readonly draft?: LineDraftView | null;
+  /** The sim's clock at the last snapshot: seconds of the day, and game seconds per real second (0 paused). */
+  readonly clock?: { readonly second: number; readonly rate: number } | null;
 }
 
 /** Sets the dots and, drawn rather than merely sent (TS-07), counts what the next settled frame shows. */
@@ -40,14 +42,14 @@ function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void
   return () => void mounted.map.off('idle', onIdle);
 }
 
-export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null }: MapViewProps) {
+export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, clock = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
   const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
-  const latest = useRef({ dots, lines, onPointer, onClick, depotLand, tint, depots, draft });
+  const latest = useRef({ dots, lines, onPointer, onClick, depotLand, tint, depots, draft, clock });
   useEffect(() => {
-    latest.current = { dots, lines, onPointer, onClick, depotLand, tint, depots, draft };
+    latest.current = { dots, lines, onPointer, onClick, depotLand, tint, depots, draft, clock };
   });
   // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
   const depotsKey = depots.map((d) => d.id).join(',');
@@ -114,6 +116,7 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, 
         mounted.setDepots(now.depots);
         mounted.setTint(now.tint);
         mounted.setDraft(now.draft);
+        if (now.clock) mounted.setClock(now.clock.second, now.clock.rate);
         mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
         mounted.onClick((at) => latest.current.onClick?.(at));
         const rest = () => {
@@ -169,6 +172,13 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, 
   useEffect(() => {
     mountedRef.current?.setDraft(draft);
   }, [draft]);
+
+  // A snapshot about 10 times a second while time runs; the layer runs the clock on between them.
+  const clockSecond = clock?.second ?? null;
+  const clockRate = clock?.rate ?? 0;
+  useEffect(() => {
+    if (clockSecond !== null) mountedRef.current?.setClock(clockSecond, clockRate);
+  }, [clockSecond, clockRate]);
 
   return (
     <div

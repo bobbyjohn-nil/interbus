@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 629d8ff (the depot and line tools on screen), with the day plan in review.
+**Updated:** 2026-10-13, at `main` 6385253 (the day plan), with the vehicle layer in review.
 
 ## Live now
 
@@ -107,7 +107,12 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
 
      The costs bill the plan's movements hour by hour, and `busPositionsAt` (`src/sim/rules/position.ts`) places every bus from it, so a bus is billed for what it does (I6).
    - [x] **The debug line's whole day** under the plan: running $362.52 (57 departures out and back), wages $972.11, deadhead $15.00, upkeep $300, net +$1,411.12 (DECISIONS, Measured).
-   - [ ] **The vehicle layer:** the code-drawn glyph in one MapLibre custom layer, then I12.
+   - [x] **The vehicle layer** (2026-10-13, `src/render/map/vehicles.ts`, `fleet.ts`):
+     - one MapLibre custom layer draws every bus in one instanced call;
+     - the glyph is code-drawn: a rounded body in the line's colour with a white outline and a dark windscreen at the front, 20 × 9 px, laid out in screen pixels along its heading, so tilting never shrinks it;
+     - positions come from `busPositionsAt` on the plan the costs bill, with the clock run on between snapshots;
+     - the layer asks for frames only while time runs. `e2e/line.spec.ts` checks buses are drawn at 1× and that no frame is drawn in a paused second.
+   - [ ] **I12:** a harness with 50 buses at the three cameras, and its 4 px meta-test.
 7. [ ] **The calm shell** replacing the debug panel, and I13.
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
 

@@ -10,10 +10,12 @@ import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platfo
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
+import { Fleet } from './fleet';
 import { addOverlays, DOT_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
+import { createVehicleLayer } from './vehicles';
 
 let protocol: Protocol | null = null;
 
@@ -39,6 +41,8 @@ export interface MountedMap {
   /** Shows the depot-land tint while a depot is being placed. */
   setTint(visible: boolean): void;
   setDraft(draft: LineDraftView | null): void;
+  /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day and game seconds per real second. */
+  setClock(second: number, rate: number): void;
   /** How many dots the last settled frame drew. */
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), at most every 100 ms and always its last position. */
@@ -131,8 +135,11 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     tint?: boolean;
     draft?: LineDraftView | null;
   } = {};
+  // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
+  const fleet = new Fleet();
   map.once('load', () => {
     addOverlays(map, GAME_LIGHT);
+    map.addLayer(createVehicleLayer(fleet));
     loaded = true;
     if (pending.dots) setDots(map, pending.dots);
     if (pending.lines) setLines(map, pending.lines);
@@ -175,7 +182,16 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     tileReads: file.kind,
     setMode,
     setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
-    setLines: (lines) => (loaded ? setLines(map, lines) : void (pending.lines = lines)),
+    setLines: (lines) => {
+      fleet.setLines(lines);
+      map.triggerRepaint();
+      if (loaded) setLines(map, lines);
+      else pending.lines = lines;
+    },
+    setClock: (second, rate) => {
+      fleet.setClock(second, rate, performance.now());
+      map.triggerRepaint();
+    },
     setDepotLand: (rings) => (loaded ? setDepotLand(map, rings) : void (pending.depotLand = rings)),
     setDepots: (depots) => (loaded ? setDepots(map, depots) : void (pending.depots = depots)),
     setTint: (visible) => (loaded ? setTint(map, visible) : void (pending.tint = visible)),

@@ -32,8 +32,8 @@ function onDepotLand(): [number, number] {
   throw new Error('no point inside the parcel');
 }
 
-// The M2 spec's exit check, steps 2–5 as far as the line tool goes: a depot on the green tint, four
-// stops from Copley to Longwood, Create, and a day whose cost rows land on the card (I1).
+// The M2 spec's exit check, steps 2–5: a depot on the green tint, four stops from Copley to Longwood,
+// Create, its buses running, and a day whose cost rows land on the card (I1).
 test.describe('the line tool on the fixture', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
@@ -92,6 +92,15 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('line-card')).toBeVisible();
     await expect(panel).toHaveAttribute('data-cash', '7120000');
     const running = Number(await page.getByTestId('line-card').getAttribute('data-running'));
+
+    // Its buses: drawn while time runs, and not one frame drawn while paused (I14, TS-07).
+    await page.getByRole('button', { name: '1×' }).click();
+    await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 10_000 }).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await page.waitForTimeout(500);
+    const frames = await map.getAttribute('data-frames');
+    await page.waitForTimeout(1_000);
+    expect(await map.getAttribute('data-frames')).toBe(frames);
 
     // A day: every cost is a row, and the rows add up to the change in cash.
     await page.getByRole('button', { name: '3×' }).click();
