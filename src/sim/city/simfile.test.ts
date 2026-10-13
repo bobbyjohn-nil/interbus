@@ -108,6 +108,10 @@ describe('refusals (never repaired at load)', () => {
     expect(problem((d) => void ((d.edges as unknown[][])[0]![4] = 2))).toMatch(/oneway 2/);
     expect(problem((d) => void ((d.nodes as number[]).push(0, 0)))).toMatch(/more than one piece/);
     expect(problem((d) => void (((d.cells as { homes: number[] }[])[0]!.homes[2]! += 1)))).toMatch(/do not add up to its residents/);
+    // Demand keeps a cell's sub-points in an 8-bit mask, so a ninth is refused, not silently misread.
+    expect(problem((d) => void (d.cells as { homes: number[]; residents: number }[]).forEach((c) => {
+      while (c.homes.length < 27) c.homes.push(0, 0, 0);
+    }))).toMatch(/cells\[0\]\.homes: 9 points, more than 8/);
     expect(problem((d) => void ((d.calib as { tripScalePermille: number }).tripScalePermille = 0))).toMatch(/tripScalePermille/);
   });
 });

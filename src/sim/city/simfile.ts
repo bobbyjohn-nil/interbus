@@ -56,8 +56,12 @@ const isInt = (v: unknown): v is number => Number.isSafeInteger(v);
 const ints = (v: unknown, length?: number): v is number[] =>
   Array.isArray(v) && v.every(isInt) && (length === undefined || v.length === length);
 
+/** Sub-points per cell for homes and for jobs, at most (PLAN §5); demand keeps each side's sets in an 8-bit mask. */
+export const MAX_SUB_POINTS = 8;
+
 function points(flat: number[], what: string): SubPoint[] {
   if (flat.length % 3 !== 0) throw new Error(`${what}: not x, y, weight triples`);
+  if (flat.length / 3 > MAX_SUB_POINTS) throw new Error(`${what}: ${flat.length / 3} points, more than ${MAX_SUB_POINTS}`);
   const out: SubPoint[] = [];
   for (let k = 0; k < flat.length; k += 3) out.push({ x: flat[k]! / 10, y: flat[k + 1]! / 10, w: flat[k + 2]! });
   return out;

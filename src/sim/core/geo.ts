@@ -124,6 +124,22 @@ export class SpatialGrid<T> {
     return out.map(({ item, p: q, distM: d }) => ({ item, p: q, distM: d }));
   }
 
+  /** Calls `visit` for every item within `radiusM`, in no particular order, without allocating. */
+  forEachWithin(p: XY, radiusM: number, visit: (item: T, distM: number) => void): void {
+    const [x0, x1] = [Math.floor((p[0] - radiusM) / this.cellM), Math.floor((p[0] + radiusM) / this.cellM)];
+    const [y0, y1] = [Math.floor((p[1] - radiusM) / this.cellM), Math.floor((p[1] + radiusM) / this.cellM)];
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const bucket = this.cells.get(this.key(cx, cy));
+        if (!bucket) continue;
+        for (const e of bucket) {
+          const d = distXY(p, e.p);
+          if (d <= radiusM) visit(e.item, d);
+        }
+      }
+    }
+  }
+
   nearest(p: XY, maxM: number): { item: T; p: XY; distM: number } | null {
     return this.within(p, maxM)[0] ?? null;
   }

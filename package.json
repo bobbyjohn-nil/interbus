@@ -23,7 +23,8 @@
     "bake:sources": "node tools/bake/sources.mjs",
     "bake:fixture": "node tools/bake/fixture.mjs boston cut",
     "bake:sim": "node tools/bake/sim.mjs boston mini-boston --check",
-    "check": "npm run typecheck && npm run lint && npm test && npm run test:scripts && node scripts/changelog.mjs check"
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:scripts && node scripts/changelog.mjs check",
+    "bench": "node bench/run.mjs"
   },
   "dependencies": {
     "@protomaps/basemaps": "5.7.2",

@@ -94,10 +94,10 @@ A debug line from Back Bay to Longwood: riders board, money comes in, the day ca
 | Commuters with both ends in the box | 9,287 (Σ S000) | Fixture OD |
 | Residents within 650 m of the debug line's stops | about 50,000 | Straight-line estimate from block points |
 | Debug line length by street | 3–4 km (2.76 km straight) | Stop positions |
-| Boardings per day after `tripScale` | 600–1,000; **799.3 measured at 111‰** (7,200.7 at 1,000‰), 2026-10-13 | Calibration target above; PLAN §3 expects Inner Boston 7–10× Riverton |
-| Income per day | $2,300–$3,900 (boardings × $3.85); **$3,076.15 measured** | Fare plus subsidy |
-| Recompute, fixture, three periods | ≤20 ms; **37 ms measured** with one line, from 8 × 8 sub-point pairs per cell pair | About 70 cells |
-| Recompute, synthetic 800 cells, three periods | ≤150 ms p95 (I14); R2 needs ≤100 ms | PLAN §5: 50–130 ms for one period, interpolated |
+| Boardings per day after `tripScale` | 600–1,000; **795.3 measured at 111‰** after the recompute speed-up (799.3 before; 7,164.6 at 1,000‰), 2026-10-13 | Calibration target above; PLAN §3 expects Inner Boston 7–10× Riverton |
+| Income per day | $2,300–$3,900 (boardings × $3.85); **$3,060.75 measured** on a full day (`npm run bench day`) | Fare plus subsidy |
+| Recompute, fixture, three periods | ≤20 ms; **3.3 ms p50 measured** with three lines (`npm run bench`; 37 ms with one line before the speed-up) | About 70 cells |
+| Recompute, synthetic 800 cells, three periods | ≤150 ms p95 (I14); R2 needs ≤100 ms; **52 ms p50, 65–78 ms p95 measured** on 812 cells with T03 | PLAN §5: 50–130 ms for one period, interpolated |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
 

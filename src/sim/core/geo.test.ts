@@ -59,6 +59,9 @@ describe('spatial grid (V1, in metres)', () => {
         .sort((a, b) => a.d - b.d || a.i - b.i)
         .map((e) => e.i);
       expect(grid.within(at, radius).map((e) => e.item)).toEqual(brute);
+      const visited: number[] = [];
+      grid.forEachWithin(at, radius, (i) => visited.push(i));
+      expect(visited.sort((a, b) => a - b)).toEqual([...brute].sort((a, b) => a - b));
     }
     expect(grid.nearest([0, 0], 0.001)).toBeNull();
   });

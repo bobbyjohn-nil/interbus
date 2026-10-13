@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` c89f6cb, with axe-core in the smoke test in review.
+**Updated:** 2026-10-13, at `main` aea4ff0, with the recompute bench in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 605d370. Deploy preview run 38346915657's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` aea4ff0. Deploy preview run 38349009192's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -72,8 +72,8 @@ The spec is [`docs/specs/current.md`](specs/current.md). Much of its top half is
 What is left, in order:
 1. [x] **`tripScale`** is 111‰ (2026-10-13), in `city.json` calib. The debug line carries 799.3 boardings a day and `calibration.test.ts` holds the 600–1,000 band. The fixture's `sim.json` was rebaked, re-locked and republished.
 2. [x] **I2** and **I3 per period** (2026-10-13, `src/sim/demand/invariants.test.ts`). The bus clause of I2 waits for week 4's buses.
-3. [ ] **The recompute bench,** outside `src/sim`: the fixture plus a synthetic 800-cell grid, three periods, p95. It is 37 ms on the fixture today against a ≤20 ms guess, and the R2 decision (D11) on Nov 1 rests on it.
-4. **Below the cut line:** the Inner Boston bake job, then per-period crowding, then visitors.
+3. [x] **The recompute bench** (2026-10-13, `bench/`, `npm run bench`): 52 ms p50 and 65–78 ms p95 for three periods on a synthetic 812-cell grid with T03, under I14's 150 ms and R2's 100 ms. It was 13 s before trips were timed per group of sub-points reaching the same stops. `npm run bench compare` holds the result within 1.5% of the old loop per line and period, except where lines overlap (DECISIONS, Measured). Boston's own number comes from the Inner Boston bake, on Nov 1.
+4. **Next, below the cut line:** the Inner Boston bake job (it gives R2's Boston number), then per-period crowding, then visitors.
 
 Open from the research critique, for week 4:
 - **The starter recipe's bus count.** V1's cycle formula says a 3–4 km line every 20 min needs 2 Sparrows, not the 1 in D7's $261k starter. Make the recipe count its buses with the one cycle function (K07).
