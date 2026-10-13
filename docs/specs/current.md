@@ -39,7 +39,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 6. **Finance** (done 2026-10-13, with the rows that exist so far): the ledger's rows by kind, for today, yesterday and this quarter, actuals beside the forecast; contract, card, credit and capital rows included (V1 and V2 left fixed costs and capital out, so "profit" overstated).
 7. **Undo while paused (I9; UX-09, X-11; done 2026-10-13):** every command taken since the last unpause, newest first, each named ("Undo: Create Line 2"), restoring state and cash to the cent; refused with a reason once time has run. Never V2's undo, which rewound days of income (`…:Gaming/src/60-main.js:602-695`).
 8. **Saves for r1 (D12, WD-10):**
-   - stops anchored by place, so a save from r1 loads on r2 with its stops re-snapped by the stop rule, and a stop that no longer snaps is refused in words (the r1→r2 save test; M2 sets another revision's save aside, and this replaces it);
+   - (done 2026-10-13) stops anchored by place, so a save from r1 loads on r2 with its stops re-snapped by the stop rule, and a stop that no longer snaps is refused in words (the r1→r2 save test; M2 sets another revision's save aside, and this replaces it);
    - a missing city file is a readable refusal, never a substitute city;
    - three slots and the autosave, and export and import of a save file through `src/platform`; an import that does not decode is refused and the live save kept (V1 overwrote it, `Intralines@7af45b1:src/game/store.ts:1883-1901`).
 9. **The report card (EC-14, EC-07, K03)**, every quarter (10 days):

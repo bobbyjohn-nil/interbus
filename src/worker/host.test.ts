@@ -274,11 +274,11 @@ describe('saves through the page’s store (the M2 spec, item 9; the exit check�
     expect(after.last('snapshot')!.snapshot.elapsed).toBeGreaterThan(was.elapsed);
   });
 
-  it('sets aside a save from an older build or another bake of the city, starts fresh and says so (D12)', () => {
+  it('sets aside a save from an older build or another city, starts fresh and says so (D12)', () => {
     const text = played().saves().at(-1)!;
     const older = JSON.stringify({ ...JSON.parse(text), format: 3 });
-    const rebaked = text.replace(CITY.hash, 'f'.repeat(64));
-    for (const [save, outcome] of [[older, 'older'], [rebaked, 'other-city']] as const) {
+    const elsewhere = text.replace('"id":"boston"', '"id":"worcester"');
+    for (const [save, outcome] of [[older, 'older'], [elsewhere, 'other-city']] as const) {
       const game = started(save);
       const store = game.out.findIndex((m) => m.type === 'store');
       expect(game.out[store]).toEqual({
@@ -291,6 +291,36 @@ describe('saves through the page’s store (the M2 spec, item 9; the exit check�
       expect(store).toBeLessThan(game.out.findIndex((m) => m.type === 'ready')); // kept before anything replaces it
       expect(game.last('ready')).toMatchObject({ load: outcome, snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
     }
+  });
+
+  // The r1→r2 save test (the M3 spec, item 8), which replaces M2's setting another bake aside. Shown
+  // failing (TS-04) with another bake set aside again.
+  it('carries a save from another bake of the city onto this one, saved at once under this bake’s name', () => {
+    const before = played();
+    const text = before.saves().at(-1)!;
+    const kept = before.last('snapshot')!.snapshot;
+    const game = started(text.replace(CITY.hash, 'f'.repeat(64)));
+    expect(game.last('ready')).toMatchObject({ load: 'rebaked', snapshot: { elapsed: kept.elapsed, cashCents: kept.cashCents, company: kept.company } });
+    expect(game.last('ready')!.snapshot.stops.map((s) => s.at)).toEqual(kept.stops.map((s) => s.at)); // the same streets, so no stop moved
+    expect(game.last('ready')!.snapshot.lines.map((l) => l.ridersPerDay)).toEqual(kept.lines.map((l) => l.ridersPerDay));
+    const resaved = JSON.parse(game.saves().at(-1)!) as { data: { city: { hash: string } } };
+    expect(resaved.data.city.hash).toBe(CITY.hash);
+  });
+
+  it('sets aside a save from another bake whose stops find no street on this one, and says so', () => {
+    const text = played().saves().at(-1)!;
+    const save = JSON.parse(text.replace(CITY.hash, 'f'.repeat(64))) as { data: { stops: { lon: number; lat: number }[] } };
+    Object.assign(save.data.stops[0]!, { lon: -71.0, lat: 42.0 }); // far beyond the map's streets
+    const raw = JSON.stringify(save);
+    const game = started(raw);
+    expect(game.out.find((m) => m.type === 'store')).toEqual({
+      type: 'store',
+      effects: [
+        { op: 'write', key: 'interbus.backup.boston.other-city', value: raw },
+        { op: 'remove', key: KEY },
+      ],
+    });
+    expect(game.last('ready')).toMatchObject({ load: 'off-street', snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
   });
 });
 

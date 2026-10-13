@@ -42,7 +42,9 @@ export type LoadOutcome =
   | { readonly outcome: 'newer'; readonly format: number }
   | { readonly outcome: 'older'; readonly format: number }
   | { readonly outcome: 'unreadable'; readonly problem: string }
-  | { readonly outcome: 'other-city'; readonly city: CityRef };
+  | { readonly outcome: 'other-city'; readonly city: CityRef }
+  /** This city from another bake: the save is read, and its stops go onto this bake's streets (save/rebase.ts). */
+  | { readonly outcome: 'rebaked'; readonly envelope: SaveEnvelope; readonly from: CityRef };
 
 export function toSaveData(state: SimState): SaveData {
   return {
@@ -134,8 +136,9 @@ export function integrityProblem(data: SaveData): string | null {
 /**
  * Reads a raw save for `city`, first failure wins (V3's order): nothing → none; not JSON or the
  * wrong shape → unreadable; a newer format → refused, the live key untouched; an older one → set
- * aside (D12); another city or revision → set aside too, never read into this one; then field and
- * integrity checks. The game saves under the live key as it plays, so anything it refuses is kept
+ * aside (D12); another city → set aside too, never read into this one; then field and integrity
+ * checks; another bake of this city → read, for its stops to be put on this bake's streets (the M3
+ * spec, item 8, which replaces M2's setting it aside). The game saves under the live key as it plays, so anything it refuses is kept
  * under a backup key first, never overwritten (D12).
  */
 export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT): { result: LoadOutcome; effects: StoreEffect[] } {
@@ -167,10 +170,10 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   const problem = check(SAVE_SCHEMA, data);
   if (problem) return unreadable(problem);
   const typed = data as SaveData;
-  if (typed.city.id !== city.id || typed.city.revision !== city.revision || typed.city.hash !== city.hash) {
-    return { result: { outcome: 'other-city', city: typed.city }, effects: setAside('other-city') };
-  }
+  if (typed.city.id !== city.id) return { result: { outcome: 'other-city', city: typed.city }, effects: setAside('other-city') };
   const broken = integrityProblem(typed);
   if (broken) return unreadable(broken);
-  return { result: { outcome: 'ok', envelope: { format: SAVE_FORMAT, build: build as BuildRef, data: typed } }, effects: [] };
+  const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: build as BuildRef, data: typed };
+  if (typed.city.revision !== city.revision || typed.city.hash !== city.hash) return { result: { outcome: 'rebaked', envelope, from: typed.city }, effects: [] };
+  return { result: { outcome: 'ok', envelope }, effects: [] };
 }

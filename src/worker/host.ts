@@ -31,11 +31,12 @@ import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft } from '../sim/rules/line';
-import { decode, encode, fromSaveData, saveKey } from '../sim/save/save';
+import { rebase } from '../sim/save/rebase';
+import { backupKey, decode, encode, fromSaveData, saveKey } from '../sim/save/save';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -267,16 +268,29 @@ export function createHost(post: (message: FromWorker) => void): Host {
         if (!pending) return;
         const { city, ref, seed } = pending;
         pending = null;
-        // A readable save carries on; anything else is set aside first and a new game starts, unnamed
-        // until the founding card names it (D12).
+        // A readable save carries on; one from another bake of this city carries on with its stops on
+        // this bake's streets; anything else is set aside first and a new game starts, unnamed until
+        // the founding card names it (D12).
         const { result, effects } = decode(message.text, ref);
-        world = createWorld(city, result.outcome === 'ok' ? fromSaveData(result.envelope.data) : newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed));
+        const fresh = () => createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed));
+        let load: LoadView = result.outcome;
+        if (result.outcome === 'ok') world = createWorld(city, fromSaveData(result.envelope.data));
+        else if (result.outcome === 'rebaked') {
+          world = createWorld(city, fromSaveData(result.envelope.data));
+          if (!rebase(world, ref).ok) {
+            effects.push({ op: 'write', key: backupKey(ref.id, 'other-city'), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
+            world = fresh();
+            load = 'off-street';
+          }
+        } else world = fresh();
         speed = 0;
         undoStack = newUndo();
         savedHour = Math.floor(world.state.elapsed / 3_600);
         refreshLines();
         if (effects.length) post({ type: 'store', effects });
-        post({ type: 'ready', dots: dotsOf(city), depotLand: depotLandOf(city), snapshot: snapshot(), load: result.outcome });
+        // The rebased game is saved at once, under this bake's name.
+        if (load === 'rebaked') save();
+        post({ type: 'ready', dots: dotsOf(city), depotLand: depotLandOf(city), snapshot: snapshot(), load });
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });

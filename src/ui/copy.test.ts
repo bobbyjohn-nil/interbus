@@ -35,7 +35,8 @@ describe('refusal copy (UX-03)', () => {
   it('says in one line of 8 words or fewer when a save was set aside, and nothing when it loaded (D12)', () => {
     expect(LOAD_COPY.none).toBeNull();
     expect(LOAD_COPY.ok).toBeNull();
-    for (const outcome of ['older', 'newer', 'unreadable', 'other-city'] as const) {
+    expect(LOAD_COPY.rebaked).toBe('Save carried onto the new map');
+    for (const outcome of ['older', 'newer', 'unreadable', 'other-city', 'off-street'] as const) {
       const text = LOAD_COPY[outcome]!;
       expect(text.split(/\s+/).length, `${outcome}: "${text}"`).toBeLessThanOrEqual(8);
       expect(text).toContain('set aside');
