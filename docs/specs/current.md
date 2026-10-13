@@ -84,7 +84,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 7. **P2's fixes** (Dec 12–13). The notes go in `docs/playtests/`, and their fixes come first in week 10.
 8. **The light style pass** (D8; PLAN §8 rules 1–5). It applies the owner's Nov 8 token pick, keeps the palette and contrast tests green, and puts a side-by-side with V1 in the milestone's notes.
 9. **The slow-laptop run** (PLAN §6 budgets): 2D must hold ≥30 fps on the slowest machine with 200 buses, and 3D at zoom 17, pitch 60 must hold ≥30. Under that, PLAN §10's trigger applies in this order: a 3D zoom floor of 14.5, no extrusion gradient, pitch capped at 50°.
-   - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7).
+   - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7). Its heaps grow 1.0% over 30 minutes at 2× (≤10%), checked nightly.
 
 ## Below the cut line (cut in this order if Dec 20 is at risk)
 

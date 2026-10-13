@@ -3,8 +3,9 @@
 # every fare, every bus model and every tier a lone line's stops may take, with and without roadworks,
 # on the fixture's debug line and two Inner Boston corridors. Beside it, on GitHub's runner, I14's
 # recompute on Inner Boston, a festival's first day included (bench/recompute.ts), and the scripted
-# pacing run (the M5 spec, item 1; bench/pacing.ts), which reports and never fails. A failing verdict
-# fails the run; it blocks no merge, and the next session reads it from the run's log.
+# pacing run (the M5 spec, item 1; bench/pacing.ts), which reports and never fails. And PLAN §6's heap
+# budget: 30 minutes of the slow-laptop run's busy scene at 2× on the shipped build (e2e/heap.spec.ts).
+# A failing verdict fails the run; it blocks no merge, and the next session reads it from the run's log.
 name: Nightly
 
 on:
@@ -71,3 +72,46 @@ jobs:
 
       - run: npm run bench pacing
         if: ${{ !cancelled() }}
+
+  heap:
+    name: PLAN §6's heap budget, 30 minutes of the busy scene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore fonts
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/fonts
+            .cache/fonts
+          # fontnik draws the glyph ranges, so its installed version is part of the key.
+          key: fonts-${{ hashFiles('scripts/fonts/**', 'node_modules/fontnik/package.json') }}
+
+      - run: npm run fonts
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
+
+      - run: npm run build
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 30 minutes of the busy scene at 2×, its heaps within 10%
+        run: npx playwright test e2e/heap.spec.ts
+        env:
+          HEAP_MINUTES: 30
