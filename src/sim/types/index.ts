@@ -39,6 +39,8 @@ export interface LineDraftView {
   readonly route: readonly LngLatPair[];
   readonly routeM: number;
   readonly people: number;
+  /** The walk the people count reads, in metres, for each stop's ring. */
+  readonly walkM: number;
   readonly buses: number;
   readonly newStops: number;
   readonly stopsCents: number;
@@ -106,7 +108,6 @@ export interface DayCard {
 export type ToWorker =
   | { readonly type: 'init'; readonly simText: string; readonly city: CityRefData; readonly seed: number }
   | { readonly type: 'speed'; readonly speed: Speed }
-  | { readonly type: 'add-debug-line' }
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'place-depot'; readonly at: LngLatPair }

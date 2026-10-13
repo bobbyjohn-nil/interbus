@@ -1,0 +1,85 @@
+import { useState } from 'react';
+import { checkHeadwayChange } from '../../sim/rules/line';
+import type { HeadwaysData, LineView } from '../../sim/types';
+import { refusalText } from '../copy';
+import { about, usdK } from '../format';
+import type { Sim } from './useSim';
+
+/** Headways a player picks from, in minutes; overnight adds "off". */
+const MINUTES = [5, 6, 8, 10, 12, 15, 20, 30, 45, 60];
+const PERIODS = [
+  ['peak', 'Peak'],
+  ['offpeak', 'Off-peak'],
+  ['overnight', 'Overnight'],
+] as const;
+
+/**
+ * A line's card: its riders, buses and three headways (D7). A headway that needs more buses reads
+ * "needs 3 buses, you have 2 · $95k" and confirming buys them (GD-09): the same rule the command
+ * checks (sim/rules/line.ts, GD-05).
+ */
+export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
+  const [wanted, setWanted] = useState<HeadwaysData | null>(null);
+  const s = sim.snapshot;
+  if (!s) return null;
+  const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents };
+  const next = wanted ?? line.headways;
+  const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, buses: line.buses }, wanted) : null;
+  const pick = (period: (typeof PERIODS)[number][0], value: string) => setWanted({ ...next, [period]: value === 'off' ? null : Number(value) * 60 });
+  return (
+    <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id}>
+      <h2>
+        <span className="swatch" style={{ background: line.colour }} /> {line.name}
+      </h2>
+      <p>
+        {about(line.ridersPerDay)} riders a day · {line.buses} {line.buses === 1 ? 'Sparrow' : 'Sparrows'}
+      </p>
+      <div className="headways">
+        {PERIODS.map(([period, label]) => (
+          <label key={period}>
+            {label}
+            <select value={next[period] === null ? 'off' : String((next[period] ?? 0) / 60)} onChange={(e) => pick(period, e.target.value)}>
+              {period === 'overnight' ? <option value="off">off</option> : null}
+              {MINUTES.map((m) => (
+                <option key={m} value={String(m)}>
+                  every {m} min
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+      {change ? (
+        <div className="change" data-testid="headway-change" data-ok={change.ok ? 'yes' : 'no'}>
+          {change.ok ? (
+            <p>{change.extra > 0 ? `needs ${change.needed} buses, you have ${line.buses} · ${usdK(change.priceCents)}` : `runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}</p>
+          ) : (
+            <p className="refusal" role="status">
+              {refusalText(change)}
+            </p>
+          )}
+          <div className="controls">
+            <button
+              type="button"
+              disabled={!change.ok}
+              onClick={() => {
+                sim.send({ type: 'set-headways', lineId: line.id, headways: next });
+                setWanted(null);
+              }}
+            >
+              {change.ok && change.extra > 0 ? 'Buy and run' : 'Run it'}
+            </button>
+            <button type="button" onClick={() => setWanted(null)}>
+              Keep as is
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {sim.refusal?.command === 'set-headways' ? (
+        <p className="refusal" role="status">
+          {refusalText(sim.refusal)}
+        </p>
+      ) : null}
+    </section>
+  );
+}

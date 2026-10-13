@@ -9,6 +9,25 @@ export function usd(amountCents: number, options: { cents?: boolean } = {}): str
   return options.cents ? `${sign}$${dollars}.${String(abs % 100).padStart(2, '0')}` : `${sign}$${dollars}`;
 }
 
+/** "$190k" for a card's prices: whole thousands, or one decimal ("$23.8k") when that is exact; below $1,000, whole dollars. */
+export function usdK(amountCents: number): string {
+  const dollars = Math.trunc(amountCents / 100);
+  if (Math.abs(dollars) < 1_000 || amountCents % 100 !== 0) return usd(amountCents);
+  const tenths = dollars / 100;
+  if (Number.isInteger(tenths / 10)) return `${dollars < 0 ? '-' : ''}$${Math.abs(dollars / 1_000).toLocaleString('en-US')}k`;
+  return Number.isInteger(tenths) ? `${dollars < 0 ? '-' : ''}$${Math.abs(tenths / 10).toFixed(1)}k` : usd(amountCents);
+}
+
+/** "3.5 km" from metres, one decimal. */
+export function km(metres: number): string {
+  return `${(metres / 1_000).toFixed(1)} km`;
+}
+
+/** "every 20 min" from a headway in seconds. */
+export function every(seconds: number): string {
+  return `every ${Number.isInteger(seconds / 60) ? seconds / 60 : (seconds / 60).toFixed(1)} min`;
+}
+
 /** "≈9,000": two significant figures, for counts the sim models rather than knows. */
 export function about(n: number): string {
   if (n <= 0) return '0';

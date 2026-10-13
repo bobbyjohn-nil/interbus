@@ -9,8 +9,8 @@ import { FileSource, PMTiles, Protocol } from 'pmtiles';
 import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platform';
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
-import type { Dots, LineView, LngLatPair } from '../../sim/types';
-import { addOverlays, DOT_LAYERS, setDots, setLines } from './overlays';
+import type { DepotView, Dots, LineDraftView, LineView, LngLatPair } from '../../sim/types';
+import { addOverlays, DOT_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
@@ -34,12 +34,22 @@ export interface MountedMap {
   /** The game's layers (overlays.ts); safe to call before the style loads. */
   setDots(dots: Dots): void;
   setLines(lines: readonly LineView[]): void;
+  setDepotLand(rings: readonly (readonly LngLatPair[])[]): void;
+  setDepots(depots: readonly DepotView[]): void;
+  /** Shows the depot-land tint while a depot is being placed. */
+  setTint(visible: boolean): void;
+  setDraft(draft: LineDraftView | null): void;
   /** How many dots the last settled frame drew. */
   dotsDrawn(): number;
-  /** Where the pointer is over the map (null when it leaves), at most every 100 ms. */
+  /** Where the pointer is over the map (null when it leaves), at most every 100 ms and always its last position. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null) => void): void;
+  /** Where a click lands on the map (not a drag). */
+  onClick(listener: (at: LngLatPair) => void): void;
   dispose(): void;
 }
+
+/** The pointer is reported at most this often. */
+const POINTER_EVERY_MS = 100;
 
 /** Marks the tilt's own camera moves, so their end can be told from a drag's. */
 const TILT_MOVE = 'interbusTilt';
@@ -113,23 +123,52 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
 
   // The game's layers go on once the style has loaded; data set before then waits.
   let loaded = false;
-  const pending: { dots?: Dots; lines?: readonly LineView[] } = {};
+  const pending: {
+    dots?: Dots;
+    lines?: readonly LineView[];
+    depotLand?: readonly (readonly LngLatPair[])[];
+    depots?: readonly DepotView[];
+    tint?: boolean;
+    draft?: LineDraftView | null;
+  } = {};
   map.once('load', () => {
     addOverlays(map, GAME_LIGHT);
     loaded = true;
     if (pending.dots) setDots(map, pending.dots);
     if (pending.lines) setLines(map, pending.lines);
+    if (pending.depotLand) setDepotLand(map, pending.depotLand);
+    if (pending.depots) setDepots(map, pending.depots);
+    if (pending.tint !== undefined) setTint(map, pending.tint);
+    if (pending.draft !== undefined) setDraft(map, pending.draft);
   });
 
+  // At most one pointer report every 100 ms, and always the last one: a move inside the interval is
+  // sent when it ends, so a card beside a resting pointer describes where it rests.
   let pointer: ((at: LngLatPair | null, screen: [number, number] | null) => void) | null = null;
-  let lastPointerMs = 0;
+  let lastPointerMs = -Infinity;
+  let trailing: number | undefined;
+  let latestMove: { at: LngLatPair; screen: [number, number] } | null = null;
+  const report = () => {
+    trailing = undefined;
+    lastPointerMs = performance.now();
+    if (latestMove) pointer?.(latestMove.at, latestMove.screen);
+  };
   map.on('mousemove', (e) => {
-    const now = e.originalEvent.timeStamp;
-    if (!pointer || now - lastPointerMs < 100) return;
-    lastPointerMs = now;
-    pointer([e.lngLat.lng, e.lngLat.lat], [e.point.x, e.point.y]);
+    if (!pointer) return;
+    latestMove = { at: [e.lngLat.lng, e.lngLat.lat], screen: [e.point.x, e.point.y] };
+    const wait = POINTER_EVERY_MS - (performance.now() - lastPointerMs);
+    if (wait <= 0) report();
+    else trailing ??= window.setTimeout(report, wait);
   });
-  map.getCanvas().addEventListener('mouseleave', () => pointer?.(null, null));
+  map.getCanvas().addEventListener('mouseleave', () => {
+    window.clearTimeout(trailing);
+    trailing = undefined;
+    latestMove = null;
+    pointer?.(null, null);
+  });
+  let click: ((at: LngLatPair) => void) | null = null;
+  // MapLibre fires 'click' only when the pointer did not drag between press and release.
+  map.on('click', (e) => click?.([e.lngLat.lng, e.lngLat.lat]));
 
   return {
     map,
@@ -137,8 +176,16 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     setMode,
     setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
     setLines: (lines) => (loaded ? setLines(map, lines) : void (pending.lines = lines)),
+    setDepotLand: (rings) => (loaded ? setDepotLand(map, rings) : void (pending.depotLand = rings)),
+    setDepots: (depots) => (loaded ? setDepots(map, depots) : void (pending.depots = depots)),
+    setTint: (visible) => (loaded ? setTint(map, visible) : void (pending.tint = visible)),
+    setDraft: (draft) => (loaded ? setDraft(map, draft) : void (pending.draft = draft)),
     dotsDrawn: () => (loaded ? map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).length : 0),
     onPointer: (listener) => void (pointer = listener),
-    dispose: () => map.remove(),
+    onClick: (listener) => void (click = listener),
+    dispose: () => {
+      window.clearTimeout(trailing);
+      map.remove();
+    },
   };
 }

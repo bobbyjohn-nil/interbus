@@ -28,8 +28,6 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   no_such_line: () => 'That line is gone',
   // The worker
   not_started: () => 'The city is still loading',
-  already_running: () => 'The test line is already running',
-  off_the_map: () => 'Those stops are off this map',
 };
 
 /** A refusal as words; an unknown code still reads as a sentence, never as itself. */

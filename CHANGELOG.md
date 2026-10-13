@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dots show where people live (purple) and where they work (blue) from Back Bay to Longwood, sized by how many.
 - Point anywhere on the map to see how many people live within a walk of that spot.
 - A new company starts with $427,200: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
-- A test bus line from Copley to Longwood: press Run the debug line, then play. Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.
+- Place a depot: the industrial land where one may stand turns green, and a card beside the pointer says whether this spot works and what it costs ($150,000 for the first).
+- Draw a line: click the map to place stops (a click near a stop you already have joins it). A card shows the stops, the distance, how many people live within a walk, the buses running every 20 minutes needs and the price; Create buys it all, once you have a depot.
+- Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.
+- Each line has a card with its riders, its buses and its peak, off-peak and overnight headways. A headway that needs more buses says how many and what they cost before you buy them.
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
-- Running a line now costs money: $0.90 for each kilometre a bus drives and $26 an hour for each driver on the road. The midnight card lists both, and a Costs/day chip shows what a whole day will cost.
+- Running a line costs money: $0.90 for each kilometre a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what a whole day will cost.

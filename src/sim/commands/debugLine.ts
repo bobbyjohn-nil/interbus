@@ -1,6 +1,6 @@
 // M1's debug line (docs/specs/m1-first-dollar.md): four stops from Back Bay to Longwood, every 20 minutes by
-// day, overnight off, $2.25. The seed of M2's line tool, cut when the tool lands. It is given the
-// buses its headways need, free, and from M2 runs them at their costs (K42).
+// day, overnight off, $2.25. Players draw lines with M2's line tool now; this stays as the tests'
+// and benches' fixture line, given the buses its headways need, free, and run at their costs (K42).
 import { toXY, type LngLat } from '../core/geo';
 import { mint, type LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';

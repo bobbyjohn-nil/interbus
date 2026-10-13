@@ -150,8 +150,9 @@ describe('light tokens (PLAN §8 palette rules)', () => {
 });
 
 describe('game tokens (PLAN §8 rule 1)', () => {
-  it('keeps the data loud: chroma ≥0.12 for every dot colour', () => {
-    for (const [name, hex] of Object.entries({ homeDot: GAME_LIGHT.homeDot, jobDot: GAME_LIGHT.jobDot })) {
+  it('keeps the data loud: chroma ≥0.12 for every dot and depot colour', () => {
+    const { homeDot, jobDot, depotLand, depotMark } = GAME_LIGHT;
+    for (const [name, hex] of Object.entries({ homeDot, jobDot, depotLand, depotMark })) {
       expect(hexToOklch(hex).c, `${name} ${hex}`).toBeGreaterThanOrEqual(0.12);
     }
   });
