@@ -30,7 +30,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 2. **Three bus models** (V1's rows, the same in V1, V2 and V3: `Intralines@7af45b1:src/game/constants.ts:161-233`):
    - Sparrow 28 seats, $95k, $0.90/km, 26 km/h; Metro 40: 70 seats, $260k, $1.50/km, 25 km/h; Goliath: 115 seats, $440k, $2.20/km, 23 km/h (unlocked by silver in M4; a config flag until then);
    - **one model per line**, so its cycle, speed and cost are one row's, never V1's averaged mixed fleet (`Intralines@7af45b1:src/game/store.ts:603-636`). Changing model swaps the buses at half their price back (V1's resale without wear: wear is out, PLAN §3).
-3. **Crowding per period (K27)**: each period, a line offers seats per hour each way (departures per hour × seats); riders beyond the busiest leg's seats in that period's busiest hour are shed in that period only, never the whole day (V1 shed the day from its peak hour, `Intralines@7af45b1:src/game/sim/demand.worker.ts:575-590`). The line inspector shows "full at 08:00" when it sheds.
+3. **V2's waits (EC-08, done 2026-10-13) and crowding per period (K27)**: riders time the stop only at a headway they can plan around, and a long wait counts convexly, so a starved line no longer pays (DECISIONS, Measured). Then crowding: each period, a line offers seats per hour each way (departures per hour × seats); riders beyond the busiest leg's seats in that period's busiest hour are shed in that period only, never the whole day (V1 shed the day from its peak hour, `Intralines@7af45b1:src/game/sim/demand.worker.ts:575-590`). The line inspector shows "full at 08:00" when it sheds.
 4. **The fare band** (EC-09, X-12): a per-line fare from $1.00 to $5.00 in $0.25 steps.
    - The perceived cost is V2's: (fare − $2.25) ÷ $0.18 a minute × (3 km ÷ ride)^1.5, clamped to [0.15, 1.6] (`Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:88-104`), charged once per trip, not per boarding (EC-04, K05).
    - The subsidy tapers to $0 at $5 (V2's fix for "drag to $5", `…:Gaming/src/30-sim.js:3687-3700`).
@@ -62,7 +62,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 
 | Quantity | Expected | Source |
 |---|---|---|
-| Starved line (hourly, 1 bus) against the best | ≤60% once crowding sheds (98.5% measured without it, 2026-10-13) | I3, K28 |
+| Starved line (hourly, 1 bus) against the best | ≤60%: **−$72.10 against $1,905.82 measured** with V2's waits (EC-08), 98.5% with V1's | I3, K28 |
 | Fare optimum on the debug line | $1.75–$3.25, not $5 | EC-09, V2's six optima |
 | Metro 40 every 10 min on a 3.5 km line | 3 buses, $780k: beyond the starting cash | Item 2 |
 | Opening company's first card | 45–65, median about 56 | V2's measured spread |

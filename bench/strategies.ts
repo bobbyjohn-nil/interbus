@@ -37,6 +37,7 @@ const show = (label: string, r: (typeof rows)[number]) =>
 console.log(`${settings.length} settings the rules allow. Headways in minutes (peak, off-peak, overnight), buses, riders a day, net a day:`);
 best.slice(0, 3).forEach((r, k) => show(`best ${k + 1}`, r));
 show('daytime longest, overnight shortest', at(3_600, 3_600, 3_600));
+show('starved: hourly all day, one bus', at(3_600, 3_600, null));
 show('the starter (every 20 min by day)', at(1_200, 1_200, null));
 show('every 5 min by day', at(300, 300, null));
 const bestOvernight = best.find((r) => r.h.overnight !== null)!;
