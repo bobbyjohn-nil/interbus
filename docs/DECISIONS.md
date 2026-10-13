@@ -251,6 +251,17 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`e2e/i12.spec.ts`): **I12 passes for the Sparrow.** Fifty buses heading away from the camera at 1366×768 were measured from the pixels drawn, along each bus's own long axis:
+
+  | Camera | Shortest bus (needs 20 px) |
+  |---|---|
+  | 2D zoom 14 | 21 px |
+  | The `T` default (zoom 14, pitch 50°) | 21.5 px |
+  | The mesh switch (zoom 17, pitch 60°) | 21.6 px |
+
+  The same check fails a 4 px glyph.
+  - **The first glyph measured 18 px.** Its white outline differed from the light land (#ebe7df) by at most 32 of 255, so only its body read on screen. The outline is now dark, which also separates a bus from the line it runs on, and the antialiased edge is centred half a pixel outside the 20 px.
+  - **Why along the long axis.** Under pitch, perspective tilts buses away from the screen's centre by up to 45°, and a box's height would have understated them, measuring 19 px for a 21 px glyph.
 - **2026-10-13** (`npm run bench day`; `src/sim/rules/schedule.test.ts`, `position.test.ts`): **one day plan per line now drives both the costs and the buses' positions.** The plan holds every departure, each departure's round trip and each bus's stint (`src/sim/rules/schedule.ts`).
   - **Why.** The first cost model counted departures from each end of a line on separate clocks, each period window starting its own. Drawn as buses, a departure from the far end need not find a bus there, so the clocks could need more buses than the cycle function counts, and nothing tied the drawing to the bill.
   - **How the plan runs:**

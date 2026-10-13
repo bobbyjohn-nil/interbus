@@ -99,6 +99,9 @@ export interface Snapshot {
   readonly hour: number;
   readonly minute: number;
   readonly speed: Speed;
+  /** Seconds since midnight of the game day, and game seconds per real second (0 paused): the vehicle layer runs the clock on between snapshots. */
+  readonly secondOfDay: number;
+  readonly rate: number;
   readonly cashCents: number;
   readonly ridersPerDay: number;
   /** Every line's forecast and every depot's upkeep for a whole day, in cents. */

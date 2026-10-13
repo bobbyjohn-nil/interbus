@@ -85,6 +85,7 @@ export function App() {
         tint={tool === 'depot'}
         depots={sim.snapshot?.depots ?? []}
         draft={tool === 'line' && clicks.length ? sim.draft : null}
+        clock={sim.snapshot ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate } : null}
         {...(ready ? { onPointer, onClick } : {})}
       />
       <SimPanel sim={sim} tool={tool} onTool={choose} />

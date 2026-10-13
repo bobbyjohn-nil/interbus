@@ -9,7 +9,7 @@ import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
 import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
 import { FOUNDING_HEADWAYS } from '../sim/config/lines';
-import { STEP_SECONDS } from '../sim/config/time';
+import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { forecastDay } from '../sim/economy/costs';
@@ -159,6 +159,8 @@ export function createHost(post: (message: FromWorker) => void): Host {
       hour: t.hour,
       minute: t.minute,
       speed,
+      secondOfDay: (START_SECOND_OF_DAY + w.state.elapsed) % SECONDS_PER_DAY,
+      rate: SPEEDS[speed],
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
       costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS,
