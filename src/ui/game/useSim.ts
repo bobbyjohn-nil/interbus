@@ -1,10 +1,12 @@
 // The page's side of the sim worker: starts it on the city's sim file, keeps the latest snapshot,
 // the dots and the last day card, and sends commands. Snapshots arrive about 10 times a second
-// while time runs, so React re-renders at most that often, never per frame (AR-08).
+// while time runs, so React re-renders at most that often, never per frame (AR-08). It also carries
+// out the sim's saves in src/platform's store, one at a time in the order sent, since a worker has
+// no localStorage; the sim names every key and decides what is set aside.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { readSimFile, startSimWorker } from '../../platform';
+import { applyEffects, build, createWebSaveStore, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import type { City } from '../../cities';
-import type { DayCard, DepotSiteView, Dots, FromWorker, LineDraftView, LngLatPair, RefusalView, Snapshot, ToWorker } from '../../sim/types';
+import type { DayCard, DepotSiteView, Dots, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 
 export type SimStatus = 'none' | 'loading' | 'ready' | 'failed';
@@ -24,6 +26,8 @@ export interface Sim {
   readonly draft: LineDraftView | null;
   /** The last command the sim refused, until the next command. */
   readonly refusal: ({ readonly command: string } & RefusalView) | null;
+  /** What became of the save this game started from. */
+  readonly load: LoadView | null;
   send(message: ToWorker): void;
   probeAt(at: LngLatPair | null): void;
   depotSiteAt(at: LngLatPair | null): void;
@@ -43,6 +47,7 @@ export function useSim(city: City | undefined): Sim {
   const [depotSite, setDepotSite] = useState<Sim['depotSite']>(null);
   const [draft, setDraft] = useState<LineDraftView | null>(null);
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
+  const [load, setLoad] = useState<LoadView | null>(null);
   const probes = useRef(new Map<number, LngLatPair>());
   const nextProbe = useRef(1);
   // Only the newest answer counts: an older one arriving late is dropped.
@@ -53,6 +58,14 @@ export function useSim(city: City | undefined): Sim {
     const sim = city?.sim;
     if (!city || !sim) return;
     let stopped = false;
+    // Saves run one after another: a set-aside's backup is written before anything replaces the key.
+    let store: SaveStore | null = null;
+    let queue = Promise.resolve();
+    const inStore = (job: (s: SaveStore) => Promise<void>) => {
+      queue = queue
+        .then(() => job((store ??= createWebSaveStore())))
+        .catch((error: unknown) => errors.report({ severity: 'problem', source: 'save', code: 'store-failed', detail: String(error) }));
+    };
     Promise.all([readSimFile(sim.file), startSimWorker()])
       .then(([simText, w]) => {
         if (stopped) return w.terminate();
@@ -63,8 +76,15 @@ export function useSim(city: City | undefined): Sim {
             setDots(m.dots);
             setDepotLand(m.depotLand);
             setSnapshot(m.snapshot);
+            setLoad(m.load);
             setStatus('ready');
-          } else if (m.type === 'snapshot') setSnapshot(m.snapshot);
+          } else if (m.type === 'read-save') {
+            // No store (storage blocked) reads as no save: the game starts fresh and keeps playing.
+            let text: string | null = null;
+            inStore(async (s) => void (text = await s.read(m.key)));
+            queue = queue.then(() => w.postMessage({ type: 'save-text', text } satisfies ToWorker));
+          } else if (m.type === 'store') inStore((s) => applyEffects(s, m.effects));
+          else if (m.type === 'snapshot') setSnapshot(m.snapshot);
           else if (m.type === 'depot-site') {
             const at = sites.current.get(m.id);
             sites.current.delete(m.id);
@@ -89,7 +109,7 @@ export function useSim(city: City | undefined): Sim {
           errors.report({ severity: 'fatal', source: 'worker', code: 'crashed', detail: event.message });
           setStatus('failed');
         };
-        const message: ToWorker = { type: 'init', simText, city: { id: city.id, revision: sim.extent, hash: sim.sha256 }, seed: 1 };
+        const message: ToWorker = { type: 'init', simText, city: { id: city.id, revision: sim.extent, hash: sim.sha256 }, seed: 1, build: { sha: build.sha, version: build.version } };
         w.postMessage(message);
       })
       .catch((error: unknown) => {
@@ -134,5 +154,5 @@ export function useSim(city: City | undefined): Sim {
   }, []);
   const closeDayCard = useCallback(() => setDayCard(null), []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, refusal, send, probeAt, depotSiteAt, draftFor, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, refusal, load, send, probeAt, depotSiteAt, draftFor, closeDayCard };
 }

@@ -30,7 +30,7 @@ export interface SaveEnvelope {
 
 /** Keys carry no format number, so an old tab still finds a newer save and refuses it. */
 export const saveKey = (cityId: string) => `interbus.save.${cityId}`;
-export const backupKey = (cityId: string, why: 'unreadable' | 'newer' | 'older') => `interbus.backup.${cityId}.${why}`;
+export const backupKey = (cityId: string, why: 'unreadable' | 'newer' | 'older' | 'other-city') => `interbus.backup.${cityId}.${why}`;
 
 /** What the platform's store must do after a load: the live key is never overwritten by a refusal. */
 export type StoreEffect = { readonly op: 'write'; readonly key: string; readonly value: string } | { readonly op: 'remove'; readonly key: string };
@@ -130,11 +130,13 @@ export function integrityProblem(data: SaveData): string | null {
 /**
  * Reads a raw save for `city`, first failure wins (V3's order): nothing → none; not JSON or the
  * wrong shape → unreadable; a newer format → refused, the live key untouched; an older one → set
- * aside (D12); another city or revision → refused, nothing written; then field and integrity checks.
+ * aside (D12); another city or revision → set aside too, never read into this one; then field and
+ * integrity checks. The game saves under the live key as it plays, so anything it refuses is kept
+ * under a backup key first, never overwritten (D12).
  */
 export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT): { result: LoadOutcome; effects: StoreEffect[] } {
   if (raw === null) return { result: { outcome: 'none' }, effects: [] };
-  const setAside = (why: 'unreadable' | 'older'): StoreEffect[] => [
+  const setAside = (why: 'unreadable' | 'older' | 'other-city'): StoreEffect[] => [
     { op: 'write', key: backupKey(city.id, why), value: raw },
     { op: 'remove', key: saveKey(city.id) },
   ];
@@ -162,7 +164,7 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   if (problem) return unreadable(problem);
   const typed = data as SaveData;
   if (typed.city.id !== city.id || typed.city.revision !== city.revision || typed.city.hash !== city.hash) {
-    return { result: { outcome: 'other-city', city: typed.city }, effects: [] };
+    return { result: { outcome: 'other-city', city: typed.city }, effects: setAside('other-city') };
   }
   const broken = integrityProblem(typed);
   if (broken) return unreadable(broken);

@@ -2,16 +2,16 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` cf890d7 (founding and the checklist), with the calm shell in review.
+**Updated:** 2026-10-13, at `main` ca54ad8 (the calm shell), with saves and the exit check in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` cf890d7. Deploy preview run 38369656849's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ca54ad8. Deploy preview run 38370960912's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
   - the founding card, and the checklist chip naming the next step;
-  - **Place a depot** and **Draw a line**, each line's card with its headways, and a Costs/day chip;
+  - the calm shell: a chip row, a dock with **Place a depot**, **Draw a line** and **Lines**, the line inspector with its headways and a day's forecast, and notices in one corner;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
@@ -134,7 +134,12 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - the line inspector on the right, opened by Lines, by clicking a line on the map, or by creating one: the line's card and headways, tabs when there are several, and a whole day's forecast (fares and subsidy "≈", running, wages and deadhead to the cent, and the line's net);
      - notices bottom-left: a refusal in words for six seconds, which replaces the draft and line cards' own refusal text.
    - [x] **I13** (2026-10-13, `e2e/i13.spec.ts`): at 1440×900, 1366×768 and 1152×720 the shell covers 2.5–3.9% of the screen at rest and 6.7–14.0% with its largest panel, against 6% and 26%; a 400 × 200 panel more breaks the at-rest budget (DECISIONS, Measured).
-8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
+8. [x] **The exit check as e2e, with saves** (2026-10-13):
+   - **Saves on the web.** The worker asks the page for its save by key before it starts (`read-save`), and the page reads it from `src/platform`'s store. A readable save carries on; any other is set aside under a backup key first, a new game starts, and a one-line notice says so (D12): "Save from an older build set aside". A save from another bake of the city is set aside too, since the game would otherwise overwrite it.
+   - **When it saves.** The worker hands the page a fresh save after every command, at every change of speed and every game hour. The page writes them one at a time, in order. A change of speed drops the part-step of game time, as a save does, so a reloaded game runs on in step: `host.test.ts` failed by one 30 s step without it.
+   - **A reload** opens on the saved game: no founding card, and the inspector stays shut, because only lines created after the game starts count as new.
+   - **`e2e/line.spec.ts`** plays the whole exit check: found, depot, Copley to Longwood, Create, buses at 1×, a day whose rows add up to the change in cash, then pause, reload and compare the clock, cash, checklist and line. With saves switched off it fails at the reload, with elapsed 0 against 72,240. `e2e/save.spec.ts` sets an older save aside in the browser.
+9. [ ] **The last of M2's tests:** I2's bus clause (adding a bus never cuts linked trips by more than 0.1%), then I3's strategies, which sit below the cut line and may move to week 5's CI sweep.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
 

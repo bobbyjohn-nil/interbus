@@ -3,7 +3,7 @@ import { expect, type Page } from '@playwright/test';
 import { loadCity } from '../src/sim/city/simfile';
 import { pointInRing, toLngLat, type XY } from '../src/sim/core/geo';
 
-const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { sim: { file: string } | null }[] };
+const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { id: string; sim: { file: string } | null }[] };
 export const city = registry.cities[0]!;
 
 /** Where [lon, lat] lands on screen with the camera at rest (the map's data-view; Web Mercator, 512 px tiles). */

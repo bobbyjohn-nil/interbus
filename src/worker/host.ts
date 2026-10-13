@@ -1,7 +1,10 @@
 // The sim's host inside its worker (PLAN §6): it owns the World, runs simStep on a fixed step at
 // the chosen speed, applies commands between steps, and posts snapshots about 10 times a second
 // while time runs, none while paused (I14). The page never computes a game number (AR-04).
-// Plain logic with an injected clock, so tests drive it without a real Worker.
+// It starts from the page's save when there is a readable one, and hands the page a fresh save after
+// every command, at every change of speed and every game hour, for src/platform's store to keep
+// (a worker has no localStorage). Plain logic with an injected clock, so tests drive it without a
+// real Worker.
 import { createLine } from '../sim/commands/createLine';
 import { found } from '../sim/commands/found';
 import { placeDepot } from '../sim/commands/placeDepot';
@@ -21,7 +24,8 @@ import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { checkLineDraft } from '../sim/rules/line';
-import { newGame } from '../sim/state';
+import { decode, encode, fromSaveData, saveKey } from '../sim/save/save';
+import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import type { DepotSiteView, Dots, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, RefusalView, Snapshot, Speed, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
@@ -143,6 +147,15 @@ function depotLandOf(city: City): LngLatPair[][] {
 
 export function createHost(post: (message: FromWorker) => void): Host {
   let world: World | null = null;
+  // The city loaded, waiting for the page's save.
+  let pending: { city: City; ref: CityRef; seed: number } | null = null;
+  let build = { sha: '', version: '' };
+  let key = '';
+  let savedHour = 0;
+  const save = () => {
+    savedHour = Math.floor(world!.state.elapsed / 3_600);
+    post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build) }] });
+  };
   let speed: Speed = 0;
   let lastMs: number | null = null;
   let carrySeconds = 0;
@@ -182,17 +195,35 @@ export function createHost(post: (message: FromWorker) => void): Host {
       if (message.type === 'init') {
         const loaded = loadCity(message.simText);
         if (!loaded.ok) return post({ type: 'failed', problem: loaded.problem });
-        // Unnamed until the founding card names it.
-        world = createWorld(loaded.city, newGame(message.city, { name: '', colour: COMPANY_COLOURS[0]! }, message.seed));
+        world = null;
+        pending = { city: loaded.city, ref: message.city, seed: message.seed };
+        build = { sha: message.build.sha, version: message.build.version };
+        key = saveKey(message.city.id);
+        post({ type: 'read-save', key });
+        return;
+      }
+      if (message.type === 'save-text') {
+        if (!pending) return;
+        const { city, ref, seed } = pending;
+        pending = null;
+        // A readable save carries on; anything else is set aside first and a new game starts, unnamed
+        // until the founding card names it (D12).
+        const { result, effects } = decode(message.text, ref);
+        world = createWorld(city, result.outcome === 'ok' ? fromSaveData(result.envelope.data) : newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed));
         speed = 0;
+        savedHour = Math.floor(world.state.elapsed / 3_600);
         refreshLines();
-        post({ type: 'ready', dots: dotsOf(loaded.city), depotLand: depotLandOf(loaded.city), snapshot: snapshot() });
+        if (effects.length) post({ type: 'store', effects });
+        post({ type: 'ready', dots: dotsOf(city), depotLand: depotLandOf(city), snapshot: snapshot(), load: result.outcome });
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
       if (message.type === 'speed') {
         speed = message.speed;
         lastMs = null;
+        // A part-step of game time is dropped, as a save drops it, so a reload carries on in step.
+        carrySeconds = 0;
+        save(); // a pause keeps the game exactly where it stopped
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'probe') {
         post({ type: 'probe', id: message.id, people: peopleWithinWalk(world.city, toXY(world.city.frame, message.at)) });
@@ -205,23 +236,33 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'place-depot') {
         const result = placeDepot(world, message.at);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
-        else refreshLines(); // a line's deadhead now runs from the depot
+        else {
+          refreshLines(); // a line's deadhead now runs from the depot
+          save();
+        }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'found') {
         const result = found(world, message.name, message.colour);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else save();
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'line-draft') {
         post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS) });
       } else if (message.type === 'create-line') {
         const result = createLine(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
-        else refreshLines();
+        else {
+          refreshLines();
+          save();
+        }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-headways') {
         const result = setHeadways(world, message.lineId as LineId, message.headways);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
-        else refreshLines();
+        else {
+          refreshLines();
+          save();
+        }
         post({ type: 'snapshot', snapshot: snapshot() });
       }
     },
@@ -247,6 +288,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
           });
         }
       }
+      if (Math.floor(world.state.elapsed / 3_600) !== savedHour) save();
       if (nowMs - lastSnapshotMs >= SNAPSHOT_EVERY_MS) {
         lastSnapshotMs = nowMs;
         post({ type: 'snapshot', snapshot: snapshot() });
