@@ -23,8 +23,8 @@ function nearestNode(at: XY): number {
 
 describe("mini-Boston's sim.json", () => {
   it('loads whole: every street, cell, resident and job', () => {
-    expect(city.graph.nodeCount).toBe(675);
-    expect(city.graph.edgeA.length).toBe(1028);
+    expect(city.graph.nodeCount).toBe(681);
+    expect(city.graph.edgeA.length).toBe(1037);
     expect(city.cells).toHaveLength(84);
     expect(city.cells.reduce((s, c) => s + c.residents, 0)).toBe(105_620);
     expect(city.cells.reduce((s, c) => s + c.jobs, 0)).toBe(186_144);

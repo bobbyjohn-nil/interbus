@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` aea4ff0, with the recompute bench in review.
+**Updated:** 2026-10-13, at `main` 44e9eb4, with bus access in review.
 
 ## Live now
 
@@ -15,7 +15,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-7efc98ec` holds mini-Boston's `sim.json` at `tripScale` 111‰ (132,907 B), published by **City sim file (manual)** run 38347610455. The uncalibrated `ba4110d6` stays for pages of older builds;
+  - release `city-boston-sim-mini-boston-20b38b02` holds mini-Boston's `sim.json` at `tripScale` 111‰ with bus access by OSM's hierarchy (134,361 B), published by **City sim file (manual)** run 38352676465, which matched the golden on GitHub's runner. The older `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
   - release `city-boston-sources-20261012` holds the bake's eight pinned inputs;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
@@ -73,7 +73,8 @@ What is left, in order:
 1. [x] **`tripScale`** is 111‰ (2026-10-13), in `city.json` calib. The debug line carries 799.3 boardings a day and `calibration.test.ts` holds the 600–1,000 band. The fixture's `sim.json` was rebaked, re-locked and republished.
 2. [x] **I2** and **I3 per period** (2026-10-13, `src/sim/demand/invariants.test.ts`). The bus clause of I2 waits for week 4's buses.
 3. [x] **The recompute bench** (2026-10-13, `bench/`, `npm run bench`): 52 ms p50 and 65–78 ms p95 for three periods on a synthetic 812-cell grid with T03, under I14's 150 ms and R2's 100 ms. It was 13 s before trips were timed per group of sub-points reaching the same stops. `npm run bench compare` holds the result within 1.5% of the old loop per line and period, except where lines overlap (DECISIONS, Measured). Boston's own number comes from the Inner Boston bake, on Nov 1.
-4. **Next, below the cut line:** the Inner Boston bake job (it gives R2's Boston number), then per-period crowding, then visitors.
+4. [x] **Bus access** (2026-10-13): `hgv=no` restricts trucks, not buses, and no longer closes a street; DCR's River Roads close by name in `adjust.json`; G2 measures connectivity off motorways. A trial bake of Inner Boston found the old rule closed 353 ways, Summer Street and Columbia Road among them (DECISIONS, Measured).
+5. **Next, below the cut line:** the Inner Boston bake job (it gives R2's Boston number), then per-period crowding, then visitors. A trial bake already passes G1 (735 cells in the play area), G2 (11,687 nodes; 98.45% off motorways inside the extent) and G3 (99.98%); the job still needs the extent cut, G2 measured inside the extent, the workflow's Python step, a golden, and a Boston network for the bench.
 
 Open from the research critique, for week 4:
 - **The starter recipe's bus count.** V1's cycle formula says a 3–4 km line every 20 min needs 2 Sparrows, not the 1 in D7's $261k starter. Make the recipe count its buses with the one cycle function (K07).

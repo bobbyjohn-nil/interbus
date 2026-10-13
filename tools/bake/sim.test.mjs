@@ -29,12 +29,14 @@ test('lengths read in metres or feet and inches; "default" and "none" are no lim
   assert.equal(parseMetres('none'), null);
 });
 
-test('bus access follows bus, psv, motor_vehicle, access, then hgv; low clearance always closes', () => {
-  assert.equal(busAccess({ highway: 'motorway', hgv: 'no', name: 'Storrow Drive' }), 'hgv=no');
+test('bus access follows bus, psv, motor_vehicle, vehicle, then access; hgv never reaches a bus; low clearance always closes', () => {
+  // hgv=no is a truck exclusion: as a closure it shut Summer Street and Columbia Road, bus streets.
+  assert.equal(busAccess({ highway: 'secondary', hgv: 'no', name: 'Summer Street' }), null);
   assert.equal(busAccess({ highway: 'primary', bus: 'no', psv: 'no', hgv: 'no', name: 'Commonwealth Avenue' }), 'bus=no');
   assert.equal(busAccess({ highway: 'primary', hgv: 'no', bus: 'yes' }), null);
   assert.equal(busAccess({ highway: 'residential', access: 'private', psv: 'yes' }), null);
   assert.equal(busAccess({ highway: 'residential', motor_vehicle: 'private' }), 'motor_vehicle=private');
+  assert.equal(busAccess({ highway: 'pedestrian', vehicle: 'no', access: 'yes' }), 'vehicle=no');
   assert.equal(busAccess({ highway: 'primary', bus: 'yes', maxheight: '11\'0"' }), 'maxheight 11\'0"');
   assert.equal(busAccess({ highway: 'primary', maxheight: 'default' }), null);
 });
@@ -74,6 +76,15 @@ test('a one-way street that leads nowhere it can come back from is dropped', () 
   assert.ok(report.droppedKm > 0.09 && report.droppedKm < 0.11);
 });
 
+test('G2 counts connectivity off motorways: a stranded ramp leaves it whole, a stranded street does not', () => {
+  // 1-2-3 two-way; 3→4 one-way only, a trap: first a motorway ramp, then a residential street.
+  const ramp = buildStreets(line(['w10 Thighway=residential Nn1,n2,n3', 'w11 Thighway=motorway_link,oneway=yes Nn3,n4']), FRAME);
+  assert.equal(ramp.report.keptShare, 1);
+  assert.ok(ramp.report.droppedKm > 0.09);
+  const street = buildStreets(line(['w10 Thighway=residential Nn1,n2,n3', 'w11 Thighway=residential,oneway=yes Nn3,n4']), FRAME);
+  assert.ok(Math.abs(street.report.keptShare - 2 / 3) < 1e-9);
+});
+
 test('a barrier node under 3.5 m closes the street it sits on', () => {
   const osm = line(['w10 Thighway=residential Nn1,n2,n3', 'w11 Thighway=residential Nn3,n4,n5'], '');
   osm.nodes.get(4).tags.maxheight = '9\'0"';
@@ -111,9 +122,9 @@ test("mini-Boston's sim.json bakes to its golden hash, twice, with every person 
   assert.ok(a.report.gates.every((g) => g.ok));
 });
 
-test('the fixture keeps lines off Storrow and Memorial Drives and opens busways to all (PLAN §5, D17)', () => {
+test('the fixture keeps lines off the River Roads and opens busways to all (PLAN §5, D17)', () => {
   const sim = JSON.parse(bakeSim('boston', 'mini-boston').text);
-  assert.deepEqual(sim.names.filter((n) => /Storrow|Memorial/.test(n)), []);
+  assert.deepEqual(sim.names.filter((n) => /Storrow|Memorial|Soldiers Field/.test(n)), []);
   assert.ok(sim.edges.some((e) => sim.classes[e[5]] === 'busway'), 'a Back Bay busway is a general street');
   assert.ok(sim.names.includes('Massachusetts Avenue') && sim.names.includes('Huntington Avenue'));
 });
