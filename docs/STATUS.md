@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 36caa10, with the saves port in review.
+**Updated:** 2026-10-13, at `main` 6aed609, with the graph, router and geo port in review.
 
 ## Live now
 
@@ -42,7 +42,11 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - every id counter is saved;
     - an older format is set aside, never migrated (D12);
     - I7 and I8's save-load-save hold.
-  - [ ] V2's graph and A*; V1's geo; V3's error bus, kept outside the sim.
+  - [x] V2's graph and A*, V1's geo (2026-10-13), in `src/sim/city` and `src/sim/core/geo.ts`:
+    - CSR on typed arrays, in whole decimetres and centiseconds;
+    - A* over directed half-edges, so a turn cost never closes a node on the wrong arrival (K13);
+    - one geo frame per city, held to the WGS 84 ellipsoid to within 1 m per degree.
+  - [ ] V3's error bus, kept outside the sim with an injected clock, and wired at boot.
 - [ ] **Item 11, the city on the fixture:**
   - worker host;
   - V1's pipeline and fixtures ported;
