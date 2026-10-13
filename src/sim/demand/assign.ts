@@ -57,6 +57,7 @@ import { distXY, SpatialGrid, type XY } from '../core/geo';
 import type { LineId } from '../core/ids';
 import type { City, SubPoint } from '../city/simfile';
 import { PERIODS, periodAt, runsIn, type Headways, type Period } from '../rules/periods';
+import { periodCongestion } from '../traffic/congestion';
 import type { Commuters } from './commuters';
 
 /** Half-hour slots, so the 06:30 and 09:30 period edges fall on slot boundaries. */
@@ -418,61 +419,97 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   // Minutes along each line to each stop, and exp(wait / τ) for each line and period.
   const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / (plan.kmh ?? BUS_KMH)) * 60));
   const expWait = wait.map((w) => Math.exp(w / MODE_TAU_MIN));
-  const rideMin = (line: number, a: number, b: number) => Math.abs(stopMin[line]![b]! - stopMin[line]![a]!) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60);
+  // Rush hour (the M3 spec, item 15): a ride's drive in each period takes the line's congestion
+  // there, (factor − 1) × the drive more than the day's average (rushExtra, in PERIODS order).
+  const rushExtra = plans.map((plan) => {
+    const factor = periodCongestion(plan.rush ?? 0);
+    return PERIODS.map((p) => factor[p] - 1);
+  });
+  const rushy = rushExtra.some((extra) => extra.some((v) => v !== 0));
+  // A ride's minutes at period k's traffic, or the day's average at k = -1.
+  const rideMin = (line: number, a: number, b: number, k = -1) =>
+    Math.abs(stopMin[line]![b]! - stopMin[line]![a]!) * (k < 0 ? 1 : 1 + rushExtra[line]![k]!) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60);
   // Each line's ride between two of its stops with its fare felt (weighed against the ride's km), at
   // [from * stops + to]: a bargain fare makes the ride feel shorter, never free (V1
   // demand.worker.ts:342-344). Infinity from a stop to itself.
-  const rideFare = plans.map((plan, line) => {
+  const rideFareAt = (line: number, k: number) => {
+    const plan = plans[line]!;
     const extra = fareExtra[line]!;
     const stops = plan.stops.length;
     const at = new Float64Array(stops * stops);
     for (let a = 0; a < stops; a++) {
       for (let b = 0; b < stops; b++) {
         const fare = extra === 0 ? 0 : extra * fareSensitivity(Math.abs(plan.stopDistM[b]! - plan.stopDistM[a]!) / 1000);
-        at[a * stops + b] = a === b ? Infinity : Math.max(0.5, rideMin(line, a, b) + fare);
+        at[a * stops + b] = a === b ? Infinity : Math.max(0.5, rideMin(line, a, b, k) + fare);
       }
     }
     return at;
-  });
+  };
+  const rideFare = plans.map((_, line) => rideFareAt(line, -1));
   // Each change's quickest minutes from a stop of its first line to a stop of its second, riding
   // both: the rides, the first line's fare felt once over both rides' km, and the change's walk and
   // penalty, before the second line's wait, at [a * stops + b] (the second line's stops), with the
   // change taken at the same place in `via`. None ends within TRANSFER_REACH_M of where it began:
   // that rider would walk, and the captive share would otherwise send some round a loop. Fares
   // differ between assignments, so these are made here.
-  const changeMin = transfers.map((list, first) =>
-    list.map((t) => {
-      const stopsA = plans[first]!.stops.length;
-      const stops = plans[t.line]!.stops.length;
-      const distA = plans[first]!.stopDistM;
-      const distB = plans[t.line]!.stopDistM;
-      const best = new Float64Array(stopsA * stops).fill(Infinity);
-      const via = new Int32Array(stopsA * stops);
-      for (let a = 0; a < stopsA; a++) {
-        for (let b = 0; b < stops; b++) {
-          if (distXY(plans[first]!.stops[a]!, plans[t.line]!.stops[b]!) <= TRANSFER_REACH_M) continue;
-          for (let k = 0; k < t.from.length; k++) {
-            const ta = t.from[k]!;
-            const tb = t.to[k]!;
-            if (ta === a || tb === b) continue;
-            const km = (Math.abs(distA[ta]! - distA[a]!) + Math.abs(distB[b]! - distB[tb]!)) / 1000;
-            const fare = fareExtra[first] === 0 ? 0 : fareExtra[first]! * fareSensitivity(km);
-            const m = Math.max(0.5, rideMin(first, a, ta) + rideMin(t.line, tb, b) + fare) + t.minutes[k]!;
-            if (m < best[a * stops + b]!) {
-              best[a * stops + b] = m;
-              via[a * stops + b] = k;
-            }
+  const changeAt = (first: number, t: Transfer, period: number) => {
+    const stopsA = plans[first]!.stops.length;
+    const stops = plans[t.line]!.stops.length;
+    const distA = plans[first]!.stopDistM;
+    const distB = plans[t.line]!.stopDistM;
+    const best = new Float64Array(stopsA * stops).fill(Infinity);
+    const via = new Int32Array(stopsA * stops);
+    for (let a = 0; a < stopsA; a++) {
+      for (let b = 0; b < stops; b++) {
+        if (distXY(plans[first]!.stops[a]!, plans[t.line]!.stops[b]!) <= TRANSFER_REACH_M) continue;
+        for (let k = 0; k < t.from.length; k++) {
+          const ta = t.from[k]!;
+          const tb = t.to[k]!;
+          if (ta === a || tb === b) continue;
+          const km = (Math.abs(distA[ta]! - distA[a]!) + Math.abs(distB[b]! - distB[tb]!)) / 1000;
+          const fare = fareExtra[first] === 0 ? 0 : fareExtra[first]! * fareSensitivity(km);
+          const m = Math.max(0.5, rideMin(first, a, ta, period) + rideMin(t.line, tb, b, period) + fare) + t.minutes[k]!;
+          if (m < best[a * stops + b]!) {
+            best[a * stops + b] = m;
+            via[a * stops + b] = k;
           }
         }
       }
-      return { best, via, stops };
-    }),
-  );
+    }
+    return { best, via, stops };
+  };
+  const changeMin = transfers.map((list, first) => list.map((t) => changeAt(first, t, -1)));
   // Each route's quickest minutes, before waiting, from any stop of the line boarded to any stop of
   // the line ridden to work, at [a * stops + b] (that line's stops): a line's own rideFare, or a
   // change's changeMin; and exp(minutes / τ) of each, the same way.
   const expRideFare = rideFare.map((table) => table.map((m) => Math.exp(m / MODE_TAU_MIN)));
   const expChangeMin = changeMin.map((list) => list.map((c) => c.best.map((m) => Math.exp(m / MODE_TAU_MIN))));
+  // Each route's tables again at each period's traffic, less the day's average's: a route is a line
+  // and its change x (-1 for the one-seat ride) as `changeMin`, numbered from routeOf[line] + x + 1,
+  // and its table holds, at 6 × [a * stops + b], the minutes each period adds then exp(that / τ) for
+  // each, in PERIODS order. An option keeps the stops the day's average picks (the reference does
+  // the same; assign.test holds the two together) and adds these, so a fare's floor and a change's
+  // choice of where to change come out as the reference's for those stops.
+  const routeOf = new Int32Array(lineCount);
+  const rushTable: Float64Array[] = [];
+  if (rushy) {
+    plans.forEach((_, line) => {
+      routeOf[line] = rushTable.length;
+      for (let x = -1; x < transfers[line]!.length; x++) {
+        const day = x < 0 ? rideFare[line]! : changeMin[line]![x]!.best;
+        const table = new Float64Array(6 * day.length);
+        for (let k = 0; k < 3; k++) {
+          const period = x < 0 ? rideFareAt(line, k) : changeAt(line, transfers[line]![x]!, k).best;
+          for (let i = 0; i < day.length; i++) {
+            const d = day[i] === Infinity || period[i] === Infinity ? 0 : period[i]! - day[i]!;
+            table[6 * i + k] = d;
+            table[6 * i + 3 + k] = Math.exp(d / MODE_TAU_MIN);
+          }
+        }
+        rushTable.push(table);
+      }
+    });
+  }
 
   const n = commuters.n;
   const scale = city.tripScalePermille / 1000;
@@ -522,6 +559,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   let optAlight = new Int32Array(room);
   let optChangeFrom = new Int32Array(room);
   let optChangeTo = new Int32Array(room);
+  // Each option's route's rush table (rushTable), and where its stops sit in it.
+  let optRoute = new Int32Array(room);
+  let optCell = new Int32Array(room);
   const grow = () => {
     room *= 2;
     const more = <A extends Int32Array | Float64Array>(old: A, make: (size: number) => A): A => {
@@ -542,6 +582,8 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     optAlight = more(optAlight, (k) => new Int32Array(k));
     optChangeFrom = more(optChangeFrom, (k) => new Int32Array(k));
     optChangeTo = more(optChangeTo, (k) => new Int32Array(k));
+    optRoute = more(optRoute, (k) => new Int32Array(k));
+    optCell = more(optCell, (k) => new Int32Array(k));
   };
   /**
    * Carries riders on `line` from stop `board` to stop `alight`, `r0` to `r2` in PERIODS order: who
@@ -597,17 +639,21 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   const rideOption = (q: number, r0: number, r1: number, r2: number) =>
     ride3(optLine[q]!, optSecond[q]!, optBoard[q]!, optAlight[q]!, optChangeFrom[q]!, optChangeTo[q]!, r0, r1, r2);
   /**
-   * A way's share of its trips in period `k` with no other way to ride: its own waits, 0 where a
-   * line does not run. `base` is its minutes before waiting and `lead` exp((base − car) / τ).
+   * A way's share of its trips in period `k` with no other way to ride: its own waits and the
+   * period's traffic on its rides (`rush`, and `expRush` its exp(rush / τ)), 0 where a line does not
+   * run. `base` is its minutes before waiting at the day's average traffic and `lead` exp((base − car) / τ).
    */
-  const shareAlone = (line: number, second: number, base: number, lead: number, k: number, walkMin: number) => {
+  const shareAlone = (line: number, second: number, base: number, lead: number, k: number, walkMin: number, rush: number, expRush: number) => {
     const at = line * 3 + k;
     const w = second < 0 ? wait[at]! : wait[at]! + wait[second * 3 + k]!;
     if (w === Infinity) return 0;
-    return shareGiven(base + w, second < 0 ? lead * expWait[at]! : lead * expWait[at]! * expWait[second * 3 + k]!, walkMin);
+    return shareGiven(base + w + rush, (second < 0 ? lead * expWait[at]! : lead * expWait[at]! * expWait[second * 3 + k]!) * expRush, walkMin);
   };
+  /** Minutes period `k`'s traffic adds to a stored option's rides (fewer off-peak). */
+  const optionRush = (q: number, k: number) => (rushy ? rushTable[optRoute[q]!]![optCell[q]! + k]! : 0);
   /** shareAlone() for a stored option. */
-  const optionAlone = (q: number, k: number, walkMin: number) => shareAlone(optLine[q]!, optSecond[q]!, optBase[q]!, optLead[q]!, k, walkMin);
+  const optionAlone = (q: number, k: number, walkMin: number) =>
+    shareAlone(optLine[q]!, optSecond[q]!, optBase[q]!, optLead[q]!, k, walkMin, optionRush(q, k), rushy ? rushTable[optRoute[q]!]![optCell[q]! + 3 + k]! : 1);
   // Scratch for several routes: each sub-point's options as a bitmask, the sets of options pairs of
   // sub-points share (at most 64 pairs) and their shares of the cell pair, and one set's options
   // (a pair has at most one per route), and the quickest of them on each first line.
@@ -648,7 +694,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         const line = optLine[q]!;
         if (headway[line * 3 + k] === Infinity) continue;
         const second = optSecond[q]!;
-        const base = second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!;
+        const base = (second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!) + optionRush(q, k);
         if (base === Infinity) continue;
         let at = 0;
         while (at < lines && optLine[picked[at]!] !== line) at++;
@@ -788,6 +834,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         const expTable = x < 0 ? expRideFare[line]! : expChangeMin[line]![x]!;
         const via = x < 0 ? null : changeMin[line]![x]!.via;
         const reach = entryReach[e]!;
+        // This route's rush table, read once for all its options.
+        const route = rushy ? routeOf[line]! + x + 1 : 0;
+        const rush = rushy ? rushTable[route]! : null;
         const homeGroups = entryFrom[e]!;
         const workGroups = entryTo[e]!;
         // Nobody changes onto a line they could walk to from home, or off one that reaches work.
@@ -825,9 +874,19 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
             const changeFrom = via ? transfers[line]![x]!.from[k]! : 0;
             const changeTo = via ? transfers[line]![x]!.to[k]! : 0;
             if (alone) {
-              const r0 = share * shareAlone(line, second, base, lead, 0, walk);
-              const r1 = share * shareAlone(line, second, base, lead, 1, walk);
-              const r2 = share * shareAlone(line, second, base, lead, 2, walk);
+              let r0: number;
+              let r1: number;
+              let r2: number;
+              if (rush) {
+                const at = 6 * (board * stops + alight);
+                r0 = share * shareAlone(line, second, base, lead, 0, walk, rush[at]!, rush[at + 3]!);
+                r1 = share * shareAlone(line, second, base, lead, 1, walk, rush[at + 1]!, rush[at + 4]!);
+                r2 = share * shareAlone(line, second, base, lead, 2, walk, rush[at + 2]!, rush[at + 5]!);
+              } else {
+                r0 = share * shareAlone(line, second, base, lead, 0, walk, 0, 1);
+                r1 = share * shareAlone(line, second, base, lead, 1, walk, 0, 1);
+                r2 = share * shareAlone(line, second, base, lead, 2, walk, 0, 1);
+              }
               ride3(line, second, board, alight, changeFrom, changeTo, r0, r1, r2);
               continue;
             }
@@ -842,6 +901,8 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
             optAlight[count] = alight;
             optChangeFrom[count] = changeFrom;
             optChangeTo[count] = changeTo;
+            optRoute[count] = route;
+            optCell[count] = 6 * (board * stops + alight);
             count++;
           }
         }
