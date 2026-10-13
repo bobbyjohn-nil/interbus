@@ -34,7 +34,7 @@ export function createLine(
     const [id, next] = mint(state.nextIds, 'stop');
     state.nextIds = next;
     const [lon, lat] = toLngLat(world.city.frame, pick.at);
-    state.stops.push({ id, lon, lat });
+    state.stops.push({ id, lon, lat, tier: 1 });
     return id;
   });
   const [lineId, next] = mint(state.nextIds, 'line');

@@ -38,7 +38,7 @@ describe('I2: a stop inserted on the line’s own streets never cuts linked trip
       const [id, next] = mint(trial.state.nextIds, 'stop');
       trial.state.nextIds = next;
       const [lon, lat] = toLngLat(city.frame, [city.graph.x[node]!, city.graph.y[node]!]);
-      trial.state.stops.push({ id, lon, lat });
+      trial.state.stops.push({ id, lon, lat, tier: 1 });
       trial.state.lines[0]!.stopIds.splice(k, 0, id);
       recompute(trial);
       expect(trial.assignment.tripsPerDay, `a stop between stops ${k} and ${k + 1}`).toBeGreaterThanOrEqual(before * 0.999);

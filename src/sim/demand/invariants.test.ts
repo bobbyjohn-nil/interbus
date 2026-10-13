@@ -24,7 +24,7 @@ function game(): World {
 function addStop(world: World, at: LngLat): StopId {
   const [id, next] = mint(world.state.nextIds, 'stop');
   world.state.nextIds = next;
-  world.state.stops.push({ id, lon: at[0], lat: at[1] });
+  world.state.stops.push({ id, lon: at[0], lat: at[1], tier: 1 });
   return id;
 }
 

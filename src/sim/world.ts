@@ -7,6 +7,7 @@ import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
 import { BUS_MODELS, LAYOVER_SECONDS } from './config/fleet';
+import { STOP_TIERS } from './config/stops';
 import type { DepotId, LineId } from './core/ids';
 import { driveSeconds, type LineCostInputs } from './economy/costs';
 import { cycleSeconds } from './rules/cycle';
@@ -68,7 +69,7 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
     if (leg === null) return null;
     dist.push(dist[k - 1]! + leg);
   }
-  return { id: line.id, stops: xy, stopDistM: dist, headways: line.headways, fareCents: line.fareCents };
+  return { id: line.id, stops: xy, stopDistM: dist, headways: line.headways, fareCents: line.fareCents, walkBonusMin: stops.map((s) => STOP_TIERS[s!.tier].walkBonusMin) };
 }
 
 /** What the fleet rules read for this world (sim/rules/line.ts). */

@@ -13,7 +13,7 @@ const TWENTY_MIN = 1200;
 function addStop(state: SimState, lon: number, lat: number): StopId {
   const [id, next] = mint(state.nextIds, 'stop');
   state.nextIds = next;
-  state.stops.push({ id, lon, lat });
+  state.stops.push({ id, lon, lat, tier: 1 });
   return id;
 }
 
@@ -29,6 +29,7 @@ function playedGame(): SimState {
   const state = newGame(CITY, { name: 'Back Bay Transit', colour: '#c0392b' }, 2026);
   const stops = [addStop(state, -71.077, 42.3499), addStop(state, -71.0857, 42.3424), addStop(state, -71.095, 42.3375)];
   const line = addLine(state, stops);
+  state.stops[1]!.tier = 3; // a Station, so the round trip carries a tier
   for (let day = 1; day <= 3; day++) post(state.ledger, { day, kind: 'fares', amountCents: 1_234 * day, lineId: line });
   for (let i = 0; i < 17; i++) state.rng.next();
   state.elapsed = 3 * 86_400 + 4_321;
@@ -186,6 +187,7 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['no Founding capital first', (e) => void (dataOf(e).ledger as unknown[]).shift(), /Founding capital/],
     ['a field not in the schema', (e) => void (dataOf(e).camera = { zoom: 14 }), /camera: not in the schema/],
     ['a night-only line', (e) => void ((dataOf(e).lines as { headways: { overnight: number } }[])[0]!.headways.overnight = 60), /headway rules/],
+    ['a stop of no tier', (e) => void ((dataOf(e).stops as { tier: number }[])[0]!.tier = 7), /a stop of no tier/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {

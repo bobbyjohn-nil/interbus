@@ -7,6 +7,7 @@
 // - versioned by the schema hash (schema.lock.json), and an older format is set aside under a
 //   backup key with a fresh start, never migrated (D12);
 // - the envelope names the build (SHA and version) instead of a typed version string (PR-15).
+import { STOP_TIER_IDS, type StopTier } from '../config/stops';
 import { ID_KINDS, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
 import { createRng } from '../core/rng';
 import type { LedgerRow } from '../economy/ledger';
@@ -15,7 +16,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 5;
+export const SAVE_FORMAT = 6;
 
 export interface BuildRef {
   readonly sha: string;
@@ -51,7 +52,7 @@ export function toSaveData(state: SimState): SaveData {
     company: { name: state.company.name, colour: state.company.colour },
     nextIds: { stop: state.nextIds.stop, line: state.nextIds.line, bus: state.nextIds.bus, depot: state.nextIds.depot, contract: state.nextIds.contract },
     depots: state.depots.map((d) => ({ id: d.id, lon: d.lon, lat: d.lat })),
-    stops: state.stops.map((s) => ({ id: s.id, lon: s.lon, lat: s.lat })),
+    stops: state.stops.map((s) => ({ id: s.id, lon: s.lon, lat: s.lat, tier: s.tier })),
     lines: state.lines.map((l) => ({
       id: l.id,
       name: l.name,
@@ -81,7 +82,7 @@ export function fromSaveData(data: SaveData): SimState {
     company: { ...data.company },
     nextIds: { ...data.nextIds },
     depots: data.depots.map((d) => ({ id: d.id as DepotId, lon: d.lon, lat: d.lat })),
-    stops: data.stops.map((s) => ({ id: s.id as StopId, lon: s.lon, lat: s.lat })),
+    stops: data.stops.map((s) => ({ id: s.id as StopId, lon: s.lon, lat: s.lat, tier: s.tier as StopTier })),
     lines: data.lines.map((l) => ({
       id: l.id as LineId,
       name: l.name,
@@ -113,6 +114,7 @@ export function integrityProblem(data: SaveData): string | null {
     if (new Set(ids).size !== ids.length) return `duplicate ${kind} id`;
     if (ids.some((id) => id < 1 || id >= next)) return `${kind} id at or above its counter`;
   }
+  if (data.stops.some((s) => !STOP_TIER_IDS.includes(s.tier as StopTier))) return 'a stop of no tier';
   const stops = new Set(data.stops.map((s) => s.id));
   for (const line of data.lines) {
     if (line.stopIds.some((id) => !stops.has(id))) return `line ${line.id} names a missing stop`;

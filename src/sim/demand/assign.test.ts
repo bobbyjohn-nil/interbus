@@ -83,6 +83,14 @@ describe('assign against the reference loop', () => {
     expect(got.alightingsByStop.reduce((sum, v) => sum + v, 0)).toBeCloseTo(got.perDay, 9);
   });
 
+  it('takes a stop’s tier off the walk to it as the reference does: within 1.5% with a Station and a Shelter', () => {
+    const tiered: LinePlan = { ...debug, walkBonusMin: [0, 1.8, 0.8, 0] };
+    const { fast, ref } = both([tiered]);
+    const got = fast.lines.get(debug.id)!.perDay;
+    expect(off(got, ref.lines.get(debug.id)!.perDay)).toBeLessThan(0.015);
+    expect(got).toBeGreaterThan(both([debug]).fast.lines.get(debug.id)!.perDay * 1.1);
+  });
+
   it('keeps trips within 2% where four lines overlap, and each line’s day within 10% or 2 riders', () => {
     // Measured with V2's waits: trips −1.2%, and the split moves up to 4.5% a day on a line of 311
     // riders, because a group of sub-points picks one line together where the reference lets each

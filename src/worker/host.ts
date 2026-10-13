@@ -11,6 +11,7 @@ import { placeDepot } from '../sim/commands/placeDepot';
 import { setHeadways } from '../sim/commands/setHeadways';
 import { setFare } from '../sim/commands/setFare';
 import { setModel } from '../sim/commands/setModel';
+import { setStopTier } from '../sim/commands/setStopTier';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
@@ -23,7 +24,7 @@ import { forecastDay } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
-import type { LineId } from '../sim/core/ids';
+import type { LineId, StopId } from '../sim/core/ids';
 import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
@@ -126,6 +127,7 @@ function stopViews(world: World): StopView[] {
     return {
       id: s.id,
       at: [s.lon, s.lat],
+      tier: s.tier,
       lineIds: world.state.lines.filter((l) => l.stopIds.includes(s.id)).map((l) => l.id),
       boardings: day.boardings,
       alightings: day.alightings,
@@ -299,6 +301,14 @@ export function createHost(post: (message: FromWorker) => void): Host {
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-fare') {
         const result = setFare(world, message.lineId as LineId, message.fareCents);
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'set-stop-tier') {
+        const result = setStopTier(world, message.stopId as StopId, message.tier);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();

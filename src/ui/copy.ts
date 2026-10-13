@@ -32,6 +32,11 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   fare_out_of_range: () => 'Fares run from $1.00 to $5.00',
   fare_not_a_step: () => 'Fares go up in 25¢ steps',
   same_fare: () => 'The line already charges that',
+  // Stop tiers (sim/rules/stopTier.ts)
+  same_tier: () => 'The stop is already this',
+  no_such_tier: () => 'No such kind of stop',
+  needs_lines: (r) => `Needs ${r.limit ?? 3} lines calling here`,
+  no_such_stop: () => 'That stop is gone',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',
