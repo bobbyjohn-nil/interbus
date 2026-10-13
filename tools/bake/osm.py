@@ -2,7 +2,10 @@
 
     python tools/bake/osm.py header <file.osm.pbf>
     python tools/bake/osm.py clip <file.osm.pbf|.opl> <west,south,east,north> <out.opl>
+    python tools/bake/osm.py heights <file.osm.pbf|.opl> <west,south,east,north> <out.csv>
 
+`heights` lists every building way whose first node lies in the box, with whether it carries a
+height or a level count (PLAN §5's week-2 count; tools/bake/heights.mjs sums it per municipality).
 `header` prints the extract's replication timestamp as JSON; the fetch step names the mirrored
 file by it. `clip` keeps what the bake reads (drivable streets, depot land, water, the places that
 become gateways and POIs) and every public-transport feature, which the bake later strips and gate
@@ -141,6 +144,33 @@ def clip(src, box, out):
     print(json.dumps(counts, sort_keys=True))
 
 
+def heights(src, box, out):
+    west, south, east, north = box
+    rows = []
+    skipped_relations = 0
+    for obj in osmium.FileProcessor(src, osmium.osm.NODE | osmium.osm.WAY | osmium.osm.RELATION).with_locations():
+        if obj.is_node():
+            continue
+        building = obj.tags.get('building')
+        if building is None or building == 'no':
+            continue
+        if obj.is_relation():
+            skipped_relations += 1
+            continue
+        first = obj.nodes[0].location if len(obj.nodes) else None
+        if first is None or not first.valid() or not (west <= first.lon <= east and south <= first.lat <= north):
+            continue
+        has_height = 'height' in obj.tags or 'building:height' in obj.tags
+        has_levels = 'building:levels' in obj.tags
+        rows.append((obj.id, f'{first.lon:.7f}', f'{first.lat:.7f}', int(has_height), int(has_levels)))
+    rows.sort()
+    with open(out, 'w', encoding='utf-8') as f:
+        f.write('way,lon,lat,height,levels\n')
+        for r in rows:
+            f.write(','.join(str(v) for v in r) + '\n')
+    print(json.dumps({'buildings': len(rows), 'relationsNotCounted': skipped_relations}, sort_keys=True))
+
+
 def main(argv):
     if len(argv) == 2 and argv[0] == 'header':
         header(argv[1])
@@ -149,6 +179,9 @@ def main(argv):
         if len(box) != 4 or not (box[0] < box[2] and box[1] < box[3]):
             raise SystemExit(f'osm: box must be west,south,east,north, got {argv[2]}')
         clip(argv[1], box, argv[3])
+    elif len(argv) == 4 and argv[0] == 'heights':
+        box = [float(x) for x in argv[2].split(',')]
+        heights(argv[1], box, argv[3])
     else:
         raise SystemExit(__doc__)
 

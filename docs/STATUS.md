@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 920089b, with the sim worker on the preview in review.
+**Updated:** 2026-10-13, at `main` 605d370, with the height-tag count in review.
 
 ## Live now
 
@@ -69,7 +69,8 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - the dots of homes and jobs;
     - "≈N people within a walk" at the pointer, equal to the rule's number in e2e;
     - the debug line, with labelled chips and the day card (`e2e/sim.spec.ts`).
-  - [ ] still to do: the Inner Boston height-tag count, and `axe-core` in the smoke test;
+  - [x] the Inner Boston height-tag count (2026-10-13, `tools/bake/heights.mjs`): 14.1% carry a height or level count, so Overture's heights join r1 in week 5;
+  - [ ] still to do: `axe-core` in the smoke test;
   - demand dots and the catchment probe;
   - Inner Boston's height-tag count;
   - smoke;
