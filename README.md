@@ -27,7 +27,7 @@ This repo starts fresh and reuses what worked. "interbus" is the game's title (d
 | Mon May 24 2027 | Free Steam demo for macOS and Windows; Next Fest Jun 14–21 |
 | Tue Jul 27 2027 (proposed) | Steam, the only public release, about US$10, after the Summer Sale |
 
-**Where to play:** the web build is a preview for the owner and the artist to look at the game and test the work. Every merge to `main` deploys it to GitHub Pages, and an on-screen chip shows the commit it was built from. It has no offline mode, and when the save format changes, older saves are set aside and a new game starts. The game will be released on Steam for macOS and Windows, built from the same game and city files, after a free demo at Next Fest.
+**Where to play:** the web build is a preview for the owner and the artist to look at the game and test the work, at https://bobbyjohn-nil.github.io/interbus/. Every merge to `main` deploys it to GitHub Pages, and an on-screen chip shows the commit it was built from. It has no offline mode, and when the save format changes, older saves are set aside and a new game starts. The game will be released on Steam for macOS and Windows, built from the same game and city files, after a free demo at Next Fest.
 
 ## Develop
 
