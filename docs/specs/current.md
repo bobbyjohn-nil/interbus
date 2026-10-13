@@ -117,7 +117,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
   - the best four-bus line costs ≥1.15× it;
   - k stays in 1.0–1.8.
 - **I13** at rest and with a panel, at all three sizes, with Home, the save list and the 2D/3D chip.
-- **D2:** the same commands give the same fingerprint, whether flat, tilted or in Low graphics.
+- **D2:** the same commands give the same fingerprint, whether flat, tilted or in Low graphics. Built so: `e2e/modes.spec.ts` tilts and flattens a session in full graphics while time runs and replays it in Node to the same fingerprint; `e2e/session.spec.ts` does the same in Low graphics.
 - **I7** for any envelope change the save list needs.
 - **e2e (I15):**
   - the exit check's items 1–3 on the fixture;

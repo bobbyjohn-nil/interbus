@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` a003492 (the pacing run): in M5 the spec, the save list, Home, the GPU ladder, the pacing run and I14 with events are in, and the 2D/3D chip is in review; the tuning waits for P1's notes (Nov 16–22), and P2's fixes, the light style pass and the slow-laptop run are week 10's.
+**Updated:** 2026-10-13, at `main` efcb5cc (the 2D/3D chip): in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events and the 2D/3D chip, with D2's guard in review. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 074360b (the GPU ladder). Deploy preview run 38473457336's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a003492 (the pacing run). Deploy preview run 38474687009's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, the 2D/3D chip or a right-drag (snapping flat below 12°, the buildings cross-fading), four buildings in five at their measured height; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -62,6 +62,12 @@ The running handoff between Claude sessions. Every session reads it right after 
 - [ ] **Week 2 check:** "Does this look like Boston?" (PLAN §14 item 14).
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare the costs on **day 2's** card: day 1 opens at 05:00, after the first bus left the depot, so its wages and deadhead fall a little short of a whole day's forecast.
+- [ ] **M3's exit check, on the preview** ([`m3-money-loop.md`](specs/m3-money-loop.md)): the checklist to a profitable day and a contract in about 8 minutes; the report card; overspending to the countdown and Restart this quarter.
+- [ ] **M4's exit check, on the preview** ([`m4-goals.md`](specs/m4-goals.md)): a contract near Copley met with a second line; roadworks hatched a day ahead; a stop inserted with no bus jumping; bronze as a dot on the Contracts chip.
+- [ ] **Sun Nov 8, the light token pick** (PLAN §8): the starting light tokens or pure V1 paper, side by side on Boston. The light style pass (M5, item 8) waits for it.
+- [ ] **P1, Nov 16–22:** the owner and the artist play the preview; notes in `docs/playtests/`. The tuning freeze (M5, item 2) waits for them.
+- [ ] **The medal ladder, by Sun Nov 22** (DECISIONS, Open), now with the pacing run's numbers: on Inner Boston the scripted company gets bronze on day 10 and silver on day 29 but no gold in 200 days, coverage reaching 43.5 with seven lines against gold's 60. Recommended: keep bronze and silver as they are, and let week 9's tuning set gold's floor.
+- [ ] **M5's exit check 4, your Mac's fps:** open the preview with `?fps` in stable Chrome, play at 2× flat and tilted, and note the readout in P2's notes.
 
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13
 
@@ -239,7 +245,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). No new system after Sun
 4. [x] **Home** (item 3; 2026-10-13): the first screen over the paused map, with Continue (the game's company, day and cash), New game (asking before it replaces that game; the slots stay) and Saves, the chip row and dock waiting for the game; Back to Home in Saves pauses and returns. 8.0% of 1152×720; the menu's critical path 95.9 KiB (DECISIONS, Measured).
 5. [x] **The GPU ladder** (item 5; 2026-10-13): software rendering, by WebGL's caveat or its renderer's name, is Low graphics (flat, the buses' frames capped at 30 a second, one pixel a pixel); no WebGL2 is a calm card with Home, Saves and Export intact; a context lost mid-game is a card with Reload; `?gpu=` forces a rung and `?fps` shows the frame rate. The e2e tests' SwiftShader runs in Low graphics; the menu's critical path 96.9 KiB (DECISIONS, Measured).
 6. [ ] **The tuning freeze** (item 2): k, the speed ladder, the medal bars and Boston's balance bands, from the pacing run and P1, by Dec 13.
-7. [x] **The 2D/3D chip, drag, snap and cross-fade** (item 6; look work; 2026-10-13, in review): a 2D | 3D chip above the OSM corner, disabled with its reason in Low graphics; a right-drag (or two fingers) pitches 0.25° a pixel and settles in 3D at 25–60°, or flat below 12°; the buildings cross-fade over 400 ms, at once under reduced motion. The dock gave 5 px for it: the shell at rest late in a game takes 5.98% of I13's 6% at 1152×720 (DECISIONS, Measured).
+7. [x] **The 2D/3D chip, drag, snap and cross-fade** (item 6; look work; 2026-10-13): a 2D | 3D chip above the OSM corner, disabled with its reason in Low graphics; a right-drag (or two fingers) pitches 0.25° a pixel and settles in 3D at 25–60°, or flat below 12°; the buildings cross-fade over 400 ms, at once under reduced motion. The dock gave 5 px for it: the shell at rest late in a game takes 5.98% of I13's 6% at 1152×720 (DECISIONS, Measured).
 8. [ ] **P2's fixes, the light style pass and the slow-laptop run** (items 7–9; week 10).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
