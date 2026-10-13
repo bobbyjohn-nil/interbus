@@ -1,0 +1,6 @@
+{
+  "about": "The save schema's hash for each SAVE_FORMAT (save.test.ts). Change the schema, bump SAVE_FORMAT in save.ts, and add the new format's hash here; never edit an existing line.",
+  "formats": {
+    "1": "b4da67484cbe5719"
+  }
+}

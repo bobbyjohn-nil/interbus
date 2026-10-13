@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` d682db0, with the sim core port in review.
+**Updated:** 2026-10-13, at `main` 36caa10, with the saves port in review.
 
 ## Live now
 
@@ -37,7 +37,11 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - V3's calendar on whole seconds from 05:00;
     - D7's periods and headway limits;
     - V3's cent ledger, rebuilt as rows with Founding capital first (I1).
-  - [ ] V3's saves: the async store, the bus counter, the schema hash and I7.
+  - [x] V3's saves (2026-10-13), in `src/sim/save` and `src/sim/state.ts`, plus the async `SaveStore` in `src/platform`:
+    - one schema descriptor gives the type, the strict reader and the hash;
+    - every id counter is saved;
+    - an older format is set aside, never migrated (D12);
+    - I7 and I8's save-load-save hold.
   - [ ] V2's graph and A*; V1's geo; V3's error bus, kept outside the sim.
 - [ ] **Item 11, the city on the fixture:**
   - worker host;
@@ -87,4 +91,5 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
   - Use the GitHub tools for the API.
   - Fetch source data only in the dispatch-only workflows (`tiles.yml`, `bake-sources.yml`). Never route around a block.
 - **Long downloads and bakes:** the fixture cut takes about 4 minutes. `Bake fixture check (manual)` re-cuts it on a runner and fails on any byte of difference.
+- **Changing the save schema:** bump `SAVE_FORMAT` in `src/sim/save/save.ts` and add the new hash to `src/sim/save/schema.lock.json`. The failing test prints the hash. Never edit an existing line in the lock.
 - **Pitfall:** `pkill -f <pattern>` run inside a command line that contains the same pattern kills its own shell. Find the process id first.
