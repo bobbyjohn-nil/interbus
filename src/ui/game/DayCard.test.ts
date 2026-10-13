@@ -50,6 +50,14 @@ describe('the day card when a city event is rolled or over', () => {
     expect(html).toContain('Roadworks on Huntington Avenue tomorrow, for 4 days');
     expect(render({ day: 9, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind: 'roadworks', street: 'Huntington Avenue', days: 4, news: 'over' }], medals: [] })).toContain('Roadworks on Huntington Avenue are over');
   });
+
+  it('names snow and a festival the evening before, and when they are over', () => {
+    const card = (kind: 'festival' | 'snow', street: string, days: number, news: 'tomorrow' | 'over') => render({ day: 6, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind, street, days, news }], medals: [] });
+    expect(card('snow', '', 1, 'tomorrow')).toContain('Snow tomorrow, for 1 day: every bus drives slower');
+    expect(card('snow', '', 2, 'over')).toContain('The snow is over');
+    expect(card('festival', 'Copley Square', 2, 'tomorrow')).toContain('A festival near Copley Square tomorrow, for 2 days: more riders to and from there');
+    expect(card('festival', 'Copley Square', 2, 'over')).toContain('The festival near Copley Square is over');
+  });
 });
 
 describe('the day card when a medal is awarded', () => {

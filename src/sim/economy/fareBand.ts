@@ -7,7 +7,7 @@ import { assign, catchments } from '../demand/assign';
 import { FARE_BAND_SHARE } from '../config/economy';
 import type { LineId } from '../core/ids';
 import { FARES_CENTS, subsidyCents } from '../rules/fare';
-import { runningPlans, type World } from '../world';
+import { commutersToday, runningPlans, type World } from '../world';
 import { forecastDay } from './costs';
 
 export interface FareBand {
@@ -30,7 +30,7 @@ export function fareBand(world: World, lineId: LineId): FareBand | null {
   const reach = catchments(world.city, plans);
   const netCents = FARES_CENTS.map((fare) => {
     const tried = plans.map((p) => (p.id === lineId ? { ...p, fareCents: fare } : p));
-    const riders = assign(world.city, world.commuters, tried, { only: lineId, reach }).lines.get(lineId)?.paidPerDay ?? 0;
+    const riders = assign(world.city, commutersToday(world), tried, { only: lineId, reach }).lines.get(lineId)?.paidPerDay ?? 0;
     return Math.floor(riders) * (fare + subsidyCents(fare)) - dayCost;
   });
   const top = Math.max(...netCents);

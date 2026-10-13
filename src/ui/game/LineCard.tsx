@@ -17,7 +17,7 @@ const PERIODS = [
 ] as const;
 
 /**
- * A line's card: its riders, its round trip at peak and off-peak and what roadworks add to it (the M4
+ * A line's card: its riders, its round trip at peak and off-peak and what roadworks or snow add to it (the M4
  * spec, item 2), when its buses fill (K27), its buses and their model, its fare and the
  * band of fares that net the most (the M3 spec, item 4), and three headways (D7). A headway that needs
  * more buses reads "needs 3 buses, you have 2 · $95k" and confirming buys them (GD-09); another model
@@ -37,16 +37,18 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
   }, [fareBandFor, line.id, version]);
   if (!s) return null;
   const band = sim.fareBand?.lineId === line.id ? sim.fareBand.band : null;
+  const snow = s.event?.kind === 'snow' && s.event.phase === 'on';
   const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents, medals: s.medals };
   const next = wanted ?? line.headways;
   const model = BUS_MODELS[line.model];
   const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, cycles: line.cycles, buses: line.buses, model }, wanted) : null;
   const swap = wantedModel
-    ? checkModelChange(fleet, { routeM: line.stopDistM[line.stopDistM.length - 1] ?? 0, stops: line.stops.length, rush: line.rush, worksM: line.worksM, buses: line.buses, model, headways: line.headways }, BUS_MODELS[wantedModel])
+    ? checkModelChange(fleet, { routeM: line.stopDistM[line.stopDistM.length - 1] ?? 0, stops: line.stops.length, rush: line.rush, worksM: line.worksM, snow, buses: line.buses, model, headways: line.headways }, BUS_MODELS[wantedModel])
     : null;
-  // The same round trip on clear streets: what today's roadworks add is the difference (sim/rules/cycle.ts).
+  // The same round trip on clear streets: what today's roadworks or snow add is the difference (sim/rules/cycle.ts).
   const clear = cyclesOf(line.stopDistM[line.stopDistM.length - 1] ?? 0, line.stops.length, model.kmh, line.rush);
   const works = line.worksM > 0 && s.event ? { street: s.event.street, addS: line.cycles.peak - clear.peak } : null;
+  const snowAddS = snow ? line.cycles.peak - clear.peak : 0;
   const pick = (period: (typeof PERIODS)[number][0], value: string) => setWanted({ ...next, [period]: value === 'off' ? null : Number(value) * 60 });
   return (
     <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={line.forecastCents.running}>
@@ -57,9 +59,10 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
         {about(line.ridersPerDay)} riders a day · {busCount(line.buses, model.name)}
       </p>
       {line.cycles.peak > 0 ? (
-        <p className="round-trip" data-testid="round-trip" data-peak={line.cycles.peak} data-works-s={works?.addS ?? 0}>
+        <p className="round-trip" data-testid="round-trip" data-peak={line.cycles.peak} data-works-s={works?.addS ?? 0} data-snow-s={snowAddS}>
           Round trip {duration(line.cycles.peak)} at peak, {duration(line.cycles.offpeak)} off-peak
           {works ? ` · roadworks on ${works.street} add ${duration(works.addS, true)}` : null}
+          {snow ? ` · snow adds ${duration(snowAddS, snowAddS < 120)}` : null}
         </p>
       ) : null}
       {line.fullAtMinute !== null ? (

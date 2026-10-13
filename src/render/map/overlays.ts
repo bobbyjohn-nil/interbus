@@ -211,10 +211,13 @@ export function setContracts(map: MapLibreMap, contracts: readonly ContractView[
   (map.getSource(CONTRACTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 }
 
-/** The words at a city event's street: "Roadworks tomorrow" while pending, then the days left. */
-export function eventLabel(e: Pick<EventView, 'phase' | 'daysLeft'>): string {
-  if (e.phase === 'pending') return 'Roadworks tomorrow';
-  return e.daysLeft <= 1 ? 'Roadworks · last day' : `Roadworks · ${e.daysLeft} days left`;
+const EVENT_NAMES: Readonly<Record<EventView['kind'], string>> = { roadworks: 'Roadworks', festival: 'Festival', snow: 'Snow' };
+
+/** The words at a city event: "Roadworks tomorrow", "Festival tomorrow" or "Snow tomorrow" while pending, then the days left. */
+export function eventLabel(e: Pick<EventView, 'kind' | 'phase' | 'daysLeft'>): string {
+  const name = EVENT_NAMES[e.kind];
+  if (e.phase === 'pending') return `${name} tomorrow`;
+  return e.daysLeft <= 1 ? `${name} · last day` : `${name} · ${e.daysLeft} days left`;
 }
 
 export function setEvent(map: MapLibreMap, event: EventView | null): void {

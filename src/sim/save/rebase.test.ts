@@ -17,7 +17,7 @@ describe('rebasing a save onto another bake', () => {
     const symphony = world.state.stops[1]!;
     world.state.stops[1] = { ...symphony, lon: symphony.lon + 0.0005 };
     // Roadworks on the old bake's edges, which mean nothing on this one.
-    world.state.event = { kind: 'roadworks', startDay: 2, endDay: 5, street: 'Huntington Avenue', edges: [1, 2] };
+    world.state.event = { kind: 'roadworks', startDay: 2, endDay: 5, street: 'Huntington Avenue', edges: [1, 2], at: null };
     // And a version from before a change, on the old bake's places.
     world.state.lines[0]!.earlier = [{ until: 0, stops: [{ lon: -71.077, lat: 42.3499 }, { lon: -71.1035, lat: 42.336 }], depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, plan: { cycle: 1_500, cycles: { peak: 1_500, offpeak: 1_500, overnight: 1_500 }, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, buses: 2, oneWayS: 600, pullOutS: 0, pullInS: 0 } }];
     const r2 = { ...world.state.city, revision: 'r2', hash: 'f'.repeat(64) };

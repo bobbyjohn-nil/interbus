@@ -7,9 +7,11 @@ import { createLine } from './commands/createLine';
 import { addDebugLine } from './commands/debugLine';
 import { placeDepot } from './commands/placeDepot';
 import { SECONDS_PER_DAY } from './config/time';
+import { toCalendarTime } from './core/calendar';
 import { pointInRing, toLngLat, type LngLat, type XY } from './core/geo';
 import { landmarkFigures, rollOffers } from './economy/contracts';
 import { contractMet } from './rules/contract';
+import { festivalOn } from './rules/event';
 import { busesNeeded } from './rules/cycle';
 import { newGame } from './state';
 import { advance } from './step';
@@ -55,7 +57,8 @@ export function gameWithDepot(seed = 7): World {
 /**
  * I11's company (the M3 spec, item 11; the M4 spec, item 1): the debug line and a line from Copley to
  * Kenmore, both every 10 minutes all day, so it serves every fixture landmark and meets any HEADWAY ask
- * and RIDERSHIP's 150 at Copley and Kenmore, taking every offer it meets at each day's start. A company
+ * and RIDERSHIP's 150 at Copley and Kenmore, with the buses snow needs, taking every offer it meets at each day's start,
+ * but a RIDERSHIP ask never on a festival's riders (they last a day or two). A company
  * that serves only some landmarks earns by where the asks land, not by how they are dealt (GD-04:
  * "comparable play"; DECISIONS, Measured). Its contract income over `days`, in cents: the test holds
  * 10 seeds within 30% of their median; `npm run bench contracts` measures more.
@@ -66,12 +69,21 @@ export function contractIncome(seed: number, days: number): number {
   if (!createLine(world, [COPLEY, KENMORE]).ok) throw new Error('no Kenmore line');
   rollOffers(world, 1);
   for (const line of world.state.lines) line.headways = { peak: 600, offpeak: 600, overnight: null };
+  // Buses for the round trip in snow, so the weather never stretches its headways: a company that
+  // plans for it, as one meeting HEADWAY asks must (the M4 spec, item 2; DECISIONS, Measured).
+  const today = toCalendarTime(world.state.elapsed).day;
+  world.state.event = { kind: 'snow', startDay: today, endDay: today, street: '', edges: [], at: null };
   recompute(world);
   for (const line of world.state.lines) line.buses = busesNeeded(world.services.get(line.id)!.timing.cycles!, line.headways);
+  world.state.event = null;
   recompute(world);
   for (let day = 1; day <= days; day++) {
+    // Never a RIDERSHIP ask on a festival's riders, who last a day or two: the marker says so.
+    const festival = festivalOn(world.state.event, toCalendarTime(world.state.elapsed).day) !== null;
     const figures = landmarkFigures(world);
-    for (const c of world.state.contracts) if (c.acceptedDay === null && contractMet(c.kind, figures.get(c.landmark)?.[c.kind] ?? null, c.ask)) acceptContract(world, c.id);
+    for (const c of world.state.contracts) {
+      if (c.acceptedDay === null && !(festival && c.kind === 'ridership') && contractMet(c.kind, figures.get(c.landmark)?.[c.kind] ?? null, c.ask)) acceptContract(world, c.id);
+    }
     advance(world, SECONDS_PER_DAY);
   }
   return world.state.ledger.rows.filter((r) => r.kind === 'contract').reduce((s, r) => s + r.amountCents, 0);

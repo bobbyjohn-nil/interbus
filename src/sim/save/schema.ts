@@ -34,7 +34,7 @@ export type Infer<F> = F extends 'int' | 'uint32' | 'number'
 
 /**
  * Intent only (PLAN §6, K12): no demand, geometry, camera or theme. Stops are anchored by place.
- * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7, the Interest row and the closes below the credit floor in 8, HEADWAY contracts and their Contracts row in 9, each contract's kind and ask in 10, the events' stream and the latest event in 11, each line's earlier versions while it settles after a change in 12, the medals and the trips carried in 13.
+ * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7, the Interest row and the closes below the credit floor in 8, HEADWAY contracts and their Contracts row in 9, each contract's kind and ask in 10, the events' stream and the latest event in 11, each line's earlier versions while it settles after a change in 12, the medals and the trips carried in 13, the festival and snow events (a festival's place) in 14.
  */
 export const SAVE_SCHEMA = {
   object: {
@@ -105,7 +105,7 @@ export const SAVE_SCHEMA = {
     },
     contractDeck: { array: 'int' },
     eventRng: { object: { state: 'uint32' } },
-    event: { nullable: { object: { kind: { oneOf: EVENT_KINDS }, startDay: 'int', endDay: 'int', street: 'string', edges: { array: 'int' } } } },
+    event: { nullable: { object: { kind: { oneOf: EVENT_KINDS }, startDay: 'int', endDay: 'int', street: 'string', edges: { array: 'int' }, at: { nullable: { object: { lon: 'number', lat: 'number' } } } } } },
     medals: { object: { bronze: { nullable: 'int' }, silver: { nullable: 'int' }, gold: { nullable: 'int' } } },
     tripsCarried: 'int',
     tripsToday: 'int',
