@@ -5,18 +5,23 @@ import type { LngLatPair } from '../sim/types';
 import { Corner } from './Corner';
 import { DayCard } from './game/DayCard';
 import { FoundingCard } from './game/Founding';
-import { LineCard } from './game/LineCard';
 import { ProbeCard } from './game/ProbeCard';
-import { SimPanel } from './game/SimPanel';
 import { DepotCard, DraftCard, type Tool } from './game/Tools';
 import { useSim } from './game/useSim';
 import { ReplacedCard } from './ReplacedCard';
+import { Dock, type Panel } from './shell/Dock';
+import { Inspector } from './shell/Inspector';
+import { Notices } from './shell/Notices';
+import { TopBar } from './shell/TopBar';
 
 export function App() {
   const sim = useSim(CITIES[0]);
   const [screen, setScreen] = useState<[number, number] | null>(null);
   const [tool, setTool] = useState<Tool>('none');
   const [clicks, setClicks] = useState<LngLatPair[]>([]);
+  // One panel at a time on the right: the line tool's draft card, or the lines' inspector.
+  const [panel, setPanel] = useState<Panel>('none');
+  const [lineId, setLineId] = useState<number | null>(null);
   const { probeAt, depotSiteAt, draftFor, send } = sim;
 
   // A tool's pointer: the depot card while placing a depot, "people within a walk" otherwise.
@@ -33,9 +38,14 @@ export function App() {
     [probeAt, depotSiteAt],
   );
   const onClick = useCallback(
-    (at: LngLatPair) => {
+    (at: LngLatPair, line: number | null) => {
       if (toolRef.current === 'depot') send({ type: 'place-depot', at });
       else if (toolRef.current === 'line') setClicks((c) => [...c, at]);
+      else if (line !== null) {
+        // A click on a line opens its inspector.
+        setLineId(line);
+        setPanel('lines');
+      }
     },
     [send],
   );
@@ -44,6 +54,7 @@ export function App() {
     (next: Tool) => {
       setTool((now) => (now === next ? 'none' : next));
       setClicks([]);
+      if (next !== 'none') setPanel('none');
       probeAt(null);
       depotSiteAt(null);
     },
@@ -62,13 +73,21 @@ export function App() {
       setClicks([]);
       depotSiteAt(null);
     }
+    // A new line opens in the inspector, so its headways and forecast are one look away.
+    if (lines > counts.current.lines) {
+      setLineId(null);
+      setPanel('lines');
+    }
     counts.current = { depots, lines };
   }, [depots, lines, depotSiteAt]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLSelectElement || event.target instanceof HTMLInputElement) return;
-      if (event.key === 'Escape') choose('none');
+      if (event.key === 'Escape') {
+        choose('none');
+        setPanel('none');
+      }
       else if (event.key === 'Backspace' && toolRef.current === 'line') setClicks((c) => c.slice(0, -1));
     };
     window.addEventListener('keydown', onKey);
@@ -89,7 +108,7 @@ export function App() {
         clock={sim.snapshot ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate } : null}
         {...(ready ? { onPointer, onClick } : {})}
       />
-      <SimPanel sim={sim} tool={tool} onTool={choose} />
+      <TopBar sim={sim} />
       {tool === 'none' ? <ProbeCard sim={sim} screen={screen} /> : null}
       {tool === 'depot' ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === 'line' ? (
@@ -101,13 +120,11 @@ export function App() {
           onCancel={() => choose('none')}
         />
       ) : null}
-      {tool === 'none' && ready ? (
-        <div className="line-cards">
-          {(sim.snapshot?.lines ?? []).map((line) => (
-            <LineCard key={line.id} sim={sim} line={line} />
-          ))}
-        </div>
+      {tool === 'none' && panel === 'lines' ? <Inspector sim={sim} lineId={lineId} onLine={setLineId} onClose={() => setPanel('none')} /> : null}
+      {ready && sim.snapshot?.company.name ? (
+        <Dock tool={tool} panel={panel} hasLines={(sim.snapshot?.lines.length ?? 0) > 0} onTool={choose} onPanel={setPanel} />
       ) : null}
+      <Notices sim={sim} />
       <FoundingCard sim={sim} />
       <DayCard sim={sim} />
       <Corner />

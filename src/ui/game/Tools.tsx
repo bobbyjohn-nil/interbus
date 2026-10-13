@@ -24,7 +24,7 @@ export function DraftCard({ sim, clicks, onCreate, onUndo, onCancel }: { sim: Si
   const draft = clicks ? sim.draft : null;
   const refused = draft?.refusal ?? null;
   return (
-    <section className="tool-card" aria-label="New line" data-testid="draft-card" data-price={draft?.priceCents ?? ''} data-refusal={refused?.reason ?? ''}>
+    <section className="panel tool-card" aria-label="New line" data-testid="draft-card" data-chrome="panel" data-price={draft?.priceCents ?? ''} data-refusal={refused?.reason ?? ''}>
       <h2>New line</h2>
       {!draft ? (
         <p className="hint">Click the map to place stops.</p>
@@ -52,11 +52,6 @@ export function DraftCard({ sim, clicks, onCreate, onUndo, onCancel }: { sim: Si
           ) : null}
         </>
       )}
-      {sim.refusal?.command === 'create-line' ? (
-        <p className="refusal" role="status">
-          {refusalText(sim.refusal)}
-        </p>
-      ) : null}
       <div className="controls">
         <button type="button" onClick={onCreate} disabled={!draft || refused !== null}>
           Create

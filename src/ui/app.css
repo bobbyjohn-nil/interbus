@@ -107,40 +107,162 @@ body,
   cursor: pointer;
 }
 
-/* M1's debug panel, probe and day card (src/ui/game); the calm shell replaces them in week 4. */
-.sim-panel {
+/* The calm shell (src/ui/shell; PLAN §8): a chip row top-left, the dock bottom-centre, one panel on
+   the right, notices bottom-left, the credits and build chip bottom-right. Every piece is marked
+   data-chrome, and I13 (e2e/i13.spec.ts) holds their area to the screen budget. */
+.top-bar {
   position: absolute;
   left: 12px;
   top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.chips,
-.controls {
+  right: 12px;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+  width: fit-content;
+  font-size: 14px;
 }
 
 .chip {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  box-sizing: border-box;
+  padding: 3px 10px;
   border-radius: 8px;
   background: var(--ui-paper);
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .chip-label {
   color: var(--ui-ink-soft);
   font-size: 12px;
-  margin-right: 4px;
 }
 
-.controls button,
-.day-card button {
+.chip.speed {
+  gap: 2px;
+  padding: 2px;
+}
+
+.chip.speed button {
+  font: inherit;
+  font-size: 13px;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-ink-soft);
+  cursor: pointer;
+}
+
+.chip.speed button[aria-pressed='true'] {
+  background: var(--ui-ink);
+  color: var(--ui-paper);
+  font-weight: 600;
+}
+
+.dock {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--ui-paper);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.14);
+}
+
+.dock button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 64px;
+  padding: 4px 6px 3px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ui-ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dock button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dock button[aria-pressed='true'] {
+  background: var(--ui-ink);
+  color: var(--ui-paper);
+}
+
+.dock button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.notices {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: 280px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--ui-paper);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.14);
+  color: #a3271b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The one panel: the line tool's draft card or the lines' inspector. */
+.panel {
+  position: absolute;
+  right: 12px;
+  top: 56px;
+  width: 280px;
+  max-height: calc(100% - 128px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--ui-paper);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.12);
+  font-size: 14px;
+}
+
+.panel h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.panel p {
+  margin: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel .total {
+  font-weight: 600;
+}
+
+.panel .controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.panel button {
   font: inherit;
   min-height: 24px;
   padding: 3px 10px;
@@ -150,9 +272,97 @@ body,
   cursor: pointer;
 }
 
-.controls button[aria-pressed='true'] {
-  font-weight: 600;
+.panel button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.panel .tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 0 24px 8px 0;
+}
+
+.panel .tabs button[aria-selected='true'] {
   border-color: var(--ui-ink-soft);
+  font-weight: 600;
+}
+
+.panel .close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ui-ink-soft);
+}
+
+.forecast {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+}
+
+.forecast caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.forecast th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ui-ink-soft);
+}
+
+.forecast td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast .total th,
+.forecast .total td {
+  font-weight: 600;
+  color: var(--ui-ink);
+  border-top: 1px solid var(--ui-line);
+}
+
+.hint {
+  color: var(--ui-ink-soft);
+}
+
+.refusal {
+  color: #a3271b;
+  font-weight: 600;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: baseline;
+}
+
+.headways {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  margin-top: 6px;
+}
+
+.headways label {
+  display: contents;
+}
+
+.headways select {
+  font: inherit;
 }
 
 .probe-card {
@@ -209,102 +419,14 @@ body,
   border-top: 1px solid var(--ui-line);
 }
 
-/* M2's tools (src/ui/game/Tools.tsx, LineCard.tsx); the calm shell restyles them in step 7. */
-.tool-card,
-.line-card {
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--ui-paper);
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.12);
-  font-size: 14px;
-}
-
-.tool-card {
-  position: absolute;
-  left: 12px;
-  bottom: 40px;
-  min-width: 240px;
-}
-
-.line-cards {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 300px;
-}
-
-.tool-card h2,
-.line-card h2 {
-  margin: 0 0 6px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.tool-card p,
-.line-card p {
-  margin: 2px 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.tool-card .total {
-  font-weight: 600;
-}
-
-.tool-card .controls,
-.line-card .controls {
-  margin-top: 8px;
-}
-
-.hint {
-  color: var(--ui-ink-soft);
-}
-
-.refusal {
-  color: #a3271b;
-  font-weight: 600;
-}
-
-.swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  vertical-align: baseline;
-}
-
-.headways {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 8px;
-  margin-top: 6px;
-}
-
-.headways label {
-  display: contents;
-}
-
-.headways select,
-.line-card button {
+.day-card button {
   font: inherit;
-}
-
-.line-card button,
-.tool-card button {
   min-height: 24px;
   padding: 3px 10px;
   border: 1px solid var(--ui-line);
   border-radius: 6px;
   background: #fff;
   cursor: pointer;
-}
-
-.tool-card button:disabled,
-.line-card button:disabled {
-  cursor: default;
-  opacity: 0.5;
 }
 
 /* The founding card (src/ui/game/Founding.tsx). */

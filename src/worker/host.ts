@@ -9,6 +9,7 @@ import { setHeadways } from '../sim/commands/setHeadways';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
 import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
+import { SUBSIDY_PER_BOARDING_CENTS } from '../sim/config/economy';
 import { FOUNDING_HEADWAYS } from '../sim/config/lines';
 import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
@@ -92,6 +93,7 @@ function lineViews(world: World): LineView[] {
       pullIn: driveOf(world, first, depotNode),
       plan: service ? service.day.inputs : { timing: { cycle: 0, headways: line.headways, buses: 0 }, oneWayS: 0, pullOutS: 0, pullInS: 0 },
       ridersPerDay: world.assignment.lines.get(line.id)?.perDay ?? 0,
+      incomeCents: Math.floor(world.assignment.lines.get(line.id)?.perDay ?? 0) * (line.fareCents + SUBSIDY_PER_BOARDING_CENTS),
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
       buses: line.buses,

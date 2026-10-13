@@ -251,6 +251,15 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`e2e/i13.spec.ts`): **I13 passes in the light theme at the three laptop sizes.** The calm shell's share of the screen is the area of every element marked `data-chrome` (the chip row, the dock, notices, the credits and build chip, and the one panel open), clipped to the window. The test founds a company, places a depot and draws the debug line's four stops, so each panel is measured as a player sees it:
+
+  | Size | At rest | At rest with a line | Founding card | Draft card | Inspector |
+  |---|---|---|---|---|---|
+  | 1440×900 | 2.5% | 2.7% | 8.2% | 6.7% | 8.9% |
+  | 1366×768 | 3.1% | 3.4% | 10.1% | 8.3% | 11.1% |
+  | 1152×720 | 3.9% | 4.3% | 12.8% | 10.4% | 14.0% |
+
+  The budget is 6% at rest and 26% with a panel. The measure bites: a 400 × 200 panel added at rest takes 1152×720 past 6%, and a chip row stretched across the window 64 px tall measured 10.8% at rest there and failed. The dark theme's run joins in week 13.
 - **2026-10-13** (`e2e/i12.spec.ts`): **I12 passes for the Sparrow.** Fifty buses heading away from the camera at 1366×768 were measured from the pixels drawn, along each bus's own long axis:
 
   | Camera | Shortest bus (needs 20 px) |

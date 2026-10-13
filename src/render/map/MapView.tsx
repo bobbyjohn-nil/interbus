@@ -23,7 +23,7 @@ export interface MapViewProps {
   /** Changes whenever `lines` does (Snapshot.linesVersion). */
   readonly linesVersion?: number;
   readonly onPointer?: (at: LngLatPair | null, screen: [number, number] | null) => void;
-  readonly onClick?: (at: LngLatPair) => void;
+  readonly onClick?: (at: LngLatPair, lineId: number | null) => void;
   /** Where depots may stand, tinted while `tint` is on. */
   readonly depotLand?: readonly (readonly LngLatPair[])[] | null;
   readonly tint?: boolean;
@@ -118,7 +118,7 @@ export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer, 
         mounted.setDraft(now.draft);
         if (now.clock) mounted.setClock(now.clock.second, now.clock.rate);
         mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
-        mounted.onClick((at) => latest.current.onClick?.(at));
+        mounted.onClick((at, lineId) => latest.current.onClick?.(at, lineId));
         const rest = () => {
           const c = mounted.map.getCenter();
           setView(`${c.lng.toFixed(6)},${c.lat.toFixed(6)},${mounted.map.getZoom().toFixed(3)}`);

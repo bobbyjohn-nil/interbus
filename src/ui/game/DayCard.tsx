@@ -9,7 +9,7 @@ export function DayCard({ sim }: { sim: Sim }) {
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
   return (
-    <section className="day-card" role="dialog" aria-label={`Day ${card.day} closed`} data-testid="day-card" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
+    <section className="day-card" role="dialog" aria-label={`Day ${card.day} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
       <h2>Day {card.day} closed</h2>
       <table>
         <tbody>
