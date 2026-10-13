@@ -95,7 +95,7 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
   let vao: WebGLVertexArrayObject | null = null;
   let relative = new Float32Array(0);
   let drawn = 0;
-  let frames = 0;
+  let asked = 0;
   const where: Record<string, WebGLUniformLocation | null> = {};
 
   return {
@@ -137,8 +137,6 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
       const { count, data } = fleet.frame(performance.now());
       const box = map.getContainer().dataset;
       if (count !== drawn) box.buses = String(count);
-      // Frames drawn, so the e2e tests can see none are while paused (I14).
-      box.frames = String(++frames);
       drawn = count;
       if (count > 0) {
         // Positions relative to the camera's centre, so float32 keeps them to a fraction of a pixel at
@@ -174,8 +172,12 @@ export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx:
         g.drawArraysInstanced(g.TRIANGLE_STRIP, 0, 4, count);
         g.bindVertexArray(null);
       }
-      // Time runs: draw the next frame too. Paused: nothing moves, so no frame is asked for (I14).
-      if (fleet.running) map.triggerRepaint();
+      // Time runs: draw the next frame too. Paused: nothing moves, so no frame is asked for (I14); the
+      // container counts the frames asked for, for the e2e tests.
+      if (fleet.running) {
+        map.getContainer().dataset.asked = String(++asked);
+        map.triggerRepaint();
+      }
     },
     onRemove(_m, gl) {
       const g = gl as WebGL2RenderingContext;

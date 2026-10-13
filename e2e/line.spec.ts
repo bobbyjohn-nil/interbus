@@ -93,14 +93,15 @@ test.describe('the line tool on the fixture', () => {
     await expect(panel).toHaveAttribute('data-cash', '7120000');
     const running = Number(await page.getByTestId('line-card').getAttribute('data-running'));
 
-    // Its buses: drawn while time runs, and not one frame drawn while paused (I14, TS-07).
+    // Its buses: drawn while time runs (TS-07), and the layer asks for no frame while paused (I14).
     await page.getByRole('button', { name: '1×' }).click();
     await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 10_000 }).toBeGreaterThan(0);
+    await expect.poll(async () => Number(await map.getAttribute('data-asked')), { timeout: 10_000 }).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Pause' }).click();
     await page.waitForTimeout(500);
-    const frames = await map.getAttribute('data-frames');
+    const asked = await map.getAttribute('data-asked');
     await page.waitForTimeout(1_000);
-    expect(await map.getAttribute('data-frames')).toBe(frames);
+    expect(await map.getAttribute('data-asked')).toBe(asked);
 
     // A day: every cost is a row, and the rows add up to the change in cash.
     await page.getByRole('button', { name: '3×' }).click();
