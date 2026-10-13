@@ -37,6 +37,8 @@ function playedGame(): SimState {
     state.nextIds = next;
     state.contracts.push({ id, landmark: 'Longwood', kind: 'headway', ask: 900, rewardCents: 15_000_000, offeredDay: 1, acceptedDay, daysMet: acceptedDay ? 1 : 0, hoursMissedToday: 3 });
   }
+  for (let i = 0; i < 5; i++) state.eventRng.next();
+  state.event = { kind: 'roadworks', startDay: 3, endDay: 7, street: 'Huntington Avenue', edges: [12, 13, 40] };
   state.elapsed = 3 * 86_400 + 4_321;
   return state;
 }
@@ -59,6 +61,8 @@ describe('saves', () => {
     expect(encode(loaded, BUILD)).toBe(first);
     expect(loaded.ledger.cashCents).toBe(state.ledger.cashCents);
     expect(loaded.rng.next()).toBe(state.rng.next());
+    expect(loaded.eventRng.next()).toBe(state.eventRng.next());
+    expect(loaded.event).toEqual(state.event);
     expect(result.envelope.build).toEqual(BUILD);
   });
 
@@ -75,7 +79,7 @@ describe('saves', () => {
 
   it('holds intent only: no demand, geometry, camera or theme (K12)', () => {
     expect(Object.keys((SAVE_SCHEMA as { object: object }).object).sort()).toEqual(
-      ['city', 'clock', 'closesBelowFloor', 'company', 'contractDeck', 'contracts', 'depots', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
+      ['city', 'clock', 'closesBelowFloor', 'company', 'contractDeck', 'contracts', 'depots', 'event', 'eventRng', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
     );
   });
 });
@@ -203,6 +207,8 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a stop of no tier', (e) => void ((dataOf(e).stops as { tier: number }[])[0]!.tier = 7), /a stop of no tier/],
     ['a contract at its counter', (e) => void ((dataOf(e).contracts as { id: number }[])[0]!.id = 3), /contract id at or above its counter/],
     ['a contract taken before its offer', (e) => void ((dataOf(e).contracts as { acceptedDay: number }[])[0]!.acceptedDay = 0), /taken before it was offered/],
+    ['an event that ends before it starts', (e) => void ((dataOf(e).event as { endDay: number }).endDay = 2), /an event with impossible days or streets/],
+    ['an event on one street twice', (e) => void ((dataOf(e).event as { edges: number[] }).edges = [12, 12]), /an event with impossible days or streets/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {

@@ -2,6 +2,7 @@
 // src/ui and src/render may import (CLAUDE.md "Architecture guardrails"). Plain data: anything here
 // must survive structured cloning.
 import type { ContractKind } from '../config/contracts';
+import type { EventKind } from '../config/events';
 import type { BusModelId } from '../config/fleet';
 
 export type { BusModelId };
@@ -97,6 +98,8 @@ export interface LineView {
   readonly cycles: CyclesData;
   /** How much of the rush its route's streets take (sim/traffic/congestion.ts), for the model card's bus count. */
   readonly rush: number;
+  /** Metres of its route through roadworks today (the M4 spec, item 2), which its round trips already count; 0 with none. */
+  readonly worksM: number;
   readonly buses: number;
   /** The one model the line runs (the M3 spec, item 2). */
   readonly model: BusModelId;
@@ -196,10 +199,28 @@ export interface Snapshot {
   readonly undo: { readonly command: string; readonly subject: string } | null;
   /** Below the credit line's −$150k, or counting closes below it: day closes left before the run ends, and whether it has (D10); null otherwise. */
   readonly floor: { readonly closesLeft: number; readonly ended: boolean } | null;
-  /** HEADWAY contracts on offer and held, at most three (the M3 spec, item 11). */
+  /** Contracts on offer and held, at most three (the M3 spec, item 11; the M4 spec, item 1). */
   readonly contracts: readonly ContractView[];
   /** A contract has been taken, held now or paid: the checklist's last step. */
   readonly contractTaken: boolean;
+  /** The city event pending or on (the M4 spec, item 2), or null. */
+  readonly event: EventView | null;
+}
+
+/** A city event for its marker on the map and the line card (sim/rules/event.ts). */
+export interface EventView {
+  readonly kind: EventKind;
+  /** Pending the day it is rolled, hatched on the map; on from its first day to its last, solid. */
+  readonly phase: 'pending' | 'on';
+  readonly street: string;
+  readonly startDay: number;
+  readonly endDay: number;
+  /** Days still on, today included; all of them while pending. */
+  readonly daysLeft: number;
+  /** The stretch of street, one line of [lon, lat] per street piece. */
+  readonly path: readonly (readonly LngLatPair[])[];
+  /** Where its words sit: the middle of the stretch's longest piece. */
+  readonly at: LngLatPair;
 }
 
 /** A contract for its card and its ring on the map (sim/economy/contracts.ts, sim/rules/contract.ts). */
@@ -251,6 +272,8 @@ export interface DayCard {
   } | null;
   /** Contracts paid or lapsed at this close. */
   readonly contracts: readonly { readonly landmark: string; readonly kind: ContractKind; readonly ask: number; readonly rewardCents: number; readonly outcome: 'paid' | 'lapsed' }[];
+  /** The notices of city events (the M4 spec, item 2): one rolled at this close, which starts tomorrow, and one whose last day this was. */
+  readonly events: readonly { readonly kind: EventKind; readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }[];
 }
 
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */
@@ -309,7 +332,7 @@ export type ToWorker =
   | { readonly type: 'export' }
   /** Reopens the save written as this quarter began (the failure floor's Restart this quarter). */
   | { readonly type: 'restart-quarter' }
-  /** Takes a HEADWAY contract on offer. */
+  /** Takes a contract on offer. */
   | { readonly type: 'accept-contract'; readonly contractId: number }
   /** This session as a file: the save it began from and every command since (Export session). */
   | { readonly type: 'export-session' }

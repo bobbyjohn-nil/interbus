@@ -6,6 +6,7 @@ import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
 import type { Headways } from './rules/periods';
 import type { ContractKind } from './config/contracts';
+import type { EventKind } from './config/events';
 import type { BusModelId } from './config/fleet';
 import type { StopTier } from './config/stops';
 
@@ -67,6 +68,16 @@ export interface Contract {
   hoursMissedToday: number;
 }
 
+/** A city event (the M4 spec, item 2): rolled the day before `startDay`, on through `endDay` (rules/event.ts). */
+export interface CityEvent {
+  readonly kind: EventKind;
+  readonly startDay: number;
+  readonly endDay: number;
+  /** Roadworks: the named street, and the stretch of its edges (the city graph's) driven at ROADWORKS_SPEED. */
+  readonly street: string;
+  readonly edges: readonly number[];
+}
+
 export interface SimState {
   city: CityRef;
   /** Whole game-seconds since founding (05:00 on day 1). */
@@ -80,11 +91,14 @@ export interface SimState {
   ledger: Ledger;
   /** Day closes in a row with cash below the credit line's floor; five end the run (rules/credit.ts, D10). */
   closesBelowFloor: number;
-  /** Offered and held HEADWAY contracts, at most three (config/contracts.ts). */
+  /** Offered and held contracts of either kind, at most three (config/contracts.ts). */
   contracts: Contract[];
-  /** The asks (seconds) still to deal before the next shuffle, so every three offers hold one of each (I11). */
-  /** Indices into CONTRACT_ASKS still to deal, from the last shuffle. */
+  /** Indices into CONTRACT_ASKS still to deal before the next shuffle, so every six offers hold each ask once (I11). */
   contractDeck: number[];
+  /** The events' own stream, apart from `rng`, so rolling events never shifts the contract deck (I8). */
+  eventRng: Rng;
+  /** The latest event, pending, on or over (kept for the gap after it); null before the first. */
+  event: CityEvent | null;
 }
 
 /** A new company at founding: 05:00 on day 1, Founding capital its only ledger row. */
@@ -102,5 +116,7 @@ export function newGame(city: CityRef, company: { name: string; colour: string }
     closesBelowFloor: 0,
     contracts: [],
     contractDeck: [],
+    eventRng: createRng(seedFor(seed, 'events')),
+    event: null,
   };
 }

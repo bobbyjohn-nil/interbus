@@ -18,7 +18,7 @@ function context(over: Partial<LineDraftContext> = {}): LineDraftContext {
       return best;
     },
     stops: [],
-    leg: (a, b) => ({ m: Math.abs(b[0] - a[0]), rushM: 0 }),
+    leg: (a, b) => ({ m: Math.abs(b[0] - a[0]), rushM: 0, worksM: 0 }),
     depots: 1,
     busesOwned: 0,
     cashCents: 42_720_000,
@@ -58,7 +58,7 @@ describe('a line draft (the M2 spec, items 2–4)', () => {
     // A second click within 250 m of the draft's own first stop is that stop again.
     expect(checkLineDraft(context(), [[0, 0], [2_000, 0], [100, 0]], TWENTY)).toMatchObject({ ok: false, reason: 'stop_twice', at: 2 });
     expect(checkLineDraft(context(), [[0, 0], [3_000, 900]], TWENTY)).toMatchObject({ ok: false, reason: 'no_street_near', at: 1, limitM: 150 });
-    expect(checkLineDraft(context({ leg: (a, b) => (b[0] > 2_000 ? null : { m: Math.abs(b[0] - a[0]), rushM: 0 }) }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'no_route', at: 2 });
+    expect(checkLineDraft(context({ leg: (a, b) => (b[0] > 2_000 ? null : { m: Math.abs(b[0] - a[0]), rushM: 0, worksM: 0 }) }), DEBUG_LIKE, TWENTY)).toMatchObject({ ok: false, reason: 'no_route', at: 2 });
   });
 
   it('charges nothing for a stop it joins', () => {

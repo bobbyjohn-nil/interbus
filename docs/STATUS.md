@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` f19f01a (the M4 spec): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: RIDERSHIP contracts are in review, and roadworks a day ahead are next.
+**Updated:** 2026-10-13, at `main` 1edeff2 (RIDERSHIP contracts): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: roadworks a day ahead are in review, and no bus jumps on route edits are next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` f19f01a. Deploy preview run 38433202412's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 1edeff2. Deploy preview run 38436185912's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -27,7 +27,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - Saves in the dock: three slots beside the autosave, and a game exported and imported as a file;
   - a report card on each quarter's last day card, paying a grant or a fine;
   - a credit line to -$150k with daily interest, a countdown chip below it, and Restart this quarter when the lender calls in the loan;
-  - HEADWAY contracts at landmarks, taken from the checklist's last step or the Contracts chip, with rings on the map, paid as a Contracts row;
+  - HEADWAY and RIDERSHIP contracts at landmarks, dealt from one deck of six, taken from the checklist's last step or the Contracts chip, with rings on the map, paid as a Contracts row, an untaken offer withdrawn after 10 days;
   - Export session in Saves, a file that replays to the same game for a bug report;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
@@ -215,7 +215,9 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
 
 The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m3-money-loop.md`](specs/m3-money-loop.md)). Money first, each a small pull request (items are the spec's); P1's notes (Nov 16–22) may reorder them. M3's item 12 above, the presentation work, stays at most one session in three.
 1. [x] **RIDERSHIP contracts** (item 1; 2026-10-13): 150, 400 or 800 paid boardings a day near a landmark for $60k, $150k or $240k, a change onto a line not counted, dealt with HEADWAY's asks from one deck of six; an offer untaken for 10 days is withdrawn (save format 10). I11's company, now two lines reaching every fixture landmark, earns $900k–$1.02M over 40 days on 100 seeds. On Inner Boston the debug line gives Copley 136.1, and a second line from Copley to Downtown Crossing at 20 minutes lifts it to 400.5, so exit check 1 holds with little to spare (DECISIONS, Measured).
-2. [ ] **Roadworks a day ahead** (item 2), from the events' own RNG stream; then festival and snow (below the cut's second).
+2. [ ] **Events** (item 2), from the events' own saved stream.
+   - [x] **Roadworks a day ahead** (2026-10-13): rolled at a day's start (0.18, one at a time, 2 days' gap) for 3–6 days on up to 400 m of one named street a running line drives; every line over them drives it at 0.65 of its speed, hatched on the map and named on the day card the evening before, solid while on, and the line card reads its round trip and what the works add (save format 11). 0.8 events a quarter; the debug line +9 to +64 s at peak, median 52; I11 unchanged (DECISIONS, Measured).
+   - [ ] Festival and snow (below the cut's second).
 3. [ ] **No bus jumps on route edits** (item 4): measure remove and extend first, then keep a trip under way on the plan it began with.
 4. [ ] **Route insert** (item 4): point at a leg, one command and one undo.
 5. [ ] **Medals** (item 3): bronze and silver with the Goliath behind it, then gold, on the recommended ladder until the owner answers.

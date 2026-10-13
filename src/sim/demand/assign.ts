@@ -85,6 +85,8 @@ export interface LinePlan {
   readonly transferPenaltyMin?: readonly number[];
   /** How much of the rush its route's streets take, their metres-weighted class weight (traffic/congestion.ts); none when absent. */
   readonly rush?: number;
+  /** Metres of its route through roadworks today (the M4 spec, item 2): its round trip's, not its riders', who ride at the street's speed; none when absent. */
+  readonly worksM?: number;
 }
 
 export interface LineDemand {

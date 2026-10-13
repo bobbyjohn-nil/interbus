@@ -568,3 +568,38 @@ describe('HEADWAY contracts (the M3 spec, item 11)', () => {
     expect(last('snapshot')!.snapshot.contracts.find((c) => c.id === longwood.id)!.held).toBe(false);
   });
 });
+
+describe('city events (the M4 spec, item 2)', () => {
+  it('shows roadworks hatched the day they are rolled and solid while on, says so on the day card, and the line card’s round trip grows only while they are on', () => {
+    const { host, last, out } = started();
+    host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const calm = last('snapshot')!.snapshot.lines[0]!.cycles;
+    // Day n closes at 24:00, 19 hours after founding's 05:00 and whole days after that.
+    const closeOf = (n: number) => 68_400 + (n - 1) * 86_400;
+    const now = () => {
+      host.handle({ type: 'speed', speed: 0 });
+      return last('snapshot')!.snapshot;
+    };
+    const news = (what: 'tomorrow' | 'over') => out.flatMap((m) => (m.type === 'day-card' ? m.card.events.filter((e) => e.news === what).map((e) => ({ day: m.card.day, ...e })) : []));
+    let day = 1;
+    for (; day <= 60 && news('tomorrow').length === 0; day++) host.advanceTo(closeOf(day));
+    const rolled = news('tomorrow')[0];
+    if (!rolled) throw new Error('no roadworks in 60 days');
+    const pending = now();
+    expect(pending.event).toMatchObject({ kind: 'roadworks', phase: 'pending', street: rolled.street, daysLeft: rolled.days });
+    expect(pending.event!.path.length).toBeGreaterThan(0);
+    expect(pending.lines[0]!.cycles).toEqual(calm);
+    host.advanceTo(closeOf(day++));
+    const on = now();
+    expect(on.event).toMatchObject({ phase: 'on', daysLeft: rolled.days });
+    expect(on.lines[0]!.worksM).toBeGreaterThan(0);
+    expect(on.lines[0]!.cycles.peak).toBeGreaterThan(calm.peak);
+    for (let n = 0; n < rolled.days; n++) host.advanceTo(closeOf(day++));
+    expect(news('over')).toEqual([{ ...rolled, news: 'over', day: day - 1 }]);
+    const over = now();
+    expect(over.event).toBeNull();
+    expect(over.lines[0]!.cycles).toEqual(calm);
+  });
+});

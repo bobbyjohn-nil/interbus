@@ -71,3 +71,15 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
 export function busCount(n: number, model: string): string {
   return `${n} ${n === 1 ? model : `${model}s`}`;
 }
+
+/** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */
+export function eventNewsText(e: { readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
+  return e.news === 'tomorrow' ? `Roadworks on ${e.street} tomorrow, for ${e.days} ${e.days === 1 ? 'day' : 'days'}` : `Roadworks on ${e.street} are over`;
+}
+
+/** A round trip on the line card: whole minutes, or minutes and seconds where a few seconds matter. */
+export function duration(seconds: number, exact = false): string {
+  const s = Math.round(seconds);
+  if (!exact) return `${Math.round(s / 60)} min`;
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
