@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` ee8d74f, with the M2 spec in review.
+**Updated:** 2026-10-13, at `main` 1249a21, with the cycle function in review.
 
 ## Live now
 
@@ -74,7 +74,7 @@ Per-period crowding (K27) and visitors, the last two items below M1's cut line, 
 ## Next: M2, the first line, by Sun Nov 8 (week 4)
 
 The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a small pull request:
-1. [ ] **The cycle function** in `sim/rules`, the bus count per period, and the founding recipe counted with it ($427,200 at k = 1.2; D7's clarification).
+1. [x] **The cycle function** (2026-10-13, `src/sim/rules/cycle.ts`): a round trip, the buses each running period needs, the headway a short line runs, and the founding recipe counted with it (two Sparrows; $427,200 at k = 1.2; D7's clarification). The Sparrow is a config row in `src/sim/config/fleet.ts`.
 2. [ ] **Depots in the sim:** the placement predicate, the place command, the price ladder, upkeep, and save format 3.
 3. [ ] **Costs as ledger rows** (running, wages, depot upkeep, deadhead) and the line inspector's forecast, equal to the cent (I1, I6).
 4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze.

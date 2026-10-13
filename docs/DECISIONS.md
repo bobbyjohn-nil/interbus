@@ -89,7 +89,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
   - **Fare scope** was not in the answer, so per-line fares, the recommendation, stand; the owner can change this before the format freeze on Sun Nov 8.
 - **Why:** A derived amount stays right as prices are tuned. Three periods give the player a night choice without reopening EC-03.
 - **How to reverse:** A fixed starting cash is one config row. Before Sun Nov 8, dropping or reshaping the periods is a config and schema change of about a session; after it, a save-format bump (web saves are set aside on a bump anyway, D12).
-- **Since clarified:** 2026-10-13, measuring the debug line (3,535 m by street) with V1's cycle formula: a 3–4 km line every 20 minutes needs 2 Sparrows, not 1. So the starter recipe costs $356,000, and founding capital at k = 1.2 is $427,200 (it was $313,200). The recipe will count its buses with the game's one cycle function from M2 (K07; [the M2 spec](specs/current.md)). The rule itself, k × the starter line, is unchanged.
+- **Since clarified:** 2026-10-13, measuring the debug line (3,535 m by street) with V1's cycle formula: a 3–4 km line every 20 minutes needs 2 Sparrows, not 1. So the starter recipe costs $356,000, and founding capital at k = 1.2 is $427,200 (it was $313,200). The recipe counts its buses with the game's one cycle function (K07; `src/sim/economy/starter.ts`, M2 step 1). The rule itself, k × the starter line, is unchanged.
 
 ### D8 · The look: "sleek but detailed and intricate"
 

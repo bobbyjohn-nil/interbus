@@ -1,17 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { STARTER_LINE_CENTS } from '../config/economy';
 import { createRng } from '../core/rng';
 import { bankedBetween, foundingCapitalCents, foundLedger, post, refund, rowsOfDay, spend, type Ledger } from './ledger';
+import { starterBuses, starterLineCents } from './starter';
 
 const sum = (l: Ledger) => l.rows.reduce((s, r) => s + r.amountCents, 0);
 
 describe('I1: cash is the sum of the ledger rows', () => {
   it('founds with one row, Founding capital = k × the starter line (D7)', () => {
-    expect(STARTER_LINE_CENTS).toBe(26_100_000);
-    expect(foundingCapitalCents()).toBe(31_320_000);
+    // A depot, four stops and the two Sparrows every 20 minutes needs on a 3.5 km line (D7, K07).
+    expect(starterBuses()).toBe(2);
+    expect(starterLineCents()).toBe(35_600_000);
+    expect(foundingCapitalCents()).toBe(42_720_000);
     const ledger = foundLedger();
-    expect(ledger.rows).toEqual([{ day: 1, kind: 'founding', amountCents: 31_320_000 }]);
-    expect(ledger.cashCents).toBe(31_320_000);
+    expect(ledger.rows).toEqual([{ day: 1, kind: 'founding', amountCents: 42_720_000 }]);
+    expect(ledger.cashCents).toBe(42_720_000);
   });
 
   it('holds through thousands of random income rows, purchases, refusals and refunds', () => {
@@ -51,7 +53,7 @@ describe('I1: cash is the sum of the ledger rows', () => {
     const ledger = foundLedger(foundingCapitalCents(1_200));
     expect(foundingCapitalCents(1_800)).not.toBe(ledger.cashCents);
     expect(() => post(ledger, { day: 3, kind: 'founding', amountCents: 1 })).toThrow(RangeError);
-    expect(ledger.cashCents).toBe(31_320_000);
+    expect(ledger.cashCents).toBe(42_720_000);
   });
 });
 

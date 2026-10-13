@@ -6,7 +6,8 @@
 // - amounts are integer cents end to end, and a caller bug (a negative or fractional amount) throws
 //   instead of V3's console.error and a misleading 'insufficient_funds'.
 // Income rows (K40: V3's income was always zero) are posted by the demand step from M1.
-import { STARTER_LINE_CENTS, STARTING_CASH_K_PERMILLE } from '../config/economy';
+import { STARTING_CASH_K_PERMILLE } from '../config/economy';
+import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
@@ -33,7 +34,7 @@ function assertCents(amount: number, what: string): void {
 }
 
 /** k × the starter line's cost, in whole cents (D7). */
-export function foundingCapitalCents(kPermille = STARTING_CASH_K_PERMILLE, starterCents = STARTER_LINE_CENTS): number {
+export function foundingCapitalCents(kPermille = STARTING_CASH_K_PERMILLE, starterCents = starterLineCents()): number {
   return Math.floor((starterCents * kPermille) / 1000);
 }
 
