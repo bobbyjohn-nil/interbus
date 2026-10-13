@@ -12,7 +12,10 @@
 // - V1 timed trips between cell centroids; this times them per group of sub-points that reach the
 //   same stops, with the group's average walk (I14's budget rules out every sub-point pair);
 // - buses fill (K27): riders past the busiest leg's seats in a half-hour are turned away in that
-//   half-hour only, where V1 shed the whole day from its peak hour (demand.worker.ts:575-590).
+//   half-hour only, where V1 shed the whole day from its peak hour (demand.worker.ts:575-590);
+// - riders scan every line at a stop (I5, K23; step 11): of the lines serving a trip they take the
+//   first bus among those worth waiting for (commonLines), where V1 kept the 3 best and M1–M3 the
+//   quickest alone.
 // Waits carry no traffic delay until congestion lands in week 7 (K06: one rule for both).
 import {
   BUS_KMH,
@@ -111,6 +114,45 @@ export function waitMin(headwaySeconds: number): number {
 /** What a wait is worth against a minute of riding: itself up to 10 minutes, convex past it (V2's perceivedWaitMin). */
 export function perceivedWaitMin(wait: number): number {
   return wait <= WAIT_PAIN_REF_MIN ? wait : WAIT_PAIN_REF_MIN * (wait / WAIT_PAIN_REF_MIN) ** WAIT_PAIN_EXPONENT;
+}
+
+/**
+ * Riders scanning every line at a stop (I5, K23; V2): which of the lines serving a trip are worth
+ * waiting for, and how the trip's riders split among them. Lines join in order of their minutes
+ * before waiting (`base`), each only while it makes the set's expected trip quicker: the wait for
+ * the set's combined headway, 1 ÷ Σ 1/h, plus the ride, weighted by how often each line comes. A
+ * rider takes the first bus of the set, so each line carries its share of the set's frequency.
+ * Writes each line's share to `share` (0 outside the set; `order` is scratch) and returns the
+ * trip's minutes, or Infinity when no line runs. One line gives its own base and wait, as before.
+ */
+export function commonLines(base: ArrayLike<number>, headwaySec: ArrayLike<number>, count: number, share: Float64Array, order: Int32Array): number {
+  let n = 0;
+  for (let q = 0; q < count; q++) {
+    share[q] = 0;
+    if (!(headwaySec[q]! < Infinity) || !(base[q]! < Infinity)) continue;
+    let at = n++;
+    while (at > 0 && base[order[at - 1]!]! > base[q]!) {
+      order[at] = order[at - 1]!;
+      at--;
+    }
+    order[at] = q;
+  }
+  let perSecond = 0;
+  let weighted = 0;
+  let minutes = Infinity;
+  let taken = 0;
+  for (let k = 0; k < n; k++) {
+    const q = order[k]!;
+    const f = 1 / headwaySec[q]!;
+    const t = perceivedWaitMin(waitMin(1 / (perSecond + f))) + (weighted + f * base[q]!) / (perSecond + f);
+    if (t >= minutes) break;
+    perSecond += f;
+    weighted += f * base[q]!;
+    minutes = t;
+    taken = k + 1;
+  }
+  for (let k = 0; k < taken; k++) share[order[k]!] = 1 / headwaySec[order[k]!]! / perSecond;
+  return minutes;
 }
 
 /** The minutes a walk of `distM` to a stop feels like: less its tier's bonus, never below 0.2 nor above the walk itself (V1). */
@@ -268,7 +310,7 @@ export interface AssignOptions {
  * a cell, sub-points that reach the same stops of a line ride as one group, with the group's
  * average walk to each stop. The straight-line km is the cell pair's, as the commuters were
  * counted, so placing a stop never moves it (I2). Where groups at both ends share several lines,
- * each pair of sub-points rides the quickest line that serves both, so nobody is counted twice.
+ * each pair of sub-points scans the lines that serve both (commonLines), so nobody is counted twice.
  *
  * Only cell pairs that share a line are visited (on T03's grid, 91 thousand of 659 thousand). The
  * first version compared every sub-point pair with every stop pair: 13 s on the 812-cell bench
@@ -287,10 +329,14 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   // Each line's wait in each period (Infinity where it does not run), at [line * 3 + period] in
   // PERIODS order.
   const wait = new Float64Array(lineCount * 3);
+  // And its headway in seconds, the same way.
+  const headway = new Float64Array(lineCount * 3);
   plans.forEach((plan, line) =>
     PERIODS.forEach((period, k) => {
       const h = period === 'overnight' ? plan.headways.overnight : plan.headways[period];
-      wait[line * 3 + k] = runsIn(plan.headways, period) && h !== null ? perceivedWaitMin(waitMin(h)) : Infinity;
+      const runs = runsIn(plan.headways, period) && h !== null;
+      wait[line * 3 + k] = runs ? perceivedWaitMin(waitMin(h)) : Infinity;
+      headway[line * 3 + k] = runs ? h : Infinity;
     }),
   );
   // Each line's fare in minutes for a ride between two of its stops, at [from * stops + to].
@@ -394,9 +440,57 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     optBoard = more(optBoard, (k) => new Int32Array(k));
     optAlight = more(optAlight, (k) => new Int32Array(k));
   };
-  const order: number[] = [];
-  const time: number[] = [];
-  const covered = new Int32Array(8);
+  // Scratch for several lines: each sub-point's options as a bitmask, the sets of options pairs of
+  // sub-points share (at most 64 pairs) and their shares of the cell pair, and one set's options
+  // (a pair has at most one per line).
+  let homeMask = new Int32Array(16);
+  let workMask = new Int32Array(16);
+  let pairMask = new Int32Array(2);
+  let setKey = new Int32Array(128);
+  const setWeight = new Float64Array(64);
+  const members = new Int32Array(Math.max(lineCount, 32));
+  const memberBase = new Float64Array(members.length);
+  const memberHeadway = new Float64Array(members.length);
+  const memberShare = new Float64Array(members.length);
+  const memberOrder = new Int32Array(members.length);
+  // The current cell pair's trips, car and walking minutes, for rideScanning.
+  let pairTrips = 0;
+  let pairCar = 0;
+  let pairWalk = 0;
+  /** Riders of a set of `n` options (`members`) with `weight` of the cell pair's trips, in each period. */
+  const rideScanning = (set: Int32Array, n: number, weight: number) => {
+    if (n === 1) {
+      // One line: its own wait, and the exponent built as the single-line branch builds it.
+      const q = set[0]!;
+      const at = optLine[q]! * 3;
+      for (let k = 0; k < 3; k++) {
+        const w = wait[at + k]!;
+        if (w === Infinity) continue;
+        const r = pairTrips * weight * shareGiven(optBase[q]! + w, optLead[q]! * expWait[at + k]!, pairWalk);
+        if (r === 0) continue;
+        riders[at + k]! += r;
+        carry(optLine[q]!, k, optBoard[q]!, optAlight[q]!, r);
+      }
+      return;
+    }
+    for (let k = 0; k < 3; k++) {
+      for (let m = 0; m < n; m++) {
+        memberBase[m] = optBase[set[m]!]!;
+        memberHeadway[m] = headway[optLine[set[m]!]! * 3 + k]!;
+      }
+      const minutes = commonLines(memberBase, memberHeadway, n, memberShare, memberOrder);
+      if (minutes === Infinity) continue;
+      const r = pairTrips * weight * shareGiven(minutes, Math.exp((minutes - pairCar) / MODE_TAU_MIN), pairWalk);
+      if (r === 0) continue;
+      for (let m = 0; m < n; m++) {
+        const part = r * memberShare[m]!;
+        if (part === 0) continue;
+        const q = set[m]!;
+        riders[optLine[q]! * 3 + k]! += part;
+        carry(optLine[q]!, k, optBoard[q]!, optAlight[q]!, part);
+      }
+    }
+  };
 
   for (let i = 0; i < n; i++) {
     const from = homes[i]!;
@@ -454,6 +548,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       if (count === 0) continue;
       const to = work[j]!;
       const trips = 2 * flow * scale; // both ways (V1 counted the round trip)
+      pairTrips = trips;
+      pairCar = car;
+      pairWalk = walk;
       if (lines === 1) {
         // One line: its groups split each end's sub-points, so every option has its own riders.
         for (let q = 0; q < count; q++) {
@@ -470,38 +567,54 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         }
         continue;
       }
-      for (let k = 0; k < 3; k++) {
-        // Quickest first (ties in the order found); each sub-point pair rides the first option that serves both its ends.
-        order.length = 0;
-        for (let q = 0; q < count; q++) {
-          const t = optBase[q]! + wait[optLine[q]! * 3 + k]!;
-          time[q] = t;
-          if (t === Infinity) continue;
-          let at = order.length;
-          order.push(q);
-          while (at > 0 && time[order[at - 1]!]! > t) {
-            order[at] = order[at - 1]!;
-            at--;
+      // Several lines: each pair of sub-points scans every line serving both its ends (I5) and
+      // takes the first bus of those worth waiting for (commonLines). Within a line its groups
+      // split each end's sub-points, so a pair has at most one option per line. Each sub-point's
+      // options are a bitmask, a pair's are the two ANDed, and pairs with the same options (at
+      // most 64 sets) are worked out once.
+      // Each sub-point's options as a bitmask of `words` 32-bit words, for any number of options.
+      const words = (count + 31) >>> 5;
+      if (homeMask.length < 8 * words) {
+        homeMask = new Int32Array(16 * words);
+        workMask = new Int32Array(16 * words);
+        pairMask = new Int32Array(2 * words);
+      }
+      homeMask.fill(0, 0, 8 * words);
+      workMask.fill(0, 0, 8 * words);
+      for (let q = 0; q < count; q++) {
+        const word = q >>> 5;
+        const bit = 1 << (q & 31);
+        for (let bits = optFrom[q]!; bits; bits &= bits - 1) homeMask[(31 - Math.clz32(bits & -bits)) * words + word]! |= bit;
+        for (let bits = optTo[q]!; bits; bits &= bits - 1) workMask[(31 - Math.clz32(bits & -bits)) * words + word]! |= bit;
+      }
+      if (setKey.length < 64 * words) setKey = new Int32Array(64 * words);
+      let sets = 0;
+      for (let h = 0; h < 8; h++) {
+        const hs = from.share[h] ?? 0;
+        if (hs === 0) continue;
+        for (let w = 0; w < 8; w++) {
+          const ws = to.share[w] ?? 0;
+          if (ws === 0) continue;
+          let any = 0;
+          for (let x = 0; x < words; x++) any |= pairMask[x] = homeMask[h * words + x]! & workMask[w * words + x]!;
+          if (any === 0) continue;
+          let at = 0;
+          for (; at < sets; at++) {
+            let same = true;
+            for (let x = 0; x < words && same; x++) same = setKey[at * words + x] === pairMask[x];
+            if (same) break;
           }
-          order[at] = q;
-        }
-        for (let h = 0; h < 8; h++) covered[h] = 0;
-        for (const q of order) {
-          const toMask = optTo[q]!;
-          let share = 0;
-          for (let bits = optFrom[q]!; bits; bits &= bits - 1) {
-            const h = 31 - Math.clz32(bits & -bits);
-            const fresh = toMask & ~covered[h]!;
-            if (fresh) {
-              share += from.share[h]! * to.shareOf[fresh]!;
-              covered[h]! |= toMask;
-            }
+          if (at === sets) {
+            for (let x = 0; x < words; x++) setKey[sets * words + x] = pairMask[x]!;
+            setWeight[sets++] = 0;
           }
-          if (share === 0) continue;
-          const r = trips * share * shareGiven(time[q]!, optLead[q]! * expWait[optLine[q]! * 3 + k]!, walk);
-          riders[optLine[q]! * 3 + k]! += r;
-          carry(optLine[q]!, k, optBoard[q]!, optAlight[q]!, r);
+          setWeight[at]! += hs * ws;
         }
+      }
+      for (let at = 0; at < sets; at++) {
+        let n = 0;
+        for (let x = 0; x < words; x++) for (let bits = setKey[at * words + x]!; bits; bits &= bits - 1) members[n++] = x * 32 + 31 - Math.clz32(bits & -bits);
+        rideScanning(members, n, setWeight[at]!);
       }
     }
   }

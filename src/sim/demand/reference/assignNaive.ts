@@ -1,12 +1,14 @@
 // The straightforward assignment loop as it stood before the week-3 speed-up (every cell pair, every
 // sub-point pair, every stop pair, each with its own walk and distance), kept as the yardstick that
 // assign.test.ts and `npm run bench compare` hold the fast loop to. Nothing in the game uses it.
+// Since step 11 each sub-point pair scans every line serving it (commonLines, I5), as the fast loop
+// does, where both once took the quickest line alone.
 import { CENTS_PER_MINUTE, DWELL_SEC, BUS_KMH, MAX_WALK_M, REFERENCE_FARE_CENTS } from '../../config/demand';
 import { distXY, SpatialGrid } from '../../core/geo';
 import type { City, SubPoint } from '../../city/simfile';
 import { PERIODS, runsIn, type Period } from '../../rules/periods';
 import type { Commuters } from '../commuters';
-import { busShare, fareSensitivity, perceivedWaitMin, waitMin, walkMinutes, type LinePlan } from '../assign';
+import { busShare, commonLines, fareSensitivity, walkMinutes, type LinePlan } from '../assign';
 
 interface Reach {
   readonly line: number;
@@ -40,11 +42,11 @@ export function assignNaive(
   const work = city.cells.map((c) => c.work.map((p) => ({ p, reach: reach(p) })).filter((w) => w.reach.length > 0));
   const totals = city.cells.map((c) => [c.residents, c.jobs] as const);
 
-  // Each line's wait in each period (Infinity where it does not run), ride minutes and fare minutes.
-  const wait = plans.map((plan) =>
+  // Each line's headway in each period (Infinity where it does not run), ride minutes and fare minutes.
+  const headway = plans.map((plan) =>
     Object.fromEntries(PERIODS.map((period) => {
       const h = period === 'overnight' ? plan.headways.overnight : plan.headways[period];
-      return [period, runsIn(plan.headways, period) && h !== null ? perceivedWaitMin(waitMin(h)) : Infinity];
+      return [period, runsIn(plan.headways, period) && h !== null ? h : Infinity];
     })) as Record<Period, number>,
   );
   const fareMin = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
@@ -56,8 +58,13 @@ export function assignNaive(
 
   const n = commuters.n;
   const scale = tripScalePermille / 1000;
-  type Best = { min: number; line: number; from: number; to: number };
-  const best: Record<Period, Best> = { peak: { min: 0, line: -1, from: 0, to: 0 }, offpeak: { min: 0, line: -1, from: 0, to: 0 }, overnight: { min: 0, line: -1, from: 0, to: 0 } };
+  // Each line's quickest way between the pair's sub-points, before waiting: minutes and stops.
+  const lineBase = new Float64Array(plans.length);
+  const lineFrom = new Int32Array(plans.length);
+  const lineTo = new Int32Array(plans.length);
+  const lineHeadway = new Float64Array(plans.length);
+  const share = new Float64Array(plans.length);
+  const order = new Int32Array(plans.length);
   for (let i = 0; i < n; i++) {
     const origins = homes[i]!;
     if (origins.length === 0) continue;
@@ -69,31 +76,39 @@ export function assignNaive(
         for (const d of ends) {
           // This sub-point pair's share of the cell pair's commuters, both ways (V1 counted the round trip).
           const pairTrips = 2 * flow * (o.p.w / totals[i]![0]) * (d.p.w / totals[j]![1]) * scale;
-          for (const period of PERIODS) best[period] = { min: Infinity, line: -1, from: 0, to: 0 };
+          lineBase.fill(Infinity);
           for (const a of o.reach) {
             for (const b of d.reach) {
               if (a.line !== b.line || a.pos === b.pos) continue;
               // A bargain fare makes the ride feel shorter, never free (V1 demand.worker.ts:342-344).
               const rideKm = Math.abs(plans[a.line]!.stopDistM[b.pos]! - plans[a.line]!.stopDistM[a.pos]!) / 1000;
               const base = a.walkMin + Math.max(0.5, rideMin(a.line, a.pos, b.pos) + fareMin[a.line]! * fareSensitivity(rideKm)) + b.walkMin;
-              for (const period of PERIODS) {
-                const t = base + wait[a.line]![period];
-                if (t < best[period].min) best[period] = { min: t, line: a.line, from: a.pos, to: b.pos };
+              if (base < lineBase[a.line]!) {
+                lineBase[a.line] = base;
+                lineFrom[a.line] = a.pos;
+                lineTo[a.line] = b.pos;
               }
             }
           }
           const km = distXY([o.p.x, o.p.y], [d.p.x, d.p.y]) / 1000;
           PERIODS.forEach((period, k) => {
-            const choice = best[period];
-            if (choice.line < 0) return;
-            const r = pairTrips * busShare(choice.min, km);
-            byPeriod[choice.line]![period] += r;
-            // Every leg between the two stops, in the direction travelled, carries these riders.
-            const stops = plans[choice.line]!.stops.length;
-            stopEnds[choice.line]!.board[k * stops + choice.from]! += r;
-            stopEnds[choice.line]!.alight[k * stops + choice.to]! += r;
-            const at = (choice.from < choice.to ? k * 2 : k * 2 + 1) * stops;
-            for (let leg = Math.min(choice.from, choice.to); leg < Math.max(choice.from, choice.to); leg++) load[choice.line]![at + leg]! += r;
+            plans.forEach((_, line) => (lineHeadway[line] = headway[line]![period]));
+            const minutes = commonLines(lineBase, lineHeadway, plans.length, share, order);
+            if (minutes === Infinity) return;
+            const riders = pairTrips * busShare(minutes, km);
+            plans.forEach((plan, line) => {
+              const r = riders * share[line]!;
+              if (r === 0) return;
+              byPeriod[line]![period] += r;
+              // Every leg between the two stops, in the direction travelled, carries these riders.
+              const stops = plan.stops.length;
+              const from = lineFrom[line]!;
+              const to = lineTo[line]!;
+              stopEnds[line]!.board[k * stops + from]! += r;
+              stopEnds[line]!.alight[k * stops + to]! += r;
+              const at = (from < to ? k * 2 : k * 2 + 1) * stops;
+              for (let leg = Math.min(from, to); leg < Math.max(from, to); leg++) load[line]![at + leg]! += r;
+            });
           });
         }
       }
