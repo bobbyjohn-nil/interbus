@@ -10,7 +10,8 @@ import { STARTER_LINE_CENTS, STARTING_CASH_K_PERMILLE } from '../config/economy'
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
-export type RowKind = 'founding' | 'fares' | 'subsidy' | 'purchase' | 'refund';
+export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund'] as const;
+export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
   /** The game day the row belongs to; the day closes at 24:00 (docs/specs/current.md). */
