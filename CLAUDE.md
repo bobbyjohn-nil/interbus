@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Working rules for Claude sessions on interbus, a calm bus-company game on real Boston: flat 2D that tilts into 3D, in light and dark; a GitHub Pages preview now, a free Steam demo for macOS and Windows at Next Fest in June 2027, then Steam as the only release. Read [PLAN.md](PLAN.md) §0 first, then [docs/DECISIONS.md](docs/DECISIONS.md) and `docs/specs/current.md` once it exists. If they disagree, `docs/DECISIONS.md` and `docs/SCOPE.md` win over the plan.
+Working rules for Claude sessions on interbus, a calm bus-company game on real Boston: flat 2D that tilts into 3D, in light and dark; a GitHub Pages preview now, a free Steam demo for macOS and Windows at Next Fest in June 2027, then Steam as the only release. Read [docs/STATUS.md](docs/STATUS.md) first (what is live, in progress, waiting on the owner and next), then [PLAN.md](PLAN.md) §0, [docs/DECISIONS.md](docs/DECISIONS.md) and `docs/specs/current.md` once it exists. If they disagree, `docs/DECISIONS.md` and `docs/SCOPE.md` win over the plan.
 
 ## Writing in this repo (it is public)
 
@@ -13,6 +13,7 @@ Working rules for Claude sessions on interbus, a calm bus-company game on real B
 ## How sessions work
 
 - **One session owns `main`.** It pushes its branch often and merges small PRs on green CI, with merge commits only (squash and rebase merges are off). Other sessions stay read-only or on their own branch ([PR-07](docs/history/lessons-ledger.md), [PR-08](docs/history/lessons-ledger.md)).
+- **The status file.** [docs/STATUS.md](docs/STATUS.md) is the handoff between sessions and context windows: every PR that merges updates it, so nothing lives only in a conversation. It also holds the owner's autonomy protocol: an hourly check-in Routine that carries work on through usage-limit pauses without the owner, and how a new session takes it over.
 - **No agent crew.** One session does the work ([PR-04](docs/history/lessons-ledger.md)).
 - **Short specs.** One spec per milestone in `docs/specs/current.md`, ≤150 lines, with magnitudes and a cut line ([SC-06](docs/history/lessons-ledger.md), [SC-07](docs/history/lessons-ledger.md)).
 - **Restate feedback first.** Restate the owner's feedback in one sentence before building on it. If measurement suggests a better route, say so with numbers ([PR-11](docs/history/lessons-ledger.md), [PR-12](docs/history/lessons-ledger.md)).
