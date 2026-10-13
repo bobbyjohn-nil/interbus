@@ -3,6 +3,7 @@
 // while time runs, none while paused (I14). The page never computes a game number (AR-04).
 // Plain logic with an injected clock, so tests drive it without a real Worker.
 import { createLine } from '../sim/commands/createLine';
+import { found } from '../sim/commands/found';
 import { placeDepot } from '../sim/commands/placeDepot';
 import { setHeadways } from '../sim/commands/setHeadways';
 import { loadCity, type City } from '../sim/city/simfile';
@@ -13,8 +14,10 @@ import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/confi
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { forecastDay } from '../sim/economy/costs';
+import { profitableDays } from '../sim/economy/ledger';
 import type { LineId } from '../sim/core/ids';
 import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
+import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { checkLineDraft } from '../sim/rules/line';
 import { newGame } from '../sim/state';
@@ -118,9 +121,9 @@ function draftView(world: World, clicks: readonly LngLatPair[], headways: Headwa
 }
 
 /** A refusal's code and numbers, without anything else the verdict carried. */
-function refusalView(r: { reason: string; at?: number; limitM?: number; nearestM?: number; limitSeconds?: number; room?: number; shortCents?: number }): RefusalView {
+function refusalView(r: { reason: string; at?: number; limit?: number; limitM?: number; nearestM?: number; limitSeconds?: number; room?: number; shortCents?: number }): RefusalView {
   const view: { -readonly [K in keyof RefusalView]: RefusalView[K] } = { reason: r.reason };
-  for (const key of ['at', 'limitM', 'nearestM', 'limitSeconds', 'room', 'shortCents'] as const) if (r[key] !== undefined) view[key] = Math.round(r[key]);
+  for (const key of ['at', 'limit', 'limitM', 'nearestM', 'limitSeconds', 'room', 'shortCents'] as const) if (r[key] !== undefined) view[key] = Math.round(r[key]);
   return view;
 }
 
@@ -159,10 +162,12 @@ export function createHost(post: (message: FromWorker) => void): Host {
       hour: t.hour,
       minute: t.minute,
       speed,
+      company: { ...w.state.company },
       secondOfDay: (START_SECOND_OF_DAY + w.state.elapsed) % SECONDS_PER_DAY,
       rate: SPEEDS[speed],
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
+      profitableDays: profitableDays(w.state.ledger, t.day),
       costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS,
       lines,
       linesVersion,
@@ -175,7 +180,8 @@ export function createHost(post: (message: FromWorker) => void): Host {
       if (message.type === 'init') {
         const loaded = loadCity(message.simText);
         if (!loaded.ok) return post({ type: 'failed', problem: loaded.problem });
-        world = createWorld(loaded.city, newGame(message.city, { name: 'Your company', colour: '#c0392b' }, message.seed));
+        // Unnamed until the founding card names it.
+        world = createWorld(loaded.city, newGame(message.city, { name: '', colour: COMPANY_COLOURS[0]! }, message.seed));
         speed = 0;
         refreshLines();
         post({ type: 'ready', dots: dotsOf(loaded.city), depotLand: depotLandOf(loaded.city), snapshot: snapshot() });
@@ -198,6 +204,10 @@ export function createHost(post: (message: FromWorker) => void): Host {
         const result = placeDepot(world, message.at);
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else refreshLines(); // a line's deadhead now runs from the depot
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'found') {
+        const result = found(world, message.name, message.colour);
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'line-draft') {
         post({ type: 'line-draft', id: message.id, draft: draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS) });

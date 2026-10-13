@@ -100,6 +100,21 @@ export function closeDay(ledger: Ledger, day: number): void {
   for (const r of [...merged.values()].sort((a, b) => order(a) - order(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
 }
 
+/** Rows that are capital, not the business's running: founding, purchases and their refunds. */
+const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund']);
+
+/** Closed days (before `today`) whose operating rows, everything but capital, sum above zero: the checklist's "a day in profit". */
+export function profitableDays(ledger: Ledger, today: number): number {
+  const byDay = new Map<number, number>();
+  for (const r of ledger.rows) {
+    if (r.day >= today || CAPITAL_KINDS.has(r.kind)) continue;
+    byDay.set(r.day, (byDay.get(r.day) ?? 0) + r.amountCents);
+  }
+  let n = 0;
+  for (const total of byDay.values()) if (total > 0) n++;
+  return n;
+}
+
 /** The rows of one day, which are its day card (I1). */
 export function rowsOfDay(ledger: Ledger, day: number): LedgerRow[] {
   return ledger.rows.filter((r) => r.day === day);

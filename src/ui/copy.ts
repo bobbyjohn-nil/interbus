@@ -26,6 +26,11 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   depot_full: (r) => (r.room ? `Depots have room for ${r.room} more` : 'Your depots are full'),
   insufficient_funds: (r) => `${usd(r.shortCents ?? 0)} short`,
   no_such_line: () => 'That line is gone',
+  // Founding (sim/rules/company.ts)
+  already_founded: () => 'The company is already founded',
+  name_empty: () => 'Give the company a name',
+  name_too_long: (r) => `At most ${r.limit ?? 32} letters`,
+  colour_not_offered: () => 'Pick one of these colours',
   // The worker
   not_started: () => 'The city is still loading',
 };

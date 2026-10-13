@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dots show where people live (purple) and where they work (blue) from Back Bay to Longwood, sized by how many.
 - Point anywhere on the map to see how many people live within a walk of that spot.
 - A new company starts with $427,200: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
+- Found your company first: give it a name and pick its colour on the founding card.
+- A checklist chip names the next thing to do: place a depot, draw a line, press play, close a day in profit, take a contract.
 - Place a depot: the industrial land where one may stand turns green, and a card beside the pointer says whether this spot works and what it costs ($150,000 for the first).
 - Draw a line: click the map to place stops (a click near a stop you already have joins it). A card shows the stops, the distance, how many people live within a walk, the buses running every 20 minutes needs and the price; Create buys it all, once you have a depot.
 - Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.

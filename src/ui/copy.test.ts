@@ -8,6 +8,7 @@ const CODES = [
   'needs_depot', 'no_street_near', 'stop_twice', 'no_route', 'too_few_stops',
   'headway_not_whole_seconds', 'daytime_headway_too_long', 'overnight_more_often_than_offpeak',
   'depot_full', 'insufficient_funds', 'no_such_line', 'not_started',
+  'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
 ];
 
 describe('refusal copy (UX-03)', () => {

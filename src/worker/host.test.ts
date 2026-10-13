@@ -86,6 +86,18 @@ describe('the sim host', () => {
     expect(sum('wages')).toBe(-line.forecastCents.wages);
     expect(sum('deadhead')).toBe(-line.forecastCents.deadhead);
     expect(sum('upkeep')).toBe(-30_000);
+    // The debug line nets about $1,400 a day: both closed days were in profit (the checklist's step 4).
+    expect(last('snapshot')!.snapshot.profitableDays).toBe(2);
+  });
+
+  it('founds the company once, by name and colour, and the day card counts its first profitable day', () => {
+    const { host, last } = started();
+    expect(last('ready')!.snapshot.company.name).toBe('');
+    host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    expect(last('snapshot')!.snapshot.company).toEqual({ name: 'Back Bay Transit', colour: '#2471a3' });
+    host.handle({ type: 'found', name: 'Again', colour: '#2471a3' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'found', reason: 'already_founded' });
+    expect(last('snapshot')!.snapshot.profitableDays).toBe(0);
   });
 
   it('answers a probe with the people within a walk', () => {

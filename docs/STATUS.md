@@ -120,6 +120,12 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
 
      The harness also caught the first glyph at 18 px: its white outline barely differed from the light land, so only the body read (DECISIONS, Measured).
 7. [ ] **The calm shell** replacing the debug panel, and I13.
+   - [x] **Founding and the checklist** (2026-10-13):
+     - a new game opens unnamed, and the founding card names and colours the company (`src/sim/rules/company.ts`, one rule for the card and the `found` command);
+     - the speed and tools stay hidden until then;
+     - the checklist chip reads "1/5 Place a depot", "2/5 Draw a line", "3/5 Press play", "4/5 Close a day in profit" (a closed day whose running rows come out ahead, `profitableDays`), then "5/5 Take a contract" for M3.
+     - `e2e/line.spec.ts` walks all five.
+   - [ ] **The shell:** the dock, the line inspector with the day's forecast, notices in one corner, and I13 at the three sizes.
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
