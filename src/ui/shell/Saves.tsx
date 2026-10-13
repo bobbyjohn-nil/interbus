@@ -6,6 +6,7 @@ import type { Sim } from '../game/useSim';
  * Saves (the M3 spec, item 8): the autosave, which is this game as it plays, three slots, and a save
  * file out and in. Loading a slot or a file replaces this game, so it asks first; the sim reads the
  * save before anything changes and refuses one it cannot play, keeping this game and its autosave.
+ * Export session hands over this session for a bug report (the M3 spec, item 12).
  */
 export function Saves({ sim, onClose }: { sim: Sim; onClose: () => void }) {
   const { send } = sim;
@@ -68,6 +69,12 @@ export function Saves({ sim, onClose }: { sim: Sim; onClose: () => void }) {
         </button>
         <button type="button" onClick={sim.importSave}>
           Import a save file
+        </button>
+      </div>
+      <p className="hint">For a bug report: this session from the quarter’s start, every command replayable.</p>
+      <div className="controls">
+        <button type="button" onClick={() => send({ type: 'export-session' })}>
+          Export session
         </button>
       </div>
     </aside>

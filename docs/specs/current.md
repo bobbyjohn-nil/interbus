@@ -54,7 +54,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
     - Met on a day when every **running period's** headway at a stop within the landmark's reach is at or under the ask, so no contract is met by one period alone (I11; V2 averaged 16 hours across lines).
     - It is held 10 days in a row within 20 days, and paid once as a ledger row; a miss resets the count. Accepting is a click, so the player chooses.
     - The card shows today's figure against the ask.
-12. **Checklist step 5 (done 2026-10-13) and Export session:** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
+12. **Checklist step 5 and Export session (both done 2026-10-13; a session restarts at a reload):** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
 13. **Transfers (EC-10, K23):** one transfer, at a shared stop or two stops within 250 m (a 1.5-minute walk), with the tier's penalty; riders scan every line at a stop, so every line at a 6-line hub boards riders (I5). Fare is perceived once per trip, so splitting a line raises revenue plus subsidy by at most 1% (I4; V3 measured +69% on V1's model, `Intralines_City@dc63602:studio/DECISIONS.md:252-262`).
 14. **Route edits:** remove a stop (a line keeps ≥2; an orphaned stop refunds half its price, never V2's orphans) and extend from either end. Insert waits for M4.
 
@@ -70,7 +70,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | HEADWAY payout over 10 seeds | within ±30% of the median (V2 varied $60k–$480k): **$1.11M–$1.29M over 40 days on 100 seeds, measured** | I11, GD-04 |
 | Days to recover from −$150k at +$1,400 a day | about 107 | Item 10 |
 | Recompute with crowding and transfers on Inner Boston | ≤150 ms p95 (44.6 ms without, measured) | I14 |
-| Export session for a quarter | the save (≈10 KB) plus a few KB of commands | Item 12 |
+| Export session for a quarter | the save (≈10 KB) plus a few KB of commands: **2,118 B from founding to day 2 with ten commands, measured** | Item 12 |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
 

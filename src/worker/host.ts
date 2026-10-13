@@ -32,7 +32,7 @@ import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
-import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, slotKey, type LoadOutcome } from '../sim/save/save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { acceptContract } from '../sim/commands/acceptContract';
 import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
@@ -58,7 +58,27 @@ export interface Host {
   handle(message: ToWorker): void;
   /** Called on a timer with the real clock in milliseconds. */
   tick(nowMs: number): void;
+  /** Steps the game to `elapsed` as ticks would, stopping early if the run ends (a session's replay). */
+  advanceTo(elapsed: number): void;
+  /** The game's fingerprint (save.ts stateHash), or null before a game is playing. */
+  stateHash(): string | null;
 }
+
+/** Export session (the M3 spec, item 12; AR-06): a save, the speed at that moment, and every command since, each at the game second it ran. */
+export interface SessionFile {
+  readonly kind: 'interbus-session';
+  readonly format: 1;
+  readonly build: { readonly sha: string; readonly version: string };
+  readonly city: CityRef;
+  readonly start: string;
+  readonly speed: Speed;
+  readonly commands: readonly { readonly at: number; readonly message: ToWorker }[];
+  /** Where the export was taken: the game second and the game's fingerprint there. */
+  readonly end: { readonly elapsed: number; readonly hash: string };
+}
+
+/** Commands a session records: everything that changes the game or what undo would do. Loads and restarts begin a new session instead. */
+const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'accept-contract', 'undo']);
 
 /** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
@@ -202,7 +222,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
   let build = { sha: '', version: '' };
   let key = '';
   let savedHour = 0;
-  const saveQuarter = () => post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: encode(world!.state, build) }] });
+  // Export session: the save this session began from (the quarter's start, or where the game was
+  // loaded since), the speed then, and every command since. It lives in the worker, so a reload begins
+  // a new one from the autosave.
+  let session: { start: string; speed: Speed; commands: { at: number; message: ToWorker }[] } | null = null;
+  const beginSession = (start: string) => void (session = { start, speed, commands: [] });
+  const saveQuarter = () => {
+    const text = encode(world!.state, build);
+    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: text }] });
+    beginSession(text);
+  };
   const save = () => {
     savedHour = Math.floor(world!.state.elapsed / 3_600);
     post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build) }] });
@@ -268,6 +297,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
     // A slot or a file brings no save of its quarter's start, so Restart this quarter goes back to
     // the moment it was loaded; a restart keeps the quarter's own, and so does a game already ended.
     if (from !== 'quarter' && !runEnded(read.world.state.closesBelowFloor)) saveQuarter();
+    else beginSession(encode(read.world.state, build));
     post({ type: 'loaded', from, load: result.outcome === 'rebaked' ? 'rebaked' : 'ok' });
     post({ type: 'snapshot', snapshot: snapshot() });
   };
@@ -355,6 +385,36 @@ export function createHost(post: (message: FromWorker) => void): Host {
     };
   };
 
+  /** One fixed step and what follows from it: day cards, the quarter's save, the run's end. False once the run has ended (time stops there, D10). */
+  const stepOnce = (): boolean => {
+    const w = world!;
+    for (const event of simStep(w)) {
+      // A new quarter begins at the close that graded the last: keep the game as it stands,
+      // unless that close ended the run, when Restart this quarter reopens the quarter just graded.
+      if (event.card && !runEnded(w.state.closesBelowFloor)) saveQuarter();
+      post({
+        type: 'day-card',
+        card: {
+          day: event.day,
+          rows: event.rows.map((r) => ({ kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
+          cashBeforeCents: event.cashBeforeCents,
+          cashAfterCents: event.cashAfterCents,
+          report: event.card,
+          contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, askSeconds: o.contract.askSeconds, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
+        },
+      });
+    }
+    // The fifth close below the floor ends the run: time stops where it is (D10).
+    if (runEnded(w.state.closesBelowFloor)) {
+      speed = 0;
+      carrySeconds = 0;
+      save();
+      post({ type: 'snapshot', snapshot: snapshot() });
+      return false;
+    }
+    return true;
+  };
+
   return {
     handle(message) {
       if (message.type === 'init') {
@@ -377,8 +437,10 @@ export function createHost(post: (message: FromWorker) => void): Host {
         const { result, effects } = decode(message.text, ref);
         const read = worldFrom(city, ref, result);
         let load: LoadView = result.outcome;
-        if (read.ok) play(read.world, city, ref);
-        else {
+        if (read.ok) {
+          play(read.world, city, ref);
+          beginSession(encode(read.world.state, build));
+        } else {
           if (read.reason === 'off-street') {
             effects.push({ op: 'write', key: backupKey(ref.id, 'other-city'), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
             load = 'off-street';
@@ -398,6 +460,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
+      if (SESSION_COMMANDS.has(message.type)) session?.commands.push({ at: world.state.elapsed, message });
       if (message.type === 'speed') {
         // Once the run has ended, only Restart this quarter goes on (D10).
         if (message.speed > 0 && runEnded(world.state.closesBelowFloor)) return post({ type: 'refused', command: message.type, reason: 'run_ended' });
@@ -495,6 +558,11 @@ export function createHost(post: (message: FromWorker) => void): Host {
         readKeys([quarterKey(playing!.ref.id)], ([text]) => loadText(text ?? null, 'quarter'));
       } else if (message.type === 'import') {
         loadText(message.text, 'file');
+      } else if (message.type === 'export-session') {
+        if (!session) return post({ type: 'refused', command: message.type, reason: 'no_session' });
+        const t = toCalendarTime(world.state.elapsed);
+        const file: SessionFile = { kind: 'interbus-session', format: 1, build, city: playing!.ref, ...session, end: { elapsed: world.state.elapsed, hash: stateHash(world.state) } };
+        post({ type: 'export', name: `interbus-${playing!.ref.id}-session-day-${t.day}.json`, text: JSON.stringify(file) });
       } else if (message.type === 'export') {
         const t = toCalendarTime(world.state.elapsed);
         post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build) });
@@ -520,30 +588,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
       carrySeconds += (sliceMs / 1000) * SPEEDS[speed];
       while (carrySeconds >= STEP_SECONDS) {
         carrySeconds -= STEP_SECONDS;
-        for (const event of simStep(world)) {
-          // A new quarter begins at the close that graded the last: keep the game as it stands,
-          // unless that close ended the run, when Restart this quarter reopens the quarter just graded.
-          if (event.card && !runEnded(world.state.closesBelowFloor)) saveQuarter();
-          post({
-            type: 'day-card',
-            card: {
-              day: event.day,
-              rows: event.rows.map((r) => ({ kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
-              cashBeforeCents: event.cashBeforeCents,
-              cashAfterCents: event.cashAfterCents,
-              report: event.card,
-              contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, askSeconds: o.contract.askSeconds, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
-            },
-          });
-        }
-        // The fifth close below the floor ends the run: time stops where it is (D10).
-        if (runEnded(world.state.closesBelowFloor)) {
-          speed = 0;
-          carrySeconds = 0;
-          save();
-          post({ type: 'snapshot', snapshot: snapshot() });
-          return;
-        }
+        if (!stepOnce()) return;
       }
       if (Math.floor(world.state.elapsed / 3_600) !== savedHour) save();
       if (nowMs - lastSnapshotMs >= SNAPSHOT_EVERY_MS) {
@@ -551,5 +596,12 @@ export function createHost(post: (message: FromWorker) => void): Host {
         post({ type: 'snapshot', snapshot: snapshot() });
       }
     },
+    advanceTo(elapsed) {
+      if (!world) return;
+      while (world.state.elapsed < elapsed && stepOnce()) {
+        if (Math.floor(world.state.elapsed / 3_600) !== savedHour) save();
+      }
+    },
+    stateHash: () => (world ? stateHash(world.state) : null),
   };
 }
