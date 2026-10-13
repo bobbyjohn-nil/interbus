@@ -11,13 +11,15 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { assignMunicipalities, blocksCsv, clipBlocks, clipLodes, controlTotals, readBlocks, readMunicipalities } from './census.mjs';
+import { assignMunicipalities, blocksCsv, clipBlocks, clipLodes, controlTotals, inboundByTract, readBlocks, readMunicipalities, tractCentres } from './census.mjs';
 import { inBox, readCity, ROOT } from './lib.mjs';
 import { ensureSource } from './sources.mjs';
 
 const PYTHON = process.env.BAKE_PYTHON ?? 'python3';
-/** The sources the bake reads; the OD files wait for gateways. */
-const USED = ['osm', 'blocks', 'cousub', 'lodes-rac', 'lodes-wac'];
+/** The sources the bake reads. Out-of-state homes (the OD aux file) wait for the r1 bake. */
+const USED = ['osm', 'blocks', 'cousub', 'lodes-rac', 'lodes-wac', 'lodes-od-main'];
+/** Bumped when the cut writes different files, so an older cut is redone. */
+const CUT_VERSION = 2;
 
 /** The play extent's id and box: city.json names it, cities/index.json holds its box (K18). */
 export function playExtent(cityId) {
@@ -36,7 +38,7 @@ export async function cutExtent(cityId) {
   const dir = extentDir(cityId, id);
   const sources = Object.fromEntries(lock.sources.filter((s) => USED.includes(s.id)).map((s) => [s.id, s.sha256]));
   const play = config.municipalities.list.map((m) => m.ctycsub);
-  const want = { city: cityId, extent: id, box, municipalities: play, sources };
+  const want = { version: CUT_VERSION, city: cityId, extent: id, box, municipalities: play, sources };
   const manifestPath = join(dir, 'extent.json');
   if (existsSync(manifestPath)) {
     const have = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -63,11 +65,17 @@ export async function cutExtent(cityId) {
   writeFileSync(join(work, 'blocks.csv'), blocksCsv(inPlay));
   const inside = new Set(inPlay.map((b) => b.geoid));
   for (const [sourceId, kind] of [['lodes-rac', 'rac'], ['lodes-wac', 'wac']]) writeFileSync(join(work, `${sourceId}.csv`), await clipLodes(src[sourceId], kind, inside));
+  // Commuters who live outside the play area and work in it, by home tract, and where each tract is.
+  const inbound = await inboundByTract(src['lodes-od-main'], inside);
+  writeFileSync(join(work, 'lodes-inbound.csv'), `tract,w_geocode,S000\n${inbound.map((r) => `${r.tract},${r.w},${r.jobs}`).join('\n')}\n`);
+  const centres = tractCentres(blocks, new Set(inbound.map((r) => r.tract)));
+  writeFileSync(join(work, 'tracts.csv'), `tract,lon,lat\n${[...centres].map(([t, [lon, lat]]) => `${t},${lon.toFixed(6)},${lat.toFixed(6)}`).join('\n')}\n`);
   const osm = JSON.parse(execFileSync(PYTHON, ['-I', join(ROOT, 'tools/bake/osm.py'), 'clip', src.osm, box.join(','), join(work, 'osm.opl')], { encoding: 'utf8' }));
   const manifest = {
     about: 'Written by tools/bake/extent.mjs; the cut is reused while `cut` matches. Not committed.',
     cut: want,
     blocks: { inBox: inBoxed.length, inPlayArea: inPlay.length, residents: inPlay.reduce((s, b) => s + b.pop20, 0), leftOut: inBoxed.length - inPlay.length },
+    inbound: { rows: inbound.length, tracts: centres.size, commuters: inbound.reduce((s, r) => s + r.jobs, 0) },
     osm,
   };
   writeFileSync(join(work, 'extent.json'), `${JSON.stringify(manifest, null, 2)}\n`);

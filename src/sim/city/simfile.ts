@@ -37,6 +37,16 @@ export interface Street {
   readonly points: readonly (readonly [number, number])[];
 }
 
+/** Where people from beyond the play area come in: a road entry or the airport (PLAN §5). */
+export interface Gateway {
+  readonly name: string;
+  readonly kind: 'road' | 'airport';
+  /** The street node it joins the graph at. */
+  readonly node: number;
+  /** Commuters who enter here, by the cell they work in; demand reads them with visitors (week 5). */
+  readonly inbound: readonly { readonly cell: number; readonly people: number }[];
+}
+
 export interface City {
   readonly id: string;
   readonly extent: string;
@@ -48,6 +58,9 @@ export interface City {
   readonly cells: readonly Cell[];
   /** demand × tripScalePermille / 1000 (PLAN §3: prices stay V1's, demand scales). */
   readonly tripScalePermille: number;
+  readonly gateways: readonly Gateway[];
+  /** Land a depot may stand on: industrial areas, as rings in the frame's metres (PLAN §3). */
+  readonly depotLand: readonly (readonly (readonly [number, number])[])[];
 }
 
 export type SimFileRefusal = 'not_json' | 'wrong_format' | 'malformed';
@@ -114,6 +127,28 @@ function parse(data: Record<string, unknown>): City {
   const scale = (calib as { tripScalePermille?: unknown } | undefined)?.tripScalePermille;
   if (!isInt(scale) || scale <= 0) throw new Error('calib.tripScalePermille: not a positive whole number');
 
+  if (!Array.isArray(data.gateways)) throw new Error('gateways: not a list');
+  const gateways: Gateway[] = (data.gateways as Record<string, unknown>[]).map((g, n) => {
+    const { name, kind, node, inbound } = g ?? {};
+    if (typeof name !== 'string' || (kind !== 'road' && kind !== 'airport') || !isInt(node) || !nodeList[node] || !ints(inbound) || inbound.length % 2 !== 0) {
+      throw new Error(`gateways[${n}]: not a name, a kind, a street node and cell, people pairs`);
+    }
+    const pairs: { cell: number; people: number }[] = [];
+    for (let k = 0; k < inbound.length; k += 2) {
+      const [cell, people] = [inbound[k]!, inbound[k + 1]!];
+      if (!cellList[cell] || people <= 0) throw new Error(`gateways[${n}]: inbound names a missing cell or no one`);
+      pairs.push({ cell, people });
+    }
+    return { name, kind, node, inbound: pairs };
+  });
+  if (!Array.isArray(data.depotLand)) throw new Error('depotLand: not a list');
+  const depotLand = (data.depotLand as unknown[]).map((ring, n) => {
+    if (!ints(ring) || ring.length % 2 !== 0 || ring.length < 6) throw new Error(`depotLand[${n}]: not a ring of three or more x, y pairs`);
+    const pts: [number, number][] = [];
+    for (let k = 0; k < ring.length; k += 2) pts.push([ring[k]! / 10, ring[k + 1]! / 10]);
+    return pts;
+  });
+
   return {
     id: data.city as string,
     extent: data.extent as string,
@@ -123,6 +158,8 @@ function parse(data: Record<string, unknown>): City {
     streets,
     cells: cellList,
     tripScalePermille: scale,
+    gateways,
+    depotLand,
   };
 }
 
