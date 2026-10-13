@@ -1,7 +1,8 @@
-// The raw tilt (PLAN §6, week 2): `T` tilts the board to 50° with extruded buildings, and again
-// flattens it. The 2D/3D chip, the cross-fade, right-drag and the snap flat below 12° land in
-// week 10. The camera mode never changes a sim number, a save byte or a rule verdict (CLAUDE.md).
-// It imports nothing, so the menu chunk that reads the T key stays free of the style (I14).
+// The tilt (PLAN §6; D2): `T` or the 2D/3D chip tilts the board to 50° with extruded buildings, and
+// again flattens it; a right-drag pitches it, and released below 12° it snaps flat (the M5 spec,
+// item 6). The buildings cross-fade once per mode change, never per frame (RN-04). The camera mode
+// never changes a sim number, a save byte or a rule verdict (CLAUDE.md). It imports nothing, so the
+// menu chunk that reads the T key stays free of the style (I14).
 
 export type ViewMode = '2d' | '3d';
 
@@ -34,6 +35,31 @@ export function buildingVisibility(mode: ViewMode): Record<string, 'visible' | '
     [BUILDINGS_2D]: mode === '2d' ? 'visible' : 'none',
     [BUILDINGS_3D]: mode === '3d' ? 'visible' : 'none',
   };
+}
+
+/** The buildings cross-fade over this long at each mode change; reduced motion swaps them at once. */
+export const CROSS_FADE_MS = 400;
+
+/** Each buildings layer's opacity in a mode: the one the mode shows at full, the other faded out. */
+export function buildingOpacity(mode: ViewMode): { readonly [BUILDINGS_2D]: number; readonly [BUILDINGS_3D]: number } {
+  return { [BUILDINGS_2D]: mode === '2d' ? 1 : 0, [BUILDINGS_3D]: mode === '3d' ? 1 : 0 };
+}
+
+/** A right-drag pitches the board this many degrees a pixel up (V3's, `Intralines_City@dc63602:src/render/three/constants.ts:14-49`). */
+export const DRAG_DEG_PER_PX = 0.25;
+/** Released below this pitch, the board snaps flat (PLAN §6). */
+export const SNAP_FLAT_DEG = 12;
+/** 3D's least pitch (PLAN §6: 25–60°). */
+export const MIN_3D_PITCH = 25;
+
+/** The pitch a right-drag reaches: up tilts, down flattens, within 0 and 3D's most. */
+export function draggedPitch(startPitch: number, startY: number, y: number): number {
+  return Math.min(MAX_PITCH, Math.max(0, startPitch + (startY - y) * DRAG_DEG_PER_PX));
+}
+
+/** Where a released drag settles: flat below the snap, else 3D at 25–60°. */
+export function settled(pitch: number): { readonly mode: ViewMode; readonly pitch: number } {
+  return pitch < SNAP_FLAT_DEG ? { mode: '2d', pitch: 0 } : { mode: '3d', pitch: Math.min(MAX_PITCH, Math.max(MIN_3D_PITCH, pitch)) };
 }
 
 export interface KeyPress {

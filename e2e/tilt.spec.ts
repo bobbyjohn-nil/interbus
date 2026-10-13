@@ -38,6 +38,53 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
   expect(errors).toEqual([]);
 });
 
+// The 2D/3D chip, the right-drag and the snap flat below 12° (the M5 spec, item 6; exit check 3).
+test('the 2D/3D chip and a right-drag tilt the board, and a drag released below 12° snaps it flat', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./?gpu=full');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  const chip = page.getByTestId('mode-chip');
+  await chip.getByRole('button', { name: '3D' }).click();
+  await expect(map).toHaveAttribute('data-mode', '3d');
+  await expect(map).toHaveAttribute('data-pitch', '50', { timeout: 30_000 });
+  await expect(chip.getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true');
+  await chip.getByRole('button', { name: '2D' }).click();
+  await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
+
+  // A right-drag up 160 px pitches 40° (0.25° a pixel), and released it settles in 3D there.
+  const box = (await map.boundingBox())!;
+  const [x, y] = [box.width / 2, box.height / 2];
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(x, y - 80, { steps: 4 });
+  await page.mouse.move(x, y - 160, { steps: 4 });
+  await page.mouse.up({ button: 'right' });
+  await expect(map).toHaveAttribute('data-mode', '3d');
+  await expect(chip.getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(map).toHaveAttribute('data-pitch', '40', { timeout: 30_000 });
+
+  // Down 128 px leaves 8°, under the snap: the board flattens.
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(x, y + 128, { steps: 6 });
+  await page.mouse.up({ button: 'right' });
+  await expect(map).toHaveAttribute('data-mode', '2d');
+  await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
+});
+
+test('in Low graphics the chip stays at 2D and says why', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./?gpu=low');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  const chip = page.getByTestId('mode-chip');
+  await expect(chip).toHaveAttribute('title', 'Low graphics: the map stays flat on this computer');
+  await expect(chip.getByRole('button', { name: '3D' })).toBeDisabled();
+  await expect(chip.getByRole('button', { name: '2D' })).toHaveAttribute('aria-pressed', 'true');
+});
+
 // PLAN §5's height row: at zoom 15, where the map file draws every footprint, most buildings stand at
 // a height of their own, OSM's or else Overture's, rather than the style's three storeys. Zoom 14's
 // tiles keep mostly big buildings, which OSM tags, so the opening camera would not tell the files apart.

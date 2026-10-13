@@ -156,8 +156,8 @@ function adjust(layer: LayerSpecification, t: MapTokens): LayerSpecification {
 }
 
 /**
- * The 3D buildings: the flat layer's buildings, extruded to their height. Hidden until `T` tilts the
- * board (tilt.ts); the two layers swap once per mode change, never per frame (RN-04).
+ * The 3D buildings: the flat layer's buildings, extruded to their height. Hidden, and faded out, until
+ * the board tilts (tilt.ts); the two layers cross-fade once per mode change, never per frame (RN-04).
  */
 function extrusions(flat: LayerSpecification, t: MapTokens): LayerSpecification {
   return {
@@ -172,6 +172,7 @@ function extrusions(flat: LayerSpecification, t: MapTokens): LayerSpecification 
       'fill-extrusion-color': t.buildingFill,
       'fill-extrusion-height': ['coalesce', ['get', 'height'], DEFAULT_HEIGHT_M],
       'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+      'fill-extrusion-opacity': 0,
     },
   };
 }

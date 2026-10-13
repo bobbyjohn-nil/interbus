@@ -260,7 +260,7 @@ button.chip.checklist,
   align-items: center;
   gap: 1px;
   min-width: 64px;
-  padding: 4px 6px 3px;
+  padding: 3px 6px 2px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -271,8 +271,8 @@ button.chip.checklist,
 }
 
 .dock button svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .dock button[aria-pressed='true'] {
@@ -795,4 +795,38 @@ button.chip.checklist,
   color: var(--ui-ink);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+/* The 2D/3D chip (src/render/map/MapView.tsx), above the OSM corner. */
+.mode-chip {
+  position: absolute;
+  right: 6px;
+  bottom: 30px;
+  display: flex;
+  padding: 2px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-paper) 85%, transparent);
+  font-size: 12px;
+}
+
+.mode-chip button {
+  min-width: 26px;
+  min-height: 24px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mode-chip button[aria-pressed='true'] {
+  background: var(--ui-ink);
+  color: var(--ui-paper);
+}
+
+.mode-chip button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
