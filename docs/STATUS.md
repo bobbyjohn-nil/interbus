@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 47fdf77, with the M1 spec in review.
+**Updated:** 2026-10-13, at `main` d682db0, with the sim core port in review.
 
 ## Live now
 
@@ -29,12 +29,16 @@ The running handoff between Claude sessions. Every session reads it right after 
 
 PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where Back Bay to Longwood lives and works; "people within a walk"; does it look like Boston?
 
-- [ ] **Item 10, ports:**
-  - V3: ledger, saves (async store, bus counter, schema hash), calendar, errors;
-  - V2: RNG, graph, A*;
-  - V1: geo.
-
-  Each port's tests pass, I7 and the schema hash pass, and each is shown failing on the old bug.
+- [ ] **Item 10, ports.** Each port's tests pass, I7 and the schema hash pass, and each is shown failing on the old bug. A port counts as done once the worker host uses it (SC-09).
+  - [x] The sim core (2026-10-13), in `src/sim/{config,core,rules,economy}`:
+    - branded ids minted from saved counters;
+    - one `{ok, reason}` result type;
+    - V2's RNG with a savable state;
+    - V3's calendar on whole seconds from 05:00;
+    - D7's periods and headway limits;
+    - V3's cent ledger, rebuilt as rows with Founding capital first (I1).
+  - [ ] V3's saves: the async store, the bus counter, the schema hash and I7.
+  - [ ] V2's graph and A*; V1's geo; V3's error bus, kept outside the sim.
 - [ ] **Item 11, the city on the fixture:**
   - worker host;
   - V1's pipeline and fixtures ported;
