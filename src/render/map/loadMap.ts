@@ -15,6 +15,7 @@ import { addOverlays, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, setContracts, setDep
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
+import { LOW_GRAPHICS_FPS, type GraphicsRung } from './gpu';
 import { createVehicleLayer } from './vehicles';
 
 let protocol: Protocol | null = null;
@@ -68,7 +69,8 @@ const POINTER_EVERY_MS = 100;
 /** Marks the tilt's own camera moves, so their end can be told from a drag's. */
 const TILT_MOVE = 'interbusTilt';
 
-export async function mountMap(container: HTMLElement, city: City): Promise<MountedMap> {
+/** `rung` is the GPU ladder's (gpu.ts): Low graphics draws at one pixel a pixel and the buses at most 30 times a second. */
+export async function mountMap(container: HTMLElement, city: City, rung: Exclude<GraphicsRung, 'none'> = 'full'): Promise<MountedMap> {
   if (!city.tiles) throw new Error(`${city.name} has no tile file in this build`);
   // MapLibre only logs a worker that fails to load and then waits forever; check it exists first.
   if (await assetGone(mapWorkerUrl)) {
@@ -103,6 +105,7 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     pitchWithRotate: false,
     touchPitch: false,
     attributionControl: false,
+    ...(rung === 'low' ? { pixelRatio: 1 } : {}),
   });
   map.touchZoomRotate.disableRotation();
   map.keyboard.disableRotation();
@@ -151,7 +154,7 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
   const fleet = new Fleet();
   map.once('load', () => {
     addOverlays(map, GAME_LIGHT, LIGHT);
-    map.addLayer(createVehicleLayer(fleet));
+    map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
     loaded = true;
     if (pending.dots) setDots(map, pending.dots);
     if (pending.lines) setLines(map, pending.lines.lines, pending.lines.stops);

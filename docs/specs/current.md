@@ -73,7 +73,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
      - **Low graphics:** 2D only, capped at 30 fps. The 2D/3D chip says why it is off.
      - **No WebGL, or a context lost and not restored:** a calm card, "Turn on hardware acceleration to see the map", with Saves and Export intact.
    - **The fps readout:** behind `?fps`, read through `src/platform/`. It records frame times for exit check 4 and the slow-laptop run.
-   - **CI:** CI's Chromium renders in software (SwiftShader). So the ladder's own tests force each rung, and the other tests keep hardware.
+   - **CI:** CI's Chromium renders in software (SwiftShader). Built so (DECISIONS, Measured): software is known by WebGL's caveat or by its renderer's name, since this Chromium grants SwiftShader without the caveat; so the e2e tests run in Low graphics, which tests the probe, and the tilt tests ask `?gpu=full`. `?gpu=none` forces the card. Low graphics' `T` says "the map stays flat" for a moment until week 10's chip says why.
 6. **The 2D/3D chip, drag, snap and cross-fade** (D2; PLAN §6 "2D and 3D"; week 10, look work).
    - **What it adds:** a labelled chip beside `T`, plus right-drag and two-finger pitch at 25–60°. Releasing below 12° snaps flat.
    - **The cross-fade:** building extrusions cross-fade once per mode change, never per frame ([RN-04](../history/lessons-ledger.md)). It replaces today's 600 ms ease (`src/render/map/loadMap.ts`).

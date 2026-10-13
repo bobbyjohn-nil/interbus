@@ -7,6 +7,7 @@
 // the fleet (fleet.ts) each frame; the layer repaints every frame only while the clock runs and
 // draws nothing new while paused (I14, RN-04).
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl';
+import { frameDelayMs } from './gpu';
 import { BUS_FLOATS, type BusSource } from './fleet';
 
 export const VEHICLE_LAYER = 'vehicles';
@@ -89,7 +90,13 @@ export interface VehicleLayer extends CustomLayerInterface {
   readonly drawn: () => number;
 }
 
-export function createVehicleLayer(fleet: BusSource): VehicleLayer {
+/**
+ * `maxFps` caps how often a running fleet asks for the next frame (Low graphics, gpu.ts); without it,
+ * every frame the browser offers.
+ */
+export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLayer {
+  let lastAskMs = -Infinity;
+  let waiting: ReturnType<typeof setTimeout> | null = null;
   let map: MapLibreMap | null = null;
   let program: WebGLProgram | null = null;
   let corners: WebGLBuffer | null = null;
@@ -186,12 +193,25 @@ export function createVehicleLayer(fleet: BusSource): VehicleLayer {
       }
       // Time runs: draw the next frame too. Paused: nothing moves, so no frame is asked for (I14); the
       // container counts the frames asked for, for the e2e tests.
-      if (fleet.running) {
+      if (fleet.running && waiting === null) {
         map.getContainer().dataset.asked = String(++asked);
-        map.triggerRepaint();
+        const now = performance.now();
+        const wait = frameDelayMs(lastAskMs, now, maxFps);
+        if (wait <= 0) {
+          lastAskMs = now;
+          map.triggerRepaint();
+        } else {
+          const m = map;
+          waiting = setTimeout(() => {
+            waiting = null;
+            lastAskMs = performance.now();
+            m.triggerRepaint();
+          }, wait);
+        }
       }
     },
     onRemove(_m, gl) {
+      if (waiting !== null) clearTimeout(waiting);
       const g = gl as WebGL2RenderingContext;
       if (program) g.deleteProgram(program);
       if (corners) g.deleteBuffer(corners);

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { onReplaced } from '../../platform';
+import { fpsSwitch, gpuSwitch, onReplaced, reload } from '../../platform';
 import { CITIES } from '../../cities';
 import type { ContractView, DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import type { MapHit, MountedMap } from './loadMap';
 
 export type { MapHit };
 import { afterIdle, afterMountError, afterTimeout, type MapStatus as Status } from './status';
+import { FpsMeter, probeWebGL, rungFor, type GraphicsRung } from './gpu';
 import { buildingsLayer, isTiltKey, toggled, type ViewMode } from './tilt';
 
 /** A map still loading after this long has failed; MapLibre does not always say why. */
@@ -16,7 +17,13 @@ const MESSAGES: Record<Exclude<Status, 'loading' | 'ready' | 'replaced'>, string
   'no-city-file': 'Boston’s map file is not in this build yet.',
   empty: 'Boston’s map file loaded but drew nothing.',
   failed: 'The map could not start on this computer.',
+  // The GPU ladder's last rungs (gpu.ts): the game itself plays on, so its saves and Export stay a click away.
+  'no-gpu': 'Turn on hardware acceleration to see the map. This browser has none for it; turn it on in its settings and reload. Your game is saved, and Saves and Export still work.',
+  lost: 'The browser took the map’s graphics away. Reload to bring them back; your game is saved.',
 };
+
+/** How long Low graphics' word on a refused tilt stays. */
+const FLAT_NOTICE_MS = 4_000;
 
 export interface MapViewProps {
   /** Where people live and work, from the sim worker. */
@@ -65,7 +72,13 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
   const depotsKey = depots.map((d) => d.id).join(',');
   const city = CITIES[0];
-  const [status, setStatus] = useState<Status>(city?.tiles ? 'loading' : 'no-city-file');
+  // The GPU ladder's rung, once, before the map mounts (gpu.ts); `?gpu=` can pick one.
+  const [rung] = useState<GraphicsRung>(() => rungFor(probeWebGL(), gpuSwitch()));
+  const [status, setStatus] = useState<Status>(rung === 'none' ? 'no-gpu' : city?.tiles ? 'loading' : 'no-city-file');
+  // Low graphics keeps the map flat; `T` says so for a moment instead.
+  const [flatNotice, setFlatNotice] = useState(false);
+  // The `?fps` readout: frames a second and the slowest twentieth's frame time.
+  const [fps, setFps] = useState<{ fps: number; p95Ms: number } | null>(null);
   const [tileReads, setTileReads] = useState<string>('');
   const [features, setFeatures] = useState<number | null>(null);
   /** Set once the board is ready, so `T` never reaches a style still loading. */
@@ -82,11 +95,18 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
     const onKey = (event: KeyboardEvent) => {
       if (!isTiltKey(event) || !ready.current) return;
       event.preventDefault();
-      setMode(toggled);
+      if (rung === 'low') setFlatNotice(true);
+      else setMode(toggled);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [rung]);
+
+  useEffect(() => {
+    if (!flatNotice) return;
+    const timer = window.setTimeout(() => setFlatNotice(false), FLAT_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [flatNotice]);
 
   useEffect(() => {
     const mounted = ready.current;
@@ -110,16 +130,26 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   }, [status]);
 
   useEffect(() => {
-    if (!city?.tiles || !container.current) return;
+    if (!city?.tiles || !container.current || rung === 'none') return;
     const element = container.current;
     let disposed = false;
     let dispose: (() => void) | undefined;
+    let stopMeter: (() => void) | undefined;
     import('./loadMap')
-      .then(({ mountMap }) => mountMap(element, city))
+      .then(({ mountMap }) => mountMap(element, city, rung))
       .then((mounted) => {
         if (disposed) return mounted.dispose();
         dispose = mounted.dispose;
         mountedRef.current = mounted;
+        // A context lost and not given back leaves a blank board: say so, with Reload (gpu.ts).
+        mounted.map.on('webglcontextlost', () => setStatus((now) => (now === 'replaced' ? now : 'lost')));
+        mounted.map.on('webglcontextrestored', () => setStatus((now) => (now === 'lost' ? 'ready' : now)));
+        if (fpsSwitch()) {
+          const meter = new FpsMeter();
+          mounted.map.on('render', () => meter.frame(performance.now()));
+          const timer = window.setInterval(() => setFps(meter.summary(performance.now())), 500);
+          stopMeter = () => window.clearInterval(timer);
+        }
         const now = latest.current;
         if (now.dots) showDots(mounted, now.dots, setDotsDrawn);
         mounted.setLines(now.lines, now.stops);
@@ -156,9 +186,10 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
       disposed = true;
       ready.current = null;
       mountedRef.current = null;
+      stopMeter?.();
       dispose?.();
     };
-  }, [city]);
+  }, [city, rung]);
 
   useEffect(() => {
     const mounted = mountedRef.current;
@@ -220,8 +251,31 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
       data-contracts={contractsKey}
       data-event={eventKey}
       data-stops={stops.map((s) => `${s.id}:${s.at[0].toFixed(6)},${s.at[1].toFixed(6)}`).join(' ')}
+      data-graphics={rung}
+      data-fps={fps ? Math.round(fps.fps) : ''}
     >
-      {status in MESSAGES ? <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p> : null}
+      {status === 'no-gpu' || status === 'lost' ? (
+        <div className="map-notice top" role="alert" data-testid="gpu-card">
+          <p>{MESSAGES[status]}</p>
+          {status === 'lost' ? (
+            <button type="button" onClick={reload}>
+              Reload
+            </button>
+          ) : null}
+        </div>
+      ) : status in MESSAGES ? (
+        <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p>
+      ) : null}
+      {flatNotice ? (
+        <p className="map-notice top" role="status" data-testid="flat-notice">
+          Low graphics: the map stays flat on this computer.
+        </p>
+      ) : null}
+      {fps ? (
+        <p className="fps" data-testid="fps">
+          {Math.round(fps.fps)} fps · p95 {Math.round(fps.p95Ms)} ms · {rung === 'low' ? 'Low graphics' : 'full graphics'}
+        </p>
+      ) : null}
     </div>
   );
 }
