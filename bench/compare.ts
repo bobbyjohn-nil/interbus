@@ -1,8 +1,9 @@
 // How far the fast assignment's riders, stops' boardings and busiest legs sit from the reference loop's
-// (src/sim/demand/reference), per line and period, on the fixture and on the synthetic grid.
-// `npm run bench compare`; the reference takes about 13 s on the grid. assign.test.ts holds the
-// fixture to these numbers.
+// (src/sim/demand/reference), per line and period, on the fixture, on two fixture lines joined at
+// Kenmore that riders change between, and on the synthetic grid. `npm run bench compare`; the
+// reference takes minutes on the grid. assign.test.ts holds the fixture to these numbers.
 import { bakeSim } from '../tools/bake/sim.mjs';
+import { createLine } from '../src/sim/commands/createLine';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity, type City } from '../src/sim/city/simfile';
 import type { LineId } from '../src/sim/core/ids';
@@ -11,7 +12,8 @@ import { buildCommuters, type Commuters } from '../src/sim/demand/commuters';
 import { assignNaive } from '../src/sim/demand/reference/assignNaive';
 import { PERIODS, periodAt } from '../src/sim/rules/periods';
 import { newGame } from '../src/sim/state';
-import { createWorld, planLine } from '../src/sim/world';
+import { gameWithDepot } from '../src/sim/testing';
+import { createWorld, planLine, runningPlans } from '../src/sim/world';
 import { syntheticCity, t03Network } from './synthetic';
 
 const pct = (got: number, want: number) => (want === 0 ? (got === 0 ? '0' : 'new') : `${(((got - want) / want) * 100).toFixed(2)}%`);
@@ -20,7 +22,7 @@ const byPeriod = (slots: Float64Array) => PERIODS.map((p) => slots.reduce((sum, 
 function compare(name: string, city: City, commuters: Commuters, plans: LinePlan[]): void {
   const fast = assign(city, commuters, plans);
   const naive = assignNaive(city, commuters, plans);
-  const ref = spread(plans, naive.riders, naive.busiest, naive.ends);
+  const ref = spread(plans, naive.riders, naive.busiest, naive.ends, naive.paid);
   let worst = 0;
   for (const plan of plans) {
     const got = byPeriod(fast.lines.get(plan.id)!.bySlot);
@@ -35,6 +37,8 @@ function compare(name: string, city: City, commuters: Commuters, plans: LinePlan
     const r = ref.lines.get(plan.id)!;
     console.log(`${name} line ${plan.id} boardings by stop: ${[...f.boardingsByStop].map((v, q) => `${v.toFixed(1)} vs ${r.boardingsByStop[q]!.toFixed(1)}`).join(', ')}; alightings ${[...f.alightingsByStop].map((v, q) => `${v.toFixed(1)} vs ${r.alightingsByStop[q]!.toFixed(1)}`).join(', ')}`);
     console.log(`${name} line ${plan.id} busiest leg: ${PERIODS.map((p, k) => `${p} ${legGot[k]!.toFixed(1)} vs ${legWant[k]!.toFixed(1)} (${pct(legGot[k]!, legWant[k]!)})`).join(', ')}`);
+    const changes = (d: typeof f) => d.transfersByStop.reduce((sum, v) => sum + v, 0);
+    console.log(`${name} line ${plan.id} changes onto it: ${changes(f).toFixed(1)} vs ${changes(r).toFixed(1)} (${pct(changes(f), changes(r))})`);
   }
   console.log(`${name}: trips ${fast.tripsPerDay.toFixed(1)} vs ${ref.tripsPerDay.toFixed(1)} (${pct(fast.tripsPerDay, ref.tripsPerDay)}); worst line-period ${(worst * 100).toFixed(2)}%`);
 }
@@ -52,5 +56,9 @@ compare('fixture, four overlapping lines', world.city, world.commuters, [
   shifted(3, -250, 350, { fareCents: 300 }),
   shifted(4, 60, -40, { fareCents: 150, headways: { peak: 900, offpeak: 900, overnight: null } }),
 ]);
+const kenmore = gameWithDepot();
+createLine(kenmore, [[-71.077, 42.3499], [-71.09721, 42.34883]]);
+createLine(kenmore, [[-71.09721, 42.34883], [-71.1035, 42.336]]);
+compare('fixture, Copley–Kenmore and Kenmore–Longwood', kenmore.city, kenmore.commuters, runningPlans(kenmore));
 const city = syntheticCity();
 compare('synthetic grid, T03', city, buildCommuters(city), t03Network());

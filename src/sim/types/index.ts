@@ -92,7 +92,7 @@ export interface LineView {
   readonly pullIn: readonly LngLatPair[];
   /** The day plan's inputs (sim/rules/schedule.ts): the page builds the same plan the costs bill, for the vehicle layer. */
   readonly plan: PlanInputsData;
-  /** A day's fares and subsidy at the modelled riders, in cents: whole boardings, so about what the rows bank. */
+  /** A day's fares and subsidy at the modelled riders, in cents: whole paid boardings, so about what the rows bank. */
   readonly incomeCents: number;
   /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
   readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
@@ -108,6 +108,8 @@ export interface StopView {
   readonly lineIds: readonly number[];
   readonly boardings: number;
   readonly alightings: number;
+  /** Of the boardings, riders changing from another line, who paid there (the M3 spec, item 13). */
+  readonly transfers: number;
   readonly netCents: number;
   readonly quiet: boolean;
   readonly loss: boolean;

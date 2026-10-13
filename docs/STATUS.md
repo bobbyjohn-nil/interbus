@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` f624685 (the preview plays Inner Boston), with step 11's first part, riders scanning every line, in review; transfers next, then r1's Overture heights.
+**Updated:** 2026-10-13, at `main` ccffa5e (riders scan every line at a stop), with step 11's second part, one change of line paid once a trip, in review; route edits next, then r1's Overture heights.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` f624685. Deploy preview run 38400247855's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ccffa5e. Deploy preview run 38403670456's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -15,6 +15,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a bus model per line, Sparrow or Metro 40, picked on the new-line card and swapped on the line card, each drawn at its own length;
   - V2's waits: riders leave a line that comes once an hour;
   - full buses turning riders away half-hour by half-hour, and "Full at 17:00" on the line card when they do;
+  - riders at a stop taking the first bus of the lines worth waiting for, so every line through a hub carries its share;
   - a fare per line from $1.00 to $5.00 on the line card, with the band of fares that net the most;
   - each stop's day on a click (boardings, alightings, net), and QUIET or LOSS stops ringed on the map;
   - stop tiers from a Sign to a Transfer Hub on the stop card;
@@ -198,8 +199,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
     - [x] **Export session** (2026-10-13): in Saves, the session's save, its speed and every command since; the same host replays it to the same game fingerprint, a Chromium session in Node included, and `npm run bench replay <file>` replays a player's (DECISIONS, Measured).
 11. [ ] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
     - [x] **Riders scan every line at a stop** (I5; 2026-10-13): of the lines serving a trip, they take the first bus among those worth waiting for, split by frequency, at the combined headway's wait; six lines along the same stops carry a sixth each, where the first took them all (DECISIONS, Measured).
-    - [ ] Two-leg trips: one transfer at a shared stop or within 250 m, with the tier's penalty.
-    - [ ] Fares and subsidy per trip, transfers free, so splitting a line gains at most 1% (I4).
+    - [x] **One change of line, paid once a trip** (I4; 2026-10-13): at a shared stop or within 250 m, for the walk, the boarding stop's tier's penalty and the second wait, never onto a line the home can walk to nor off one that reaches work; fare and subsidy felt and paid once, on the first line. Splitting a line now loses 4.8% to 40.6% where charging each boarding gained up to +22.7%; Copley–Kenmore and Kenmore–Longwood carry 52.6 changes a day at Kenmore, on its stop card (exit check 5); Inner Boston's recompute is 81–96 ms p50 (DECISIONS, Measured).
     - [ ] Route edits: remove a stop, extend from either end.
 12. [ ] Week 5's scheduled presentation items, at most one session in three: the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 

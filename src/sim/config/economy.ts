@@ -7,7 +7,7 @@ export { DEPOT_FIRST_PRICE_CENTS as DEPOT_COST_CENTS } from './depots';
 export const STOP_COST_CENTS = 400_000;
 /** The reference fare, $2.25 (V1 `FARE_REFERENCE`, constants.ts:418). */
 export const REFERENCE_FARE_CENTS = 225;
-/** The city's subsidy per boarding, $1.60 (V1 `SUBSIDY_PER_RIDER`, constants.ts:78), at the reference fare or below. */
+/** The city's subsidy per paid boarding (one a trip, EC-04), $1.60 (V1 `SUBSIDY_PER_RIDER`, constants.ts:78), at the reference fare or below. */
 export const SUBSIDY_PER_BOARDING_CENTS = 160;
 /**
  * A line's fare runs from $1.00 to $5.00 in 25¢ steps (the M3 spec, item 4; V2's band, EC-09,

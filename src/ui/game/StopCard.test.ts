@@ -9,7 +9,7 @@ import { StopCard } from './StopCard';
 import type { Sim } from './useSim';
 
 function render(stop: Partial<StopView>): string {
-  const view: StopView = { id: 2, at: [-71.0857, 42.3424], tier: 1, lineIds: [1], boardings: 29.3, alightings: 8, netCents: 1_234, quiet: false, loss: false, ...stop };
+  const view: StopView = { id: 2, at: [-71.0857, 42.3424], tier: 1, lineIds: [1], boardings: 29.3, alightings: 8, transfers: 0, netCents: 1_234, quiet: false, loss: false, ...stop };
   const snapshot = { stops: [view], lines: [{ id: 1, name: 'Line 1', colour: '#c0392b' }], cashCents: 7_120_000 } as unknown as Snapshot;
   return renderToStaticMarkup(createElement(StopCard, { sim: { snapshot } as unknown as Sim, stopId: 2, onLine: () => undefined, onClose: () => undefined }));
 }
@@ -35,6 +35,11 @@ describe('a stop’s card', () => {
     expect(html).toContain('Line 1');
     expect(html).not.toContain('QUIET');
     expect(html).not.toContain('LOSS');
+    expect(html).not.toContain('change here');
+  });
+
+  it('says how many of those boarding change here from another line (item 13)', () => {
+    expect(render({ transfers: 12.4 })).toContain('≈12 of them change here from another line, on the fare they paid');
   });
 
   it('names QUIET and LOSS in words, as the map does', () => {

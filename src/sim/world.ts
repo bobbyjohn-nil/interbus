@@ -69,7 +69,15 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
     if (leg === null) return null;
     dist.push(dist[k - 1]! + leg);
   }
-  return { id: line.id, stops: xy, stopDistM: dist, headways: line.headways, fareCents: line.fareCents, walkBonusMin: stops.map((s) => STOP_TIERS[s!.tier].walkBonusMin) };
+  return {
+    id: line.id,
+    stops: xy,
+    stopDistM: dist,
+    headways: line.headways,
+    fareCents: line.fareCents,
+    walkBonusMin: stops.map((s) => STOP_TIERS[s!.tier].walkBonusMin),
+    transferPenaltyMin: stops.map((s) => STOP_TIERS[s!.tier].transferPenaltyMin),
+  };
 }
 
 /** What the fleet rules read for this world (sim/rules/line.ts). */

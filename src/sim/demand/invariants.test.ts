@@ -117,7 +117,8 @@ describe('I2, crowded stops (EC-02: V1 kept each home’s 4 nearest stops, so ne
 });
 
 describe('I3, per period: no line boards more riders in a period than that period generates', () => {
-  it('keeps every period within its share of the day’s commuter trips', () => {
+  // Trips, not boardings: a rider who changes line boards twice and pays once (item 13).
+  it('keeps every period’s trips within its share of the day’s commuter trips', () => {
     const world = game();
     const generated = 2 * world.commuters.flow.reduce((s, f) => s + f, 0) * (city.tripScalePermille / 1000);
     for (const period of PERIODS) {
@@ -126,7 +127,7 @@ describe('I3, per period: no line boards more riders in a period than that perio
       for (let s = 0; s < SLOTS; s++) {
         if (periodAt(s * 1800 + 900) !== period) continue;
         share += HOURLY_PROFILE[Math.floor(s / 2)]! / 2;
-        for (const line of world.assignment.lines.values()) boarded += line.bySlot[s]!;
+        for (const line of world.assignment.lines.values()) boarded += line.paidBySlot[s]!;
       }
       expect(boarded, period).toBeLessThanOrEqual(generated * share);
     }

@@ -1,13 +1,14 @@
 // Who rides which line, rewritten from V1's demand worker (`Intralines@7af45b1:src/game/sim/
-// demand.worker.ts:290-520`, R01) for M1: commuters only, one-seat rides (transfers land in week 7).
+// demand.worker.ts:290-520`, R01) for M1: commuters only, with one change of line since step 11.
 // Changed on the way in:
 // - no cap on how many stops a home sees or how many lines a stop offers (V1 kept 4 stops and 3
 //   lines, K04, K23): every stop within 650 m counts;
 // - catchments sum each cell's sub-points instead of measuring from one centroid (EC-15);
 // - per period (D7): a line's wait comes from that period's headway, and nobody boards in a period
 //   it does not run, so an overnight-off line loses its night riders (EC-03);
-// - the fare is paid per boarding and felt as minutes beyond $2.25 (K05), weighed against the
-//   ride's length (V2's elasticity, EC-09);
+// - the fare is felt as minutes beyond $2.25 (K05), weighed against the ride's length (V2's
+//   elasticity, EC-09), and felt and paid once a trip, on the first line (EC-04: V1 charged and felt
+//   every boarding, so splitting a line paid +8% to +62%);
 // - no silent floors: V1 dropped pairs under half a commuter and shares under 1%; this keeps them;
 // - V1 timed trips between cell centroids; this times them per group of sub-points that reach the
 //   same stops, with the group's average walk (I14's budget rules out every sub-point pair);
@@ -15,7 +16,10 @@
 //   half-hour only, where V1 shed the whole day from its peak hour (demand.worker.ts:575-590);
 // - riders scan every line at a stop (I5, K23; step 11): of the lines serving a trip they take the
 //   first bus among those worth waiting for (commonLines), where V1 kept the 3 best and M1–M3 the
-//   quickest alone.
+//   quickest alone;
+// - one change of line (EC-10, step 11): between stops of two lines within 250 m, for the walk, the
+//   boarding stop's tier's penalty and the second line's wait. A change on the same first bus as a
+//   one-seat ride is the same bus, so each first line offers riders its quicker.
 // Waits carry no traffic delay until congestion lands in week 7 (K06: one rule for both).
 import {
   BUS_KMH,
@@ -42,13 +46,14 @@ import {
   SCHEDULE_AWARE_REF_MIN,
   TIMED_RIDER_SHARE,
   TIMED_WAIT_MIN,
+  TRANSFER_REACH_M,
   WAIT_CEILING_MIN,
   WAIT_PAIN_EXPONENT,
   WAIT_PAIN_REF_MIN,
   WALK_MIN_PER_KM,
 } from '../config/demand';
-import { MIN_WALK_MIN } from '../config/stops';
-import { SpatialGrid, type XY } from '../core/geo';
+import { MIN_WALK_MIN, STOP_TIERS } from '../config/stops';
+import { distXY, SpatialGrid, type XY } from '../core/geo';
 import type { LineId } from '../core/ids';
 import type { City, SubPoint } from '../city/simfile';
 import { PERIODS, periodAt, runsIn, type Headways, type Period } from '../rules/periods';
@@ -75,12 +80,17 @@ export interface LinePlan {
   readonly seats?: number;
   /** Minutes off the walk to each stop, by its tier (config/stops.ts); none when absent. */
   readonly walkBonusMin?: readonly number[];
+  /** Minutes a transfer onto this line at each stop costs, by its tier (config/stops.ts); a Sign's 6 when absent. */
+  readonly transferPenaltyMin?: readonly number[];
 }
 
 export interface LineDemand {
   /** Boardings in each half-hour of a day, 00:00 first, after crowding. */
   readonly bySlot: Float64Array;
   readonly perDay: number;
+  /** The boardings that pay: every boarding but a change onto this line, whose fare the first line took (EC-04). */
+  readonly paidBySlot: Float64Array;
+  readonly paidPerDay: number;
   /** Riders a day turned away by full buses (K27), and the half-hour that turns away the most, or null. */
   readonly shedPerDay: number;
   readonly fullSlot: number | null;
@@ -89,11 +99,13 @@ export interface LineDemand {
   /** Riders a day who board and who alight at each of its stops, in line order, after crowding. */
   readonly boardingsByStop: Float64Array;
   readonly alightingsByStop: Float64Array;
+  /** Of each stop's boardings, those changing from another line, who pay nothing here. */
+  readonly transfersByStop: Float64Array;
 }
 
 export interface Assignment {
   readonly lines: ReadonlyMap<LineId, LineDemand>;
-  /** Trips by bus in a day, each counted once however many lines it rides. */
+  /** Trips by bus in a day, each counted once however many lines it rides: the paid boardings. */
   readonly tripsPerDay: number;
 }
 
@@ -181,7 +193,7 @@ function shareFor(busMin: number, car: number, walkMin: number): number {
   return shareGiven(busMin, Math.exp((busMin - car) / MODE_TAU_MIN), walkMin);
 }
 
-/** busShare given exp((busMin − carMin) / τ), which the fast loop builds from one exp per option and one per wait. */
+/** busShare given exp((busMin − carMin) / τ), which the fast loop builds as a product of exps it works out once (Access.expWalk). */
 function shareGiven(busMin: number, expLead: number, walkMin: number): number {
   if (busMin > MAX_TRANSIT_MIN) return 0;
   // When walking beats the bus, most of those trips walk.
@@ -199,6 +211,8 @@ interface Access {
   readonly mask: number;
   readonly pos: Int32Array;
   readonly walkMin: Float64Array;
+  /** exp(walkMin / τ), so an option's exp((minutes − car) / τ) is a product rather than an exp. */
+  readonly expWalk: Float64Array;
 }
 
 /** A cell's homes or jobs: each sub-point's share of the cell and every subset's share. */
@@ -233,6 +247,22 @@ function sidesOf(city: City): { homes: Side[]; work: Side[] } {
 export interface Catchments {
   readonly homeLines: readonly (readonly { readonly line: number; readonly groups: readonly Access[] }[])[];
   readonly workAccess: readonly (readonly { readonly cell: number; readonly groups: readonly Access[] }[])[];
+  /** Each line's changes onto other lines, by line. */
+  readonly transfers: readonly (readonly Transfer[])[];
+  /** By line, each cell's work sub-points that reach it, as a bitmask (0 for none). */
+  readonly workReach: readonly Int32Array[];
+}
+
+/**
+ * The changes from one line onto `line` (the M3 spec, item 13): from stop `from[k]` of the first to
+ * stop `to[k]` of `line`, within TRANSFER_REACH_M (a stop both call at is 0 m), in `minutes[k]`: the
+ * walk and the penalty of the tier of the stop boarded.
+ */
+export interface Transfer {
+  readonly line: number;
+  readonly from: Int32Array;
+  readonly to: Int32Array;
+  readonly minutes: Float64Array;
 }
 
 /** Every line's catchments (Catchments) for these plans. */
@@ -287,14 +317,42 @@ export function catchments(city: City, plans: readonly LinePlan[]): Catchments {
         const lineGroups = byLine[g.line]!;
         let entry = lineGroups[lineGroups.length - 1];
         if (entry?.cell !== cell) lineGroups.push((entry = { cell, groups: [] }));
-        entry.groups.push({ mask: g.mask, pos: Int32Array.from(g.pos), walkMin: Float64Array.from(mean) });
+        entry.groups.push({ mask: g.mask, pos: Int32Array.from(g.pos), walkMin: Float64Array.from(mean), expWalk: Float64Array.from(mean, (m) => Math.exp(m / MODE_TAU_MIN)) });
       }
     });
     return byLine;
   };
   const homeLines = city.cells.map(() => [] as { line: number; groups: Access[] }[]);
   accessOf(city.cells.map((c) => c.homes)).forEach((cells, line) => cells.forEach(({ cell, groups }) => homeLines[cell]!.push({ line, groups })));
-  return { homeLines, workAccess: accessOf(city.cells.map((c) => c.work)) };
+  const workAccess = accessOf(city.cells.map((c) => c.work));
+  const workReach = workAccess.map((cells) => {
+    const masks = new Int32Array(city.cells.length);
+    for (const { cell, groups } of cells) for (const g of groups) masks[cell]! |= g.mask;
+    return masks;
+  });
+  return { homeLines, workAccess, transfers: transfersOf(plans), workReach };
+}
+
+/** Every line's changes onto the others (Transfer), in line order. */
+export function transfersOf(plans: readonly LinePlan[]): Transfer[][] {
+  const near = new SpatialGrid<{ line: number; pos: number }>(TRANSFER_REACH_M);
+  plans.forEach((plan, line) => plan.stops.forEach((p, pos) => near.add(p, { line, pos })));
+  return plans.map((plan, line) => {
+    const found = new Map<number, { from: number[]; to: number[]; minutes: number[] }>();
+    plan.stops.forEach((p, from) => {
+      for (const { item: s, distM } of near.within(p, TRANSFER_REACH_M)) {
+        if (s.line === line) continue;
+        let t = found.get(s.line);
+        if (!t) found.set(s.line, (t = { from: [], to: [], minutes: [] }));
+        t.from.push(from);
+        t.to.push(s.pos);
+        t.minutes.push((distM / 1000) * WALK_MIN_PER_KM + (plans[s.line]!.transferPenaltyMin?.[s.pos] ?? STOP_TIERS[1].transferPenaltyMin));
+      }
+    });
+    return [...found]
+      .sort((a, b) => a[0] - b[0])
+      .map(([to, t]) => ({ line: to, from: Int32Array.from(t.from), to: Int32Array.from(t.to), minutes: Float64Array.from(t.minutes) }));
+  });
 }
 
 export interface AssignOptions {
@@ -311,11 +369,12 @@ export interface AssignOptions {
  * average walk to each stop. The straight-line km is the cell pair's, as the commuters were
  * counted, so placing a stop never moves it (I2). Where groups at both ends share several lines,
  * each pair of sub-points scans the lines that serve both (commonLines), so nobody is counted twice.
+ * A trip may change line once (Transfer): home on one line, work on a line it changes onto.
  *
- * Only cell pairs that share a line are visited (on T03's grid, 91 thousand of 659 thousand). The
- * first version compared every sub-point pair with every stop pair: 13 s on the 812-cell bench
- * against I14's 150 ms. reference/assignNaive.ts keeps it as the yardstick; assign.test.ts holds
- * this one to its riders on the fixture.
+ * Only cell pairs that share a line, or a line and one it changes onto, are visited (on T03's grid,
+ * 91 thousand of 659 thousand before changes). The first version compared every sub-point pair with
+ * every stop pair: 13 s on the 812-cell bench against I14's 150 ms. reference/assignNaive.ts keeps
+ * it as the yardstick; assign.test.ts holds this one to its riders on the fixture.
  *
  * `only` (AssignOptions) visits just the cell pairs one line serves, which is all the fare band asks
  * of the network for each fare it tries, and `reach` reuses the catchments across those tries.
@@ -324,7 +383,19 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   const onlyLine = options.only === undefined ? -1 : plans.findIndex((p) => p.id === options.only);
   const lineCount = plans.length;
   const { homes, work } = sidesOf(city);
-  const { homeLines, workAccess } = options.reach ?? catchments(city, plans);
+  const { homeLines, workAccess, transfers, workReach } = options.reach ?? catchments(city, plans);
+  // The current home cell's sub-points that reach each line, as a bitmask.
+  const homeReach = new Int32Array(lineCount);
+  // For each of the current home cell's routes, each home group's quickest minutes to every stop of
+  // the line it rides to work, walk included, at [reach + group * stops + stop], and the place in
+  // the group's stops it boards at for that. Worked out once per home cell, so an option between a
+  // home group and a work group scans only the work group's stops.
+  let reachRoom = 4096;
+  let reachMin = new Float64Array(reachRoom);
+  let reachBoard = new Int32Array(reachRoom);
+  let reachUsed = 0;
+  // Lines `only` rides on from home: itself, and each line that changes onto it.
+  const feedsOnly = transfers.map((list, line) => line === onlyLine || list.some((t) => t.line === onlyLine));
 
   // Each line's wait in each period (Infinity where it does not run), at [line * 3 + period] in
   // PERIODS order.
@@ -339,92 +410,116 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       headway[line * 3 + k] = runs ? h : Infinity;
     }),
   );
-  // Each line's fare in minutes for a ride between two of its stops, at [from * stops + to].
-  const fareMin = plans.map((plan) => {
-    const extra = (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE;
+  const stopCount = Int32Array.from(plans, (plan) => plan.stops.length);
+  // Each line's fare in minutes beyond the reference.
+  const fareExtra = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
+  // Minutes along each line to each stop, and exp(wait / τ) for each line and period.
+  const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / (plan.kmh ?? BUS_KMH)) * 60));
+  const expWait = wait.map((w) => Math.exp(w / MODE_TAU_MIN));
+  const rideMin = (line: number, a: number, b: number) => Math.abs(stopMin[line]![b]! - stopMin[line]![a]!) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60);
+  // Each line's ride between two of its stops with its fare felt (weighed against the ride's km), at
+  // [from * stops + to]: a bargain fare makes the ride feel shorter, never free (V1
+  // demand.worker.ts:342-344). Infinity from a stop to itself.
+  const rideFare = plans.map((plan, line) => {
+    const extra = fareExtra[line]!;
     const stops = plan.stops.length;
     const at = new Float64Array(stops * stops);
-    if (extra !== 0) {
-      for (let a = 0; a < stops; a++) {
-        for (let b = 0; b < stops; b++) at[a * stops + b] = extra * fareSensitivity(Math.abs(plan.stopDistM[b]! - plan.stopDistM[a]!) / 1000);
+    for (let a = 0; a < stops; a++) {
+      for (let b = 0; b < stops; b++) {
+        const fare = extra === 0 ? 0 : extra * fareSensitivity(Math.abs(plan.stopDistM[b]! - plan.stopDistM[a]!) / 1000);
+        at[a * stops + b] = a === b ? Infinity : Math.max(0.5, rideMin(line, a, b) + fare);
       }
     }
     return at;
   });
-  // Minutes along each line to each stop, and exp(wait / τ) for each line and period.
-  const stopMin = plans.map((plan) => Float64Array.from(plan.stopDistM, (m) => (m / 1000 / (plan.kmh ?? BUS_KMH)) * 60));
-  const expWait = wait.map((w) => Math.exp(w / MODE_TAU_MIN));
-  // The stops the last baseMin() boards and alights at.
-  let boardAt = 0;
-  let alightAt = 0;
-  /** The quickest door-to-door minutes, before waiting, between two groups on one line. */
-  const baseMin = (line: number, a: Access, b: Access) => {
-    const along = stopMin[line]!;
-    const fare = fareMin[line]!;
-    const stops = along.length;
-    let best = Infinity;
-    for (let x = 0; x < a.pos.length; x++) {
-      const pa = a.pos[x]!;
-      for (let y = 0; y < b.pos.length; y++) {
-        const pb = b.pos[y]!;
-        if (pa === pb) continue;
-        const ride = Math.abs(along[pb]! - along[pa]!) + Math.max(0, Math.abs(pb - pa) - 1) * (DWELL_SEC / 60);
-        // A bargain fare makes the ride feel shorter, never free (V1 demand.worker.ts:342-344).
-        const t = a.walkMin[x]! + Math.max(0.5, ride + fare[pa * stops + pb]!) + b.walkMin[y]!;
-        if (t < best) {
-          best = t;
-          boardAt = pa;
-          alightAt = pb;
+  // Each change's quickest minutes from a stop of its first line to a stop of its second, riding
+  // both: the rides, the first line's fare felt once over both rides' km, and the change's walk and
+  // penalty, before the second line's wait, at [a * stops + b] (the second line's stops), with the
+  // change taken at the same place in `via`. None ends within TRANSFER_REACH_M of where it began:
+  // that rider would walk, and the captive share would otherwise send some round a loop. Fares
+  // differ between assignments, so these are made here.
+  const changeMin = transfers.map((list, first) =>
+    list.map((t) => {
+      const stopsA = plans[first]!.stops.length;
+      const stops = plans[t.line]!.stops.length;
+      const distA = plans[first]!.stopDistM;
+      const distB = plans[t.line]!.stopDistM;
+      const best = new Float64Array(stopsA * stops).fill(Infinity);
+      const via = new Int32Array(stopsA * stops);
+      for (let a = 0; a < stopsA; a++) {
+        for (let b = 0; b < stops; b++) {
+          if (distXY(plans[first]!.stops[a]!, plans[t.line]!.stops[b]!) <= TRANSFER_REACH_M) continue;
+          for (let k = 0; k < t.from.length; k++) {
+            const ta = t.from[k]!;
+            const tb = t.to[k]!;
+            if (ta === a || tb === b) continue;
+            const km = (Math.abs(distA[ta]! - distA[a]!) + Math.abs(distB[b]! - distB[tb]!)) / 1000;
+            const fare = fareExtra[first] === 0 ? 0 : fareExtra[first]! * fareSensitivity(km);
+            const m = Math.max(0.5, rideMin(first, a, ta) + rideMin(t.line, tb, b) + fare) + t.minutes[k]!;
+            if (m < best[a * stops + b]!) {
+              best[a * stops + b] = m;
+              via[a * stops + b] = k;
+            }
+          }
         }
       }
-    }
-    return best;
-  };
+      return { best, via, stops };
+    }),
+  );
+  // Each route's quickest minutes, before waiting, from any stop of the line boarded to any stop of
+  // the line ridden to work, at [a * stops + b] (that line's stops): a line's own rideFare, or a
+  // change's changeMin; and exp(minutes / τ) of each, the same way.
+  const expRideFare = rideFare.map((table) => table.map((m) => Math.exp(m / MODE_TAU_MIN)));
+  const expChangeMin = changeMin.map((list) => list.map((c) => c.best.map((m) => Math.exp(m / MODE_TAU_MIN))));
 
   const n = commuters.n;
   const scale = city.tripScalePermille / 1000;
   // Riders per line per period at [line * 3 + period], as if the whole day's trips fell in that
   // period; spread over the period's half-hours by the commute profile at the end, since a choice
-  // depends only on the wait.
+  // depends only on the wait. And those who pay there: all but the riders changing onto it.
   const riders = new Float64Array(lineCount * 3);
+  const paid = new Float64Array(lineCount * 3);
   // Each line's riders per period and direction, at [(period * 2 + direction) * stops + stop]:
   // +riders at the lower-numbered stop of a ride and −riders at the other, so a running sum along
   // the line is the load on each leg. Home to work is the direction the morning travels; the
   // evening travels it back, so the busier direction is the same all day.
   const legs = plans.map((plan) => new Float64Array(6 * plan.stops.length));
-  // And who boards and alights at each stop, at [period * stops + stop].
-  const ends = plans.map((plan) => ({ board: new Float64Array(3 * plan.stops.length), alight: new Float64Array(3 * plan.stops.length) }));
-  const carry = (line: number, k: number, board: number, alight: number, r: number) => {
-    const stops = plans[line]!.stops.length;
-    const d = legs[line]!;
-    ends[line]!.board[k * stops + board]! += r;
-    ends[line]!.alight[k * stops + alight]! += r;
-    if (board < alight) {
-      d[k * 2 * stops + board]! += r;
-      d[k * 2 * stops + alight]! -= r;
-    } else {
-      d[(k * 2 + 1) * stops + alight]! += r;
-      d[(k * 2 + 1) * stops + board]! -= r;
-    }
-  };
-  // Work cells reached from the current home cell, each with a list of the lines both share, and
-  // whether `only` is among them.
+  // And who boards, alights and boards changing from another line at each stop, at [period * stops + stop].
+  const ends = plans.map((plan) => ({ board: new Float64Array(3 * plan.stops.length), alight: new Float64Array(3 * plan.stops.length), change: new Float64Array(3 * plan.stops.length) }));
+  // Work cells reached from the current home cell, each with a list of the routes both share (a
+  // line, or a line and the change `entryChange` off it; -1 for none), and whether `only` is among them.
   const head = new Int32Array(n).fill(-1);
   const hasOnly = new Uint8Array(n);
-  const touched: number[] = [];
-  const next: number[] = [];
-  const entryLine: number[] = [];
+  // Kept across home cells and overwritten, never emptied: emptying an array frees its storage, and
+  // regrowing it for every home cell was a recompute's main garbage.
+  const touched = new Int32Array(n);
+  let touchedCount = 0;
+  let entryRoom = 1024;
+  let entries = 0;
+  let next = new Int32Array(entryRoom);
+  let entryLine = new Int32Array(entryRoom);
+  let entryChange = new Int32Array(entryRoom);
+  // And where its home groups' reach starts in reachMin, as below.
+  let entryReach = new Int32Array(entryRoom);
   const entryFrom: (readonly Access[])[] = [];
   const entryTo: (readonly Access[])[] = [];
-  // Every way the current cell pair can ride: a line, a home group and a work group.
+  // Every way the current cell pair can ride: a line (and the line it changes onto, or -1), a home
+  // group and a work group.
   let room = 64;
   let optLine = new Int32Array(room);
+  let optSecond = new Int32Array(room);
   let optFrom = new Int32Array(room);
   let optTo = new Int32Array(room);
   let optBase = new Float64Array(room);
+  // exp((optBase − car) / τ), built as a product (Access.expWalk).
   let optLead = new Float64Array(room);
+  // The riders each option of a scanned pair carries in each period, at [option * 3 + period],
+  // summed over the pair's sets and carried once (rideScanning).
+  let optRide = new Float64Array(room * 3);
   let optBoard = new Int32Array(room);
   let optAlight = new Int32Array(room);
+  let optChangeFrom = new Int32Array(room);
+  let optChangeTo = new Int32Array(room);
   const grow = () => {
     room *= 2;
     const more = <A extends Int32Array | Float64Array>(old: A, make: (size: number) => A): A => {
@@ -433,85 +528,236 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       return fresh;
     };
     optLine = more(optLine, (k) => new Int32Array(k));
+    optSecond = more(optSecond, (k) => new Int32Array(k));
     optFrom = more(optFrom, (k) => new Int32Array(k));
     optTo = more(optTo, (k) => new Int32Array(k));
     optBase = more(optBase, (k) => new Float64Array(k));
     optLead = more(optLead, (k) => new Float64Array(k));
+    const ride = new Float64Array(room * 3);
+    ride.set(optRide);
+    optRide = ride;
     optBoard = more(optBoard, (k) => new Int32Array(k));
     optAlight = more(optAlight, (k) => new Int32Array(k));
+    optChangeFrom = more(optChangeFrom, (k) => new Int32Array(k));
+    optChangeTo = more(optChangeTo, (k) => new Int32Array(k));
   };
-  // Scratch for several lines: each sub-point's options as a bitmask, the sets of options pairs of
+  /**
+   * Carries riders on `line` from stop `board` to stop `alight`, `r0` to `r2` in PERIODS order: who
+   * boards and alights where, and +riders at the lower-numbered stop of the ride and −riders at the
+   * other in the direction travelled, so a running sum along the line is the load on each leg.
+   */
+  const carry3 = (line: number, board: number, alight: number, r0: number, r1: number, r2: number) => {
+    const stops = stopCount[line]!;
+    const e = ends[line]!;
+    const d = legs[line]!;
+    e.board[board]! += r0;
+    e.board[stops + board]! += r1;
+    e.board[2 * stops + board]! += r2;
+    e.alight[alight]! += r0;
+    e.alight[stops + alight]! += r1;
+    e.alight[2 * stops + alight]! += r2;
+    const lo = board < alight ? board : alight;
+    const hi = board < alight ? alight : board;
+    const dir = board < alight ? 0 : stops;
+    d[dir + lo]! += r0;
+    d[dir + hi]! -= r0;
+    d[2 * stops + dir + lo]! += r1;
+    d[2 * stops + dir + hi]! -= r1;
+    d[4 * stops + dir + lo]! += r2;
+    d[4 * stops + dir + hi]! -= r2;
+  };
+  /** Carries an option's riders in each period: on its line, and on the one it changes onto, as a change there. */
+  const ride3 = (line: number, second: number, board: number, alight: number, changeFrom: number, changeTo: number, r0: number, r1: number, r2: number) => {
+    const at = line * 3;
+    riders[at]! += r0;
+    riders[at + 1]! += r1;
+    riders[at + 2]! += r2;
+    paid[at]! += r0;
+    paid[at + 1]! += r1;
+    paid[at + 2]! += r2;
+    if (second < 0) {
+      carry3(line, board, alight, r0, r1, r2);
+      return;
+    }
+    carry3(line, board, changeFrom, r0, r1, r2);
+    const bt = second * 3;
+    riders[bt]! += r0;
+    riders[bt + 1]! += r1;
+    riders[bt + 2]! += r2;
+    carry3(second, changeTo, alight, r0, r1, r2);
+    const change = ends[second]!.change;
+    const stops = stopCount[second]!;
+    change[changeTo]! += r0;
+    change[stops + changeTo]! += r1;
+    change[2 * stops + changeTo]! += r2;
+  };
+  /** ride3() for a stored option. */
+  const rideOption = (q: number, r0: number, r1: number, r2: number) =>
+    ride3(optLine[q]!, optSecond[q]!, optBoard[q]!, optAlight[q]!, optChangeFrom[q]!, optChangeTo[q]!, r0, r1, r2);
+  /**
+   * A way's share of its trips in period `k` with no other way to ride: its own waits, 0 where a
+   * line does not run. `base` is its minutes before waiting and `lead` exp((base − car) / τ).
+   */
+  const shareAlone = (line: number, second: number, base: number, lead: number, k: number, walkMin: number) => {
+    const at = line * 3 + k;
+    const w = second < 0 ? wait[at]! : wait[at]! + wait[second * 3 + k]!;
+    if (w === Infinity) return 0;
+    return shareGiven(base + w, second < 0 ? lead * expWait[at]! : lead * expWait[at]! * expWait[second * 3 + k]!, walkMin);
+  };
+  /** shareAlone() for a stored option. */
+  const optionAlone = (q: number, k: number, walkMin: number) => shareAlone(optLine[q]!, optSecond[q]!, optBase[q]!, optLead[q]!, k, walkMin);
+  // Scratch for several routes: each sub-point's options as a bitmask, the sets of options pairs of
   // sub-points share (at most 64 pairs) and their shares of the cell pair, and one set's options
-  // (a pair has at most one per line).
+  // (a pair has at most one per route), and the quickest of them on each first line.
+  const homeWord = new Int32Array(8);
+  const workWord = new Int32Array(8);
   let homeMask = new Int32Array(16);
   let workMask = new Int32Array(16);
   let pairMask = new Int32Array(2);
   let setKey = new Int32Array(128);
   const setWeight = new Float64Array(64);
-  const members = new Int32Array(Math.max(lineCount, 32));
-  const memberBase = new Float64Array(members.length);
-  const memberHeadway = new Float64Array(members.length);
-  const memberShare = new Float64Array(members.length);
-  const memberOrder = new Int32Array(members.length);
+  let members = new Int32Array(Math.max(lineCount, 32));
+  let picked = new Int32Array(members.length);
+  let memberBase = new Float64Array(members.length);
+  let memberHeadway = new Float64Array(members.length);
+  let memberShare = new Float64Array(members.length);
+  let memberOrder = new Int32Array(members.length);
   // The current cell pair's trips, car and walking minutes, for rideScanning.
   let pairTrips = 0;
   let pairCar = 0;
   let pairWalk = 0;
-  /** Riders of a set of `n` options (`members`) with `weight` of the cell pair's trips, in each period. */
+  /** Riders of a set of `n` options (`members`) with `weight` of the cell pair's trips, in each period, into optRide. */
   const rideScanning = (set: Int32Array, n: number, weight: number) => {
     if (n === 1) {
-      // One line: its own wait, and the exponent built as the single-line branch builds it.
+      // One route: its own waits, and the exponent built as the single-route branch builds it.
       const q = set[0]!;
-      const at = optLine[q]! * 3;
-      for (let k = 0; k < 3; k++) {
-        const w = wait[at + k]!;
-        if (w === Infinity) continue;
-        const r = pairTrips * weight * shareGiven(optBase[q]! + w, optLead[q]! * expWait[at + k]!, pairWalk);
-        if (r === 0) continue;
-        riders[at + k]! += r;
-        carry(optLine[q]!, k, optBoard[q]!, optAlight[q]!, r);
-      }
+      const trips = pairTrips * weight;
+      optRide[q * 3]! += trips * optionAlone(q, 0, pairWalk);
+      optRide[q * 3 + 1]! += trips * optionAlone(q, 1, pairWalk);
+      optRide[q * 3 + 2]! += trips * optionAlone(q, 2, pairWalk);
       return;
     }
     for (let k = 0; k < 3; k++) {
+      // A change and a one-seat ride starting on the same line take the same first bus, so each
+      // first line running this period offers its quickest, with the second line's wait.
+      let lines = 0;
       for (let m = 0; m < n; m++) {
-        memberBase[m] = optBase[set[m]!]!;
-        memberHeadway[m] = headway[optLine[set[m]!]! * 3 + k]!;
+        const q = set[m]!;
+        const line = optLine[q]!;
+        if (headway[line * 3 + k] === Infinity) continue;
+        const second = optSecond[q]!;
+        const base = second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!;
+        if (base === Infinity) continue;
+        let at = 0;
+        while (at < lines && optLine[picked[at]!] !== line) at++;
+        if (at === lines) {
+          picked[lines] = q;
+          memberBase[lines] = base;
+          memberHeadway[lines++] = headway[line * 3 + k]!;
+        } else if (base < memberBase[at]!) {
+          picked[at] = q;
+          memberBase[at] = base;
+        }
       }
-      const minutes = commonLines(memberBase, memberHeadway, n, memberShare, memberOrder);
+      if (lines === 0) continue;
+      // One first line is its own wait (commonLines would give the same, a few ulps apart).
+      if (lines === 1) memberShare[0] = 1;
+      const minutes = lines === 1 ? memberBase[0]! + wait[optLine[picked[0]!]! * 3 + k]! : commonLines(memberBase, memberHeadway, lines, memberShare, memberOrder);
       if (minutes === Infinity) continue;
       const r = pairTrips * weight * shareGiven(minutes, Math.exp((minutes - pairCar) / MODE_TAU_MIN), pairWalk);
       if (r === 0) continue;
-      for (let m = 0; m < n; m++) {
-        const part = r * memberShare[m]!;
-        if (part === 0) continue;
-        const q = set[m]!;
-        riders[optLine[q]! * 3 + k]! += part;
-        carry(optLine[q]!, k, optBoard[q]!, optAlight[q]!, part);
-      }
+      for (let m = 0; m < lines; m++) optRide[picked[m]! * 3 + k]! += r * memberShare[m]!;
+    }
+  };
+  /** Carries what rideScanning() put on each of the pair's `count` options, once each, and clears it. */
+  const rideScanned = (count: number) => {
+    for (let q = 0; q < count; q++) {
+      const r0 = optRide[q * 3]!;
+      const r1 = optRide[q * 3 + 1]!;
+      const r2 = optRide[q * 3 + 2]!;
+      if (r0 === 0 && r1 === 0 && r2 === 0) continue;
+      rideOption(q, r0, r1, r2);
+      optRide[q * 3] = 0;
+      optRide[q * 3 + 1] = 0;
+      optRide[q * 3 + 2] = 0;
     }
   };
 
   for (let i = 0; i < n; i++) {
     const from = homes[i]!;
-    touched.length = 0;
-    next.length = 0;
-    entryLine.length = 0;
-    entryFrom.length = 0;
-    entryTo.length = 0;
-    if (onlyLine >= 0 && !homeLines[i]!.some((h) => h.line === onlyLine)) continue;
+    touchedCount = 0;
+    entries = 0;
+    if (onlyLine >= 0 && !homeLines[i]!.some((h) => feedsOnly[h.line])) continue;
+    homeReach.fill(0);
+    reachUsed = 0;
+    for (const { line, groups } of homeLines[i]!) for (const g of groups) homeReach[line]! |= g.mask;
     for (const { line, groups } of homeLines[i]!) {
-      for (const { cell: j, groups: to } of workAccess[line]!) {
-        if (head[j] === -1) touched.push(j);
-        if (line === onlyLine) hasOnly[j] = 1;
-        next.push(head[j]!);
-        head[j] = entryLine.length;
-        entryLine.push(line);
-        entryFrom.push(groups);
-        entryTo.push(to);
+      const changes = transfers[line]!;
+      for (let x = -1; x < changes.length; x++) {
+        const second = x < 0 ? line : changes[x]!.line;
+        // A change nobody here would make (below) is not visited at all.
+        if (x >= 0 && (homeReach[line]! & ~homeReach[second]!) === 0) continue;
+        const stops = stopCount[second]!;
+        const table = x < 0 ? rideFare[line]! : changeMin[line]![x]!.best;
+        const reach = reachUsed;
+        reachUsed += groups.length * stops;
+        if (reachUsed > reachRoom) {
+          while (reachUsed > reachRoom) reachRoom *= 2;
+          const min = new Float64Array(reachRoom);
+          min.set(reachMin);
+          reachMin = min;
+          const board = new Int32Array(reachRoom);
+          board.set(reachBoard);
+          reachBoard = board;
+        }
+        for (let g = 0; g < groups.length; g++) {
+          const a = groups[g]!;
+          const row = reach + g * stops;
+          for (let b = 0; b < stops; b++) {
+            let best = Infinity;
+            let at = 0;
+            for (let p = 0; p < a.pos.length; p++) {
+              const t = a.walkMin[p]! + table[a.pos[p]! * stops + b]!;
+              if (t < best) {
+                best = t;
+                at = p;
+              }
+            }
+            reachMin[row + b] = best;
+            reachBoard[row + b] = at;
+          }
+        }
+        const offWork = workReach[line]!;
+        const onWork = workReach[second]!;
+        for (const { cell: j, groups: to } of workAccess[second]!) {
+          if (x >= 0 && (onWork[j]! & ~offWork[j]!) === 0) continue;
+          if (head[j] === -1) touched[touchedCount++] = j;
+          if (line === onlyLine || second === onlyLine) hasOnly[j] = 1;
+          if (entries === entryRoom) {
+            entryRoom *= 2;
+            const wider = (old: Int32Array) => {
+              const fresh = new Int32Array(entryRoom);
+              fresh.set(old);
+              return fresh;
+            };
+            next = wider(next);
+            entryLine = wider(entryLine);
+            entryChange = wider(entryChange);
+            entryReach = wider(entryReach);
+          }
+          next[entries] = head[j]!;
+          head[j] = entries;
+          entryLine[entries] = line;
+          entryChange[entries] = x;
+          entryReach[entries] = reach;
+          entryFrom[entries] = groups;
+          entryTo[entries] = to;
+          entries++;
+        }
       }
     }
-    for (const j of touched) {
+    for (let t = 0; t < touchedCount; t++) {
+      const j = touched[t]!;
       const first = head[j]!;
       head[j] = -1;
       const skip = onlyLine >= 0 && !hasOnly[j];
@@ -523,55 +769,152 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       const km = commuters.km[i * n + j]!;
       const car = carMin(km);
       const walk = km * WALK_MIN_PER_KM;
+      const expCar = Math.exp(-car / MODE_TAU_MIN);
+      const to = work[j]!;
+      const trips = 2 * flow * scale; // both ways (V1 counted the round trip)
+      // One route: its groups split each end's sub-points, so every option has its own riders,
+      // carried as it is found.
+      const alone = next[first] === -1;
       let count = 0;
-      let lines = 0;
+      let routes = 0;
       for (let e = first; e !== -1; e = next[e]!) {
         const line = entryLine[e]!;
+        const x = entryChange[e]!;
+        const second = x < 0 ? -1 : transfers[line]![x]!.line;
+        const rideOn = x < 0 ? line : second;
+        const stops = stopCount[rideOn]!;
+        const expTable = x < 0 ? expRideFare[line]! : expChangeMin[line]![x]!;
+        const via = x < 0 ? null : changeMin[line]![x]!.via;
+        const reach = entryReach[e]!;
+        const homeGroups = entryFrom[e]!;
+        const workGroups = entryTo[e]!;
+        // Nobody changes onto a line they could walk to from home, or off one that reaches work.
+        const keepFrom = x < 0 ? -1 : ~homeReach[second]!;
+        const keepTo = x < 0 ? -1 : ~workReach[line]![j]!;
         const before = count;
-        for (const a of entryFrom[e]!) {
-          for (const b of entryTo[e]!) {
-            const base = baseMin(line, a, b);
+        for (let g = 0; g < homeGroups.length; g++) {
+          const a = homeGroups[g]!;
+          const fromMask = a.mask & keepFrom;
+          if (fromMask === 0) continue;
+          const row = reach + g * stops;
+          for (let w = 0; w < workGroups.length; w++) {
+            const b = workGroups[w]!;
+            const toMask = b.mask & keepTo;
+            if (toMask === 0) continue;
+            const share = alone ? trips * from.shareOf[fromMask]! * to.shareOf[toMask]! : 1;
+            if (share === 0) continue;
+            // The quickest door to door before waiting: the home group's reach to each of the work
+            // group's stops, and the walk from it.
+            let base = Infinity;
+            let y = 0;
+            for (let q = 0; q < b.pos.length; q++) {
+              const t = reachMin[row + b.pos[q]!]! + b.walkMin[q]!;
+              if (t < base) {
+                base = t;
+                y = q;
+              }
+            }
             if (base === Infinity) continue;
+            const alight = b.pos[y]!;
+            const at = reachBoard[row + alight]!;
+            const board = a.pos[at]!;
+            const lead = a.expWalk[at]! * expTable[board * stops + alight]! * b.expWalk[y]! * expCar;
+            const k = via ? via[board * stops + alight]! : 0;
+            const changeFrom = via ? transfers[line]![x]!.from[k]! : 0;
+            const changeTo = via ? transfers[line]![x]!.to[k]! : 0;
+            if (alone) {
+              const r0 = share * shareAlone(line, second, base, lead, 0, walk);
+              const r1 = share * shareAlone(line, second, base, lead, 1, walk);
+              const r2 = share * shareAlone(line, second, base, lead, 2, walk);
+              ride3(line, second, board, alight, changeFrom, changeTo, r0, r1, r2);
+              continue;
+            }
             if (count === room) grow();
             optLine[count] = line;
-            optFrom[count] = a.mask;
-            optTo[count] = b.mask;
+            optSecond[count] = second;
+            optFrom[count] = fromMask;
+            optTo[count] = toMask;
             optBase[count] = base;
-            optLead[count] = Math.exp((base - car) / MODE_TAU_MIN);
-            optBoard[count] = boardAt;
-            optAlight[count] = alightAt;
+            optLead[count] = lead;
+            optBoard[count] = board;
+            optAlight[count] = alight;
+            optChangeFrom[count] = changeFrom;
+            optChangeTo[count] = changeTo;
             count++;
           }
         }
-        if (count > before) lines++;
+        if (count > before) routes++;
       }
-      if (count === 0) continue;
-      const to = work[j]!;
-      const trips = 2 * flow * scale; // both ways (V1 counted the round trip)
+      if (alone || count === 0) continue;
       pairTrips = trips;
       pairCar = car;
       pairWalk = walk;
-      if (lines === 1) {
-        // One line: its groups split each end's sub-points, so every option has its own riders.
+      // One route after all, or several whose options share no pair of sub-points (a one-seat ride
+      // and a change off the same line, by the rule above, never do): as above, every option has
+      // its own riders, so nobody scans.
+      let disjoint = true;
+      for (let q = 0; q < count && disjoint && routes > 1; q++) {
+        for (let r = q + 1; r < count; r++) {
+          if ((optFrom[q]! & optFrom[r]!) !== 0 && (optTo[q]! & optTo[r]!) !== 0) {
+            disjoint = false;
+            break;
+          }
+        }
+      }
+      if (disjoint) {
         for (let q = 0; q < count; q++) {
           const pairTrips = trips * from.shareOf[optFrom[q]!]! * to.shareOf[optTo[q]!]!;
           if (pairTrips === 0) continue;
-          const at = optLine[q]! * 3;
-          for (let k = 0; k < 3; k++) {
-            const w = wait[at + k]!;
-            if (w === Infinity) continue;
-            const r = pairTrips * shareGiven(optBase[q]! + w, optLead[q]! * expWait[at + k]!, walk);
-            riders[at + k]! += r;
-            carry(optLine[q]!, k, optBoard[q]!, optAlight[q]!, r);
-          }
+          rideOption(q, pairTrips * optionAlone(q, 0, walk), pairTrips * optionAlone(q, 1, walk), pairTrips * optionAlone(q, 2, walk));
         }
         continue;
       }
-      // Several lines: each pair of sub-points scans every line serving both its ends (I5) and
-      // takes the first bus of those worth waiting for (commonLines). Within a line its groups
-      // split each end's sub-points, so a pair has at most one option per line. Each sub-point's
+      // Several routes: each pair of sub-points scans every line serving both its ends (I5) and
+      // takes the first bus of those worth waiting for (commonLines). Within a route its groups
+      // split each end's sub-points, so a pair has at most one option per route. Each sub-point's
       // options are a bitmask, a pair's are the two ANDed, and pairs with the same options (at
       // most 64 sets) are worked out once.
+      if (members.length < routes) {
+        members = new Int32Array(2 * routes);
+        picked = new Int32Array(2 * routes);
+        memberBase = new Float64Array(2 * routes);
+        memberHeadway = new Float64Array(2 * routes);
+        memberShare = new Float64Array(2 * routes);
+        memberOrder = new Int32Array(2 * routes);
+      }
+      if (count <= 32) {
+        // Up to 32 options, as nearly every pair has: the same on single words.
+        homeWord.fill(0);
+        workWord.fill(0);
+        for (let q = 0; q < count; q++) {
+          for (let bits = optFrom[q]!; bits; bits &= bits - 1) homeWord[31 - Math.clz32(bits & -bits)]! |= 1 << q;
+          for (let bits = optTo[q]!; bits; bits &= bits - 1) workWord[31 - Math.clz32(bits & -bits)]! |= 1 << q;
+        }
+        let sets = 0;
+        for (let h = 0; h < from.share.length; h++) {
+          const hs = from.share[h]!;
+          if (hs === 0) continue;
+          for (let w = 0; w < to.share.length; w++) {
+            const ws = to.share[w]!;
+            const key = homeWord[h]! & workWord[w]!;
+            if (ws === 0 || key === 0) continue;
+            let at = 0;
+            while (at < sets && setKey[at] !== key) at++;
+            if (at === sets) {
+              setKey[sets] = key;
+              setWeight[sets++] = 0;
+            }
+            setWeight[at]! += hs * ws;
+          }
+        }
+        for (let at = 0; at < sets; at++) {
+          let n = 0;
+          for (let bits = setKey[at]!; bits; bits &= bits - 1) members[n++] = 31 - Math.clz32(bits & -bits);
+          rideScanning(members, n, setWeight[at]!);
+        }
+        rideScanned(count);
+        continue;
+      }
       // Each sub-point's options as a bitmask of `words` 32-bit words, for any number of options.
       const words = (count + 31) >>> 5;
       if (homeMask.length < 8 * words) {
@@ -589,11 +932,11 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       }
       if (setKey.length < 64 * words) setKey = new Int32Array(64 * words);
       let sets = 0;
-      for (let h = 0; h < 8; h++) {
-        const hs = from.share[h] ?? 0;
+      for (let h = 0; h < from.share.length; h++) {
+        const hs = from.share[h]!;
         if (hs === 0) continue;
-        for (let w = 0; w < 8; w++) {
-          const ws = to.share[w] ?? 0;
+        for (let w = 0; w < to.share.length; w++) {
+          const ws = to.share[w]!;
           if (ws === 0) continue;
           let any = 0;
           for (let x = 0; x < words; x++) any |= pairMask[x] = homeMask[h * words + x]! & workMask[w * words + x]!;
@@ -616,13 +959,16 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         for (let x = 0; x < words; x++) for (let bits = setKey[at * words + x]!; bits; bits &= bits - 1) members[n++] = x * 32 + 31 - Math.clz32(bits & -bits);
         rideScanning(members, n, setWeight[at]!);
       }
+      rideScanned(count);
     }
   }
+  const perLine = (by: Float64Array) => plans.map((_, line) => [by[line * 3]!, by[line * 3 + 1]!, by[line * 3 + 2]!]);
   return spread(
     plans,
-    plans.map((_, line) => [riders[line * 3]!, riders[line * 3 + 1]!, riders[line * 3 + 2]!]),
+    perLine(riders),
     legs.map((d, line) => busiestLegs(d, plans[line]!.stops.length)),
     ends,
+    perLine(paid),
   );
 }
 
@@ -656,21 +1002,24 @@ export function seatsPerSlot(plan: LinePlan, period: Period): number {
  * bus cannot take (K27). A half-hour's riders all travel the way the commute does then, so its
  * busiest leg carries that half-hour's share of the period's busiest leg; past the seats the line
  * offers each way in that half-hour, the rest are turned away, in that half-hour only. Each stop's
- * boardings and alightings (`ends`, at [period * stops + stop]) lose the same share as their
- * period's riders.
+ * boardings, alightings and changes (`ends`, at [period * stops + stop]) and the riders who pay
+ * (`paidByPeriod`, all of them when absent) lose the same share as their period's riders.
  */
 export function spread(
   plans: readonly LinePlan[],
   byPeriod: readonly (readonly number[])[],
   busiest: readonly (readonly number[])[],
-  ends: readonly { readonly board: Float64Array; readonly alight: Float64Array }[],
+  ends: readonly { readonly board: Float64Array; readonly alight: Float64Array; readonly change?: Float64Array }[],
+  paidByPeriod: readonly (readonly number[])[] = byPeriod,
 ): Assignment {
   const lines = new Map<LinePlan['id'], LineDemand>();
   let tripsPerDay = 0;
   plans.forEach((plan, line) => {
     const seats = PERIODS.map((p) => seatsPerSlot(plan, p));
     const bySlot = new Float64Array(SLOTS);
+    const paidBySlot = new Float64Array(SLOTS);
     let perDay = 0;
+    let paidPerDay = 0;
     let shedPerDay = 0;
     let fullSlot: number | null = null;
     let most = 0;
@@ -681,6 +1030,10 @@ export function spread(
       bySlot[s] = byPeriod[line]![k]! * SLOT_SHARE[s]! - shed;
       kept[k]! += bySlot[s]!;
       perDay += bySlot[s]!;
+      // Who pays: the same share of those kept as of those offered.
+      const offered = byPeriod[line]![k]!;
+      paidBySlot[s] = offered > 0 ? bySlot[s]! * (paidByPeriod[line]![k]! / offered) : 0;
+      paidPerDay += paidBySlot[s]!;
       shedPerDay += shed;
       if (shed > most) {
         most = shed;
@@ -691,6 +1044,8 @@ export function spread(
     const stops = plan.stops.length;
     const boardingsByStop = new Float64Array(stops);
     const alightingsByStop = new Float64Array(stops);
+    const transfersByStop = new Float64Array(stops);
+    const change = ends[line]!.change;
     PERIODS.forEach((_, k) => {
       const offered = byPeriod[line]![k]! * PERIOD_SHARE[k]!;
       if (offered <= 0) return;
@@ -698,11 +1053,12 @@ export function spread(
       for (let q = 0; q < stops; q++) {
         boardingsByStop[q]! += ends[line]!.board[k * stops + q]! * scale;
         alightingsByStop[q]! += ends[line]!.alight[k * stops + q]! * scale;
+        if (change) transfersByStop[q]! += change[k * stops + q]! * scale;
       }
     });
-    lines.set(plan.id, { bySlot, perDay, shedPerDay, fullSlot, busiestLeg: busiest[line]!, boardingsByStop, alightingsByStop });
-    // One-seat rides only until transfers (week 7), so trips equal boardings.
-    tripsPerDay += perDay;
+    lines.set(plan.id, { bySlot, perDay, paidBySlot, paidPerDay, shedPerDay, fullSlot, busiestLeg: busiest[line]!, boardingsByStop, alightingsByStop, transfersByStop });
+    // A trip pays once, on its first line, so its paid boardings count each trip once.
+    tripsPerDay += paidPerDay;
   });
   return { lines, tripsPerDay };
 }
