@@ -1,9 +1,13 @@
 // Areas the bake reads from the clipped OSM (PLAN §5): industrial land for depots, water for G5's
 // "no residents in water", and the aerodrome that holds Logan's gateway. osm.py keeps their ways
 // and multipolygon members; this joins them into outer rings.
+import { isTransitTags } from './transit.mjs';
 
-/** OSM tags that make an area depot land: industrial land use (V1's rule, without its 60 m margin). */
-export const isDepotLand = (tags) => tags.landuse === 'industrial';
+/**
+ * OSM tags that make an area depot land: industrial land use (V1's rule, without its 60 m margin),
+ * unless it is also tagged as transit, such as a rail yard tagged industrial (D17, G10).
+ */
+export const isDepotLand = (tags) => tags.landuse === 'industrial' && !isTransitTags(tags);
 /**
  * Water: natural=water or a riverbank. A bare water=* without natural=water is not counted: Brookline's
  * Single Tree Hill Reservoir is a park over a covered reservoir, tagged leisure=park and water=reservoir,

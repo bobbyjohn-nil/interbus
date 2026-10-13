@@ -251,6 +251,22 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench load`; City sim file runs 38358457962 and 38358460209 at b730673, check only): **G9 passes on both extents.** A sim.json's load is its text to a world ready to play, as the worker does on init.
+  - **On GitHub's runner,** Inner Boston's 2,033,387 B file first-loads in 130.0 ms: 86.2 ms to parse and check it, and 43.8 ms for the street grid, router, commuter matrix and first recompute. Its warm median is 56.4 ms. Mini-Boston first-loads in 46.2 ms.
+  - **On this container,** Inner Boston took 86–134 ms.
+  - **Not yet timed:** both figures are Node's. The browser's worker is not timed yet.
+  - **The golden held:** Inner Boston matched its golden `bafe84fa` on GitHub's runner too.
+- **2026-10-13** (`node tools/bake/tiles.mjs` on the published extract `boston-20261012-57ac68da.pmtiles`; `node tools/bake/sim.mjs boston <extent> --check`): **G10 is written for both files.**
+  - **The map file.** The extract holds 9,902 features that read as transit. The strip drops 9,785:
+    - 3,150 bus stops and 2,643 stop points (the 2,347 unnamed ones may include stop signs, which the style never draws either);
+    - 1,582 rail pieces: rail 911, subway 333, light rail 258, disused 68, yard 8, preserved 4;
+    - 674 ferry route pieces;
+    - 910 platforms: 504 areas, 400 points, 6 lines;
+    - 210 rail yards, 200 subway entrances, 121 stations and 295 other stop, station and rail points.
+
+    It also opens 116 busway and bus-lane pieces as service streets, as the sim already drives them (D17). The file goes from 15,560,031 B to 15,347,095 B. Logan's terminals stay: they are the airport, not transit.
+  - **G10 reads every kind as words** (rail, bus, ferry, station, stop and so on), so a transit kind the strip does not list fails the bake. On this file the word check caught one false positive, a "trampoline" fitness centre, which is now allowed.
+  - **sim.json.** The clips hold 789 (fixture) and 6,286 (Inner Boston) transit-tagged elements, and none reaches sim.json. Both goldens are unchanged. Depot land now also refuses land tagged as transit, such as a rail yard tagged industrial; no such area exists in either clip.
 - **2026-10-13** (`npm run bench day`; `src/sim/day-costs.test.ts`): **costs are ledger rows, and the debug line nets +$1,388.93 on a whole day**, inside the M2 spec's magnitudes.
   - **Day 2's costs.** The line is parked at the fixture's largest depot parcel, 1,865 m out to Copley and 2,062 m back from Longwood. Its two Sparrows cost:
     - running $368.88: 2 × 58 departures × 3.5 km × $0.90;
