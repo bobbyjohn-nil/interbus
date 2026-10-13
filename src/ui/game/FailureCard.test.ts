@@ -11,16 +11,16 @@ import type { Sim } from './useSim';
 function sim(floor: Snapshot['floor']): Sim {
   const snapshot = {
     elapsed: 0, day: 3, hour: 9, minute: 0, speed: 0, company: { name: 'Back Bay Transit', colour: '#2471a3' }, cashCents: -20_000_000,
-    ridersPerDay: 0, profitableDays: 0, costsPerDayCents: 0, lines: [], depots: [], undo: null, floor,
+    ridersPerDay: 0, profitableDays: 0, costsPerDayCents: 0, lines: [], depots: [], undo: null, floor, contracts: [], contractTaken: false,
   } as unknown as Snapshot;
   return { status: 'ready', snapshot, send: () => undefined } as unknown as Sim;
 }
 
 describe('the failure floor on the page', () => {
   it('counts down the day closes left in a chip', () => {
-    expect(renderToStaticMarkup(createElement(TopBar, { sim: sim({ closesLeft: 5, ended: false }) }))).toContain('5 days to get above -$150k');
-    expect(renderToStaticMarkup(createElement(TopBar, { sim: sim({ closesLeft: 1, ended: false }) }))).toContain('1 day to get above -$150k');
-    expect(renderToStaticMarkup(createElement(TopBar, { sim: sim(null) }))).not.toContain('to get above');
+    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, sim: sim({ closesLeft: 5, ended: false }) }))).toContain('5 days to get above -$150k');
+    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, sim: sim({ closesLeft: 1, ended: false }) }))).toContain('1 day to get above -$150k');
+    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, sim: sim(null) }))).not.toContain('to get above');
   });
 
   it('ends the run with Restart this quarter, and shows nothing before', () => {

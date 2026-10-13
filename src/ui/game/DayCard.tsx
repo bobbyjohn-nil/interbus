@@ -1,10 +1,10 @@
-import { ROW_NAMES, usd } from '../format';
+import { every, ROW_NAMES, usd } from '../format';
 import type { Sim } from './useSim';
 
 /**
  * The daily close (PLAN §3): every figure a ledger row, adding up to the change in cash (I1). A
  * quarter's last day closes with its report card above the rows (the M3 spec, item 9), whose payout
- * or fine is one of them.
+ * or fine is one of them; a contract paid or lapsed at the close says so (item 11).
  */
 export function DayCard({ sim }: { sim: Sim }) {
   const card = sim.dayCard;
@@ -42,6 +42,11 @@ export function DayCard({ sim }: { sim: Sim }) {
           <p>{card.report.payoutCents > 0 ? `The city pays ${usd(card.report.payoutCents)}` : card.report.payoutCents < 0 ? `The city fines ${usd(-card.report.payoutCents)}` : 'No grant and no fine'}</p>
         </section>
       ) : null}
+      {card.contracts.map((c) => (
+        <p key={c.landmark} className="contract-outcome" data-testid="contract-outcome" data-outcome={c.outcome}>
+          {c.outcome === 'paid' ? `Contract met: ${every(c.askSeconds)} at ${c.landmark}, ${usd(c.rewardCents)}` : `Contract lapsed: ${every(c.askSeconds)} at ${c.landmark}`}
+        </p>
+      ))}
       <table>
         <tbody>
           {[...byKind].map(([kind, cents]) => (

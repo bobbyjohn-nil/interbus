@@ -50,11 +50,11 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 
    Bands and the payout (V1's: (overall − 55) × $1,600, a fine of $8,000 under 35) are set from a measured spread of opening companies over 10 seeds, recorded in DECISIONS before they ship (V2 measured 45.8 / 56.4 / 65.6; V3 guessed).
 10. **The failure floor (D10; done 2026-10-13, Sandbox waiting for its mode):** cash may go to −$150k, a credit line with one lender, at 0.06% a day on what is owed, as an Interest row. A purchase that would pass the limit is refused. Five day closes in a row below it end the run: a countdown chip from the first, and **Restart this quarter** from the quarter-start save, written automatically. Sandbox turns failure off. No version built this (the survey); V1's lenders are the source of the numbers (`Intralines@7af45b1:src/game/store.ts:1765-1831`).
-11. **HEADWAY contracts (GD-04, I11):** three slots, rolled at a day's start by the seeded RNG near landmarks not already held, at 10, 15 or 20 minutes for $240k, $150k or $60k (V2, `…:Gaming/src/30-sim.js:4747-4805`).
+11. **HEADWAY contracts (GD-04, I11; done 2026-10-13, asks dealt from a shuffled deck to bound I11):** three slots, rolled at a day's start by the seeded RNG near landmarks not already held, at 10, 15 or 20 minutes for $240k, $150k or $60k (V2, `…:Gaming/src/30-sim.js:4747-4805`).
     - Met on a day when every **running period's** headway at a stop within the landmark's reach is at or under the ask, so no contract is met by one period alone (I11; V2 averaged 16 hours across lines).
     - It is held 10 days in a row within 20 days, and paid once as a ledger row; a miss resets the count. Accepting is a click, so the player chooses.
     - The card shows today's figure against the ask.
-12. **Checklist step 5 and Export session:** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
+12. **Checklist step 5 (done 2026-10-13) and Export session:** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
 13. **Transfers (EC-10, K23):** one transfer, at a shared stop or two stops within 250 m (a 1.5-minute walk), with the tier's penalty; riders scan every line at a stop, so every line at a 6-line hub boards riders (I5). Fare is perceived once per trip, so splitting a line raises revenue plus subsidy by at most 1% (I4; V3 measured +69% on V1's model, `Intralines_City@dc63602:studio/DECISIONS.md:252-262`).
 14. **Route edits:** remove a stop (a line keeps ≥2; an orphaned stop refunds half its price, never V2's orphans) and extend from either end. Insert waits for M4.
 
@@ -67,7 +67,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Metro 40 every 10 min on a 3.5 km line | 3 buses, $780k: beyond the starting cash | Item 2 |
 | Riders turned away on Inner Boston's ten corridor lines | **13.3% on Sparrows every 10 min, 0.8% on Metro 40s, measured**, all on Washington Street | Item 3, K27 |
 | Opening company's first card | 45–65, median about 56: **53.7 / 57.9 / 63.8 measured over 10 seeds on the fixture** | V2's measured spread |
-| HEADWAY payout over 10 seeds | within ±30% of the median (V2 varied $60k–$480k) | I11, GD-04 |
+| HEADWAY payout over 10 seeds | within ±30% of the median (V2 varied $60k–$480k): **$1.11M–$1.29M over 40 days on 100 seeds, measured** | I11, GD-04 |
 | Days to recover from −$150k at +$1,400 a day | about 107 | Item 10 |
 | Recompute with crowding and transfers on Inner Boston | ≤150 ms p95 (44.6 ms without, measured) | I14 |
 | Export session for a quarter | the save (≈10 KB) plus a few KB of commands | Item 12 |

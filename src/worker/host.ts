@@ -25,7 +25,7 @@ import { fareBand } from '../sim/economy/fareBand';
 import { finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
-import type { LineId, StopId } from '../sim/core/ids';
+import type { ContractId, LineId, StopId } from '../sim/core/ids';
 import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
@@ -34,10 +34,14 @@ import { checkLineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
 import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, slotKey, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
+import { acceptContract } from '../sim/commands/acceptContract';
+import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
+import { landmarkHeadways } from '../sim/economy/contracts';
+import { contractDaysLeft, contractMet } from '../sim/rules/contract';
 import { newGame, type CityRef } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { ContractView, DepotSiteView, Dots, FinanceView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, lineDraftContext, nearestNode, type World } from '../sim/world';
 
 /**
@@ -290,6 +294,36 @@ export function createHost(post: (message: FromWorker) => void): Host {
     return financeView;
   };
 
+  // Worked out again only when the network, the contracts or the hour change.
+  let contractsKey = '';
+  let contractsView: ContractView[] = [];
+  const contractsNow = (w: World, day: number): ContractView[] => {
+    const key = `${linesVersion}|${JSON.stringify(w.state.contracts)}|${day}`;
+    if (key === contractsKey) return contractsView;
+    contractsKey = key;
+    const figures = landmarkHeadways(w);
+    contractsView = w.state.contracts.map((c) => {
+      const landmark = w.city.landmarks.find((l) => l.name === c.landmark);
+      const figureSeconds = figures.get(c.landmark) ?? null;
+      return {
+        id: c.id,
+        landmark: c.landmark,
+        at: landmark ? toLngLat(w.city.frame, landmark.at) : [0, 0],
+        reachM: CONTRACT_REACH_M,
+        askSeconds: c.askSeconds,
+        rewardCents: c.rewardCents,
+        held: c.acceptedDay !== null,
+        daysMet: c.daysMet,
+        daysNeeded: CONTRACT_DAYS,
+        daysLeft: c.acceptedDay === null ? null : contractDaysLeft(c.acceptedDay, day),
+        figureSeconds,
+        met: contractMet(figureSeconds, c.askSeconds),
+        onTrack: c.hoursMissedToday === 0,
+      };
+    });
+    return contractsView;
+  };
+
   const snapshot = (): Snapshot => {
     const w = world!;
     const t = toCalendarTime(w.state.elapsed);
@@ -316,6 +350,8 @@ export function createHost(post: (message: FromWorker) => void): Host {
         belowFloor(w.state.ledger.cashCents) || w.state.closesBelowFloor > 0
           ? { closesLeft: Math.max(0, FAILURE_CLOSES - w.state.closesBelowFloor), ended: runEnded(w.state.closesBelowFloor) }
           : null,
+      contracts: contractsNow(w, t.day),
+      contractTaken: w.state.contracts.some((c) => c.acceptedDay !== null) || w.state.ledger.rows.some((r) => r.kind === 'contract'),
     };
   };
 
@@ -424,6 +460,12 @@ export function createHost(post: (message: FromWorker) => void): Host {
           save();
         }
         post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'accept-contract') {
+        const landmark = world.state.contracts.find((c) => c.id === message.contractId)?.landmark ?? '';
+        const result = command({ command: 'accept-contract', subject: landmark }, () => acceptContract(world!, message.contractId as ContractId));
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else save();
+        post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-stop-tier') {
         const result = command({ command: 'set-stop-tier', subject: `Stop ${message.stopId}` }, () => setStopTier(world!, message.stopId as StopId, message.tier));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
@@ -490,6 +532,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
               cashBeforeCents: event.cashBeforeCents,
               cashAfterCents: event.cashAfterCents,
               report: event.card,
+              contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, askSeconds: o.contract.askSeconds, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
             },
           });
         }

@@ -540,3 +540,29 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: lastEvening, floor: { closesLeft: 1, ended: false } });
   });
 });
+
+describe('HEADWAY contracts (the M3 spec, item 11)', () => {
+  it('offers three at founding, shows today’s figure against each ask, and takes one with a click that undo puts back', () => {
+    const { host, last, saves } = started();
+    host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    const offers = last('snapshot')!.snapshot.contracts;
+    expect(offers.map((c) => c.landmark).sort()).toEqual(['Copley Square', 'Kenmore', 'Longwood']);
+    expect(offers.every((c) => !c.held && c.figureSeconds === null && !c.met && c.reachM === 650)).toBe(true);
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const longwood = last('snapshot')!.snapshot.contracts.find((c) => c.landmark === 'Longwood')!;
+    expect(longwood.figureSeconds).toBe(1_200); // the line every 20 minutes calls at Longwood
+    const before = saves().at(-1);
+    host.handle({ type: 'accept-contract', contractId: longwood.id });
+    const taken = last('snapshot')!.snapshot;
+    expect(taken.contracts.find((c) => c.id === longwood.id)).toMatchObject({ held: true, daysMet: 0, daysLeft: 20 });
+    expect(taken.contractTaken).toBe(true);
+    expect(taken.undo).toEqual({ command: 'accept-contract', subject: 'Longwood' });
+    host.handle({ type: 'accept-contract', contractId: longwood.id });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'accept-contract', reason: 'already_held' });
+    host.handle({ type: 'undo' });
+    expect(saves().at(-1)).toBe(before);
+    expect(last('snapshot')!.snapshot).toMatchObject({ contractTaken: false });
+    expect(last('snapshot')!.snapshot.contracts.find((c) => c.id === longwood.id)!.held).toBe(false);
+  });
+});

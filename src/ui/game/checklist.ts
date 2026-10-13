@@ -1,5 +1,5 @@
 // The checklist chip (the M2 spec, item 7; PLAN §3's first ten minutes): the next thing to do, of
-// five. M2 can tick the first four; contracts arrive in M3.
+// five. The fifth, taking a HEADWAY contract, ends it (the M3 spec, item 12).
 export const CHECKLIST = ['Place a depot', 'Draw a line', 'Press play', 'Close a day in profit', 'Take a contract'] as const;
 
 export interface ChecklistState {
@@ -8,11 +8,13 @@ export interface ChecklistState {
   /** Game seconds since founding: time has run once it is above 0. */
   readonly elapsed: number;
   readonly profitableDays: number;
+  /** A contract has been taken, held now or paid. */
+  readonly contractTaken: boolean;
 }
 
 /** The first step not yet done (0-based), or CHECKLIST.length when every step is. */
 export function checklistStep(s: ChecklistState): number {
-  const done = [s.depots > 0, s.lines > 0, s.elapsed > 0, s.profitableDays > 0, false];
+  const done = [s.depots > 0, s.lines > 0, s.elapsed > 0, s.profitableDays > 0, s.contractTaken];
   const next = done.indexOf(false);
   return next < 0 ? CHECKLIST.length : next;
 }

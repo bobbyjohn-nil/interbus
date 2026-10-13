@@ -52,6 +52,7 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
   deadhead: 'Deadhead',
   upkeep: 'Depot upkeep',
   interest: 'Interest',
+  contract: 'Contracts',
   card: 'Report card',
 };
 

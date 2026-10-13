@@ -9,9 +9,9 @@ import { FileSource, PMTiles, Protocol } from 'pmtiles';
 import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platform';
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
-import type { DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import type { ContractView, DepotView, Dots, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
-import { addOverlays, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
+import { addOverlays, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, setContracts, setDepotLand, setDepots, setDots, setDraft, setLines, setTint } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
 import { GAME_LIGHT, LIGHT } from './tokens';
@@ -41,6 +41,8 @@ export interface MountedMap {
   /** Shows the depot-land tint while a depot is being placed. */
   setTint(visible: boolean): void;
   setDraft(draft: LineDraftView | null): void;
+  /** HEADWAY contracts' rings at their landmarks. */
+  setContracts(contracts: readonly ContractView[]): void;
   /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day and game seconds per real second. */
   setClock(second: number, rate: number): void;
   /** How many dots the last settled frame drew. */
@@ -140,6 +142,7 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     depots?: readonly DepotView[];
     tint?: boolean;
     draft?: LineDraftView | null;
+    contracts?: readonly ContractView[];
   } = {};
   // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
   const fleet = new Fleet();
@@ -153,6 +156,7 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     if (pending.depots) setDepots(map, pending.depots);
     if (pending.tint !== undefined) setTint(map, pending.tint);
     if (pending.draft !== undefined) setDraft(map, pending.draft);
+    if (pending.contracts) setContracts(map, pending.contracts);
   });
 
   // At most one pointer report every 100 ms, and always the last one: a move inside the interval is
@@ -209,6 +213,7 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     setDepots: (depots) => (loaded ? setDepots(map, depots) : void (pending.depots = depots)),
     setTint: (visible) => (loaded ? setTint(map, visible) : void (pending.tint = visible)),
     setDraft: (draft) => (loaded ? setDraft(map, draft) : void (pending.draft = draft)),
+    setContracts: (contracts) => (loaded ? setContracts(map, contracts) : void (pending.contracts = contracts)),
     dotsDrawn: () => (loaded ? map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).length : 0),
     onPointer: (listener) => void (pointer = listener),
     onClick: (listener) => void (click = listener),

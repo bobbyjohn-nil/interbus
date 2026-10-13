@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Contracts: the city offers three at a time, each near a landmark such as Longwood or Copley Square, asking for a bus every 10, 15 or 20 minutes and paying $240,000, $150,000 or $60,000. Take one with a click; meet it at a stop within a walk, at peak and off-peak alike, for 10 days in a row within 20, and it pays as a Contracts row on the midnight card. Its card shows how often a bus comes there today against the ask, and its ring on the map shows how far riders will walk to that stop.
+- The checklist's last step, Take a contract, opens the contracts; once you take one the checklist is done and a Contracts chip takes its place.
 - The preview opens on real Boston: streets, buildings, the Charles, parks and neighbourhood names from Back Bay to Cambridge, drawn flat in the light theme and set in Afacad Flux. Zoom in to see individual buildings.
 - The build number of the version you are looking at sits in the bottom-right corner, beside the map credits.
 - Press T to tilt the map into 3D, with Boston's buildings standing up from its streets; press T again to lay it flat. Buildings whose height isn't on record stand about three storeys for now.

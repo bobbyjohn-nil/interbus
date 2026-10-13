@@ -49,6 +49,9 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   save_other_city: () => 'A save from another city',
   save_off_street: () => 'Its stops miss this map',
   save_none: () => 'Not a save this game can read',
+  // Contracts (sim/rules/contract.ts)
+  no_such_contract: () => 'That contract is gone',
+  already_held: () => 'You hold this contract already',
   // The failure floor (sim/rules/credit.ts)
   run_ended: () => 'The lender has called in the loan',
   no_quarter_save: () => 'No save from this quarter’s start',
@@ -80,6 +83,7 @@ const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'set-model': (s) => `${s}’s buses`,
   'set-fare': (s) => `${s}’s fare`,
   'set-stop-tier': (s) => `${s}’s kind`,
+  'accept-contract': (s) => `Take the ${s} contract`,
 };
 
 export function undoText(u: { readonly command: string; readonly subject: string }): string {

@@ -2,10 +2,17 @@
 // depot land. Imported only by tests.
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { loadCity, type City } from './city/simfile';
+import { acceptContract } from './commands/acceptContract';
+import { addDebugLine } from './commands/debugLine';
 import { placeDepot } from './commands/placeDepot';
+import { SPARROW } from './config/fleet';
+import { SECONDS_PER_DAY } from './config/time';
 import { pointInRing, toLngLat, type LngLat, type XY } from './core/geo';
+import { landmarkHeadways, rollOffers } from './economy/contracts';
+import { busesNeeded, cycleSeconds } from './rules/cycle';
 import { newGame } from './state';
-import { createWorld, type World } from './world';
+import { advance } from './step';
+import { createWorld, planLine, recompute, type World } from './world';
 
 let city: City | null = null;
 
@@ -38,4 +45,27 @@ export function gameWithDepot(seed = 7): World {
   const placed = placeDepot(world, onDepotLand());
   if (!placed.ok) throw new Error(placed.reason);
   return world;
+}
+
+/**
+ * I11's company (the M3 spec, item 11): the debug line every 10 minutes all day, so it meets any ask
+ * at Copley Square and Longwood, taking every offer it meets at each day's start. Its contract income
+ * over `days`, in cents: the test holds 10 seeds within 30% of their median; `npm run bench contracts`
+ * measures more.
+ */
+export function contractIncome(seed: number, days: number): number {
+  const world = gameWithDepot(seed);
+  if (!addDebugLine(world).ok) throw new Error('no debug line');
+  rollOffers(world, 1);
+  const line = world.state.lines[0]!;
+  line.headways = { peak: 600, offpeak: 600, overnight: null };
+  const plan = planLine(world, line)!;
+  line.buses = busesNeeded(cycleSeconds(plan.stopDistM.at(-1)!, plan.stops.length, SPARROW.kmh), line.headways);
+  recompute(world);
+  for (let day = 1; day <= days; day++) {
+    const figures = landmarkHeadways(world);
+    for (const c of world.state.contracts) if (c.acceptedDay === null && (figures.get(c.landmark) ?? Infinity) <= c.askSeconds) acceptContract(world, c.id);
+    advance(world, SECONDS_PER_DAY);
+  }
+  return world.state.ledger.rows.filter((r) => r.kind === 'contract').reduce((s, r) => s + r.amountCents, 0);
 }
