@@ -22,6 +22,8 @@ test.describe('the screen budget (I13)', () => {
     test(`at ${width}×${height}: ≤6% at rest, ≤26% with each panel`, async ({ page }) => {
       test.setTimeout(90_000);
       await page.setViewportSize({ width, height });
+      // A save set aside by an older build, listed in Saves until exported or deleted (the M5 spec, item 4).
+      await page.addInitScript(() => localStorage.setItem('interbus.backup.boston.older', '{"format":1}'));
       await page.goto('./');
       await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
       await expect(page.getByTestId('founding-card')).toBeVisible({ timeout: 30_000 });
@@ -62,7 +64,12 @@ test.describe('the screen budget (I13)', () => {
       await expect(page.getByTestId('stop-card')).toBeVisible();
       shares.stop = await chromeShare(page);
       await page.getByRole('button', { name: 'Saves' }).click();
-      await expect(page.getByTestId('slot-3')).toBeVisible();
+      // Every slot full, each naming when it was saved, and a set-aside save: the save list at its tallest (the M5 spec, item 4).
+      for (const n of [1, 2, 3]) {
+        await page.getByTestId(`slot-${n}`).getByRole('button', { name: 'Save here' }).click();
+        await expect(page.getByTestId(`slot-${n}-when`)).toBeVisible();
+      }
+      await expect(page.getByTestId('set-aside-older')).toBeVisible();
       shares.saves = await chromeShare(page);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mint, type LineId, type StopId } from '../core/ids';
 import { post } from '../economy/ledger';
 import { newGame, type CityRef, type SimState } from '../state';
-import { backupKey, decode, encode, fromSaveData, SAVE_FORMAT, saveKey, toSaveData } from './save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, SAVE_FORMAT, saveKey, stateHash, toSaveData } from './save';
 import { schemaHash, SAVE_SCHEMA, type Field } from './schema';
 import lock from './schema.lock.json';
 
@@ -68,6 +68,18 @@ describe('saves', () => {
     expect(loaded.event).toEqual(state.event);
     expect([loaded.medals, loaded.tripsCarried, loaded.tripsToday]).toEqual([{ bronze: 3, silver: null, gold: null }, 1_234, 56]);
     expect(result.envelope.build).toEqual(BUILD);
+  });
+
+  it('keeps when it was saved, by the page’s clock, outside the game it holds (the M5 spec, item 4)', () => {
+    const state = playedGame();
+    const at = 1_791_924_060_000; // 2026-10-13 20:41 UTC
+    const { result } = decode(encode(state, BUILD, at), CITY);
+    if (result.outcome !== 'ok') throw new Error(result.outcome);
+    expect(aboutSave(result.envelope)).toMatchObject({ savedAt: at, lines: state.lines.length, buses: state.lines.reduce((n, l) => n + l.buses, 0) });
+    expect(stateHash(fromSaveData(result.envelope.data))).toBe(stateHash(state)); // the time is not the game
+    const before = decode(encode(state, BUILD), CITY).result; // a save from before the time was kept
+    if (before.outcome !== 'ok') throw new Error(before.outcome);
+    expect(aboutSave(before.envelope).savedAt).toBeNull();
   });
 
   it('keeps a festival’s place, by longitude and latitude (the M4 spec, item 2)', () => {
@@ -228,6 +240,7 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a festival with no place', (e) => void Object.assign(dataOf(e).event as object, { kind: 'festival', edges: [] }), /an event whose kind does not match its streets or place/],
     ['a ledger out of day order', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 2, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
     ['a ledger row from a day not yet played', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 5, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
+    ['a saved time that is no time', (e) => void (e.savedAt = 'yesterday'), /savedAt is not a time/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {

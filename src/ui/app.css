@@ -428,6 +428,11 @@ button.chip.checklist,
   margin-top: 4px;
 }
 
+/* When the slot was saved, at the end of its line. */
+.saves .slots .when {
+  color: var(--ui-ink-soft);
+}
+
 /* Contracts: one a row, its ask above today's figure and its days or Take it. */
 .panel.contracts {
   width: 300px;

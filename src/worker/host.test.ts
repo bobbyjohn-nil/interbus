@@ -390,10 +390,10 @@ describe('undo while paused (I9)', () => {
 // a file the game cannot read then costs the player their autosave.
 describe('save slots, export and import', () => {
   /** A host with a page's store: its store effects carried out and its read-keys answered, in order. */
-  function withStore() {
+  function withStore(now?: () => number) {
     const store = new Map<string, string>();
     const out: FromWorker[] = [];
-    const host = createHost((m) => out.push(m));
+    const host = createHost((m) => out.push(m), now);
     let seen = 0;
     const pump = () => {
       while (seen < out.length) {
@@ -419,7 +419,7 @@ describe('save slots, export and import', () => {
     send({ type: 'save-slot', slot: 1 });
     expect(store.has('interbus.slot.boston.1')).toBe(true);
     expect(last('slots')!.slots).toEqual([
-      { slot: 1, about: { day: 1, hour: 5, minute: 0, company: 'Back Bay Transit', cashCents: 27_720_000, lines: 0 }, readable: true },
+      { slot: 1, about: { day: 1, hour: 5, minute: 0, company: 'Back Bay Transit', cashCents: 27_720_000, lines: 0, buses: 0, savedAt: null }, readable: true },
       { slot: 2, about: null, readable: true },
       { slot: 3, about: null, readable: true },
     ]);
@@ -431,6 +431,36 @@ describe('save slots, export and import', () => {
     expect(store.get(KEY)).toBe(store.get('interbus.slot.boston.1'));
     send({ type: 'load-slot', slot: 2 });
     expect(last('refused')).toEqual({ type: 'refused', command: 'load-slot', reason: 'empty_slot' });
+  });
+
+  // The save list (the M5 spec, item 4). Shown failing (TS-04) with the slot written without the
+  // page's clock, with delete-slot ignored, and with the set-aside keys left unread.
+  it('names each slot’s buses and when it was saved, and deletes a slot', () => {
+    const at = Date.UTC(2026, 9, 13, 20, 41);
+    const { send, last, store } = withStore(() => at);
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'save-slot', slot: 2 });
+    expect(last('slots')!.slots[1]).toMatchObject({ slot: 2, about: { lines: 1, buses: 2, savedAt: at }, readable: true });
+    expect(JSON.parse(store.get(KEY)!).savedAt).toBe(at); // the autosave is stamped too
+    send({ type: 'delete-slot', slot: 2 });
+    expect(store.has('interbus.slot.boston.2')).toBe(false);
+    expect(last('slots')!.slots[1]).toEqual({ slot: 2, about: null, readable: true });
+    send({ type: 'delete-slot', slot: 7 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'delete-slot', reason: 'no_such_slot' });
+  });
+
+  it('lists a save set aside by a new build, hands it over as a file, and deletes it', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'slots' });
+    expect(last('slots')!.setAside).toEqual([]);
+    store.set('interbus.backup.boston.older', '{"format":1}');
+    send({ type: 'slots' });
+    expect(last('slots')!.setAside).toEqual(['older']);
+    send({ type: 'export-set-aside', why: 'older' });
+    expect(last('export')).toEqual({ type: 'export', name: 'interbus-boston-set-aside-older.json', text: '{"format":1}' });
+    send({ type: 'delete-set-aside', why: 'older' });
+    expect(store.has('interbus.backup.boston.older')).toBe(false);
+    expect(last('slots')!.setAside).toEqual([]);
   });
 
   it('exports this game as a file that imports back to the same game', () => {
