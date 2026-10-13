@@ -56,10 +56,10 @@ export interface RefusalView {
 }
 
 /** The line tool's draft card (sim/rules/line.ts): what the clicks make, and whether Create may buy it. */
-/** A line being extended from one end (the M3 spec, item 14): the line tool's clicks go beyond that end. */
+/** A line being extended from one end (the M3 spec, item 14), or having a stop inserted (the M4 spec, item 4): the line tool's clicks go beyond that end, or its last click onto the line. */
 export interface ExtendData {
   readonly lineId: number;
-  readonly end: 'start' | 'end';
+  readonly end: 'start' | 'end' | 'insert';
 }
 
 export interface LineDraftView {
@@ -75,6 +75,8 @@ export interface LineDraftView {
   readonly busesCents: number;
   readonly priceCents: number;
   readonly refusal: RefusalView | null;
+  /** Inserting a stop: the street metres it adds to its leg and that as a share of the leg, with a warning over 15% (sim/rules/route.ts); null otherwise. */
+  readonly detour: { readonly addedM: number; readonly share: number; readonly warn: boolean } | null;
 }
 
 export interface LineView {
@@ -335,6 +337,8 @@ export type ToWorker =
   | { readonly type: 'found'; readonly name: string; readonly colour: string }
   | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId; readonly extend?: ExtendData }
   | { readonly type: 'extend-line'; readonly lineId: number; readonly end: 'start' | 'end'; readonly clicks: readonly LngLatPair[] }
+  /** Inserts a stop where the click is, into the leg of the line nearest it (the M4 spec, item 4). */
+  | { readonly type: 'insert-stop'; readonly lineId: number; readonly at: LngLatPair }
   | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
   | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData }
   | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }

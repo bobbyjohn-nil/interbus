@@ -34,6 +34,8 @@ export interface Leg {
 export interface LineDraftContext extends StopSiteContext, FleetContext {
   /** The street from one stop to the next as the line drives it, or null if no street joins them. */
   readonly leg: (from: XY, to: XY) => Leg | null;
+  /** That street as a line of points, for finding the leg a click points at (rules/route.ts checkInsert). */
+  readonly legPath?: (from: XY, to: XY) => readonly XY[] | null;
 }
 
 /** A draft as far as it resolves: the card shows it even when the verdict is a refusal. */

@@ -19,7 +19,7 @@ export function Inspector({
   lineId: number | null;
   onLine: (id: number) => void;
   /** Starts the line tool beyond one end of a line (the M3 spec, item 14). */
-  onExtend: (lineId: number, end: "start" | "end") => void;
+  onExtend: (lineId: number, end: "start" | "end" | "insert") => void;
   onClose: () => void;
 }) {
   const lines = sim.snapshot?.lines ?? [];
@@ -63,6 +63,9 @@ export function Inspector({
         </button>
         <button type="button" onClick={() => onExtend(line.id, "end")}>
           Extend from Stop {line.stopIds.at(-1)}
+        </button>
+        <button type="button" onClick={() => onExtend(line.id, "insert")}>
+          Insert a stop
         </button>
       </div>
       <Forecast line={line} />

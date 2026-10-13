@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Insert a stop into a running line: in Lines, press Insert a stop and click the line where it should go. The card prices the stop and any bus its longer round trip needs, and warns of a long detour (more than 15% longer on that stretch); Insert adds it, buses already on their way finish their trip as they set out, and Undo takes it back while paused.
 - Roadworks: now and then the city digs up as much as 400 m of a street one of your lines drives, for 3 to 6 days. You hear the evening before, on the day card ("Roadworks on Huntington Avenue tomorrow, for 4 days"), and the street shows hatched on the map. While the works are on it shows solid, and every line through it drives that stretch at about two-thirds speed, so its round trip is longer; a line without the buses for the longer trip runs a little less often until they end.
 - The line card shows the line's round trip at peak and off-peak, and how much roadworks on its streets add to it.
 - RIDERSHIP contracts: beside the ones asking for a bus every so often, the city now offers contracts for 150, 400 or 800 paying riders a day boarding near a landmark, at $60,000, $150,000 or $240,000. Every stop within a walk of the landmark counts, all your lines together, but a rider changing onto your line there boards free and is not counted. The card shows today's boardings against the ask, and the ring on the map shows the ask. Every six offers hold each of the six asks once.

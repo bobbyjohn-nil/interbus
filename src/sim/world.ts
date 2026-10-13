@@ -124,7 +124,7 @@ export function legBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from
   return { m: path.dm / 10, rushM: rushDm / 10, worksM: worksDm / 10 };
 }
 
-function pathBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): { readonly dm: number; readonly edges: readonly number[] } | null {
+function pathBetween(world: Pick<World, 'router' | 'nodes' | 'city'>, from: XY, to: XY): { readonly dm: number; readonly edges: readonly number[]; readonly nodes: readonly number[] } | null {
   const a = nearestNode(world, from);
   const b = nearestNode(world, to);
   return a === null || b === null ? null : world.router.route(a, b);
@@ -187,6 +187,18 @@ export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' 
     },
     stops: world.state.stops.map((s) => ({ id: s.id, at: toXY(world.city.frame, [s.lon, s.lat]) })),
     leg: (from, to) => legBetween(world, from, to, works),
+    legPath: (from, to) => {
+      // The streets in driving order, each street's points turned the way the bus drives it.
+      const path = pathBetween(world, from, to);
+      if (!path) return null;
+      const points: XY[] = [];
+      path.edges.forEach((e, i) => {
+        const street = world.city.streets[e]!.points;
+        const pts = world.city.graph.edgeA[e] === path.nodes[i] ? street : [...street].reverse();
+        for (const p of points.length ? pts.slice(1) : pts) points.push([p[0], p[1]]);
+      });
+      return points;
+    },
   };
 }
 

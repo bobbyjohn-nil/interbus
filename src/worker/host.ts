@@ -14,7 +14,8 @@ import { setModel } from '../sim/commands/setModel';
 import { setStopTier } from '../sim/commands/setStopTier';
 import { removeStop } from '../sim/commands/removeStop';
 import { extendLine } from '../sim/commands/extendLine';
-import { checkExtend } from '../sim/rules/route';
+import { insertStop } from '../sim/commands/insertStop';
+import { checkExtend, checkInsert } from '../sim/rules/route';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
@@ -83,7 +84,7 @@ export interface SessionFile {
 }
 
 /** Commands a session records: everything that changes the game or what undo would do. Loads and restarts begin a new session instead. */
-const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'remove-stop', 'extend-line', 'accept-contract', 'undo']);
+const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'remove-stop', 'extend-line', 'insert-stop', 'accept-contract', 'undo']);
 
 /** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
@@ -227,12 +228,20 @@ function extendDraftView(world: World, extend: ExtendData, clicks: readonly LngL
     return toXY(world.city.frame, [stop.lon, stop.lat]);
   });
   const model = BUS_MODELS[line?.model ?? 'sparrow'];
-  const verdict = checkExtend(lineDraftContext(world), { stops, buses: line?.buses ?? 0, headways: line?.headways ?? FOUNDING_HEADWAYS, model }, extend.end, clicks.map((c) => toXY(world.city.frame, c)));
+  const shape = { stops, buses: line?.buses ?? 0, headways: line?.headways ?? FOUNDING_HEADWAYS, model };
+  const last = clicks[clicks.length - 1];
+  // Inserting (the M4 spec, item 4): the last click goes into the leg of the line nearest it.
+  if (extend.end === 'insert' && last) {
+    const verdict = checkInsert(lineDraftContext(world), shape, toXY(world.city.frame, last));
+    const refusal = !line ? { reason: 'no_such_line' } : verdict.ok ? null : refusalView(verdict);
+    return viewOfDraft(world, verdict.draft, verdict.extraBuses, refusal, { addedM: Math.round(verdict.detourM), share: verdict.detourShare, warn: verdict.warn });
+  }
+  const verdict = checkExtend(lineDraftContext(world), shape, extend.end === 'insert' ? 'end' : extend.end, extend.end === 'insert' ? [] : clicks.map((c) => toXY(world.city.frame, c)));
   const refusal = !line ? { reason: 'no_such_line' } : verdict.ok ? null : refusalView(verdict);
   return viewOfDraft(world, verdict.draft, verdict.extraBuses, refusal);
 }
 
-function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: RefusalView | null): LineDraftView {
+function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: RefusalView | null, detour: LineDraftView['detour'] = null): LineDraftView {
   const stops = draft.stops.map((s) => s.at);
   return {
     stops: draft.stops.map((s) => ({ at: [...toLngLat(world.city.frame, s.at)] as LngLatPair, joins: s.kind === 'join' ? s.stopId : null })),
@@ -246,6 +255,7 @@ function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: Ref
     busesCents: draft.busesCents,
     priceCents: draft.priceCents,
     refusal,
+    detour,
   };
 }
 
@@ -591,6 +601,16 @@ export function createHost(post: (message: FromWorker) => void): Host {
       } else if (message.type === 'extend-line') {
         const result = command({ command: 'extend-line', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () =>
           extendLine(world!, message.lineId as LineId, message.end, message.clicks),
+        );
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'insert-stop') {
+        const result = command({ command: 'insert-stop', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () =>
+          insertStop(world!, message.lineId as LineId, message.at),
         );
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
