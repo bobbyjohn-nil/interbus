@@ -56,7 +56,8 @@ const index = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities:
 const innerFile = `public/cities/${index.cities[0]!.sim.file}`;
 
 describe.skipIf(!existsSync(innerFile))('I3 on an express line, in small', () => {
-  it('finds an interior optimum on Massachusetts Avenue with its stops 1,300 m apart, its best fare under $5', () => {
+  // About 2.5 s here; loading Inner Boston and its sweep ran past vitest's default 5 s on a busy CI runner.
+  it('finds an interior optimum on Massachusetts Avenue with its stops 1,300 m apart, its best fare under $5', { timeout: 30_000 }, () => {
     const inner = loadCity(readFileSync(innerFile, 'utf8'));
     if (!inner.ok) throw new Error(inner.problem);
     const world = createWorld(inner.city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'x', colour: '#000000' }, 1));
