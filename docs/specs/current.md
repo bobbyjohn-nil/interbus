@@ -26,7 +26,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 
 ## Above the cut line (all of it is M3)
 
-1. **Landmarks in `sim.json`, before the Nov 8 freeze:** a named point and reach (650 m walk) for each contract target, from a committed list in `cities/boston/` (Longwood Medical Area, Kendall Square, Copley Square, Kenmore Square, Downtown Crossing, South Station at first; the fixture holds Copley and Longwood). G6 checks that each falls inside the extent.
+1. **Landmarks in `sim.json`, before the Nov 8 freeze:** a named point for each contract target, from a committed list in `cities/boston/city.json`; a contract's reach (a 650 m walk) is a game rule, not baked. Done 2026-10-13: Copley Square, Longwood, Kenmore, Kendall Square, Harvard Square and Downtown Crossing, each the label the map file draws; the fixture holds the first three, and G6 fails a bake on any outside the extent.
 2. **Three bus models** (V1's rows, the same in V1, V2 and V3: `Intralines@7af45b1:src/game/constants.ts:161-233`):
    - Sparrow 28 seats, $95k, $0.90/km, 26 km/h; Metro 40: 70 seats, $260k, $1.50/km, 25 km/h; Goliath: 115 seats, $440k, $2.20/km, 23 km/h (unlocked by silver in M4; a config flag until then);
    - **one model per line**, so its cycle, speed and cost are one row's, never V1's averaged mixed fleet (`Intralines@7af45b1:src/game/store.ts:603-636`). Changing model swaps the buses at half their price back (V1's resale without wear: wear is out, PLAN §3).
