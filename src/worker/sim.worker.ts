@@ -2,6 +2,7 @@
 import type { ToWorker } from '../sim/types';
 import { createHost } from './host';
 
-const host = createHost((message) => postMessage(message));
+// The page's clock stamps each save's time for the Saves panel; the sim never reads it.
+const host = createHost((message) => postMessage(message), () => Date.now());
 onmessage = (event: MessageEvent<ToWorker>) => host.handle(event.data);
 setInterval(() => host.tick(performance.now()), 50);

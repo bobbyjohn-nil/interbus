@@ -14,7 +14,7 @@ import { toCalendarTime } from '../core/calendar';
 import { createRng, hashString } from '../core/rng';
 import type { LedgerRow } from '../economy/ledger';
 import { checkHeadways } from '../rules/periods';
-import type { SaveAbout } from '../types';
+import type { SaveAbout, SetAsideWhy } from '../types';
 import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
@@ -29,20 +29,24 @@ export interface BuildRef {
 export interface SaveEnvelope {
   readonly format: number;
   readonly build: BuildRef;
+  /** When it was written, in milliseconds since 1970 by the page's clock (the M5 spec, item 4), never the sim's: none in saves written before it. */
+  readonly savedAt?: number;
   readonly data: SaveData;
 }
 
 /** Keys carry no format number, so an old tab still finds a newer save and refuses it. */
 export const saveKey = (cityId: string) => `interbus.save.${cityId}`;
-export const backupKey = (cityId: string, why: 'unreadable' | 'newer' | 'older' | 'other-city') => `interbus.backup.${cityId}.${why}`;
+export const backupKey = (cityId: string, why: SetAsideWhy) => `interbus.backup.${cityId}.${why}`;
+/** Every backup key's reason, in the order the Saves panel lists them. */
+export const SET_ASIDE: readonly SetAsideWhy[] = ['older', 'newer', 'unreadable', 'other-city'];
 /** Three slots beside the autosave, which is the live key (the M3 spec, item 8). */
 export const SAVE_SLOTS = [1, 2, 3] as const;
 export const slotKey = (cityId: string, slot: number) => `interbus.slot.${cityId}.${slot}`;
 /** The game as each quarter began, written automatically, for Restart this quarter (the M3 spec, item 10). */
 export const quarterKey = (cityId: string) => `interbus.quarter.${cityId}`;
 
-/** A save in a line, for the Saves panel: when it is, the company, its cash and its lines. */
-export function aboutSave(data: SaveData): SaveAbout {
+/** A save in a line, for the Saves panel: when it is, the company, its cash, lines and buses, and when it was saved. */
+export function aboutSave({ data, savedAt }: SaveEnvelope): SaveAbout {
   const t = toCalendarTime(data.clock.elapsed);
   return {
     day: t.day,
@@ -51,6 +55,8 @@ export function aboutSave(data: SaveData): SaveAbout {
     company: data.company.name,
     cashCents: data.ledger.reduce((sum, r) => sum + r.amountCents, 0),
     lines: data.lines.length,
+    buses: data.lines.reduce((sum, l) => sum + l.buses, 0),
+    savedAt: savedAt ?? null,
   };
 }
 
@@ -139,8 +145,9 @@ export function fromSaveData(data: SaveData): SimState {
   };
 }
 
-export function encode(state: SimState, build: BuildRef): string {
-  const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: { sha: build.sha, version: build.version }, data: toSaveData(state) };
+/** The save's text; `savedAt` is the page's clock, passed in, since the sim has none. */
+export function encode(state: SimState, build: BuildRef, savedAt?: number): string {
+  const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: { sha: build.sha, version: build.version }, ...(savedAt === undefined ? {} : { savedAt }), data: toSaveData(state) };
   return JSON.stringify(envelope);
 }
 
@@ -233,6 +240,8 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   const build = (parsed as { build?: unknown }).build;
   const buildProblem = check({ object: { sha: 'string', version: 'string' } }, build, 'build');
   if (buildProblem) return unreadable(buildProblem);
+  const savedAt = (parsed as { savedAt?: unknown }).savedAt;
+  if (savedAt !== undefined && !(typeof savedAt === 'number' && Number.isFinite(savedAt) && savedAt >= 0)) return unreadable('savedAt is not a time');
   const data = (parsed as { data?: unknown }).data;
   const problem = check(SAVE_SCHEMA, data);
   if (problem) return unreadable(problem);
@@ -240,7 +249,7 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   if (typed.city.id !== city.id) return { result: { outcome: 'other-city', city: typed.city }, effects: setAside('other-city') };
   const broken = integrityProblem(typed);
   if (broken) return unreadable(broken);
-  const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: build as BuildRef, data: typed };
+  const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: build as BuildRef, ...(savedAt === undefined ? {} : { savedAt: savedAt as number }), data: typed };
   if (typed.city.revision !== city.revision || typed.city.hash !== city.hash) return { result: { outcome: 'rebaked', envelope, from: typed.city }, effects: [] };
   return { result: { outcome: 'ok', envelope }, effects: [] };
 }

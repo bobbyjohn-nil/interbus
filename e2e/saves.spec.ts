@@ -1,6 +1,8 @@
 // Save slots, export and import on the page (the M3 spec, item 8): a slot holds a game and loads it
 // back, the exported file imports back, and a file the game cannot read is refused in words with the
-// game and its autosave kept.
+// game and its autosave kept. The save list (the M5 spec, item 4): each slot names its buses and when
+// it was saved, deletes after a question, and a save set aside by a new build is listed until exported
+// or deleted.
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
@@ -26,7 +28,8 @@ test.describe('saves: slots, export and import', () => {
     const saves = page.getByTestId('saves');
     await expect(page.getByTestId('slot-1')).toContainText('Empty');
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
-    await expect(page.getByTestId('slot-1')).toContainText('Day 1, 05:00 · Back Bay Transit · $277,200 · 0 lines');
+    await expect(page.getByTestId('slot-1')).toContainText('Day 1, 05:00 · Back Bay Transit · $277,200 · 0 lines · 0 buses');
+    await expect(page.getByTestId('slot-1-when')).toHaveText(/^ · saved \w{3} \d{1,2}, \d\d:\d\d$/);
     const download = page.waitForEvent('download');
     await saves.getByRole('button', { name: 'Export this game' }).click();
     const file = await download;
@@ -62,5 +65,38 @@ test.describe('saves: slots, export and import', () => {
     await (await chooser).setFiles({ name: 'interbus-boston-day-1.json', mimeType: 'application/json', buffer: Buffer.concat(exported as Buffer[]) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
     await expect(panel).toHaveAttribute('data-cash', '27720000');
+
+    // Slot 1 deleted, after a question (the M5 spec, item 4).
+    await page.getByTestId('slot-1').getByRole('button', { name: 'Delete' }).click();
+    await page.getByTestId('slot-1').getByRole('button', { name: 'Keep it' }).click();
+    await expect(page.getByTestId('slot-1')).toContainText('Back Bay Transit');
+    await page.getByTestId('slot-1').getByRole('button', { name: 'Delete' }).click();
+    await page.getByTestId('slot-1').getByRole('button', { name: 'Delete Slot 1' }).click();
+    await expect(page.getByTestId('slot-1')).toContainText('Slot 1 · Empty');
+  });
+
+  test('lists a save set aside by a new build until it is exported and deleted (the M5 spec, item 4)', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem('interbus.backup.boston.older', '{"format":1,"note":"an older build"}');
+        sessionStorage.setItem('seeded', 'yes');
+      }
+    });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await page.getByRole('button', { name: 'Saves' }).click();
+    const row = page.getByTestId('set-aside-older');
+    await expect(row).toContainText('A save from an older build, set aside');
+    const download = page.waitForEvent('download');
+    await row.getByRole('button', { name: 'Export' }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe('interbus-boston-set-aside-older.json');
+    expect(Buffer.concat((await (await file.createReadStream()).toArray()) as Buffer[]).toString()).toBe('{"format":1,"note":"an older build"}');
+    await row.getByRole('button', { name: 'Delete' }).click();
+    await row.getByRole('button', { name: 'Delete it' }).click();
+    await expect(row).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('interbus.backup.boston.older'))).toBeNull();
   });
 });

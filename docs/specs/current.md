@@ -62,10 +62,10 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
    - **Cost:** Home is gone once a game plays, so it costs nothing in I13 at rest. Its code counts toward the menu's 200 KiB.
 4. **The save list** (V1's rows, `Intralines@7af45b1:src/ui/Menu.tsx:278-347`; V3's backup key, [DP-06](../history/lessons-ledger.md)). Saves today shows the autosave and Slots 1–3 with day, time, company, cash and lines (`src/ui/shell/Saves.tsx`). It gains:
    - buses;
-   - when each was saved, read through `src/platform/` (no `Date` in the sim);
+   - when each was saved, stamped into the save's envelope by the worker's clock, never the sim's (built so: an optional field outside the schema, so no new format, and an older build ignores it);
    - Delete, after a question.
 
-   A save set aside by a format change shows as a row "From an older build", with Export, so it is never lost silently.
+   A save set aside by a format change shows as a row "A save from an older build, set aside", with Export and Delete, so it is never lost silently. Built so (DECISIONS, Measured): the panel at its tallest takes 22.3% of 1152×720.
 5. **The GPU ladder** (PLAN §6 "No GPU"; never cut). Since Chrome 139 a machine without a usable GPU gets no WebGL at all (PLAN §6's source). No earlier version had a ladder; V1 had only a lost-context card (`Intralines@7af45b1:src/map/MapView.tsx:124-131`).
    - **The rungs:**
      - **Hardware:** as now.

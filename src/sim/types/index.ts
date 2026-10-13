@@ -318,6 +318,9 @@ export interface SaveAbout {
   readonly company: string;
   readonly cashCents: number;
   readonly lines: number;
+  readonly buses: number;
+  /** When it was saved, in milliseconds since 1970 by the page's clock; null for a save written before the time was kept. */
+  readonly savedAt: number | null;
 }
 
 /** A save slot: empty, a save the game can read, or one it cannot. */
@@ -326,6 +329,9 @@ export interface SlotView {
   readonly about: SaveAbout | null;
   readonly readable: boolean;
 }
+
+/** Why a save was set aside under its backup key (D12, DP-06): it is kept until the player exports or deletes it. */
+export type SetAsideWhy = 'older' | 'newer' | 'unreadable' | 'other-city';
 
 /**
  * What became of the save a game started from: none, read, read onto another bake of the map with
@@ -363,6 +369,11 @@ export type ToWorker =
   | { readonly type: 'load-slot'; readonly slot: number }
   | { readonly type: 'import'; readonly text: string }
   | { readonly type: 'export' }
+  /** Empties a slot (the M5 spec, item 4); the page asks first. */
+  | { readonly type: 'delete-slot'; readonly slot: number }
+  /** Hands over a set-aside save as a file, or deletes it (the page asks first). */
+  | { readonly type: 'export-set-aside'; readonly why: SetAsideWhy }
+  | { readonly type: 'delete-set-aside'; readonly why: SetAsideWhy }
   /** Reopens the save written as this quarter began (the failure floor's Restart this quarter). */
   | { readonly type: 'restart-quarter' }
   /** Takes a contract on offer. */
@@ -387,7 +398,7 @@ export type FromWorker =
   | { readonly type: 'store'; readonly effects: readonly StoreEffect[] }
   /** The sim asks for these keys' texts, after every store effect posted before it. */
   | { readonly type: 'read-keys'; readonly id: number; readonly keys: readonly string[] }
-  | { readonly type: 'slots'; readonly slots: readonly SlotView[] }
+  | { readonly type: 'slots'; readonly slots: readonly SlotView[]; readonly setAside: readonly SetAsideWhy[] }
   /** This game as a save file, for the page to hand to the player. */
   | { readonly type: 'export'; readonly name: string; readonly text: string }
   /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */

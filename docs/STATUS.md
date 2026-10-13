@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 902ad82 (express): M3's items are all in but week 5's presentation items, M4's are all in, and M5's spec is written; its first item, I14 with events on, is next.
+**Updated:** 2026-10-13, at `main` bcdfa75 (the M5 spec): M3's items are all in but week 5's presentation items, M4's are all in, and M5's save list is in review; I14 with events on waits for the nightly sweep's local run to finish (one bench at a time).
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 902ad82. Deploy preview run 38464253263's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bcdfa75. Deploy preview run 38465903895's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -25,7 +25,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
   - undo while paused, on a chip and Ctrl+Z;
   - a save from another bake of the map carried onto it;
-  - Saves in the dock: three slots beside the autosave, and a game exported and imported as a file;
+  - Saves in the dock: three slots beside the autosave, each naming its buses and when it was saved and deleted after a question, a save set aside by a new build listed until exported or deleted, and a game exported and imported as a file;
   - a report card on each quarter's last day card, paying a grant or a fine;
   - medals: bronze for a quarter of 55, silver at 25,000 trips carried, which puts the Goliath on sale, and gold, named on the day card, as dots on the Contracts chip and listed in the Contracts panel with the trips left to silver;
   - a credit line to -$150k with daily interest, a countdown chip below it, and Restart this quarter when the lender calls in the loan;
@@ -234,7 +234,7 @@ The spec is archived as [`m4-goals.md`](specs/m4-goals.md). Every item is in, th
 The spec is [`docs/specs/current.md`](specs/current.md). No new system after Sun Dec 6: everything here is a tunable, UI, copy or rendering. The tuning waits for P1's notes (Nov 16–22) and freezes on Dec 13; P2 is Dec 12–13. The 2D/3D chip and the light style pass are look work, at most one session in three until M3 is signed off, with M3's item 12 above. In this order, each a small pull request (items are the spec's):
 1. [ ] **I14 with events on** (M4's last magnitude): the recompute on a festival's first day on Inner Boston, against 150 ms.
 2. [ ] **The scripted pacing run** (item 1): `bench/pacing.ts`, a scripted player on Inner Boston reporting real minutes on the speed ladder against PLAN §3's targets, with a fixture version in the PR checks.
-3. [ ] **The save list** (item 4): buses, when each was saved, Delete after a question, and a save set aside by a format change listed with Export.
+3. [x] **The save list** (item 4; 2026-10-13, in review): each slot names its buses and when it was saved, by the page's clock in the save's envelope (no new format); Delete asks first; a save set aside by a new build is listed with Export and Delete until one is used. At its tallest, every slot full and a set-aside save listed, the panel takes 22.3% of 1152×720 (DECISIONS, Measured).
 4. [ ] **Home** (item 3): Continue, New game (asking before it replaces the autosave), Saves and the build chip over the paused map; "Back to Home" in Saves.
 5. [ ] **The GPU ladder** (item 5): Low graphics (2D, 30 fps) and the hardware-acceleration card, each forced in e2e; the `?fps` readout.
 6. [ ] **The tuning freeze** (item 2): k, the speed ladder, the medal bars and Boston's balance bands, from the pacing run and P1, by Dec 13.

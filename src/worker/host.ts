@@ -37,7 +37,7 @@ import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft, type LineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
-import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, SET_ASIDE, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { acceptContract } from '../sim/commands/acceptContract';
 import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
@@ -293,7 +293,11 @@ function depotLandOf(city: City): LngLatPair[][] {
   return city.depotLand.map((ring) => ring.map((p) => [...toLngLat(city.frame, p)] as LngLatPair));
 }
 
-export function createHost(post: (message: FromWorker) => void): Host {
+/**
+ * `now` is the page's clock in milliseconds since 1970, which stamps each save's time for the Saves
+ * panel (the M5 spec, item 4); without it saves carry no time. It never reaches the sim.
+ */
+export function createHost(post: (message: FromWorker) => void, now?: () => number): Host {
   let world: World | null = null;
   // The city loaded, waiting for the page's save.
   let pending: { city: City; ref: CityRef; seed: number } | null = null;
@@ -315,14 +319,15 @@ export function createHost(post: (message: FromWorker) => void): Host {
   // a new one from the autosave.
   let session: { start: string; speed: Speed; commands: { at: number; message: ToWorker }[] } | null = null;
   const beginSession = (start: string) => void (session = { start, speed, commands: [] });
+  const stamp = () => now?.();
   const saveQuarter = () => {
-    const text = encode(world!.state, build);
+    const text = encode(world!.state, build, stamp());
     post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: text }] });
     beginSession(text);
   };
   const save = () => {
     savedHour = Math.floor(world!.state.elapsed / 3_600);
-    post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build) }] });
+    post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }] });
   };
   let speed: Speed = 0;
   let lastMs: number | null = null;
@@ -356,17 +361,19 @@ export function createHost(post: (message: FromWorker) => void): Host {
     savedHour = Math.floor(next.state.elapsed / 3_600);
     refreshLines();
   };
-  /** Reads the slots and posts what each holds. */
+  /** Reads the slots and the set-aside saves, and posts what each slot holds and which set-asides there are. */
   const listSlots = () =>
     readKeys(
-      SAVE_SLOTS.map((n) => slotKey(playing!.ref.id, n)),
+      [...SAVE_SLOTS.map((n) => slotKey(playing!.ref.id, n)), ...SET_ASIDE.map((why) => backupKey(playing!.ref.id, why))],
       (texts) => {
-        const slots: SlotView[] = texts.map((text, k) => {
-          if (text === null) return { slot: SAVE_SLOTS[k]!, about: null, readable: true };
+        const slots: SlotView[] = SAVE_SLOTS.map((slot, k) => {
+          const text = texts[k] ?? null;
+          if (text === null) return { slot, about: null, readable: true };
           const { result } = decode(text, playing!.ref);
-          return result.outcome === 'ok' || result.outcome === 'rebaked' ? { slot: SAVE_SLOTS[k]!, about: aboutSave(result.envelope.data), readable: true } : { slot: SAVE_SLOTS[k]!, about: null, readable: false };
+          return result.outcome === 'ok' || result.outcome === 'rebaked' ? { slot, about: aboutSave(result.envelope), readable: true } : { slot, about: null, readable: false };
         });
-        post({ type: 'slots', slots });
+        const setAside = SET_ASIDE.filter((_, k) => texts[SAVE_SLOTS.length + k] != null);
+        post({ type: 'slots', slots, setAside });
       },
     );
   /**
@@ -687,7 +694,22 @@ export function createHost(post: (message: FromWorker) => void): Host {
         listSlots();
       } else if (message.type === 'save-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
-        post({ type: 'store', effects: [{ op: 'write', key: slotKey(playing!.ref.id, message.slot), value: encode(world.state, build) }] });
+        post({ type: 'store', effects: [{ op: 'write', key: slotKey(playing!.ref.id, message.slot), value: encode(world.state, build, stamp()) }] });
+        listSlots();
+      } else if (message.type === 'delete-slot') {
+        if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
+        post({ type: 'store', effects: [{ op: 'remove', key: slotKey(playing!.ref.id, message.slot) }] });
+        listSlots();
+      } else if (message.type === 'export-set-aside') {
+        if (!SET_ASIDE.includes(message.why)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
+        const why = message.why;
+        readKeys([backupKey(playing!.ref.id, why)], ([text]) => {
+          if (text === null || text === undefined) post({ type: 'refused', command: 'export-set-aside', reason: 'no_such_slot' });
+          else post({ type: 'export', name: `interbus-${playing!.ref.id}-set-aside-${why}.json`, text });
+        });
+      } else if (message.type === 'delete-set-aside') {
+        if (!SET_ASIDE.includes(message.why)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
+        post({ type: 'store', effects: [{ op: 'remove', key: backupKey(playing!.ref.id, message.why) }] });
         listSlots();
       } else if (message.type === 'load-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
@@ -703,7 +725,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
         post({ type: 'export', name: `interbus-${playing!.ref.id}-session-day-${t.day}.json`, text: JSON.stringify(file) });
       } else if (message.type === 'export') {
         const t = toCalendarTime(world.state.elapsed);
-        post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build) });
+        post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build, stamp()) });
       } else if (message.type === 'fare-band') {
         post({ type: 'fare-band', id: message.id, lineId: message.lineId, band: fareBand(world, message.lineId as LineId) });
       } else if (message.type === 'set-headways') {

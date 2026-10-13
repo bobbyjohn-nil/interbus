@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import { simOf, type City } from '../../cities';
-import type { BusModelId, DayCard, DepotSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, ToWorker } from '../../sim/types';
+import type { BusModelId, DayCard, DepotSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 
 export type SimStatus = 'none' | 'loading' | 'ready' | 'failed';
@@ -32,6 +32,8 @@ export interface Sim {
   readonly load: LoadView | null;
   /** The save slots, once asked for (Saves panel), and the last slot or file that became the game. */
   readonly slots: readonly SlotView[] | null;
+  /** Saves set aside by a new build, kept until exported or deleted (the M5 spec, item 4). */
+  readonly setAside: readonly SetAsideWhy[] | null;
   readonly loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView; readonly at: number } | null;
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
   importSave(): void;
@@ -59,6 +61,7 @@ export function useSim(city: City | undefined): Sim {
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
+  const [setAside, setSetAside] = useState<Sim['setAside']>(null);
   const [loaded, setLoaded] = useState<Sim['loaded']>(null);
   const probes = useRef(new Map<number, LngLatPair>());
   const nextProbe = useRef(1);
@@ -100,7 +103,10 @@ export function useSim(city: City | undefined): Sim {
             let texts: (string | null)[] = m.keys.map(() => null);
             inStore(async (s) => void (texts = await Promise.all(m.keys.map((k) => s.read(k)))));
             queue = queue.then(() => w.postMessage({ type: 'key-texts', id: m.id, texts } satisfies ToWorker));
-          } else if (m.type === 'slots') setSlots(m.slots);
+          } else if (m.type === 'slots') {
+            setSlots(m.slots);
+            setSetAside(m.setAside);
+          }
           else if (m.type === 'export') downloadText(m.name, m.text);
           else if (m.type === 'loaded') setLoaded({ from: m.from, load: m.load, at: Date.now() });
           else if (m.type === 'store') inStore((s) => applyEffects(s, m.effects));
@@ -192,5 +198,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, fareBand, refusal, load, slots, loaded, send, probeAt, depotSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, fareBand, refusal, load, slots, setAside, loaded, send, probeAt, depotSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }

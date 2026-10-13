@@ -51,6 +51,18 @@ export function clock(hour: number, minute: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+const SAVED_THIS_YEAR = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const SAVED_ANOTHER_YEAR = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+/**
+ * When a save was written, by the player's own clock and time zone (the M5 spec, item 4): "saved
+ * Oct 13, 20:41", with the year only when it is not this one.
+ */
+export function savedWhen(ms: number, nowMs: number = Date.now()): string {
+  const sameYear = new Date(ms).getFullYear() === new Date(nowMs).getFullYear();
+  return `saved ${(sameYear ? SAVED_THIS_YEAR : SAVED_ANOTHER_YEAR).format(ms)}`;
+}
+
 /** The day card's names for ledger rows. */
 export const ROW_NAMES: Readonly<Record<string, string>> = {
   founding: 'Founding capital',
