@@ -1,12 +1,13 @@
 // The vehicle layer (the M2 spec, item 6; PLAN §6): one MapLibre custom layer that draws every bus
 // as a code-drawn top-down glyph, instanced in one draw call. The glyph is laid out in screen pixels
 // along the bus's heading, so it stays flat to the screen when the map tilts and never shrinks with
-// distance: a Sparrow is 20 px long at every camera (I12; V3's buses were 5 px at zoom 15). A
-// top-down glyph has no "up" to flip, so it is never upside down westbound (V1). Positions come from
+// distance: a Sparrow is 20 px long at every camera, measured from the pixels drawn (I12, e2e/i12.spec.ts;
+// V3's buses were 5 px at zoom 15). A top-down glyph has no "up" to flip, so it is never upside down
+// westbound (V1). Positions come from
 // the fleet (fleet.ts) each frame; the layer repaints every frame only while the clock runs and
 // draws nothing new while paused (I14, RN-04).
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl';
-import { BUS_FLOATS, type Fleet } from './fleet';
+import { BUS_FLOATS, type BusSource } from './fleet';
 
 export const VEHICLE_LAYER = 'vehicles';
 
@@ -17,6 +18,7 @@ const VERTEX = `#version 300 es
 uniform mat4 u_matrix;
 uniform vec2 u_viewport;
 uniform vec2 u_size;
+uniform float u_pixelRatio;
 in vec2 a_corner;
 in vec2 a_pos;
 in float a_heading;
@@ -33,14 +35,16 @@ void main() {
   vec2 fwd = there - here;
   fwd = length(fwd) > 0.0 ? normalize(fwd) : vec2(0.0, 1.0);
   vec2 side = vec2(-fwd.y, fwd.x);
-  vec2 px = a_corner * u_size;
+  // A pixel of margin all round, so the antialiased edge is never clipped by the quad.
+  vec2 px = a_corner * (u_size + 2.0 * u_pixelRatio);
   gl_Position = vec4((here + fwd * px.x + side * px.y) / (u_viewport * 0.5) * c.w, c.z, c.w);
   v_px = px;
   v_colour = a_colour;
 }`;
 
-// The glyph: a rounded body in the line's colour with a white outline and a dark windscreen at the
-// front, drawn from distances in pixels so its edges stay crisp at any size.
+// The glyph: a rounded body in the line's colour inside a dark outline, which reads against both the
+// light land and the line it runs on, with a pale windscreen at the front. Drawn from distances in
+// pixels, its outer edge exactly the glyph's size and the quad a pixel wider for the antialiasing.
 const FRAGMENT = `#version 300 es
 precision highp float;
 uniform vec2 u_size;
@@ -54,12 +58,13 @@ float box(vec2 p, vec2 half_, float r) {
 }
 void main() {
   vec2 half_ = u_size * 0.5;
-  float outline = 1.25 * u_pixelRatio;
-  float d = box(v_px, half_ - 0.5 * u_pixelRatio, 2.5 * u_pixelRatio);
-  float body = box(v_px, half_ - outline, 2.0 * u_pixelRatio);
-  float glass = box(v_px - vec2(half_.x - 4.0 * u_pixelRatio, 0.0), vec2(1.6 * u_pixelRatio, half_.y - outline - u_pixelRatio), 0.8 * u_pixelRatio);
-  vec3 c = mix(vec3(1.0), v_colour, smoothstep(0.5, -0.5, body));
-  c = mix(c, vec3(0.12, 0.15, 0.18), smoothstep(0.5, -0.5, glass));
+  float outline = 1.5 * u_pixelRatio;
+  // The antialiased edge is centred half a pixel outside the size, so every pixel the shape touches shows.
+  float d = box(v_px, half_ + 0.5 * u_pixelRatio, 3.0 * u_pixelRatio);
+  float body = box(v_px, half_ - outline, 1.5 * u_pixelRatio);
+  float glass = box(v_px - vec2(half_.x - outline - 2.5 * u_pixelRatio, 0.0), vec2(1.5 * u_pixelRatio, half_.y - outline - u_pixelRatio), 0.8 * u_pixelRatio);
+  vec3 c = mix(vec3(0.16, 0.15, 0.14), v_colour, smoothstep(0.5, -0.5, body));
+  c = mix(c, vec3(0.88, 0.92, 0.95), smoothstep(0.5, -0.5, glass));
   colour = vec4(c, 1.0) * smoothstep(0.5, -0.5, d);
 }`;
 
@@ -82,7 +87,7 @@ export interface VehicleLayer extends CustomLayerInterface {
   readonly drawn: () => number;
 }
 
-export function createVehicleLayer(fleet: Fleet, glyph = SPARROW_GLYPH): VehicleLayer {
+export function createVehicleLayer(fleet: BusSource, glyph: { readonly lengthPx: number; readonly widthPx: number } = SPARROW_GLYPH): VehicleLayer {
   let map: MapLibreMap | null = null;
   let program: WebGLProgram | null = null;
   let corners: WebGLBuffer | null = null;

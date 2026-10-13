@@ -99,7 +99,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
      - **The debug line's button and worker message are cut.** Its sim function stays as the tests' fixture line.
      - **`e2e/line.spec.ts`** plays steps 2–5 of the exit check in the browser: depot, Copley to Longwood, Create, and a day whose cost rows meet the forecast.
    - **Snapped stops.** Copley to Longwood drawn with the tool snaps its stops to street nodes, so it reads 3.7 km and ≈750 riders a day, against the debug line's 3,535 m and 795.
-6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
+6. [x] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
    - [x] **One day plan per line** (2026-10-13, `src/sim/rules/schedule.ts`):
      - departures every running headway, each period's own, on one clock through the day;
      - each departure's round trip of exactly one cycle;
@@ -109,10 +109,16 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
    - [x] **The debug line's whole day** under the plan: running $362.52 (57 departures out and back), wages $972.11, deadhead $15.00, upkeep $300, net +$1,411.12 (DECISIONS, Measured).
    - [x] **The vehicle layer** (2026-10-13, `src/render/map/vehicles.ts`, `fleet.ts`):
      - one MapLibre custom layer draws every bus in one instanced call;
-     - the glyph is code-drawn: a rounded body in the line's colour with a white outline and a dark windscreen at the front, 20 × 9 px, laid out in screen pixels along its heading, so tilting never shrinks it;
+     - the glyph is code-drawn: a rounded body in the line's colour inside a dark outline, with a pale windscreen at the front, 20 × 9 px, laid out in screen pixels along its heading, so tilting never shrinks it;
      - positions come from `busPositionsAt` on the plan the costs bill, with the clock run on between snapshots;
      - the layer asks for frames only while time runs. `e2e/line.spec.ts` checks buses are drawn at 1× and that no frame is drawn in a paused second.
-   - [ ] **I12:** a harness with 50 buses at the three cameras, and its 4 px meta-test.
+   - [x] **I12** (2026-10-13, `e2e/i12.spec.ts`, `e2e/i12/`):
+     - the game's own layer on a bare map, served by Vite's dev server inside the test, with 50 Sparrows heading away from the camera at 1366×768;
+     - each bus is measured from the pixels drawn, along its own long axis;
+     - shortest 21 px at 2D zoom 14, 21.5 px at the `T` default and 21.6 px at zoom 17 / 60°, against 20;
+     - a 4 px glyph fails the same check.
+
+     The harness also caught the first glyph at 18 px: its white outline barely differed from the light land, so only the body read (DECISIONS, Measured).
 7. [ ] **The calm shell** replacing the debug panel, and I13.
 8. [ ] **The exit check as e2e:** found, depot, four stops, a day, the card sums to the change in cash.
 

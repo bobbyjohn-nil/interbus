@@ -22,7 +22,13 @@ function rgb(hex: string): [number, number, number] {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-export class Fleet {
+/** What the vehicle layer draws from: buses at a moment, and whether it should keep asking for frames. */
+export interface BusSource {
+  frame(nowMs: number): { count: number; data: ArrayLike<number> };
+  readonly running: boolean;
+}
+
+export class Fleet implements BusSource {
   private lines: Prepared[] = [];
   private scratch = new Float64Array(0);
   private frameData = new Float64Array(0);
