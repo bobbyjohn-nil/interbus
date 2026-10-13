@@ -252,6 +252,14 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-13** (`npm run bench calib`, `npm run bench firstline`, `npm run bench crowding`): **Inner Boston's `tripScale` is 279‰, and a first line there can pay** (city-boston-r1: `tripScale` re-measured, starting cash checked; D7, GD-11).
+  - **The scale.** At 1000‰ the debug line's riders differ sharply between extents. The fixture's box keeps every commute inside it, so it offers 5,534.9 a day; Inner Boston's workers spread over all of its jobs, so it offers 2,200.5 (0.398 times). Inner Boston therefore takes **279‰**, at which the debug line carries 613.9, what the fixture carries at its 111‰ (614.4). Economics measured on the fixture then hold on the extent the preview will play.
+  - **Starting cash (D7, GD-11).** The bench tries every starter a player could draw along T03's ten corridors (four stops over about 3 km from either end) and the debug line, each with a depot on the nearest depot land, at the founding 20 minutes:
+    - 16 of 19 cost $356,000 and fit the $427,200 founding capital; the three needing a third Sparrow cost $451,000 (1.06 times). Two more were refused for want of a street near a stop.
+    - Four make a profit on day 2: Washington Street from downtown (+$2,267 a day, 1,030 riders), the debug line (+$698, 610 riders), Dorchester Avenue (+$497) and Huntington Avenue from Copley (+$326).
+    - The other twelve lose $822 to $1,697 a day, so where the first line goes matters.
+    - The cheapest four-bus line, $546,000, costs 1.28 times the founding capital. So D7's rule, k = 1.2 × the starter line, holds on Inner Boston unchanged.
+  - **Crowding at calibrated demand.** No rider is turned away on T03's ten lines every 10 or 15 minutes, on Sparrows or Metro 40s. Every 20 minutes, Washington Street turns away 49.3 a day at 17:00. The 12.7% measured at 1000‰ was demand the extent does not have.
 - **2026-10-13** (`node tools/bake/beta.mjs boston <extent>`; `src/sim/demand/beta.test.ts`; `npm run bench report`, `npm run bench crowding`, `npm run bench`): **the gravity decay β is fitted to Boston's commutes** (city-boston-r1, the M3 spec's Nov 15 item; PLAN §5).
   - **The fit.** β is the decay in the commuter matrix, exp(-d/β) (`src/sim/demand/commuters.ts`). The bake fits it so the matrix's mean commute between cells equals LODES's own, over its 2023 origin-destination pairs with both ends inside the area.
     - Inner Boston: 735 cells, 212,081 such commuters, mean **3.499 km**. V1's 4,000 m gave 3.655 km; **3,260 m** meets it.

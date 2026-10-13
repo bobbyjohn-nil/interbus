@@ -9,7 +9,7 @@ import { newGame } from '../src/sim/state';
 import { createWorld, planLine, type World } from '../src/sim/world';
 
 const INNER = '.cache/bake/boston/sim-inner-boston.json';
-const CORRIDORS: [name: string, from: [number, number], to: [number, number], stops: number][] = [
+export const CORRIDORS: [name: string, from: [number, number], to: [number, number], stops: number][] = [
   ['Massachusetts Avenue', [-71.119, 42.3736], [-71.0838, 42.3293], 12],
   ['Huntington Avenue', [-71.0776, 42.3496], [-71.111, 42.3285], 12],
   ['Washington Street', [-71.0603, 42.3555], [-71.0985, 42.317], 12],

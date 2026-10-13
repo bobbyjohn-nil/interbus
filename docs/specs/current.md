@@ -20,7 +20,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Sun Nov 1 | M1's checks: capacity; recompute (R2, D11); velocity |
 | Sun Nov 8 | M2 on the preview (the owner's exit check, from day 2's card); **`sim.json` format 1 frozen**, with the landmarks (item 1) in it; the light token pick (≤0.5) |
 | Nov 9–15 | Week 5, 6 sessions: items 1–8, and the art check (≤0.5) and three.js proof (≤1) |
-| Sun Nov 15 | **`city-boston-r1`**: β fit (done 2026-10-13: 3,260 m), `tripScale` re-measured, starting cash derived, Overture heights; the preview plays Inner Boston |
+| Sun Nov 15 | **`city-boston-r1`**: β fit (done 2026-10-13: 3,260 m), `tripScale` re-measured (done: 279‰ on Inner Boston), starting cash derived (checked: four starters pay), Overture heights; the preview plays Inner Boston |
 | Nov 16–22 | Week 6, 5 sessions: items 9–12; **P1** (the owner and the artist) |
 | Nov 23–29 | Week 7, 2.5 sessions (Thanksgiving): items 13–14. **M3 deadline Sun Nov 29** |
 
@@ -65,7 +65,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Starved line (hourly, 1 bus) against the best | ≤60%: **−$72.10 against $1,905.82 measured** with V2's waits (EC-08), 98.5% with V1's | I3, K28 |
 | Fare optimum on the debug line | $1.75–$3.25, not $5: **$1.75 on the starter's headways, $2.00 on the best, measured** | EC-09, V2's six optima |
 | Metro 40 every 10 min on a 3.5 km line | 3 buses, $780k: beyond the starting cash | Item 2 |
-| Riders turned away on Inner Boston's ten corridor lines | **12.7% on Sparrows every 10 min, 0.7% on Metro 40s, measured** with β fitted (13.3% and 0.8% at V1's), all on Washington Street | Item 3, K27 |
+| Riders turned away on Inner Boston's ten corridor lines | **none at 10 or 15 min at the calibrated 279‰; every 20 min, Washington Street 49.3 a day, measured** (12.7% on Sparrows at 1000‰) | Item 3, K27 |
 | Opening company's first card | 45–65, median about 56: **53.7 / 57.9 / 64.0 measured over 10 seeds on the fixture** (63.8 at V1's β) | V2's measured spread |
 | HEADWAY payout over 10 seeds | within ±30% of the median (V2 varied $60k–$480k): **$1.11M–$1.29M over 40 days on 100 seeds, measured** | I11, GD-04 |
 | Days to recover from −$150k at +$1,400 a day | about 107 | Item 10 |
