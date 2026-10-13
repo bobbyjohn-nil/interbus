@@ -15,9 +15,9 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
 - **Data:**
-  - release `city-boston-sim-mini-boston-20b38b02` holds mini-Boston's `sim.json` at `tripScale` 111‰ with bus access by OSM's hierarchy (134,361 B), published by **City sim file (manual)** run 38352676465, which matched the golden on GitHub's runner. The older `7efc98ec` and `ba4110d6` stay for pages of older builds;
+  - release `city-boston-sim-mini-boston-69866a1e` holds mini-Boston's `sim.json` with depot land and the (empty) gateway list (135,413 B), published by **City sim file (manual)** run 38356104923, which matched the golden on GitHub's runner. The older `20b38b02`, `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden in `cities/boston/sim-inner-boston.lock.json` (**City sim file** run 38353671557 matched it on GitHub's runner), not yet published;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden `bafe84fa` in `cities/boston/sim-inner-boston.lock.json`, not yet published;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
