@@ -7,6 +7,11 @@ export const GRAVITY_CUTOFF_KM = 45;
 /** Walking pace, and how far anyone walks to a stop (constants.ts:124-125). */
 export const WALK_MIN_PER_KM = 12;
 export const MAX_WALK_M = 650;
+/**
+ * One transfer per trip (the M3 spec, item 13; EC-10): between two lines' stops this close (a stop
+ * both lines call at is 0 m), walked at the same pace, plus the boarding stop's tier's penalty.
+ */
+export const TRANSFER_REACH_M = 250;
 /** A stop's dwell (constants.ts:115). */
 export const DWELL_SEC = 20;
 /** Riders ride at the line's model's pace, as V1 did (constants.ts:170), and fill its seats; the Sparrow's where a plan names no model. */

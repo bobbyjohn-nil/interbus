@@ -37,7 +37,7 @@ export interface Line {
   stopIds: StopId[];
   fareCents: number;
   headways: Headways;
-  /** Thousandths of a boarding carried so far, so fares bank in whole boardings and no cent is lost between hours or across a save. */
+  /** Thousandths of a paid boarding carried so far (a change onto the line pays nothing, EC-04), so fares bank in whole boardings and no cent is lost between hours or across a save. */
   boardedMilli: number;
   /** Buses the line owns, all of its one model; with fewer than its headways need, it runs every cycle ÷ buses. */
   buses: number;

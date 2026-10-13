@@ -5,8 +5,8 @@ import { about, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /**
- * A stop's card (the M3 spec, item 5): who boards and gets off there a day over every line that
- * calls, what it nets, its QUIET or LOSS flag in words (the same rule the map's ring draws), and its
+ * A stop's card (the M3 spec, items 5 and 13): who boards and gets off there a day over every line
+ * that calls, how many of those boarding change from another line, what it nets, its QUIET or LOSS flag in words (the same rule the map's ring draws), and its
  * tier, one step up or down at a time on the tier rule the command checks (GD-05).
  */
 export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: number; onLine: (id: number) => void; onClose: () => void }) {
@@ -29,6 +29,7 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
       data-loss={stop.loss ? 'yes' : 'no'}
       data-net={stop.netCents}
       data-tier={stop.tier}
+      data-transfers={stop.transfers.toFixed(1)}
     >
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
         ×
@@ -40,6 +41,7 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
       <p>
         {about(stop.boardings)} board and {about(stop.alightings)} get off a day
       </p>
+      {stop.transfers >= 0.5 ? <p>{about(stop.transfers)} of them change here from another line, on the fare they paid</p> : null}
       <p>Nets ≈{usd(stop.netCents, { cents: true })} a day</p>
       {stop.quiet ? <p className="flag">QUIET · fewer than {STOP_QUIET_BOARDINGS} boardings a day</p> : null}
       {stop.loss ? <p className="flag">LOSS · losing more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}

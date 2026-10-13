@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Riders change buses: a trip can ride two of your lines, changing at a stop both call at or walking to the other line's stop up to 250 m away. A change costs riders that walk, a wait for the second bus and a few minutes' bother that a better stop eases (6 minutes at a Sign or Shelter, down to 2 at a Transfer Hub). Nobody changes onto a line they could have walked to from home, or off one that already takes them to work.
+- A trip pays one fare, to the line it boards first, and the city's subsidy comes once a trip too, so the second bus is free. Splitting a line in two never earns more than running it whole.
+- A stop's card says how many of the riders boarding there change from another line.
 - Export session, in Saves: a file of this session from the quarter's start (or the last reload), with every command you gave, that replays to exactly the same game. Attach it to a bug report.
 - Contracts: the city offers three at a time, each near a landmark such as Longwood or Copley Square, asking for a bus every 10, 15 or 20 minutes and paying $240,000, $150,000 or $60,000. Take one with a click; meet it at a stop within a walk, at peak and off-peak alike, for 10 days in a row within 20, and it pays as a Contracts row on the midnight card. Its card shows how often a bus comes there today against the ask, and its ring on the map shows how far riders will walk to that stop.
 - The checklist's last step, Take a contract, opens the contracts; once you take one the checklist is done and a Contracts chip takes its place.
@@ -50,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Riders a day, in the chips along the top, counts each trip once, even when it rides two lines.
 - Where several of your lines serve the same trip, riders take whichever comes first: lines sharing a stretch split its riders by how often each runs, and together, coming more often, they carry more than any one would.
 - The preview now plays all of Inner Boston, not just Back Bay to Longwood: Boston, Cambridge, Somerville and Brookline, with homes and jobs across all four and contracts offered at Kendall Square, Harvard Square and Downtown Crossing too. Demand is scaled so a first line from Copley to Longwood carries about what it did.
 - How far people commute now follows Boston's own census records rather than a generic guess, so trips are a little shorter on average and a line from Copley to Longwood carries about 3% fewer riders.

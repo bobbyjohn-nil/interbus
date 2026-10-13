@@ -137,7 +137,7 @@ function lineViews(world: World): LineView[] {
       turnedAwayPerDay: demand?.shedPerDay ?? 0,
       // Each slot is a half-hour.
       fullAtMinute: demand && demand.fullSlot !== null ? demand.fullSlot * 30 : null,
-      incomeCents: Math.floor(demand?.perDay ?? 0) * (line.fareCents + subsidyCents(line.fareCents)),
+      incomeCents: Math.floor(demand?.paidPerDay ?? 0) * (line.fareCents + subsidyCents(line.fareCents)),
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
       buses: line.buses,
@@ -159,6 +159,7 @@ function stopViews(world: World): StopView[] {
       lineIds: world.state.lines.filter((l) => l.stopIds.includes(s.id)).map((l) => l.id),
       boardings: day.boardings,
       alightings: day.alightings,
+      transfers: day.transfers,
       netCents: day.netCents,
       quiet: day.quiet,
       loss: day.loss,

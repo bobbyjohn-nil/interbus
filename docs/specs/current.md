@@ -11,7 +11,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 2. "5/5 Take a contract": a HEADWAY contract near Longwood ("every 15 min at Longwood, 10 days") shows today's headway against the ask; meeting it for 10 days pays it, as one ledger row.
 3. Day 10 closes the quarter: the report card grades Coverage, Reliability, Comfort and Money, and pays or fines as a ledger row.
 4. Overspend into the credit line: a countdown chip reads "5 days to get above −$150k"; let it run out and **Restart this quarter** reopens the quarter-start save.
-5. Two lines sharing a stop at Kenmore carry riders who transfer (week 7).
+5. Two lines sharing a stop at Kenmore carry riders who transfer (week 7): the stop's card says how many change there (52.6 a day on the fixture, `e2e/transfer.spec.ts`).
 
 ## Dates
 
@@ -55,7 +55,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
     - It is held 10 days in a row within 20 days, and paid once as a ledger row; a miss resets the count. Accepting is a click, so the player chooses.
     - The card shows today's figure against the ask.
 12. **Checklist step 5 and Export session (both done 2026-10-13; a session restarts at a reload):** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
-13. **Transfers (EC-10, K23; riders scanning every line done 2026-10-13, I5):** one transfer, at a shared stop or two stops within 250 m (a 1.5-minute walk), with the tier's penalty; riders scan every line at a stop, so every line at a 6-line hub boards riders (I5). Fare is perceived once per trip, so splitting a line raises revenue plus subsidy by at most 1% (I4; V3 measured +69% on V1's model, `Intralines_City@dc63602:studio/DECISIONS.md:252-262`).
+13. **Transfers (EC-10, K23; done 2026-10-13: riders scanning every line, I5; then one transfer, I4):** one transfer, at a shared stop or two stops within 250 m (a 3-minute walk at the game's 12 min/km), with the boarding stop's tier's penalty; never onto a line the rider could walk to from home, nor off one that reaches work; riders scan every line at a stop, so every line at a 6-line hub boards riders (I5). Fare and subsidy are perceived and paid once per trip, on the first line, so splitting a line raises revenue plus subsidy by at most 1% (I4: it falls 4.8% to 40.6%, measured; V3 measured +69% on V1's model, `Intralines_City@dc63602:studio/DECISIONS.md:252-262`).
 14. **Route edits:** remove a stop (a line keeps ≥2; an orphaned stop refunds half its price, never V2's orphans) and extend from either end. Insert waits for M4.
 
 ## Magnitudes (expected before measuring, [TS-12](../history/lessons-ledger.md); out of range means find out why before tuning)
@@ -69,7 +69,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 | Opening company's first card | 45–65, median about 56: **53.7 / 57.9 / 64.0 measured over 10 seeds on the fixture** (63.8 at V1's β) | V2's measured spread |
 | HEADWAY payout over 10 seeds | within ±30% of the median (V2 varied $60k–$480k): **$1.11M–$1.29M over 40 days on 100 seeds, measured** | I11, GD-04 |
 | Days to recover from −$150k at +$1,400 a day | about 107 | Item 10 |
-| Recompute with crowding and transfers on Inner Boston | ≤150 ms p95 (44.6 ms without, measured) | I14 |
+| Recompute with crowding and transfers on Inner Boston | ≤150 ms p95 (44.6 ms without, measured): **81–96 ms p50 and 131–157 ms p95 with transfers, measured on a noisy container; take Nov 1's on GitHub's runner** | I14 |
 | Export session for a quarter | the save (≈10 KB) plus a few KB of commands: **2,118 B from founding to day 2 with ten commands, measured** | Item 12 |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))

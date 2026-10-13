@@ -3,7 +3,7 @@
 // row's price on top, and a step down or a removal gives back half of what the steps cost. A nicer
 // stop feels closer: its walk bonus comes off the minutes walked to it, never below 0.2 (V1,
 // `src/game/sim/demand.worker.ts:313-316`), and the 650 m reach does not grow. The two hub tiers need
-// that many lines calling. The transfer penalty waits for transfers (week 7, EC-10).
+// that many lines calling. The transfer penalty is added to a change onto a line at the stop (EC-10).
 
 export const STOP_TIER_IDS = [1, 2, 3, 4, 5] as const;
 export type StopTier = (typeof STOP_TIER_IDS)[number];

@@ -1,5 +1,6 @@
 // simStep(): the only door that advances time (PLAN §6, AR-09). Each call moves the clock one fixed
-// step. At every game-hour boundary each line banks the hour's boardings as ledger rows, fares and
+// step. At every game-hour boundary each line banks the hour's paid boardings (a change onto it pays
+// nothing: the trip paid its first line, EC-04) as ledger rows, fares and
 // the city's subsidy at that fare (rules/fare.ts), in whole boardings and whole cents, and the hour's costs (running, wages,
 // deadhead; economy/costs.ts), and each depot its upkeep; at 24:00 the day closes, its rows merge
 // by kind and line, and they are the day card (I1). A quarter's last day closes with its report card
@@ -31,12 +32,12 @@ export type SimEvent = {
   readonly contracts: readonly ContractOutcome[];
 };
 
-/** Posts the hour that just ended: its boardings as fare and subsidy rows, its costs, each depot's upkeep. */
+/** Posts the hour that just ended: its paid boardings as fare and subsidy rows, its costs, each depot's upkeep. */
 function bankHour(world: World, hour: number, day: number): void {
   for (const line of world.state.lines) {
     const demand = world.assignment.lines.get(line.id);
     if (!demand) continue;
-    const milli = Math.round((demand.bySlot[2 * hour]! + demand.bySlot[2 * hour + 1]!) * 1000);
+    const milli = Math.round((demand.paidBySlot[2 * hour]! + demand.paidBySlot[2 * hour + 1]!) * 1000);
     const before = line.boardedMilli;
     line.boardedMilli += milli;
     const boardings = Math.floor(line.boardedMilli / 1000) - Math.floor(before / 1000);

@@ -2,7 +2,7 @@
 // quarter so far, beside a whole day's forecast. Capital rows (founding, purchases, refunds, sales)
 // are included, so each column adds up to the change in cash over it; V1 and V2 left fixed costs and
 // capital out, so their "profit" overstated. Contract, report-card and credit rows join as those
-// systems land. The forecast is the inspector's: the modelled riders' fares and subsidy, each line's
+// systems land. The forecast is the inspector's: the modelled paid riders' fares and subsidy, each line's
 // day plan's costs to the cent, and each depot's upkeep; capital has none.
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
 import { toCalendarTime } from '../core/calendar';
@@ -49,7 +49,7 @@ export function finance(world: World): Finance {
   }
   const forecast: Partial<Record<RowKind, number>> = { fares: 0, subsidy: 0, running: 0, wages: 0, deadhead: 0, upkeep: -state.depots.length * DEPOT_UPKEEP_CENTS };
   for (const line of state.lines) {
-    const riders = Math.floor(world.assignment.lines.get(line.id)?.perDay ?? 0);
+    const riders = Math.floor(world.assignment.lines.get(line.id)?.paidPerDay ?? 0);
     forecast.fares! += riders * line.fareCents;
     forecast.subsidy! += riders * subsidyCents(line.fareCents);
     const service = world.services.get(line.id);

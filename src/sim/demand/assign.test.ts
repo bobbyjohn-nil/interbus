@@ -7,12 +7,14 @@
 // `npm run bench compare` prints this comparison, and the synthetic grid's, in full.
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../../tools/bake/sim.mjs';
+import { createLine } from '../commands/createLine';
 import { addDebugLine } from '../commands/debugLine';
 import { loadCity } from '../city/simfile';
 import type { LineId } from '../core/ids';
 import { PERIODS, periodAt } from '../rules/periods';
 import { newGame } from '../state';
-import { createWorld, planLine } from '../world';
+import { gameWithDepot } from '../testing';
+import { createWorld, planLine, runningPlans } from '../world';
 import { assign, SLOTS, spread, type LinePlan } from './assign';
 import { assignNaive } from './reference/assignNaive';
 
@@ -35,8 +37,8 @@ const overlapping: LinePlan[] = [
 ];
 const both = (plans: LinePlan[]) => ({ fast: assign(world.city, world.commuters, plans), ref: reference(plans) });
 const reference = (plans: LinePlan[]) => {
-  const { riders, busiest, ends } = assignNaive(world.city, world.commuters, plans);
-  return spread(plans, riders, busiest, ends);
+  const { riders, busiest, ends, paid } = assignNaive(world.city, world.commuters, plans);
+  return spread(plans, riders, busiest, ends, paid);
 };
 const byPeriod = (slots: Float64Array) => PERIODS.map((p) => slots.reduce((sum, v, s) => sum + (s < SLOTS && periodAt(s * 1800 + 900) === p ? v : 0), 0));
 const off = (got: number, want: number) => Math.abs(got - want) / want;
@@ -105,5 +107,24 @@ describe('assign against the reference loop', () => {
       const leg = ref.lines.get(plan.id)!.busiestLeg[0]!;
       expect(Math.abs(fast.lines.get(plan.id)!.busiestLeg[0]! - leg), `line ${plan.id} busiest leg`).toBeLessThan(Math.max(0.1 * leg, 2));
     }
+  });
+
+  it('changes riders between two lines at Kenmore as the reference does: trips within 6%, each line within 7%, changes within 8%', () => {
+    // Copley to Kenmore and Kenmore to Longwood, joined at Kenmore (exit check 5). Measured: trips
+    // −5.3%, the lines −5.7% and −5.4%, changes onto the second line −7.2%. Each line alone is already
+    // −5.3% and −4.6%, the groups' approximation on a line of two stops, so changes add nothing to it.
+    // Shown failing (TS-04) with the change's walk and penalty left out of the fast loop: trips 13.0% off.
+    const kenmore = gameWithDepot();
+    createLine(kenmore, [[-71.077, 42.3499], [-71.09721, 42.34883]]);
+    createLine(kenmore, [[-71.09721, 42.34883], [-71.1035, 42.336]]);
+    const plans = runningPlans(kenmore);
+    const fast = assign(kenmore.city, kenmore.commuters, plans);
+    const naive = assignNaive(kenmore.city, kenmore.commuters, plans);
+    const ref = spread(plans, naive.riders, naive.busiest, naive.ends, naive.paid);
+    const changes = (a: typeof fast, id: LinePlan['id']) => a.lines.get(id)!.transfersByStop.reduce((s, v) => s + v, 0);
+    expect(changes(ref, plans[1]!.id)).toBeGreaterThan(40);
+    expect(off(fast.tripsPerDay, ref.tripsPerDay)).toBeLessThan(0.06);
+    for (const plan of plans) expect(off(fast.lines.get(plan.id)!.perDay, ref.lines.get(plan.id)!.perDay), `line ${plan.id}`).toBeLessThan(0.07);
+    expect(off(changes(fast, plans[1]!.id), changes(ref, plans[1]!.id))).toBeLessThan(0.08);
   });
 });

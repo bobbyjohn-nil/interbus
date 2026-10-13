@@ -16,7 +16,7 @@ export function checkFare(currentCents: number, fareCents: number): Result<objec
   return ok({});
 }
 
-/** The city's subsidy for one boarding at this fare, in whole cents: full at $2.25 or less, tapering to nothing at $5.00. */
+/** The city's subsidy for one paid boarding at this fare, in whole cents: full at $2.25 or less, tapering to nothing at $5.00. */
 export function subsidyCents(fareCents: number): number {
   const gap = Math.max(0, fareCents - REFERENCE_FARE_CENTS) / (FARE_MAX_CENTS - REFERENCE_FARE_CENTS);
   return Math.round(SUBSIDY_PER_BOARDING_CENTS * (1 - Math.min(1, gap) ** SUBSIDY_TAPER_EXPONENT));
