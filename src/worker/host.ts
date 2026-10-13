@@ -12,6 +12,7 @@ import { setHeadways } from '../sim/commands/setHeadways';
 import { setFare } from '../sim/commands/setFare';
 import { setModel } from '../sim/commands/setModel';
 import { setStopTier } from '../sim/commands/setStopTier';
+import { removeStop } from '../sim/commands/removeStop';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
@@ -78,7 +79,7 @@ export interface SessionFile {
 }
 
 /** Commands a session records: everything that changes the game or what undo would do. Loads and restarts begin a new session instead. */
-const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'accept-contract', 'undo']);
+const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'remove-stop', 'accept-contract', 'undo']);
 
 /** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
@@ -532,6 +533,15 @@ export function createHost(post: (message: FromWorker) => void): Host {
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-stop-tier') {
         const result = command({ command: 'set-stop-tier', subject: `Stop ${message.stopId}` }, () => setStopTier(world!, message.stopId as StopId, message.tier));
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'remove-stop') {
+        const subject = `Stop ${message.stopId} from ${world.state.lines.find((l) => l.id === message.lineId)?.name ?? 'its line'}`;
+        const result = command({ command: 'remove-stop', subject }, () => removeStop(world!, message.lineId as LineId, message.stopId as StopId));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();

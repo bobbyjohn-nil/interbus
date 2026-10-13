@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Take a stop off a line from the stop's card: the line runs on without it, and a stop no other line calls at comes down, giving back half of what it and its fittings cost ($2,000 for a Sign). A line keeps at least two stops.
 - Riders change buses: a trip can ride two of your lines, changing at a stop both call at or walking to the other line's stop up to 250 m away. A change costs riders that walk, a wait for the second bus and a few minutes' bother that a better stop eases (6 minutes at a Sign or Shelter, down to 2 at a Transfer Hub). Nobody changes onto a line they could have walked to from home, or off one that already takes them to work.
 - A trip pays one fare, to the line it boards first, and the city's subsidy comes once a trip too, so the second bus is free. Splitting a line in two never earns more than running it whole.
 - A stop's card says how many of the riders boarding there change from another line.

@@ -1,13 +1,16 @@
 import { STOP_LOSS_CENTS, STOP_QUIET_BOARDINGS } from '../../sim/rules/stopDay';
+import { checkRemoveStop } from '../../sim/rules/route';
 import { checkStopTier, STOP_TIERS, type StopTier } from '../../sim/rules/stopTier';
 import { refusalText } from '../copy';
 import { about, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /**
- * A stop's card (the M3 spec, items 5 and 13): who boards and gets off there a day over every line
- * that calls, how many of those boarding change from another line, what it nets, its QUIET or LOSS flag in words (the same rule the map's ring draws), and its
- * tier, one step up or down at a time on the tier rule the command checks (GD-05).
+ * A stop's card (the M3 spec, items 5, 13 and 14): who boards and gets off there a day over every
+ * line that calls, how many of those boarding change from another line, what it nets, its QUIET or
+ * LOSS flag in words (the same rule the map's ring draws), its tier, one step up or down at a time
+ * on the tier rule the command checks, and each line's button to take the stop off it, on the route
+ * rule the command checks (GD-05).
  */
 export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: number; onLine: (id: number) => void; onClose: () => void }) {
   const stop = sim.snapshot?.stops.find((s) => s.id === stopId);
@@ -63,11 +66,25 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
         </p>
       ) : null}
       <div className="lines">
-        {lines.map((l) => (
-          <button key={l.id} type="button" onClick={() => onLine(l.id)}>
-            <span className="swatch" style={{ background: l.colour }} /> {l.name}
-          </button>
-        ))}
+        {lines.map((l) => {
+          const removal = checkRemoveStop(l, { id: stop.id, tier }, stop.lineIds.length - 1);
+          return (
+            <div key={l.id} className="line-row">
+              <button type="button" onClick={() => onLine(l.id)}>
+                <span className="swatch" style={{ background: l.colour }} /> {l.name}
+              </button>
+              <button
+                type="button"
+                disabled={!removal.ok}
+                title={removal.ok ? undefined : refusalText(removal)}
+                onClick={() => sim.send({ type: 'remove-stop', lineId: l.id, stopId: stop.id })}
+              >
+                Remove from {l.name}
+                {removal.ok && removal.orphaned ? ` · ${usdK(removal.refundCents)} back` : ''}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </aside>
   );

@@ -140,7 +140,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(stopCard).toHaveAttribute('data-tier', '2');
     await expect(panel).toHaveAttribute('data-cash', String(cashBefore - 1_200_000));
     await expect(stopCard).toContainText('Back to Sign · $6k back');
-    await stopCard.getByRole('button', { name: /Line 1/ }).click();
+    await stopCard.getByRole('button', { name: 'Line 1', exact: true }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();
     // The checklist's last step opens Contracts (the M3 spec, items 11 and 12; exit check 2): the line
     // every 20 minutes serves Longwood, whose offer shows that against its ask; taking it ends the

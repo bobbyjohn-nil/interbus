@@ -62,8 +62,8 @@ test.describe('a change of line', () => {
     await page.mouse.click(sx, sy);
     const card = page.getByTestId('stop-card');
     await expect(card).toBeVisible();
-    await expect(card.getByRole('button', { name: /Line 1/ })).toBeVisible();
-    await expect(card.getByRole('button', { name: /Line 2/ })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Line 1', exact: true })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Line 2', exact: true })).toBeVisible();
     await expect(card).toContainText('of them change here from another line, on the fare they paid');
     const changes = Number(await card.getAttribute('data-transfers'));
     test.info().annotations.push({ type: 'changes a day at Kenmore', description: String(changes) });

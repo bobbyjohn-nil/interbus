@@ -56,7 +56,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
     - The card shows today's figure against the ask.
 12. **Checklist step 5 and Export session (both done 2026-10-13; a session restarts at a reload):** "5/5 Take a contract" ends the checklist. Export session writes the quarter-start save plus every command since, with the build SHA, through `src/platform`; a test replays it to the same state hash (AR-06, PLAN §6).
 13. **Transfers (EC-10, K23; done 2026-10-13: riders scanning every line, I5; then one transfer, I4):** one transfer, at a shared stop or two stops within 250 m (a 3-minute walk at the game's 12 min/km), with the boarding stop's tier's penalty; never onto a line the rider could walk to from home, nor off one that reaches work; riders scan every line at a stop, so every line at a 6-line hub boards riders (I5). Fare and subsidy are perceived and paid once per trip, on the first line, so splitting a line raises revenue plus subsidy by at most 1% (I4: it falls 4.8% to 40.6%, measured; V3 measured +69% on V1's model, `Intralines_City@dc63602:studio/DECISIONS.md:252-262`).
-14. **Route edits:** remove a stop (a line keeps ≥2; an orphaned stop refunds half its price, never V2's orphans) and extend from either end. Insert waits for M4.
+14. **Route edits:** remove a stop (a line keeps ≥2; an orphaned stop refunds half its price, never V2's orphans; done 2026-10-13, on the stop card) and extend from either end. Insert waits for M4.
 
 ## Magnitudes (expected before measuring, [TS-12](../history/lessons-ledger.md); out of range means find out why before tuning)
 
