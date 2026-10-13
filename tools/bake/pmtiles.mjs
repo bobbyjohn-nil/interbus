@@ -182,3 +182,54 @@ export function writePmtiles(header, metadata, tiles) {
   out.writeInt32LE(header.centerLatE7, 123);
   return Buffer.concat([out, root, meta, ...chunks]);
 }
+
+/** A tile id's zoom, column and row (the spec's Hilbert order: every zoom's tiles after all the lower zooms'). */
+export function tileIdToZxy(tileId) {
+  let first = 0;
+  for (let z = 0; z <= 26; z++) {
+    const count = 4 ** z;
+    if (tileId < first + count) {
+      let t = tileId - first;
+      let x = 0;
+      let y = 0;
+      for (let s = 1; s < 2 ** z; s *= 2) {
+        const rx = Math.floor(t / 2) & 1;
+        const ry = (t ^ rx) & 1;
+        if (ry === 0) {
+          if (rx === 1) {
+            x = s - 1 - x;
+            y = s - 1 - y;
+          }
+          [x, y] = [y, x];
+        }
+        x += s * rx;
+        y += s * ry;
+        t = Math.floor(t / 4);
+      }
+      return [z, x, y];
+    }
+    first += count;
+  }
+  throw new RangeError(`pmtiles: tile id ${tileId} is past zoom 26`);
+}
+
+/** The tile id of a zoom, column and row (tileIdToZxy's inverse). */
+export function zxyToTileId(z, x, y) {
+  let first = 0;
+  for (let k = 0; k < z; k++) first += 4 ** k;
+  const n = 2 ** z;
+  let d = 0;
+  for (let s = n / 2; s >= 1; s /= 2) {
+    const rx = (x & s) > 0 ? 1 : 0;
+    const ry = (y & s) > 0 ? 1 : 0;
+    d += s * s * ((3 * rx) ^ ry);
+    if (ry === 0) {
+      if (rx === 1) {
+        x = s - 1 - x;
+        y = s - 1 - y;
+      }
+      [x, y] = [y, x];
+    }
+  }
+  return first + d;
+}

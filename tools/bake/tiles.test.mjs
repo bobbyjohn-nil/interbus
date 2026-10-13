@@ -5,9 +5,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { PMTiles, tileIdToZxy, zxyToTileId } from 'pmtiles';
-import { decodeValue, featuresOf, fields, rewriteTile } from './mvt.mjs';
-import { readPmtiles, writePmtiles } from './pmtiles.mjs';
-import { stripTransit, transitLeft } from './tiles.mjs';
+import { decodeGeometry, decodeValue, featuresOf, fields, rewriteTile } from './mvt.mjs';
+import { readPmtiles, tileIdToZxy as ourTileIdToZxy, unpackTile, writePmtiles, zxyToTileId as ourZxyToTileId } from './pmtiles.mjs';
+import { joinHeights, stripTransit, transitLeft } from './tiles.mjs';
 import { ROOT } from './lib.mjs';
 import { looksLikeTransit, tileVerdict } from './transit.mjs';
 
@@ -168,4 +168,86 @@ test('every map file cities/index.json ships holds no transit (G10, D17)', (t) =
     }
     assert.deepEqual([...transitLeft(readFileSync(path))], [], city.tiles.file);
   }
+});
+
+// Overture's heights (PLAN §5's height row; r1). The join test is shown failing (TS-04) with heights
+// set only on the top zoom's pieces: the z14 piece of building 101 then stands at the default.
+
+/** A layer of features { id, props, ring?: [[x, y], ...] (a polygon) | at: [x, y] (a point) }; numbers are written as doubles. */
+function shapeLayer(name, features) {
+  const keys = [];
+  const values = [];
+  const index = (list, v) => (list.includes(v) ? list.indexOf(v) : list.push(v) - 1);
+  const zz = (n) => (n << 1) ^ (n >> 31);
+  const value = (v) => {
+    if (typeof v !== 'number') return str(1, v);
+    const b = Buffer.alloc(9);
+    b[0] = 0x19;
+    b.writeDoubleLE(v, 1);
+    return b;
+  };
+  const encoded = features.map(({ id, props, ring, at }) => {
+    const tags = Object.entries(props).flatMap(([k, v]) => [index(keys, k), index(values, v)]);
+    let geometry;
+    if (ring) {
+      const moves = ring.slice(1).flatMap(([x, y], i) => [zz(x - ring[i][0]), zz(y - ring[i][1])]);
+      geometry = [9, zz(ring[0][0]), zz(ring[0][1]), ((ring.length - 1) << 3) | 2, ...moves, 15];
+    } else geometry = [9, zz(at[0]), zz(at[1])];
+    return field(2, Buffer.concat([Buffer.from([0x08]), varint(id), packed(2, tags), Buffer.from([0x18, ring ? 3 : 1]), packed(4, geometry)]));
+  });
+  return field(3, Buffer.concat([Buffer.from([0x78, 2]), str(1, name), ...encoded, ...keys.map((k) => str(3, k)), ...values.map((v) => field(4, value(v))), Buffer.from([0x28]), varint(4096)]));
+}
+
+/** Degrees of a point given in a tile's units (extent 4096). */
+function lonLatAt(z, x, y, [tx, ty]) {
+  const n = 2 ** z;
+  const lon = ((x + tx / 4096) / n) * 360 - 180;
+  const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + ty / 4096)) / n))) * 180) / Math.PI;
+  return `${lon.toFixed(9)},${lat.toFixed(9)}`;
+}
+
+const square = (x0, y0, size) => [[x0, y0], [x0 + size, y0], [x0 + size, y0 + size], [x0, y0 + size]];
+
+test('tile ids follow the spec’s Hilbert curve, as the pmtiles library numbers them', () => {
+  for (let id = 0; id < 5461; id++) assert.deepEqual(ourTileIdToZxy(id), tileIdToZxy(id), `tile ${id}`);
+  for (const [z, x, y] of [[14, 4956, 6060], [15, 9912, 12120], [15, 9913, 12121], [15, 32767, 0]]) {
+    assert.equal(ourZxyToTileId(z, x, y), zxyToTileId(z, x, y));
+    assert.deepEqual(ourTileIdToZxy(zxyToTileId(z, x, y)), [z, x, y]);
+  }
+});
+
+test('a polygon’s geometry decodes to its ring in tile units', () => {
+  const zz = (n) => (n << 1) ^ (n >> 31);
+  assert.deepEqual(decodeGeometry([9, zz(10), zz(20), (3 << 3) | 2, zz(5), zz(0), zz(0), zz(5), zz(-5), zz(0), 15]), [[[10, 20], [15, 20], [15, 25], [10, 25]]]);
+});
+
+test('buildings OSM gives no height take the tallest Overture point inside them, at every zoom by their id; OSM’s heights and address points are left', () => {
+  // Building 101 at Back Bay's z15 tile, and the same building at z14 (half the size, in the
+  // z14 tile's first quarter); 102 carries OSM's 30 m; 103 has no Overture point; 101's address point.
+  const z15 = shapeLayer('buildings', [
+    { id: 101, props: { kind: 'building' }, ring: square(1000, 1000, 1000) },
+    { id: 102, props: { kind: 'building', height: 30 }, ring: square(2500, 2500, 500) },
+    { id: 103, props: { kind: 'building' }, ring: square(3200, 200, 300) },
+    { id: 101, props: { kind: 'address', addr_housenumber: '12' }, at: [1500, 1500] },
+  ]);
+  const z14 = shapeLayer('buildings', [{ id: 101, props: { kind: 'building' }, ring: square(500, 500, 500) }]);
+  const bytes = archive([
+    { z: 14, x: 4956, y: 6060, data: z14 },
+    { z: 15, x: 9912, y: 12120, data: z15 },
+  ]);
+  const at = (p) => lonLatAt(15, 9912, 12120, p);
+  const csv = ['lon,lat,height', `${at([1200, 1200])},12.5`, `${at([1800, 1700])},20.0`, `${at([2700, 2700])},99.0`, `${at([100, 3900])},8.0`].join('\n');
+  const { bytes: out, counts } = joinHeights(bytes, csv);
+  assert.deepEqual(counts, { withHeight: 1, joined: 1, without: 1 });
+  const { header, tiles } = readPmtiles(out);
+  const buildings = (z, x, y) => featuresOf(unpackTile(header, tiles.find((t) => t.tileId === zxyToTileId(z, x, y)).data)).filter((f) => f.layer === 'buildings');
+  const top = buildings(15, 9912, 12120).map((f) => f.props);
+  assert.deepEqual(top, [
+    { kind: 'building', height: 20 },
+    { kind: 'building', height: 30 },
+    { kind: 'building' },
+    { kind: 'address', addr_housenumber: '12' },
+  ]);
+  assert.deepEqual(buildings(14, 4956, 6060).map((f) => f.props), [{ kind: 'building', height: 20 }]);
+  assert.equal(typeof top[0].height, 'number'); // the style's extrusion reads a number
 });

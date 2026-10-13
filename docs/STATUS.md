@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 85f8226 (a line extends from either end): step 11 is done, so M3's items are all in but r1's Overture heights (look work, next) and week 5's presentation items.
+**Updated:** 2026-10-13, at `main` 6c77e82 (STATUS after step 11), with the Overture heights join (tools and the City heights workflow) in review; then a dispatched City heights run, and the PR that points `cities/index.json` at its map file with Overture's credit.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 85f8226. Deploy preview run 38414763751's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 6c77e82. Deploy preview run 38416096817's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -193,7 +193,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
    - [x] **β fitted to LODES** (2026-10-13): 3,260 m on Inner Boston (V1's 4 km), the fixture taking the same; `sim.json` carries `calib.gravityBetaM`. The debug line carries 614.4 riders a day, inside the band, so the fixture keeps 111‰ (DECISIONS, Measured).
    - [x] **Inner Boston's `tripScale` and the starting cash** (2026-10-13): 279‰, so the debug line carries 613.9 there as on the fixture; 16 of 19 starters along T03's corridors fit the founding capital and four pay on day 2, the best Washington Street at +$2,267; at calibrated demand almost no one is turned away (DECISIONS, Measured).
    - [x] **The preview plays Inner Boston** (2026-10-13): `cities/index.json` names Inner Boston's `sim.json` and the fixture beside it; `npm run build` and the deploy play Inner Boston, and CI smoke-tests that build before running every e2e test on `npm run build:fixture` (DECISIONS, Measured).
-   - [ ] Overture heights in the map file (look work, PLAN §10's week 5: at most one session in three). The plan, from reading the bake on 2026-10-13:
+   - [ ] Overture heights in the map file (look work, PLAN §10's week 5: at most one session in three). The tools and the City heights workflow are in review (2026-10-13): on the current map file 82.1% of footprints stand at a measured height, from 9.3% (DECISIONS, Measured). Left: dispatch the workflow with publish on from `main`, then a PR naming its map file in `cities/index.json` and adding Overture's credit to the map's corner. The plan it followed:
      - **The input.** Overture has no single file to download: its buildings are partitioned parquet on S3. `tools/bake/fetch.mjs` (City sources workflow) queries the pinned release (2026-09-23.1, PLAN §5) for the extent with DuckDB: each building's centroid and `height`. It mirrors the result as a hashed asset in the sources lock, so the bake never reads Overture itself.
      - **The join.** The City tiles workflow's strip pass rewrites each tile. Each `buildings` feature with no `height` takes the height of the Overture building whose centroid falls inside it. `tools/bake/mvt.mjs`'s `rewriteTile` passes only properties today, so it needs the feature's geometry in tile coordinates, and a numeric value writer: the style's `fill-extrusion-height` reads a number, and only strings are written now.
      - **Done when:** a dispatched City tiles run publishes the new map file, and its counts land in DECISIONS (share of buildings with a height, before and after). Then `cities/index.json` names it, the style test still stands an untagged building at the default, and the tilt e2e passes.
@@ -235,7 +235,7 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
   - prints this file into the session.
 - **The proxy** blocks `github.io`, `api.github.com`, Census, Geofabrik and Protomaps. It allows GitHub release downloads, npm and PyPI.
   - Use the GitHub tools for the API.
-  - Fetch source data only in the dispatch-only workflows (`tiles.yml`, `bake-sources.yml`). Never route around a block.
+  - Fetch source data only in the dispatch-only workflows (`tiles.yml`, `heights.yml`, `bake-sources.yml`). Never route around a block.
 - **Long downloads and bakes:** the fixture cut takes about 4 minutes. `Bake fixture check (manual)` re-cuts it on a runner and fails on any byte of difference.
 - **Changing the save schema:** bump `SAVE_FORMAT` in `src/sim/save/save.ts` and add the new hash to `src/sim/save/schema.lock.json`. The failing test prints the hash. Never edit an existing line in the lock.
 - **Pitfall:** `pkill -f <pattern>` run inside a command line that contains the same pattern kills its own shell. Find the process id first.
