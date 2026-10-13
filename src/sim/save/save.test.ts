@@ -216,6 +216,8 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a medal from a day not yet played', (e) => void ((dataOf(e).medals as { silver: number }).silver = 9), /a medal awarded on a day not yet played/],
     ['a medal with no day', (e) => void ((dataOf(e).medals as { gold: unknown }).gold = true), /medals.gold: not a whole number/],
     ['more trips today than since founding', (e) => void (dataOf(e).tripsToday = 2_000), /more trips today than since founding/],
+    ['a ledger out of day order', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 2, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
+    ['a ledger row from a day not yet played', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 5, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {
