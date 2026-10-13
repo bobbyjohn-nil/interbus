@@ -6,7 +6,7 @@ import { ok, refuse, type Result } from '../core/result';
 import { toCalendarTime } from '../core/calendar';
 import { spend, type SpendRefusal } from '../economy/ledger';
 import { checkDepotSite, type DepotRefusal } from '../rules/depot';
-import { depotSiteContext, recompute, type World } from '../world';
+import { depotSiteContext, recomputeInService, type World } from '../world';
 
 export function placeDepot(
   world: World,
@@ -20,6 +20,6 @@ export function placeDepot(
   world.state.nextIds = next;
   world.state.depots.push({ id: depotId, lon: at[0], lat: at[1] });
   // Lines without a depot park here now, and pay their deadhead from it.
-  recompute(world);
+  recomputeInService(world);
   return ok({ depotId, priceCents: site.priceCents });
 }

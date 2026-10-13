@@ -44,6 +44,33 @@ export interface Line {
   /** Buses the line owns, all of its one model; with fewer than its headways need, it runs every cycle ÷ buses. */
   buses: number;
   model: BusModelId;
+  /** Its versions from before a change made while its buses were out, oldest first, until it settles onto its own day plan (rules/transition.ts); none or empty when it has not changed. */
+  earlier?: EarlierRun[];
+}
+
+/**
+ * A line as it ran before a change made while its buses were out (the M4 spec, item 4): its places,
+ * model and drives, and the plan its trips under way keep to, so each finishes on the route and the
+ * times it began with. Kept as numbers because nothing else holds them once the line has changed.
+ */
+export interface EarlierRun {
+  /** The game second of the change: its departures before this, the next version's from it. */
+  readonly until: number;
+  readonly stops: readonly { readonly lon: number; readonly lat: number }[];
+  readonly depot: { readonly lon: number; readonly lat: number } | null;
+  readonly model: BusModelId;
+  readonly routeM: number;
+  readonly pullOutM: number;
+  readonly pullInM: number;
+  readonly plan: {
+    readonly cycle: number;
+    readonly cycles: { readonly peak: number; readonly offpeak: number; readonly overnight: number };
+    readonly headways: Headways;
+    readonly buses: number;
+    readonly oneWayS: number;
+    readonly pullOutS: number;
+    readonly pullInS: number;
+  };
 }
 
 /**

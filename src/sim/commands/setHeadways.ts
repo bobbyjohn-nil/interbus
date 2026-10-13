@@ -8,7 +8,7 @@ import { ok, refuse, type Result } from '../core/result';
 import { spend } from '../economy/ledger';
 import { checkHeadwayChange, type HeadwayChangeRefusal } from '../rules/line';
 import type { Headways } from '../rules/periods';
-import { fleetContext, recompute, type World } from '../world';
+import { fleetContext, recomputeInService, type World } from '../world';
 
 export function setHeadways(
   world: World,
@@ -26,6 +26,6 @@ export function setHeadways(
   }
   line.headways = { ...headways };
   line.buses += change.extra;
-  recompute(world);
+  recomputeInService(world);
   return ok({ bought: change.extra, priceCents: change.priceCents });
 }

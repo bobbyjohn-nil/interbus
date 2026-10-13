@@ -7,7 +7,7 @@ import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 import { sell, spend } from '../economy/ledger';
 import { checkModelChange, type ModelChangeRefusal } from '../rules/line';
-import { fleetContext, recompute, type World } from '../world';
+import { fleetContext, recomputeInService, type World } from '../world';
 
 export function setModel(
   world: World,
@@ -30,6 +30,6 @@ export function setModel(
   if (!paid.ok) throw new Error(`setModel: the rule passed ${change.buyCents} against ${world.state.ledger.cashCents}`);
   line.model = model;
   line.buses = change.needed;
-  recompute(world);
+  recomputeInService(world);
   return ok({ bought: change.needed, buyCents: change.buyCents, saleCents: change.saleCents });
 }

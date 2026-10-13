@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 1edeff2 (RIDERSHIP contracts): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: roadworks a day ahead are in review, and no bus jumps on route edits are next.
+**Updated:** 2026-10-13, at `main` 29ed330 (roadworks a day ahead): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: no bus jumps on a change are in review, and route insert is next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 1edeff2. Deploy preview run 38436185912's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 29ed330. Deploy preview run 38440323530's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -27,6 +27,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - Saves in the dock: three slots beside the autosave, and a game exported and imported as a file;
   - a report card on each quarter's last day card, paying a grant or a fine;
   - a credit line to -$150k with daily interest, a countdown chip below it, and Restart this quarter when the lender calls in the loan;
+  - roadworks rolled a day ahead, hatched on the map and named on the day card the evening before, solid while on, and the line card's round trip with what they add;
   - HEADWAY and RIDERSHIP contracts at landmarks, dealt from one deck of six, taken from the checklist's last step or the Contracts chip, with rings on the map, paid as a Contracts row, an untaken offer withdrawn after 10 days;
   - Export session in Saves, a file that replays to the same game for a bug report;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
@@ -218,7 +219,7 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m
 2. [ ] **Events** (item 2), from the events' own saved stream.
    - [x] **Roadworks a day ahead** (2026-10-13): rolled at a day's start (0.18, one at a time, 2 days' gap) for 3–6 days on up to 400 m of one named street a running line drives; every line over them drives it at 0.65 of its speed, hatched on the map and named on the day card the evening before, solid while on, and the line card reads its round trip and what the works add (save format 11). 0.8 events a quarter; the debug line +9 to +64 s at peak, median 52; I11 unchanged (DECISIONS, Measured).
    - [ ] Festival and snow (below the cut's second).
-3. [ ] **No bus jumps on route edits** (item 4): measure remove and extend first, then keep a trip under way on the plan it began with.
+3. [x] **No bus jumps on a change** (item 4; 2026-10-13): a line changed with its buses out keeps the version it ran on, and its merged plan finishes every trip under way on its own route and times, the new departures taking buses as they come free, until it hands over to its day plan with nothing moving (save format 12). Removing a stop, extending, a new headway or model and roadworks starting moved buses 94–2,774 m at the change and now 0.0 m; the handover comes 20–30 minutes on, or hours after a longer headway on the same buses, by the next morning at the latest (DECISIONS, Measured).
 4. [ ] **Route insert** (item 4): point at a leg, one command and one undo.
 5. [ ] **Medals** (item 3): bronze and silver with the Goliath behind it, then gold, on the recommended ladder until the owner answers.
 6. [ ] **The full sweep** (item 5), nightly if it passes 8 minutes.

@@ -96,34 +96,57 @@ export function tripTimes(inputs: PlanInputs, departure: number): { cycle: numbe
   return { cycle, oneWayS: oneWayS + (cycle - timing.cycle) / 2 };
 }
 
+/** A bus out while a plan is built: when it left the depot, its departures so far, and when it is next free at the first stop. */
+export interface OpenBus {
+  readonly leaveDepot: number;
+  readonly trips: number[];
+  free: number;
+}
+
+/** A bus's stint once it heads home after its last departure (or, with none, as soon as it reaches the first stop); `inputsOf` gives the plan a departure ran on. */
+export function closeStint(bus: OpenBus, inputsOf: (t: number) => PlanInputs): Stint {
+  const last = bus.trips[bus.trips.length - 1];
+  if (last === undefined) return { leaveDepot: bus.leaveDepot, trips: bus.trips, lastArrival: bus.free, arriveDepot: bus.free + inputsOf(bus.leaveDepot).pullInS };
+  const inputs = inputsOf(last);
+  const times = tripTimes(inputs, last);
+  const lastArrival = last + times.cycle / 2 + times.oneWayS;
+  return { leaveDepot: bus.leaveDepot, trips: bus.trips, lastArrival, arriveDepot: lastArrival + inputs.pullInS };
+}
+
+/** How long a bus may wait at the first stop before it goes home instead: an hour, or its drives home and back if longer; never with no depot. */
+export const idleLimitOf = (inputs: PlanInputs): number => (inputs.pullOutS + inputs.pullInS > 0 ? Math.max(IDLE_HOME_SECONDS, inputs.pullOutS + inputs.pullInS) : 0);
+
+/** Sends home every bus that would wait at the first stop longer than `idleLimit` for departure `t`, handing each to `home`. */
+export function sendHomeIdle(open: OpenBus[], t: number, idleLimit: number, home: (bus: OpenBus) => void): void {
+  for (let i = open.length - 1; i >= 0; i--) if (t - open[i]!.free > idleLimit) home(open.splice(i, 1)[0]!);
+}
+
+/** The bus free longest by `t`, or -1 when none is free. */
+export function freeLongest(open: readonly OpenBus[], t: number): number {
+  let pick = -1;
+  for (let i = 0; i < open.length; i++) if (open[i]!.free <= t && (pick < 0 || open[i]!.free < open[pick]!.free)) pick = i;
+  return pick;
+}
+
 export function dayPlan(inputs: PlanInputs): DayPlan {
-  const { timing, pullOutS, pullInS } = inputs;
-  const trips = departures(timing, -1, 2);
+  const trips = departures(inputs.timing, -1, 2);
   // A bus waits at the first stop for its next departure, unless that is over an hour off, or it
   // has no depot to go to.
-  const idleLimit = pullOutS + pullInS > 0 ? Math.max(IDLE_HOME_SECONDS, pullOutS + pullInS) : 0;
-  const open: { leaveDepot: number; trips: number[]; free: number }[] = [];
+  const idleLimit = idleLimitOf(inputs);
+  const open: OpenBus[] = [];
   const stints: Stint[] = [];
-  const close = (s: (typeof open)[number]) => {
-    const last = s.trips[s.trips.length - 1]!;
-    const times = tripTimes(inputs, last);
-    const lastArrival = last + times.cycle / 2 + times.oneWayS;
-    stints.push({ leaveDepot: s.leaveDepot, trips: s.trips, lastArrival, arriveDepot: lastArrival + pullInS });
-  };
+  const close = (bus: OpenBus) => stints.push(closeStint(bus, () => inputs));
   for (const t of trips) {
-    for (let i = open.length - 1; i >= 0; i--) {
-      if (t - open[i]!.free > idleLimit) close(open.splice(i, 1)[0]!);
-    }
+    sendHomeIdle(open, t, idleLimit, close);
     // The bus free longest takes the departure; none free means one more pulls out.
-    let pick = -1;
-    for (let i = 0; i < open.length; i++) if (open[i]!.free <= t && (pick < 0 || open[i]!.free < open[pick]!.free)) pick = i;
+    const pick = freeLongest(open, t);
     const cycle = tripTimes(inputs, t).cycle;
     if (pick >= 0) {
       open[pick]!.trips.push(t);
       open[pick]!.free = t + cycle;
-    } else open.push({ leaveDepot: t - pullOutS, trips: [t], free: t + cycle });
+    } else open.push({ leaveDepot: t - inputs.pullOutS, trips: [t], free: t + cycle });
   }
-  for (const s of open) close(s);
+  for (const bus of open) close(bus);
   stints.sort((a, b) => a.leaveDepot - b.leaveDepot || a.trips[0]! - b.trips[0]!);
   return { inputs, trips, stints };
 }

@@ -3,7 +3,8 @@
 // (150 m, config/lines.ts); depots keep their place and find their street again on recompute, as on
 // every load. A stop that finds no street, or a line whose stops no longer join by street, refuses
 // the save in words, and the host sets it aside rather than playing a broken network. An event's
-// street is the old bake's edges, so the event is called off (the M4 spec, item 2).
+// street is the old bake's edges, so the event is called off (the M4 spec, item 2), and each line
+// starts settled on its own day plan, its earlier versions being the old bake's (item 4).
 import { STOP_STREET_REACH_M } from '../config/lines';
 import { toLngLat, toXY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
@@ -25,6 +26,7 @@ export function rebase(world: World, ref: CityRef): Result<{ readonly moved: num
   }
   state.city = { ...ref };
   state.event = null;
+  for (const line of state.lines) line.earlier = [];
   recompute(world);
   const lost = state.lines.find((l) => !world.services.has(l.id));
   if (lost) return refuse('line_off_street', { lineId: lost.id });

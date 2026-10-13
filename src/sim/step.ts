@@ -21,7 +21,7 @@ import { INTEREST_PER_DAY_PPM } from './config/economy';
 import { belowFloor } from './rules/credit';
 import { subsidyCents } from './rules/fare';
 import type { CityEvent } from './state';
-import { recompute, type World } from './world';
+import { recomputeInService, settle, type World } from './world';
 
 export type SimEvent = {
   readonly kind: 'day-closed';
@@ -36,7 +36,7 @@ export type SimEvent = {
   /** The event rolled at this close, which starts the day after the one just begun, and the event whose last day was the day just closed. */
   readonly rolled: CityEvent | null;
   readonly ended: CityEvent | null;
-  /** Roadworks started or ended at this close, so every line's round trip was timed again. */
+  /** Roadworks started or ended at this close, so every line's round trip was timed again, or a line settled onto its own day plan. */
   readonly retimed: boolean;
 };
 
@@ -54,7 +54,7 @@ function bankHour(world: World, hour: number, day: number): void {
     post(world.state.ledger, { day, kind: 'subsidy', amountCents: boardings * subsidyCents(line.fareCents), lineId: line.id });
   }
   for (const [lineId, service] of world.services) {
-    const costs = lineCostsInHour(service.costs, hour);
+    const costs = lineCostsInHour(service.costs, hour, day);
     for (const kind of ['running', 'wages', 'deadhead'] as const) {
       if (costs[kind] > 0) post(world.state.ledger, { day, kind, amountCents: -costs[kind], lineId });
     }
@@ -88,8 +88,11 @@ export function simStep(world: World): SimEvent[] {
   const endedEvent = last && last.endDay === ended.day ? last : null;
   const retimed = last !== null && (last.startDay === ended.day + 1 || endedEvent !== null) && last.kind === 'roadworks';
   const rolled = rollEvent(world, ended.day + 1);
-  if (retimed) recompute(world);
-  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed }];
+  // Lines settled onto their own day plans let go of their earlier versions; roadworks starting or
+  // ending time every line again, a trip under way finishing as it began (the M4 spec, item 4).
+  const settled = settle(world);
+  if (retimed) recomputeInService(world);
+  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed: retimed || settled }];
 }
 
 /** Whole steps covering `seconds` (a multiple of the step). */
