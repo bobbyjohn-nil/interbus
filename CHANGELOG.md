@@ -17,3 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The build number of the version you are looking at sits in the bottom-right corner, beside the map credits.
 - Press T to tilt the map into 3D, with Boston's buildings standing up from its streets; press T again to lay it flat. Buildings whose height isn't on record stand about three storeys for now.
 - Everything beyond the play area is greyed out behind a dashed edge, so you can see where the board ends.
+- Dots show where people live (purple) and where they work (blue) from Back Bay to Longwood, sized by how many.
+- Point anywhere on the map to see how many people live within a walk of that spot.
+- A test bus line from Copley to Longwood: press Run the debug line, then play. Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.

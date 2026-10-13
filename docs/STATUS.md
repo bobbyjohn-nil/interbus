@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 7c37cf8, with the sim file's publish workflow in review.
+**Updated:** 2026-10-13, at `main` 920089b, with the sim worker on the preview in review.
 
 ## Live now
 
@@ -10,7 +10,9 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **The first redeploy kept the previous build's files** on the real site ("kept 1 earlier build(s), fetched 2 file(s)").
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
-- **Data:** release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB). Release `city-boston-sources-20261012` holds the bake's eight pinned inputs. Mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
+- **Data:**
+  - release `city-boston-sim-mini-boston-ba4110d6` holds mini-Boston's `sim.json` (132,908 B), published by **City sim file (manual)** run 38346461662;
+  - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB). Release `city-boston-sources-20261012` holds the bake's eight pinned inputs. Mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
 
@@ -53,16 +55,21 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - 84 cells;
     - G1–G3 per extent;
     - a golden hash in `sim.lock.json` (I17).
-  - [ ] the fixture's `sim.json` published and named in `cities/index.json`, so the deploy ships it:
-    - the dispatch-only **City sim file (manual)** workflow (`.github/workflows/sim.yml`) re-bakes it, matches the golden hash and publishes a release asset;
-    - `npm run cities` fetches and checks a named `sim` like the tiles;
-    - left: run it with publish on, then add its entry to `cities/index.json`.
+  - [x] the fixture's `sim.json` published (2026-10-13), and named in `cities/index.json` in the sim-worker PR, so the deploy ships it. To republish after a bake change, run **City sim file (manual)** with publish on, then update the entry.
   - [x] the `sim.json` loader (2026-10-13, `src/sim/city/simfile.ts`):
     - strict, with refusals named;
     - one-way streets honoured by the router;
     - I10's network clauses hold on the fixture;
     - Copley to Longwood is 3,480 m by street.
-  - worker host;
+  - [x] the worker host (2026-10-13, `src/worker`):
+    - the fixed step at speeds of 10, 30 and 90 game-minutes a second;
+    - snapshots about 10 times a second, none while paused;
+    - message types in `src/sim/types`.
+  - [x] on the preview, from the sim worker:
+    - the dots of homes and jobs;
+    - "≈N people within a walk" at the pointer, equal to the rule's number in e2e;
+    - the debug line, with labelled chips and the day card (`e2e/sim.spec.ts`).
+  - [ ] still to do: the Inner Boston height-tag count, and `axe-core` in the smoke test;
   - demand dots and the catchment probe;
   - Inner Boston's height-tag count;
   - smoke;

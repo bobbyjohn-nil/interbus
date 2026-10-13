@@ -13,7 +13,7 @@ import {
   MASK_LAYERS,
   SOURCE,
 } from './style';
-import { LIGHT, type MapTokens } from './tokens';
+import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
 import { hexToOklch } from './oklch';
 
 const ASSET_BASE = 'https://example.test/interbus/';
@@ -145,6 +145,14 @@ describe('light tokens (PLAN §8 palette rules)', () => {
     for (const [name, hex] of Object.entries(tokens)) {
       const limit = name === 'water' || name === 'waterLabel' ? 0.07 : 0.04;
       expect(hexToOklch(hex).c, `${name} ${hex}`).toBeLessThanOrEqual(limit);
+    }
+  });
+});
+
+describe('game tokens (PLAN §8 rule 1)', () => {
+  it('keeps the data loud: chroma ≥0.12 for every dot colour', () => {
+    for (const [name, hex] of Object.entries({ homeDot: GAME_LIGHT.homeDot, jobDot: GAME_LIGHT.jobDot })) {
+      expect(hexToOklch(hex).c, `${name} ${hex}`).toBeGreaterThanOrEqual(0.12);
     }
   });
 });

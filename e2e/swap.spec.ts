@@ -12,8 +12,9 @@ const WORK = resolve('.cache/swap');
 const SHA_A = 'a'.repeat(40);
 const SHA_B = 'b'.repeat(40);
 const SHA_C = 'c'.repeat(40);
-const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: { file: string } | null }[] };
+const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: { file: string } | null; sim: { file: string } | null }[] };
 const CITY_FILE = registry.cities[0]?.tiles?.file ?? '';
+const SIM_FILE = registry.cities[0]?.sim?.file ?? '';
 // Build A stands for a deploy from before the last rebake, so its city file has another name and
 // only retention keeps it on the site.
 const CITY_FILE_A = 'boston-20260901-0000000a.pmtiles';
@@ -130,6 +131,12 @@ for (const [what, file] of [
   ['lazy map chunk', () => fileOfA(/^loadMap-.*\.js$/)],
   ['map worker', () => fileOfA(/^maplibre-gl-worker-.*\.js$/)],
   ['city file', () => `cities/${CITY_FILE_A}`],
+  ...(SIM_FILE
+    ? ([
+        ['sim worker', () => fileOfA(/^sim\.worker-.*\.js$/)],
+        ['sim file', () => `cities/${SIM_FILE}`],
+      ] as const)
+    : []),
 ] as const) {
   test(`a stale page whose ${what} is gone shows the replaced-build card`, async ({ page }) => {
     const gone = await serve(`${WORK}/c`, [file()]);

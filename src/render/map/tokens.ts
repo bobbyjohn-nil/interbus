@@ -32,6 +32,22 @@ export interface MapTokens {
   readonly waterLabel: string;
 }
 
+/** The loud data on the quiet base (PLAN §8 rule 1: game colours at OKLCH chroma ≥0.12). */
+export interface GameTokens {
+  /** Where people live: V1's purple (`Intralines@7af45b1:src/map/overlays.ts:45`). */
+  readonly homeDot: string;
+  /** Where people work: V1's teal (#0e7a92, chroma 0.094) pushed bluer to reach 0.137. */
+  readonly jobDot: string;
+  /** Stop markers' fill, under the line's own colour. */
+  readonly stopFill: string;
+}
+
+export const GAME_LIGHT: GameTokens = {
+  homeDot: '#7a54e0',
+  jobDot: '#0088c8',
+  stopFill: '#ffffff',
+};
+
 export const LIGHT: MapTokens = {
   void: '#d6d2c9',
   land: '#ebe7df',
