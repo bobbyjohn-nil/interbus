@@ -19,7 +19,8 @@ import { cutExtent, extentDir, playExtent } from './extent.mjs';
 import { fixtureDir } from './fixture.mjs';
 import { readCity, ROOT, sha256 } from './lib.mjs';
 import { airportGateway, assignInbound, roadGateways } from './gateways.mjs';
-import { buildStreets, parseOpl } from './streets.mjs';
+import { buildStreets, GRAPH_CLASSES, parseOpl } from './streets.mjs';
+import { isTransitTags } from './transit.mjs';
 
 export const SIM_FORMAT = 1;
 /** Residents count as served when a kept street passes within this distance (G3). */
@@ -173,6 +174,12 @@ export function bakeSim(cityId, extentId) {
     streets.nodes.filter(([x, y]) => !inside([x / 10, y / 10], MAP_PAD_M)).length +
     cells.reduce((n, c) => n + [...c.homes, ...c.work].filter((p) => !inside([p.x / 10, p.y / 10], 0)).length, 0);
 
+  // G10 (D17): no transit feature reaches sim.json. The clip keeps every public-transport element so
+  // this runs on real tags: only drivable streets become edges (busways as general streets, D17), and
+  // transit-tagged land is never depot land. tools/bake/tiles.mjs checks the map file.
+  const transitInInput = [...inputs.osm.nodes.values(), ...inputs.osm.ways, ...inputs.osm.relations].filter((e) => isTransitTags(e.tags)).length;
+  const transitKept = streets.edges.filter((e) => !GRAPH_CLASSES.has(e.cls)).length + areaRings(inputs.osm, isDepotLand).filter((a) => isTransitTags(a.tags)).length;
+
   const gates = [
     ['G1 cells', cells.length, cells.length >= profile.cells[0] && cells.length <= profile.cells[1], `${profile.cells[0]}–${profile.cells[1]}`],
     ['G2 nodes', streets.nodes.length, streets.nodes.length <= profile.maxNodes, `≤${profile.maxNodes}`],
@@ -181,6 +188,7 @@ export function bakeSim(cityId, extentId) {
     ['G5 residents in water', wet, wet <= (profile.residentsInWater ?? 0), `≤${profile.residentsInWater ?? 0}`],
     ['G5 airport gateway on its aerodrome', airport ? airport.name : 'none', airportOk, profile.airport ? 'required' : 'not required'],
     ['G6 nodes or people outside the map', strays, strays === 0, '0'],
+    ['G10 transit features in sim.json', transitKept, transitKept === 0, `0 of the clip's ${transitInInput}`],
   ].map(([gate, value, ok, limit]) => ({ gate, value, ok, limit }));
   const failed = gates.filter((g) => !g.ok);
   if (failed.length) throw new Error(`sim: ${failed.map((g) => `${g.gate} ${g.value} (needs ${g.limit})`).join('; ')}`);

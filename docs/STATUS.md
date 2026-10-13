@@ -2,15 +2,15 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 3c9df69 (depots in the sim), with costs as ledger rows in review.
+**Updated:** 2026-10-13, at `main` 65833d1 (costs as ledger rows), with G9 and G10 in review.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ee8d74f. Deploy preview run 38354291134's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 65833d1. Deploy preview run 38358299542's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
-  - **Run the debug line** with its day card.
+  - **Run the debug line** with its Costs/day chip, and a day card listing fares, subsidy, running costs and driver wages.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -77,7 +77,12 @@ The spec is [`docs/specs/current.md`](specs/current.md). In this order, each a s
 1. [x] **The cycle function** (2026-10-13, `src/sim/rules/cycle.ts`): a round trip, the buses each running period needs, the headway a short line runs, and the founding recipe counted with it (two Sparrows; $427,200 at k = 1.2; D7's clarification). The Sparrow is a config row in `src/sim/config/fleet.ts`.
 2. [x] **Depots in the sim** (2026-10-13): the siting rule (`src/sim/rules/depot.ts`: depot land, a street node within 400 m, 120 m from other depots, five at most), the place command, V1's price ladder ($150k to $760k), save format 3, and the worker's `depot-site` and `place-depot` messages with depot land for the tint. Upkeep is a config row charged with the costs (step 3); the card and tint draw with the line tool (step 5).
 3. [x] **Costs as ledger rows** (2026-10-13): the timetable (`src/sim/rules/timetable.ts`), running, wages and deadhead per line and upkeep per depot, banked hourly from `src/sim/economy/costs.ts`, and the forecast the line inspector will show, equal to the day's rows to the cent on a part day and a whole one. On day 2 the debug line nets +$1,388.93 (DECISIONS, Measured). A closed day's rows merge into one per kind and line, so a save grows about 354 B a day instead of about 5 KB. The panel's Costs/day chip reads the forecast until the calm shell's inspector (step 7). Save format 4 holds each line's buses.
-4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze. Depot land, gateways and G5–G7 are done (2026-10-13; DECISIONS, Measured); G9 (load ≤300 ms) and G10 (no transit feature, including in the map file) remain.
+4. [ ] **Depot land and gateways in `sim.json` format 1**, then G5–G10 on both extents, before the Nov 8 freeze. Depot land, gateways and G5–G7 are done (2026-10-13; DECISIONS, Measured).
+   - **G9** (2026-10-13, `bench/load.ts`): Inner Boston first-loads in 130 ms on GitHub's runner. The City sim file workflow runs it before publishing.
+   - **G10** is written for both files:
+     - `sim.json`: neither clip lets a transit element through (789 and 6,286 in the clips);
+     - the map file: `tools/bake/tiles.mjs` strips 9,785 transit features and opens 116 busway pieces, and the City tiles workflow runs it before publishing.
+   - **Left:** dispatch the City tiles workflow and ship the stripped map file in `cities/index.json`.
 5. [ ] **The line tool and headways to purchase:** stops, the 250 m join, the draft card, Create, the "needs N buses" card.
 6. [ ] **The vehicle layer:** `busPositionAt`, the code-drawn glyph, I12.
 7. [ ] **The calm shell** replacing the debug panel, and I13.

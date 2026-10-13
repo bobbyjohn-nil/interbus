@@ -46,11 +46,14 @@ npm run bake:fixture           # re-cut mini-Boston from the mirrored sources (d
 npm run bake:sim               # bake mini-Boston's sim.json and check it against its golden hash
 node tools/bake/sim.mjs boston inner-boston --check   # cut and bake the play extent from the mirror (~5 min, ~0.5 GB once)
 npm run bench                  # time the demand recompute (I14); `npm run bench compare` checks it against the reference loop
+npm run bench load             # time a sim.json from text to a ready world (G9, ≤300 ms)
+node tools/bake/tiles.mjs check public/cities/<file>.pmtiles   # G10 on a map file
 ```
 
 Every merge to `main` deploys the preview to GitHub Pages; the build chip in the bottom-right
 corner shows which commit you are looking at. City tiles come from the dispatch-only
-**City tiles (manual)** workflow, never from players' browsers. The bake's inputs (OpenStreetMap,
+**City tiles (manual)** workflow, never from players' browsers; it strips every transit feature
+from the cut (D17) and fails if any is left (G10). The bake's inputs (OpenStreetMap,
 2020 census blocks, LODES commutes) are fetched once by the dispatch-only **Bake sources (manual)**
 workflow, which records their hashes in `cities/<city>/sources.lock.json` and mirrors them to a
 release; every bake reads only that mirror. `tools/bake/fixtures/mini-boston/` is every input

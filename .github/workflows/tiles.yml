@@ -1,6 +1,7 @@
-# Cuts Boston's map tiles from a pinned Protomaps daily build (PLAN §14 item 4) and publishes them
-# as a content-hashed release asset. Dispatch only; players' browsers never fetch source data.
-# After a real run, copy the printed entry into cities/index.json in a PR.
+# Cuts Boston's map tiles from a pinned Protomaps daily build (PLAN §14 item 4), strips every transit
+# feature and opens bus-only streets (D17; tools/bake/tiles.mjs, which fails on any transit left,
+# G10), and publishes the result as a content-hashed release asset. Dispatch only; players' browsers
+# never fetch source data. After a real run, copy the printed entry into cities/index.json in a PR.
 name: City tiles (manual)
 
 on:
@@ -8,6 +9,10 @@ on:
     inputs:
       build:
         description: Protomaps daily build date, YYYYMMDD (blank = newest listed)
+        required: false
+        default: ''
+      expect_raw_sha256:
+        description: The extract's sha256 when re-cutting a build already published (blank = record whatever it is)
         required: false
         default: ''
       dry_run:
@@ -33,6 +38,10 @@ jobs:
         with:
           # Third-party Go code builds and runs below; keep the write token out of .git/config.
           persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       - uses: actions/setup-go@v7
         with:
@@ -73,6 +82,22 @@ jobs:
           if [ "$DRY" = "true" ]; then flags+=(--dry-run); fi
           "$(go env GOPATH)/bin/go-pmtiles" extract "$SRC" boston.pmtiles "${flags[@]}"
 
+      - name: 'Strip transit, and check none is left (D17, G10)'
+        if: ${{ !inputs.dry_run }}
+        id: strip
+        env:
+          EXPECT: ${{ inputs.expect_raw_sha256 }}
+        run: |
+          raw=$(sha256sum boston.pmtiles | cut -d' ' -f1)
+          echo "Raw extract: $(stat -c %s boston.pmtiles) B, sha256 $raw"
+          if [ -n "$EXPECT" ] && [ "$raw" != "$EXPECT" ]; then
+            echo "::error::the extract's sha256 is $raw, not $EXPECT"
+            exit 1
+          fi
+          echo "raw=$raw" >> "$GITHUB_OUTPUT"
+          node tools/bake/tiles.mjs strip boston.pmtiles stripped.pmtiles
+          mv stripped.pmtiles boston.pmtiles
+
       - name: Publish as a release asset
         if: ${{ !inputs.dry_run }}
         env:
@@ -80,6 +105,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           DATE: ${{ steps.pick.outputs.date }}
           SOURCE: ${{ steps.pick.outputs.source }}
+          RAW: ${{ steps.strip.outputs.raw }}
         run: |
           sha=$(sha256sum boston.pmtiles | cut -d' ' -f1)
           bytes=$(stat -c %s boston.pmtiles)
@@ -87,7 +113,7 @@ jobs:
           tag="city-boston-tiles-${DATE}-${sha:0:8}"
           mv boston.pmtiles "$file"
           gh release create "$tag" "$file" --title "Boston tiles ${DATE}" \
-            --notes "Cut from Protomaps build ${DATE} (https://build.protomaps.com/${DATE}.pmtiles) with go-pmtiles ${PMTILES_VERSION}, bbox ${BBOX}, maxzoom ${MAXZOOM}. Source build as listed by build-metadata.protomaps.dev: ${SOURCE}. Map data © OpenStreetMap contributors (ODbL); Protomaps basemap."
+            --notes "Cut from Protomaps build ${DATE} (https://build.protomaps.com/${DATE}.pmtiles) with go-pmtiles ${PMTILES_VERSION}, bbox ${BBOX}, maxzoom ${MAXZOOM} (extract sha256 ${RAW}), then stripped of every transit feature with bus-only streets opened (D17, tools/bake/tiles.mjs at ${GITHUB_SHA}). Source build as listed by build-metadata.protomaps.dev: ${SOURCE}. Map data © OpenStreetMap contributors (ODbL); Protomaps basemap."
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${file}"
           {
             echo "### cities/index.json entry"

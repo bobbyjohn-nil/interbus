@@ -24,6 +24,13 @@ test('areaRings: closed ways, and a multipolygon joined from outer ways in any d
   assert.ok(!inRing(rings[1].ring, 0.0095, 0.0005));
 });
 
+test('depot land is industrial land, but never a rail yard tagged industrial (D17, G10)', () => {
+  assert.ok(isDepotLand({ landuse: 'industrial' }));
+  assert.ok(!isDepotLand({ landuse: 'industrial', railway: 'yard' }));
+  assert.ok(!isDepotLand({ landuse: 'industrial', public_transport: 'station' }));
+  assert.ok(!isDepotLand({ landuse: 'railway' }));
+});
+
 test('road gateways: one per major road reaching the edge, merged when close, none from minor streets', () => {
   const box = [-71.16, 42.315, -70.98, 42.405];
   const frame = cityFrame(box);
