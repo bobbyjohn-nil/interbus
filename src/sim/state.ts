@@ -8,7 +8,7 @@ import type { Headways } from './rules/periods';
 import type { BusModelId } from './config/fleet';
 import type { StopTier } from './config/stops';
 
-/** Which city file the game runs on; a save names it so a different city or revision is refused, never substituted. */
+/** Which city file the game runs on; a save names it, so another city is refused, never substituted, and another bake of this one is rebased (save/rebase.ts). */
 export interface CityRef {
   readonly id: string;
   readonly revision: string;
@@ -45,7 +45,7 @@ export interface Line {
 }
 
 export interface SimState {
-  readonly city: CityRef;
+  city: CityRef;
   /** Whole game-seconds since founding (05:00 on day 1). */
   elapsed: number;
   rng: Rng;

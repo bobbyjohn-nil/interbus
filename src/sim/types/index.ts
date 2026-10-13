@@ -193,8 +193,12 @@ export interface DayCard {
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */
 export type StoreEffect = { readonly op: 'write'; readonly key: string; readonly value: string } | { readonly op: 'remove'; readonly key: string };
 
-/** What became of the save a game started from: none, read, or set aside for a fresh start (D12). */
-export type LoadView = 'none' | 'ok' | 'newer' | 'older' | 'unreadable' | 'other-city';
+/**
+ * What became of the save a game started from: none, read, read onto another bake of the map with
+ * its stops on the new streets, or set aside for a fresh start (D12), including one whose stops
+ * found no street on the new bake.
+ */
+export type LoadView = 'none' | 'ok' | 'rebaked' | 'newer' | 'older' | 'unreadable' | 'other-city' | 'off-street';
 
 export type ToWorker =
   | { readonly type: 'init'; readonly simText: string; readonly city: CityRefData; readonly seed: number; readonly build: { readonly sha: string; readonly version: string } }

@@ -169,9 +169,17 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     expect(decode(raw(state, (e) => void (e.format = 0)), CITY).result).toEqual({ outcome: 'unreadable', problem: 'no format' });
   });
 
-  it('sets aside another city or revision, never reading it into this one (a rebake, D12)', () => {
+  it('sets aside another city, never reading it into this one (D12)', () => {
+    const worcester = { ...CITY, id: 'worcester' };
+    const text = encode({ ...state, city: worcester }, BUILD);
+    expect(decode(text, CITY)).toEqual({ result: { outcome: 'other-city', city: worcester }, effects: setAside('other-city', text) });
+  });
+
+  it('reads another bake of this city for its stops to go onto this bake’s streets, setting nothing aside yet (the M3 spec, item 8)', () => {
     const text = encode(state, BUILD);
-    expect(decode(text, { ...CITY, revision: 'r1' })).toEqual({ result: { outcome: 'other-city', city: CITY }, effects: setAside('other-city', text) });
+    const { result, effects } = decode(text, { ...CITY, revision: 'r2' });
+    expect(result).toMatchObject({ outcome: 'rebaked', from: CITY, envelope: { data: toSaveData(state) } });
+    expect(effects).toEqual([]);
   });
 
   // Each of these V3 read as something: V3 defaulted a missing nextIds to 0 (reissuing live ids),

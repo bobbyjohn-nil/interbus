@@ -72,8 +72,10 @@ export function undoText(u: { readonly command: string; readonly subject: string
 export const LOAD_COPY: Readonly<Record<LoadView, string | null>> = {
   none: null,
   ok: null,
+  rebaked: 'Save carried onto the new map',
   older: 'Save from an older build set aside',
   newer: 'Save from a newer build set aside',
   unreadable: 'Unreadable save set aside',
-  'other-city': 'Save from an older map set aside',
+  'other-city': 'Save from another city set aside',
+  'off-street': 'Save’s stops miss the new map: set aside',
 };
