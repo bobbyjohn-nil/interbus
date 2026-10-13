@@ -16,6 +16,16 @@ export interface CityTiles {
   readonly maxzoom: number;
 }
 
+/** A city's sim.json (PLAN §5 "Pack"), published by the City sim file workflow. */
+export interface CitySim {
+  readonly file: string;
+  readonly url: string;
+  readonly sha256: string;
+  readonly bytes: number;
+  /** Which gate profile it was baked to: the fixture until the week-3 bake. */
+  readonly extent: string;
+}
+
 export interface City {
   readonly id: string;
   readonly name: string;
@@ -23,6 +33,7 @@ export interface City {
   readonly extent: Bbox;
   readonly view: { readonly center: LonLat; readonly zoom: number };
   readonly tiles: CityTiles | null;
+  readonly sim: CitySim | null;
 }
 
 export const CITIES: readonly City[] = registry.cities as unknown as City[];

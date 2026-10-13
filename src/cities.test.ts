@@ -31,6 +31,20 @@ describe('city registry', () => {
   });
 });
 
+describe('sim files', () => {
+  it('names a content-hashed release asset baked to a gate profile the city has', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const city of CITIES) {
+      if (!city.sim) continue;
+      const config = JSON.parse(readFileSync(`cities/${city.id}/city.json`, 'utf8')) as { gates: Record<string, unknown> };
+      expect(Object.keys(config.gates)).toContain(city.sim.extent);
+      expect(city.sim.sha256).toMatch(/^[0-9a-f]{64}$/);
+      expect(city.sim.file).toBe(`sim-${city.id}-${city.sim.extent}-${city.sim.sha256.slice(0, 8)}.json`);
+      expect(city.sim.url).toMatch(/^https:\/\/github\.com\/bobbyjohn-nil\/interbus\/releases\/download\//);
+    }
+  });
+});
+
 describe('the tiles workflow', () => {
   it('cuts exactly the padded play area the map allows', async () => {
     const { readFileSync } = await import('node:fs');

@@ -23,7 +23,8 @@
         "bytes": 15560031,
         "source": "Protomaps daily build 20261012",
         "maxzoom": 15
-      }
+      },
+      "sim": null
     }
   ]
 }
