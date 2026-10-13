@@ -41,6 +41,6 @@ describe('the fare against the ride', () => {
 
   it('leaves riders as they were at $2.25, whatever the ride', () => {
     const plain = assign(world.city, world.commuters, [debug]).lines.get(debug.id)!.perDay;
-    expect(plain).toBeCloseTo(636.3, 1);
+    expect(plain).toBeCloseTo(614.4, 1);
   });
 });

@@ -32,8 +32,9 @@
     ]
   },
   "calib": {
-    "about": "Demand scaling per extent (PLAN §3: prices stay V1's, calib.tripScale scales demand). Mini-Boston's is set so the debug line (Copley, Symphony, the MFA, Longwood; every 20 min by day; $2.25) carries 600–1,000 boardings a day, the spec's target beside V1's starter at 1,058 (EC-11). Measured 2026-10-13 at 1000‰: 7,200.7 a day, so 111‰ gives about 800; src/sim/demand/calibration.test.ts holds the band. Inner Boston's is re-measured on city-boston-r1 in week 5.",
-    "mini-boston": { "tripScalePermille": 111 }
+    "about": "Demand scaling per extent (PLAN §3: prices stay V1's, calib.tripScale scales demand). Mini-Boston's is set so the debug line (Copley, Symphony, the MFA, Longwood; every 20 min by day; $2.25) carries 600–1,000 boardings a day, the spec's target beside V1's starter at 1,058 (EC-11). Measured 2026-10-13 at 1000‰: 7,200.7 a day, so 111‰ gives about 800; src/sim/demand/calibration.test.ts holds the band. Inner Boston's is re-measured on city-boston-r1 in week 5. gravityBetaM is the commuter matrix's decay, exp(-d/β) (src/sim/demand/commuters.ts): `node tools/bake/beta.mjs boston inner-boston` fits it to LODES's commutes with both ends inside the play area, measured 2026-10-13 as 3,260 m (LODES's mean commute between cells 3.499 km; V1's 4,000 m gave 3.655). The fixture takes Inner Boston's: its own box cuts off every longer commute, so its own fit (1,240 m) would describe the box, not Boston.",
+    "mini-boston": { "tripScalePermille": 111, "gravityBetaM": 3260 },
+    "inner-boston": { "gravityBetaM": 3260 }
   },
   "fixture": {
     "about": "Mini-Boston, Back Bay to Longwood (PLAN §5): every input clipped to this box and committed under tools/bake/fixtures/, so PR checks and the money work never wait for the full bake.",

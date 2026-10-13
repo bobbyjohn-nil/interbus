@@ -58,6 +58,7 @@ export function syntheticCity(seed = 1): City {
     streets,
     cells,
     tripScalePermille: 111,
+    gravityBetaM: 4_000, // V1's, as the synthetic city was measured with
     gateways: [],
     depotLand: [],
     landmarks: [],
