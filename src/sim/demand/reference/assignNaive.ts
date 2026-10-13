@@ -11,6 +11,8 @@ import { CENTS_PER_MINUTE, DWELL_SEC, BUS_KMH, MAX_WALK_M, REFERENCE_FARE_CENTS,
 import { STOP_TIERS } from '../../config/stops';
 import { distXY, SpatialGrid } from '../../core/geo';
 import type { City, SubPoint } from '../../city/simfile';
+import { EXPRESS_FARE_WEIGHT, EXPRESS_RIDE_WEIGHT } from '../../config/express';
+import { planIsExpress } from '../../rules/express';
 import { PERIODS, runsIn, type Period } from '../../rules/periods';
 import type { Commuters } from '../commuters';
 import { periodCongestion } from '../../traffic/congestion';
@@ -64,7 +66,9 @@ export function assignNaive(
       return [period, runsIn(plan.headways, period) && h !== null ? h : Infinity];
     })) as Record<Period, number>,
   );
-  const fareMin = plans.map((plan) => (plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE);
+  // An express line's fare minded half as much, and its ride felt at EXPRESS_RIDE_WEIGHT of its minutes.
+  const express = plans.map(planIsExpress);
+  const fareMin = plans.map((plan, line) => ((plan.fareCents - REFERENCE_FARE_CENTS) / CENTS_PER_MINUTE) * (express[line] ? EXPRESS_FARE_WEIGHT : 1));
   // Each line's congestion in each period, in PERIODS order: the factor on its drive.
   const traffic = plans.map((plan) => {
     const factor = periodCongestion(plan.rush ?? 0);
@@ -74,7 +78,7 @@ export function assignNaive(
   const rideMin = (line: number, a: number, b: number, k: number) => {
     const plan = plans[line]!;
     const metres = Math.abs(plan.stopDistM[b]! - plan.stopDistM[a]!);
-    return (metres / 1000 / BUS_KMH) * 60 * (k < 3 ? traffic[line]![k]! : 1) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60);
+    return ((metres / 1000 / BUS_KMH) * 60 * (k < 3 ? traffic[line]![k]! : 1) + Math.max(0, Math.abs(b - a) - 1) * (DWELL_SEC / 60)) * (express[line] ? EXPRESS_RIDE_WEIGHT : 1);
   };
   const rideKm = (line: number, a: number, b: number) => Math.abs(plans[line]!.stopDistM[b]! - plans[line]!.stopDistM[a]!) / 1000;
   // Each pair of lines' quickest change in each period, and at the day's average traffic (k = 3),

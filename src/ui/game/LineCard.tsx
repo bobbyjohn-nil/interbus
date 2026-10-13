@@ -3,6 +3,7 @@ import { cyclesOf } from '../../sim/rules/cycle';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { HEADWAY_MINUTES } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
+import { planIsExpress } from '../../sim/rules/express';
 import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
@@ -54,6 +55,11 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
     <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={line.forecastCents.running}>
       <h2>
         <span className="swatch" style={{ background: line.colour }} /> {line.name}
+        {planIsExpress(line) ? (
+          <span className="express" data-testid="express" title="5 km or more with its stops 1.2 km apart: riders feel its ride quicker and mind its fare half as much">
+            Express
+          </span>
+        ) : null}
       </h2>
       <p>
         {about(line.ridersPerDay)} riders a day · {busCount(line.buses, model.name)}

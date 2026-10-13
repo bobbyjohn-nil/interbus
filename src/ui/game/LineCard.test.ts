@@ -77,4 +77,9 @@ describe('the line card', () => {
     expect(render({ rush: 0.4, cycles: snowy }, null, { kind: 'snow', street: '', phase: 'on' })).toContain(' · snow adds 7 min<');
     expect(render({ rush: 0.4, cycles: clear }, null, { kind: 'snow', street: '', phase: 'pending' })).not.toContain('snow adds');
   });
+
+  it('says Express beside the name of a line of 5 km or more with its stops 1.2 km apart, and nothing beside a local one', () => {
+    expect(render({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_800, 3_600, 5_300] })).toContain('data-testid="express"');
+    expect(render({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_339, 2_425, 3_535] })).not.toContain('Express');
+  });
 });

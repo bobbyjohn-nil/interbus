@@ -47,7 +47,7 @@ Work starts now, ahead of the calendar, money first; P1 may reorder it.
 
 ## Below the cut line (cut in this order if Dec 6 is at risk)
 
-1. **Express behind I3** (PLAN cut 2; X-20): a line earns express from its streets (≥5 km, average spacing ≥1,200 m on the routed path, V1's `Intralines@7af45b1:src/game/constants.ts:390-431`), riders weigh its ride ×0.85 and its fare ×0.5, and it ships only if I3 holds: its best fare under $5 (V2 peaked at $5.00 before the subsidy taper and $2.75 after, EC-05) and the starter recipe not express (K16: a 5.3 km starter earned +$3,167 a day).
+1. **Express behind I3** (PLAN cut 2; X-20): a line earns express from its streets (≥5 km, average spacing ≥1,200 m on the routed path, V1's `Intralines@7af45b1:src/game/constants.ts:390-431`), riders weigh its ride ×0.85 and its fare ×0.5, and it ships only if I3 holds: its best fare under $5 (V2 peaked at $5.00 before the subsidy taper and $2.75 after, EC-05) and the starter recipe not express (K16: a 5.3 km starter earned +$3,167 a day). Built so, with V1's three-stop minimum and without its ×1.5 subsidy: I3 holds on an express Massachusetts Avenue, in the PR checks in small and nightly in full (DECISIONS, Measured). The map's express chevrons (PLAN §8) wait for look work.
 2. Festival and snow (PLAN cut 4: events down to roadworks).
 3. Route insert (PLAN cut 6); no bus jumps on remove, extend and model swaps stays.
 4. Gold (PLAN cut 7); the Goliath stays behind silver.
