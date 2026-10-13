@@ -36,7 +36,8 @@ test.describe('the GPU ladder', () => {
     await page.getByRole('button', { name: 'Create' }).click();
     await page.getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: '1×' }).click();
-    await expect(page.getByTestId('fps')).toContainText('Low graphics', { timeout: 10_000 });
+    // The readout names where it was read: the camera's zoom and pitch, and the rung.
+    await expect(page.getByTestId('fps')).toContainText(/ fps · p95 \d+ ms · zoom 1\d\.\d · 0° · Low graphics$/, { timeout: 10_000 });
     await expect.poll(async () => Number(await map.getAttribute('data-fps')), { timeout: 10_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(2_500); // a full window of frames at speed
     expect(Number(await map.getAttribute('data-fps'))).toBeLessThanOrEqual(31);

@@ -78,7 +78,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   // Low graphics keeps the map flat; `T` says so for a moment instead.
   const [flatNotice, setFlatNotice] = useState(false);
   // The `?fps` readout: frames a second and the slowest twentieth's frame time.
-  const [fps, setFps] = useState<{ fps: number; p95Ms: number } | null>(null);
+  const [fps, setFps] = useState<{ fps: number; p95Ms: number; zoom: number; pitch: number } | null>(null);
   const [tileReads, setTileReads] = useState<string>('');
   const [features, setFeatures] = useState<number | null>(null);
   /** Set once the board is ready, so `T` never reaches a style still loading. */
@@ -149,7 +149,11 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         if (fpsSwitch()) {
           const meter = new FpsMeter();
           mounted.map.on('render', () => meter.frame(performance.now()));
-          const timer = window.setInterval(() => setFps(meter.summary(performance.now())), 500);
+          // With the camera's zoom and pitch, so a reading names where it was taken (PLAN §6: 3D at zoom 17, pitch 60).
+          const timer = window.setInterval(() => {
+            const summary = meter.summary(performance.now());
+            setFps(summary && { ...summary, zoom: mounted.map.getZoom(), pitch: mounted.map.getPitch() });
+          }, 500);
           stopMeter = () => window.clearInterval(timer);
         }
         const now = latest.current;
@@ -288,7 +292,7 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
       ) : null}
       {fps ? (
         <p className="fps" data-testid="fps">
-          {Math.round(fps.fps)} fps · p95 {Math.round(fps.p95Ms)} ms · {rung === 'low' ? 'Low graphics' : 'full graphics'}
+          {Math.round(fps.fps)} fps · p95 {Math.round(fps.p95Ms)} ms · zoom {fps.zoom.toFixed(1)} · {Math.round(fps.pitch)}° · {rung === 'low' ? 'Low graphics' : 'full graphics'}
         </p>
       ) : null}
     </div>
