@@ -8,7 +8,8 @@
 // pays the lender's interest, and a close below the credit floor counts toward the end (D10). Held
 // contracts are checked at each service hour's end and graded at the close, which then rolls the
 // next day's offers (economy/contracts.ts) and may roll an event for the day after (events/roll.ts);
-// a close where roadworks start or end times every line's round trip again.
+// a close where roadworks start or end times every line's round trip again. Each close awards the
+// medals its card and the trips carried earn (rules/medal.ts), once each, and starts the day's count again.
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour } from './economy/costs';
@@ -19,6 +20,8 @@ import { rollEvent } from './events/roll';
 import { DAYS_PER_QUARTER } from './config/time';
 import { INTEREST_PER_DAY_PPM } from './config/economy';
 import { belowFloor } from './rules/credit';
+import { medalsEarned } from './rules/medal';
+import type { MedalId } from './config/medals';
 import { subsidyCents } from './rules/fare';
 import type { CityEvent } from './state';
 import { recomputeInService, settle, type World } from './world';
@@ -38,6 +41,10 @@ export type SimEvent = {
   readonly ended: CityEvent | null;
   /** Roadworks started or ended at this close, so every line's round trip was timed again, or a line settled onto its own day plan. */
   readonly retimed: boolean;
+  /** Medals awarded at this close, bronze first (rules/medal.ts). */
+  readonly medals: readonly MedalId[];
+  /** The trips carried on the day just closed. */
+  readonly trips: number;
 };
 
 /** Posts the hour that just ended: its paid boardings as fare and subsidy rows, its costs, each depot's upkeep. */
@@ -50,6 +57,8 @@ function bankHour(world: World, hour: number, day: number): void {
     line.boardedMilli += milli;
     const boardings = Math.floor(line.boardedMilli / 1000) - Math.floor(before / 1000);
     if (boardings <= 0) continue;
+    world.state.tripsCarried += boardings;
+    world.state.tripsToday += boardings;
     post(world.state.ledger, { day, kind: 'fares', amountCents: boardings * line.fareCents, lineId: line.id });
     post(world.state.ledger, { day, kind: 'subsidy', amountCents: boardings * subsidyCents(line.fareCents), lineId: line.id });
   }
@@ -75,6 +84,10 @@ export function simStep(world: World): SimEvent[] {
   const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
   if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
   const contracts = closeContracts(world, ended.day);
+  const trips = state.tripsToday;
+  const medals = medalsEarned(state.medals, { card, tripsCarried: state.tripsCarried, tripsToday: trips });
+  for (const m of medals) state.medals = { ...state.medals, [m]: ended.day };
+  state.tripsToday = 0;
   if (state.ledger.cashCents < 0) {
     const interest = Math.round((-state.ledger.cashCents * INTEREST_PER_DAY_PPM) / 1_000_000);
     if (interest > 0) post(state.ledger, { day: ended.day, kind: 'interest', amountCents: -interest });
@@ -92,7 +105,7 @@ export function simStep(world: World): SimEvent[] {
   // ending time every line again, a trip under way finishing as it began (the M4 spec, item 4).
   const settled = settle(world);
   if (retimed) recomputeInService(world);
-  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed: retimed || settled }];
+  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed: retimed || settled, medals, trips }];
 }
 
 /** Whole steps covering `seconds` (a multiple of the step). */

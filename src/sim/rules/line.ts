@@ -16,12 +16,15 @@ import { busesNeeded, cycleSeconds, cyclesOf, slowedM, type Cycles } from './cyc
 import { checkHeadways, type HeadwayRefusal, type Headways } from './periods';
 import { spendableCents } from './credit';
 import { checkStopSite, type StopPick, type StopSiteContext } from './stop';
+import { modelLocked, type Medals } from './medal';
 
-/** What the fleet rules read: depots built, buses owned across every line, and cash. */
+/** What the fleet rules read: depots built, buses owned across every line, cash and the medals held. */
 export interface FleetContext {
   readonly depots: number;
   readonly busesOwned: number;
   readonly cashCents: number;
+  /** The medals held, which unlock bus models (rules/medal.ts). */
+  readonly medals: Medals;
 }
 
 /** A leg as the line drives it: street metres, those metres weighted by how much of the rush each street takes, and those through roadworks today. */
@@ -115,7 +118,7 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   const draft: LineDraft = { stops, stopDistM, routeM, cycle, cycles, rush, worksM, buses, newStops, stopsCents, busesCents, priceCents: stopsCents + busesCents };
 
   if (ctx.depots === 0) return refuse('needs_depot', { draft });
-  if (model.locked) return refuse('model_locked', { draft });
+  if (modelLocked(model, ctx.medals)) return refuse('model_locked', { draft });
   if (problem) return refuse(problem.reason, { draft, at: problem.at, ...(problem.limitM === undefined ? {} : { limitM: problem.limitM }) });
   if (!enough) return refuse('too_few_stops', { draft });
   if (!headwaysOk.ok) return refuse(headwaysOk.reason, { draft, ...(headwaysOk.limitSeconds === undefined ? {} : { limitSeconds: headwaysOk.limitSeconds }) });
@@ -157,7 +160,7 @@ export function checkModelChange(
   to: BusModel,
 ): Result<{ needed: number; buyCents: number; saleCents: number }, ModelChangeRefusal, { room?: number; shortCents?: number }> {
   if (to.id === line.model.id) return refuse('same_model');
-  if (to.locked) return refuse('model_locked');
+  if (modelLocked(to, ctx.medals)) return refuse('model_locked');
   const needed = busesNeeded(cyclesOf(slowedM(line.routeM, line.worksM ?? 0), line.stops, to.kmh, line.rush ?? 0), line.headways);
   const room = depotRoom(ctx) + line.buses;
   if (needed > room) return refuse('depot_full', { room });

@@ -1,5 +1,6 @@
 // Display copy for numbers (V3's format.ts moved out of the sim, which never formats). Integer
 // maths on cents, so -150 cents reads -$1.50, never V3's rounded "-$1".
+import { BRONZE_OVERALL, GOLD_GRADE_MIN, GOLD_OVERALL, GOLD_TRIPS_PER_DAY, SILVER_TRIPS, type MedalId } from '../sim/rules/medal';
 
 /** "$313,200" for whole-dollar chips; "$1,234.56" with `cents`. */
 export function usd(amountCents: number, options: { cents?: boolean } = {}): string {
@@ -75,6 +76,20 @@ export function busCount(n: number, model: string): string {
 /** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */
 export function eventNewsText(e: { readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
   return e.news === 'tomorrow' ? `Roadworks on ${e.street} tomorrow, for ${e.days} ${e.days === 1 ? 'day' : 'days'}` : `Roadworks on ${e.street} are over`;
+}
+
+export const MEDAL_NAMES: Readonly<Record<MedalId, string>> = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };
+
+/** What earns a medal (the M4 spec, item 3), read from the bars the close uses. */
+export function medalBarText(m: MedalId): string {
+  if (m === 'bronze') return `a quarter graded ${BRONZE_OVERALL} or better`;
+  if (m === 'silver') return `${SILVER_TRIPS.toLocaleString('en-US')} trips carried`;
+  return `a quarter graded ${GOLD_OVERALL} or better, no grade under ${GOLD_GRADE_MIN}, on a day of ${GOLD_TRIPS_PER_DAY.toLocaleString('en-US')} trips`;
+}
+
+/** A medal's notice on the day card: what earned it, and what silver unlocks. */
+export function medalNewsText(m: MedalId): string {
+  return `${MEDAL_NAMES[m]} medal: ${medalBarText(m)}${m === 'silver' ? '. The Goliath is for sale' : ''}`;
 }
 
 /** A round trip on the line card: whole minutes, or minutes and seconds where a few seconds matter. */

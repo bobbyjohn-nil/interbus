@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` ad0f8f2 (no bus jumps on a change): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: route insert is in review, and medals are next.
+**Updated:** 2026-10-13, at `main` bc8a168 (route insert): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: medals are in review, and the full sweep is next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ad0f8f2. Deploy preview run 38445631959's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` bc8a168. Deploy preview run 38448175135's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -20,7 +20,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a fare per line from $1.00 to $5.00 on the line card, with the band of fares that net the most;
   - each stop's day on a click (boardings, alightings, net), and QUIET or LOSS stops ringed on the map;
   - stop tiers from a Sign to a Transfer Hub on the stop card, and each line's button there to take the stop off it;
-  - a line extended from either end, from Lines, priced on the draft card;
+  - a line extended from either end, or a stop inserted into it where the player clicks, from Lines, priced on the draft card;
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
   - undo while paused, on a chip and Ctrl+Z;
   - a save from another bake of the map carried onto it;
@@ -222,7 +222,7 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m
    - [ ] Festival and snow (below the cut's second).
 3. [x] **No bus jumps on a change** (item 4; 2026-10-13): a line changed with its buses out keeps the version it ran on, and its merged plan finishes every trip under way on its own route and times, the new departures taking buses as they come free, until it hands over to its day plan with nothing moving (save format 12). Removing a stop, extending, a new headway or model and roadworks starting moved buses 94–2,774 m at the change and now 0.0 m; the handover comes 20–30 minutes on, or hours after a longer headway on the same buses, by the next morning at the latest (DECISIONS, Measured).
 4. [x] **Route insert** (item 4; 2026-10-13): Insert a stop on the line card, then a click within 300 m of the line goes into its nearest leg, priced on the card with a warning over a 15% detour; one command, one undo, and no bus moves at the click (exit check 3 as e2e; DECISIONS, Measured).
-5. [ ] **Medals** (item 3): bronze and silver with the Goliath behind it, then gold, on the recommended ladder until the owner answers.
+5. [x] **Medals** (item 3; 2026-10-13, in review): bronze for a quarter of 55, silver at 25,000 trips carried (paid boardings, so a change is not counted twice) with the Goliath behind it, gold for a quarter of 75 with no grade under 60 on a day of 5,000 trips, each awarded once at a close and kept in the save (format 13), on the recommended ladder until the owner answers. On the fixture the debug line alone gets bronze on day 10 and silver on day 41, and two lines every 10 minutes silver on day 23. The medals held are dots on the Contracts chip and the Contracts panel lists the ladder with the trips left to silver, because a chip of their own broke I13 at 1152×720 (6.4% of 6%); the shell at rest late in a game now takes 5.96%, so the chip row is full (DECISIONS, Measured).
 6. [ ] **The full sweep** (item 5), nightly if it passes 8 minutes.
 7. [ ] Express behind I3 (below the cut's first).
 

@@ -4,8 +4,10 @@
 import type { ContractKind } from '../config/contracts';
 import type { EventKind } from '../config/events';
 import type { BusModelId } from '../config/fleet';
+import type { MedalId } from '../config/medals';
+import type { Medals } from '../rules/medal';
 
-export type { BusModelId };
+export type { BusModelId, MedalId, Medals };
 
 export type LngLatPair = [lon: number, lat: number];
 
@@ -228,6 +230,10 @@ export interface Snapshot {
   readonly contractTaken: boolean;
   /** The city event pending or on (the M4 spec, item 2), or null. */
   readonly event: EventView | null;
+  /** The day each medal was awarded, or null (the M4 spec, item 3; sim/rules/medal.ts). */
+  readonly medals: Medals;
+  /** Trips carried since founding, toward silver. */
+  readonly tripsCarried: number;
 }
 
 /** A city event for its marker on the map and the line card (sim/rules/event.ts). */
@@ -297,6 +303,8 @@ export interface DayCard {
   readonly contracts: readonly { readonly landmark: string; readonly kind: ContractKind; readonly ask: number; readonly rewardCents: number; readonly outcome: 'paid' | 'lapsed' }[];
   /** The notices of city events (the M4 spec, item 2): one rolled at this close, which starts tomorrow, and one whose last day this was. */
   readonly events: readonly { readonly kind: EventKind; readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }[];
+  /** Medals awarded at this close, bronze first (the M4 spec, item 3). */
+  readonly medals: readonly MedalId[];
 }
 
 /** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */

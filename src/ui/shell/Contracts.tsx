@@ -1,15 +1,19 @@
-import { askText, figureText, usd } from '../format';
+import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
+import { askText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
 /**
  * Contracts (the M3 spec, item 11; the M4 spec, item 1): each offer or held contract with today's
  * figure near its landmark against its ask, HEADWAY's headway or RIDERSHIP's paid boardings a day,
  * the figure the day's grading and the ring on the map read (sim/rules/contract.ts). Taking an offer
- * is a click; a held one shows its days met in a row and the days left to meet them.
+ * is a click; a held one shows its days met in a row and the days left to meet them. Below them the
+ * medals (the M4 spec, item 3): each one's bar, the day it came, and the trips left to silver, which
+ * unlocks the Goliath.
  */
 export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
   const s = sim.snapshot;
   if (!s) return null;
+  const toSilver = tripsToSilver(s.medals, s.tripsCarried);
   return (
     <aside className="panel contracts" aria-label="Contracts" data-testid="contracts" data-chrome="panel">
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
@@ -40,6 +44,27 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
           </li>
         ))}
       </ul>
+      <section className="medal-ladder" aria-label="Medals" data-testid="medal-ladder" data-to-silver={toSilver}>
+        <h3>Medals</h3>
+        <ul className="medal-list">
+          {MEDAL_IDS.map((m) => {
+            const day = s.medals[m];
+            const status =
+              day !== null
+                ? `since day ${day}${m === 'silver' ? ' · the Goliath is for sale' : ''}`
+                : m === 'silver'
+                  ? `${toSilver.toLocaleString('en-US')} ${toSilver === 1 ? 'trip' : 'trips'} to go · unlocks the Goliath`
+                  : null;
+            return (
+              <li key={m} data-testid="medal" data-medal={m} data-held={day === null ? 'no' : 'yes'}>
+                <span className="medal" data-medal={m} />
+                <strong>{MEDAL_NAMES[m]}</strong>: {medalBarText(m)}
+                {status ? <span className="status"> · {status}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </aside>
   );
 }

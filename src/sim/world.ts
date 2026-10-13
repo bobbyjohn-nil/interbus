@@ -173,7 +173,7 @@ export function planLine(world: Pick<World, 'city' | 'router' | 'nodes' | 'state
 
 /** What the fleet rules read for this world (sim/rules/line.ts). */
 export function fleetContext(world: Pick<World, 'state'>): FleetContext {
-  return { depots: world.state.depots.length, busesOwned: world.state.lines.reduce((n, l) => n + l.buses, 0), cashCents: world.state.ledger.cashCents };
+  return { depots: world.state.depots.length, busesOwned: world.state.lines.reduce((n, l) => n + l.buses, 0), cashCents: world.state.ledger.cashCents, medals: world.state.medals };
 }
 
 /** What the line tool's rules read for this world: street nodes, the stops standing, the streets between them and the fleet (GD-05). */

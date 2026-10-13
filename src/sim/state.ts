@@ -5,6 +5,7 @@ import { FIRST_IDS } from './core/ids';
 import { createRng, seedFor, type Rng } from './core/rng';
 import { foundLedger, type Ledger } from './economy/ledger';
 import type { Headways } from './rules/periods';
+import { NO_MEDALS, type Medals } from './rules/medal';
 import type { ContractKind } from './config/contracts';
 import type { EventKind } from './config/events';
 import type { BusModelId } from './config/fleet';
@@ -126,6 +127,12 @@ export interface SimState {
   eventRng: Rng;
   /** The latest event, pending, on or over (kept for the gap after it); null before the first. */
   event: CityEvent | null;
+  /** The day each medal was awarded, or null (the M4 spec, item 3; rules/medal.ts). */
+  medals: Medals;
+  /** Paid boardings banked since founding: trips, since a change onto a line boards free (EC-04). Counted on the company as they bank, so silver never depends on which lines still stand. */
+  tripsCarried: number;
+  /** Of those, the ones banked on the day not yet closed: gold reads the day's trips at its close. */
+  tripsToday: number;
 }
 
 /** A new company at founding: 05:00 on day 1, Founding capital its only ledger row. */
@@ -145,5 +152,8 @@ export function newGame(city: CityRef, company: { name: string; colour: string }
     contractDeck: [],
     eventRng: createRng(seedFor(seed, 'events')),
     event: null,
+    medals: { ...NO_MEDALS },
+    tripsCarried: 0,
+    tripsToday: 0,
   };
 }
