@@ -222,6 +222,13 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **Why:** The owner's call.
 - **How to reverse:** Opening the code later is a `LICENSE` change. The art's licence cannot be withdrawn from copies already shared; only files published afterwards could carry other terms.
 
+### D23 · Claude opens and merges pull requests into `main`
+
+- **Decided:** 2026-10-12, by the owner: "yes to your question", answering "May I open and merge pull requests into `main` myself, merge commits only and only when CI passes?"
+- **What it means:** The session that owns `main` (CLAUDE.md) opens a pull request from its branch and merges it itself, with a merge commit, once every check on the pull request's head is green (CI, and the required "Versions only via /ship"). It never squashes, rebases or force-pushes `main`, never merges during a playtest freeze, and calls a change done only when the deploy's live check passes on the merged commit (CLAUDE.md "Done"). Three kinds of pull request stay the owner's to merge: a `/ship` release, a rebake after the Jan 17 content freeze, and anything that changes who can publish (the deploy's triggers, its environments or their secrets). The owner can revert any merge, and a revert is merged the same way.
+- **Why:** Every merge to `main` deploys the preview (D12), so without this nothing reaches the preview between the owner's visits; CLAUDE.md's "one session owns `main`" assumed it ([PR-07](history/lessons-ledger.md), [PR-08](history/lessons-ledger.md)).
+- **How to reverse:** Say so; Claude then opens pull requests and leaves every merge to the owner.
+
 ### CL · Versions only on the owner's say
 
 - **Decided:** 2026-10-12, by the owner: "create a changelog that will only make versions with my say."
@@ -236,8 +243,25 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 Filled in as they are measured, with the date and the commit, each by a committed script ([TS-08](history/lessons-ledger.md)):
 - Boston's map file size (`pmtiles extract --dry-run`); whether GitHub Pages answers Range requests with `206` and no `Content-Encoding`; and the `Cache-Control` it sends for `index.html`, hashed assets and `version.json` (D12).
 - Gzip size per chunk, the menu's critical path including its font bytes (D13), and the first map frame under software GL.
-- Whether census.gov, LEHD and Geofabrik accept downloads from GitHub's runners.
+- Whether census.gov, LEHD and Geofabrik accept downloads from GitHub's runners (measured below: they do).
 - The number of Inner Boston buildings with OSM `height` or `building:levels` (week 2). Rule: under about half, the Overture height join goes into the r1 bake in week 5 and off cut 1; otherwise it is dropped. Record the count and the result here.
 - Sessions merged against sessions planned (PLAN §10), on Sun Oct 18, Oct 25 and Nov 1.
 - Recompute time on Boston in the three-period form, total and per period (on Nov 1; R2 only if ≤100 ms p95 with three periods, D11).
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
+
+**Measured**
+- **2026-10-12** (`.github/workflows/tiles.yml`, runs 38310137410 and 38310312956): Boston's map file, cut from Protomaps daily build 20261012 for Inner Boston plus 1.5 km at zoom 0–15, is **450 tiles and 15,560,031 bytes (14.8 MiB)**, under PLAN §5's 40 MB gate and at its 15 MB target; the extract took 3.6 s and 33 requests. Published as release `city-boston-tiles-20261012-57ac68da`. Served by `vite preview`, the file answers Range requests with `206`; the GitHub Pages check waits for the first deploy (`scripts/deploy/live-check.mjs`).
+- **2026-10-12, commit 8fea306** (`node scripts/measure/bundle.mjs` after `npm run build`): the menu's critical path is **76.6 KiB** gzip against the 200 KiB budget: entry script 45.8 KiB, stylesheet 0.6 KiB, `index.html`, and the two Afacad Flux woff2 files. The lazy map chunk is 280.2 KiB gzip (MapLibre, PMTiles and the basemap layers) plus 10.1 KiB of map CSS.
+- **2026-10-12, commit 8fea306** (`npm run fonts`, `scripts/fonts/build.mjs`): Afacad Flux 400 and 600 Latin woff2 come to **14.9 KB + 15.7 KB = 30.6 KB**, above PLAN §8's 23–29 KB trial; each stack has 256 glyph ranges, 13 of them with glyphs (about 250 KB per stack on disk, fetched only as labels need them). Two runs from a fresh environment differed by about 80 bytes in the woff2 files while the glyph ranges were byte-identical; the subsetter is not fully deterministic, which matters only if font bytes are ever hashed.
+- **2026-10-12, commit 8fea306** (`src/render/map/style.test.ts`): four of PLAN §8's starting light tokens break §8's own base-chroma limit of 0.04: park `#d5e4c6` (0.043), wood `#cfdfc2` (0.043), arterial `#f9e9c8` (0.047) and arterial casing `#e3c48d` (0.080). Style v0 uses them scaled to chroma 0.039 at the same lightness and hue (`#d6e3c8`, `#d0dec4`, `#f7e9ce`, `#d6c7ad`). The Nov 8 light-token pick decides between the rule and the stronger amber.
+- **2026-10-12** (`.github/workflows/bake-sources.yml`, runs 38314934726 and 38315140053): census.gov, LEHD and Geofabrik all accept downloads from GitHub's runners (Geofabrik's 296 MB in 19 s), so no owner-machine fetch is needed. The eight pinned inputs are mirrored as release `city-boston-sources-20261012`, with sizes and SHA-256 in `cities/boston/sources.lock.json`:
+  - OSM extract (`massachusetts-20261011.osm.pbf`): 310,967,666 B;
+  - TIGER/Line 2020 blocks: 106,898,194 B; county subdivisions: 1,918,536 B;
+  - LODES 8.4 2023 OD main: 17,463,033 B; OD aux: 2,170,558 B; RAC: 2,593,510 B; WAC: 1,245,230 B; crosswalk: 1,875,594 B.
+- **2026-10-12** (`npm run bake:fixture`, `tools/bake/census.mjs`): **gate G4 holds exactly**. Σ POP20 over each municipality's 2020 blocks, on 15-digit ids, gives Boston **675,647**, Cambridge 118,403, Somerville 81,045 and Brookline 63,191.
+  - The first run took municipalities from the LODES crosswalk and failed G4: Cambridge 118,778 (+375) and Somerville 81,498 (+453).
+  - The crosswalk's municipality codes are not 2020's. It puts six populated blocks, 828 people, in Cambridge and Somerville that 2020's boundaries, and so the 2020 counts, put in Belmont and Medford. Across Suffolk, Middlesex and Norfolk it disagrees with the 2020 boundaries on 399 populated blocks (37,019 people).
+  - The bake therefore takes each block's municipality from TIGER/Line 2020 county subdivisions, by its internal point (about 3 s for the three counties). The crosswalk stays as a cross-check, and its disagreements are listed in `fixture.json`.
+- **2026-10-12** (`npm run bake:fixture`): **mini-Boston** (lon −71.11…−71.07, lat 42.335…42.36) holds 729 blocks with **105,620 residents**, 5,946 commute pairs with both ends inside, 478 RAC and 458 WAC rows, and no out-of-state commuters. Its OPL clip has 16,054 nodes, 1,744 ways and 218 relations.
+  - The fixture is 2.5 MB of text in all, 1.96 MB of it OSM, against the 150–300 kB the plan's research estimated. Relations list only the members inside the clip; full member lists made the OPL 3.4 MB.
+  - A local cut takes about 4 minutes, almost all of it the OSM passes over the 311 MB extract. PR CI only verifies the committed copy's hashes; `Bake fixture check (manual)` re-cuts it on a runner and fails on any byte of difference.

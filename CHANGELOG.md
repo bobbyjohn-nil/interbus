@@ -11,4 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- Entries go here as "- " bullets under ### Added, ### Changed, ### Fixed or ### Removed (### Deprecated and ### Security also exist), written for players. Tests, CI, refactors and docs get no entry. Delete the "Nothing yet" line with the first entry. -->
 
-Nothing yet. There is no game code; the first entry arrives with the first change a player can see.
+### Added
+
+- The preview opens on real Boston: streets, buildings, the Charles, parks and neighbourhood names from Back Bay to Cambridge, drawn flat in the light theme and set in Afacad Flux. Zoom in to see individual buildings.
+- The build number of the version you are looking at sits in the bottom-right corner, beside the map credits.

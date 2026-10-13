@@ -1,0 +1,97 @@
+# Cuts Boston's map tiles from a pinned Protomaps daily build (PLAN §14 item 4) and publishes them
+# as a content-hashed release asset. Dispatch only; players' browsers never fetch source data.
+# After a real run, copy the printed entry into cities/index.json in a PR.
+name: City tiles (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Protomaps daily build date, YYYYMMDD (blank = newest listed)
+        required: false
+        default: ''
+      dry_run:
+        description: Only report what the extract would download
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+env:
+  # Inner Boston (D11) plus 1.5 km on every side; must match paddedBounds() in src/cities.ts.
+  BBOX: '-71.17823,42.30153,-70.96177,42.41847'
+  MAXZOOM: '15'
+  PMTILES_VERSION: v1.31.2
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Third-party Go code builds and runs below; keep the write token out of .git/config.
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Install go-pmtiles (pinned; Go's checksum database verifies the module)
+        run: go install "github.com/protomaps/go-pmtiles@${PMTILES_VERSION}"
+
+      - name: Pick the build
+        id: pick
+        env:
+          WANTED: ${{ inputs.build }}
+        run: |
+          curl -fsSL https://build-metadata.protomaps.dev/builds.json -o builds.json
+          if [ -n "$WANTED" ]; then
+            date="$WANTED"
+          else
+            date=$(python3 -c 'import json; b=[x["key"] for x in json.load(open("builds.json")) if x["key"].endswith(".pmtiles")]; print(sorted(b)[-1].removesuffix(".pmtiles"))')
+          fi
+          if ! [[ "$date" =~ ^[0-9]{8}$ ]]; then
+            echo "::error::build must be a date like 20261012, got '$date'"
+            exit 1
+          fi
+          # Record what the source build was, so the release names its input as well as its output.
+          source=$(python3 -c 'import json,sys; m=[x for x in json.load(open("builds.json")) if x["key"]==sys.argv[1]+".pmtiles"]; print(json.dumps(m[0], sort_keys=True) if m else "not listed in builds.json")' "$date")
+          echo "date=$date" >> "$GITHUB_OUTPUT"
+          echo "url=https://build.protomaps.com/$date.pmtiles" >> "$GITHUB_OUTPUT"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+          echo "Using Protomaps build $date: $source"
+
+      - name: Extract Inner Boston
+        env:
+          SRC: ${{ steps.pick.outputs.url }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          flags=(--bbox="$BBOX" --maxzoom="$MAXZOOM")
+          if [ "$DRY" = "true" ]; then flags+=(--dry-run); fi
+          "$(go env GOPATH)/bin/go-pmtiles" extract "$SRC" boston.pmtiles "${flags[@]}"
+
+      - name: Publish as a release asset
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DATE: ${{ steps.pick.outputs.date }}
+          SOURCE: ${{ steps.pick.outputs.source }}
+        run: |
+          sha=$(sha256sum boston.pmtiles | cut -d' ' -f1)
+          bytes=$(stat -c %s boston.pmtiles)
+          file="boston-${DATE}-${sha:0:8}.pmtiles"
+          tag="city-boston-tiles-${DATE}-${sha:0:8}"
+          mv boston.pmtiles "$file"
+          gh release create "$tag" "$file" --title "Boston tiles ${DATE}" \
+            --notes "Cut from Protomaps build ${DATE} (https://build.protomaps.com/${DATE}.pmtiles) with go-pmtiles ${PMTILES_VERSION}, bbox ${BBOX}, maxzoom ${MAXZOOM}. Source build as listed by build-metadata.protomaps.dev: ${SOURCE}. Map data © OpenStreetMap contributors (ODbL); Protomaps basemap."
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${file}"
+          {
+            echo "### cities/index.json entry"
+            echo '```json'
+            echo "\"tiles\": { \"file\": \"$file\", \"url\": \"$url\", \"sha256\": \"$sha\", \"bytes\": $bytes, \"source\": \"Protomaps daily build ${DATE}\", \"maxzoom\": ${MAXZOOM} }"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

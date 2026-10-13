@@ -32,7 +32,7 @@
 8. **Versions only on your say:** only `/ship <version>`, typed by you, creates one; CI fails any other, and your yes inside `/ship` is the guard ([PR-15](docs/history/lessons-ledger.md)).
 9. **Triggers cut scope first; only the M5 and RC triggers move the target, and never past Feb 28** (§10).
 
-**How.** One Claude session owns `main`; no agent crew; ≤150-line specs; PR checks within 8 minutes ([PR-04](docs/history/lessons-ledger.md), [PR-08](docs/history/lessons-ledger.md)).
+**How.** One Claude session owns `main` and merges its own pull requests on green checks (D23); no agent crew; ≤150-line specs; PR checks within 8 minutes ([PR-04](docs/history/lessons-ledger.md), [PR-08](docs/history/lessons-ledger.md)).
 
 **This week:** Claude gets read access to the three earlier repos; you protect `main` (§14 item 2) and commit `art/LICENSE.md` naming Miticept Studios by Oct 18, then pick the art's open licence with the artist by Oct 25 (D20); the artist reviews [docs/art/MODELS.md](docs/art/MODELS.md) §3, §3.1, §5, §6 and §10; the V1 baseline (§14).
 
@@ -170,6 +170,7 @@ Inner Boston keeps the crossings, Longwood, Kendall, Logan and downtown, with 20
 |---|---|---|
 | Residents | 2020 block counts (`POP20`) in TIGER/Line `tabblock20` ([files](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.2020.html)) | Residents and dot sub-points |
 | Workers, jobs, commutes | LODES 8.4, year 2023, on the same 2020 blocks ([LODES8](https://lehd.ces.census.gov/data/lodes/LODES8/)) | Jobs by sector, inbound commuters, the gravity β fit |
+| Municipalities | TIGER/Line 2020 county subdivisions, the boundaries the 2020 counts are tabulated on; the LODES crosswalk's municipality codes are not 2020's (DECISIONS, measured) | Each block's municipality for G4; the extent polygon |
 | Streets, depot land, lane tags | One dated Geofabrik Massachusetts `.osm.pbf`, ~292–296 MB ([page](https://download.geofabrik.de/north-america/us/massachusetts.html)), via osmium | The sim graph, and from week 3 the tiles |
 | Map | Week 1 a cut of a pinned Protomaps build; from week 3 Planetiler on the same extract ([docs](https://docs.protomaps.com/basemaps/build)) | The 2D/3D map |
 | Heights | OSM height, else levels × 3.2 m + 1 m, else a type default; Overture's lidar heights (93–95% coverage, measured) join r1 if under about half the buildings carry tags (week-2 count) | Extrusions |
@@ -477,7 +478,7 @@ Weeks run Monday to Sunday; checks use the deployed build.
 
 Answers go in [docs/DECISIONS.md](docs/DECISIONS.md), with how to reverse each. Until answered, the plan assumes the recommendation, except the art's open licence, which waits for an answer (top of this file).
 
-**Decided 2026-10-12:** D1–D18, D20 in part, and CL, with reasons and reversals in DECISIONS. The newest: **D18** Next Fest in June 2027, not February (D15's macOS-then-Windows and your accounts stand); **D20, first part** open-licensed art, all-rights-reserved code; **D19** deferred until the game is under way.
+**Decided 2026-10-12:** D1–D18, D20 in part, D23 and CL, with reasons and reversals in DECISIONS. The newest: **D23** Claude opens and merges its own pull requests into `main`, merge commits only, on green checks; **D18** Next Fest in June 2027, not February (D15's macOS-then-Windows and your accounts stand); **D20, first part** open-licensed art, all-rights-reserved code; **D19** deferred until the game is under way.
 
 **Still open:** listed at the top of this file.
 

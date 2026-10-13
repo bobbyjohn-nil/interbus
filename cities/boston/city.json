@@ -1,0 +1,63 @@
+{
+  "id": "boston",
+  "about": "What the bake needs to know about Boston (PLAN §5). The play extent lives in cities/index.json, the one list the game and the bake both read (K18).",
+  "cellMetres": 350,
+  "municipalities": {
+    "about": "The play area is these four municipalities inside the extent (D11). pop20 is each one's 2020 census count; gate G4 sums POP20 over the blocks whose internal point lies inside the municipality's 2020 boundary (TIGER/Line county subdivisions), joined on full 15-digit block ids, and must match exactly. Counts from census.gov QuickFacts (Boston, https://census.gov/quickfacts/fact/table/bostoncitymassachusetts/PST120223) and UMass Boston's 2020 table (https://www.umb.edu/iaas/census/pop-of-asian-americans-alone-in-massachusetts-2020/), both checked 2026-10-12 through search excerpts.",
+    "list": [
+      { "name": "Boston", "ctycsub": "2502507000", "pop20": 675647 },
+      { "name": "Cambridge", "ctycsub": "2501711000", "pop20": 118403 },
+      { "name": "Somerville", "ctycsub": "2501762535", "pop20": 81045 },
+      { "name": "Brookline", "ctycsub": "2502109175", "pop20": 63191 }
+    ]
+  },
+  "fixture": {
+    "about": "Mini-Boston, Back Bay to Longwood (PLAN §5): every input clipped to this box and committed under tools/bake/fixtures/, so PR checks and the money work never wait for the full bake.",
+    "id": "mini-boston",
+    "box": [-71.11, 42.335, -71.07, 42.36]
+  },
+  "sources": [
+    {
+      "id": "osm",
+      "about": "OpenStreetMap, one Geofabrik Massachusetts extract (ODbL). Streets, depot land, lane tags, and the transit features the bake strips (D17).",
+      "url": "https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf",
+      "md5Url": "https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf.md5",
+      "mirrorAs": "massachusetts-{osmDate}.osm.pbf"
+    },
+    {
+      "id": "blocks",
+      "about": "TIGER/Line 2020 blocks for Massachusetts; the .dbf carries POP20, HOUSING20 and each block's internal point.",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2020/TABBLOCK20/tl_2020_25_tabblock20.zip"
+    },
+    {
+      "id": "cousub",
+      "about": "TIGER/Line 2020 county subdivisions for Massachusetts: each block's municipality for gate G4, and the boundaries the extent polygon is cut from (week 2).",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2020/COUSUB/tl_2020_25_cousub.zip"
+    },
+    {
+      "id": "lodes-od-main",
+      "about": "LODES 8.4, 2023: commutes between Massachusetts blocks, all jobs.",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/od/ma_od_main_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-od-aux",
+      "about": "LODES 8.4, 2023: Massachusetts jobs held by people living in other states.",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/od/ma_od_aux_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-rac",
+      "about": "LODES 8.4, 2023: workers by home block.",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/rac/ma_rac_S000_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-wac",
+      "about": "LODES 8.4, 2023: jobs by workplace block, with jobs by sector.",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/wac/ma_wac_S000_JT00_2023.csv.gz"
+    },
+    {
+      "id": "lodes-xwalk",
+      "about": "LODES 8.4 block crosswalk. A cross-check only: its municipality codes are not 2020's (it puts six populated border blocks, 828 people, in Cambridge and Somerville that 2020's boundaries put in Belmont and Medford), so the bake takes municipalities from the cousub boundaries and reports where the two disagree.",
+      "url": "https://lehd.ces.census.gov/data/lodes/LODES8/ma/ma_xwalk.csv.gz"
+    }
+  ]
+}

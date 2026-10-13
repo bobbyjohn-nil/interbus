@@ -1,0 +1,49 @@
+{
+  "name": "interbus",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "fonts": "node scripts/fonts/build.mjs",
+    "cities": "node scripts/cities/fetch.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:scripts": "node --test \"scripts/*.test.mjs\" \"tools/bake/*.test.mjs\"",
+    "e2e": "playwright test",
+    "measure:bundle": "node scripts/measure/bundle.mjs",
+    "bake:plan": "node tools/bake/plan.mjs",
+    "bake:fetch": "node tools/bake/fetch.mjs",
+    "bake:sources": "node tools/bake/sources.mjs",
+    "bake:fixture": "node tools/bake/fixture.mjs boston cut",
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:scripts && node scripts/changelog.mjs check"
+  },
+  "dependencies": {
+    "@protomaps/basemaps": "5.7.2",
+    "maplibre-gl": "6.11.2",
+    "pmtiles": "4.5.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.0",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "fontnik": "0.7.7",
+    "globals": "17.12.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.1",
+    "vitest": "4.1.11"
+  }
+}

@@ -1,0 +1,70 @@
+# PR checks (CLAUDE.md: within 8 minutes; slower checks go nightly and never block).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, lint, tests, build, e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+
+      - name: Install pyosmium for the bake tests (pinned, hashed)
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt
+
+      - name: Restore fonts
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/fonts
+            .cache/fonts
+          # fontnik draws the glyph ranges, so its installed version is part of the key.
+          key: fonts-${{ hashFiles('scripts/fonts/**', 'node_modules/fontnik/package.json') }}
+
+      - run: npm run fonts
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:scripts
+
+      - run: npm run build
+
+      - name: Menu critical path within 200 KiB (I14)
+        run: npm run measure:bundle
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run e2e

@@ -1,0 +1,53 @@
+// Theme tokens for the map. One generator builds every theme from a token set (D13); the dark set
+// lands in week 13. Values are PLAN §8's starting light tokens until the owner's Nov 8 pick, except
+// four that broke §8's own base-chroma limit (≤0.04): park #d5e4c6, wood #cfdfc2, arterial #f9e9c8 and
+// arterial casing #e3c48d were scaled to chroma 0.039 at the same lightness and hue (style.test.ts).
+
+export interface MapTokens {
+  /** Outside the play area. */
+  readonly void: string;
+  readonly land: string;
+  readonly water: string;
+  readonly park: string;
+  readonly wood: string;
+  readonly buildingFill: string;
+  readonly buildingOutline: string;
+  readonly street: string;
+  readonly streetCasing: string;
+  readonly arterial: string;
+  readonly arterialCasing: string;
+  readonly path: string;
+  readonly hospital: string;
+  readonly school: string;
+  readonly industrial: string;
+  readonly aerodrome: string;
+  readonly boundary: string;
+  readonly label: string;
+  readonly labelMinor: string;
+  readonly labelHalo: string;
+  readonly waterLabel: string;
+}
+
+export const LIGHT: MapTokens = {
+  void: '#d6d2c9',
+  land: '#ebe7df',
+  water: '#b6d4e8',
+  park: '#d6e3c8',
+  wood: '#d0dec4',
+  buildingFill: '#dcd6ca',
+  buildingOutline: '#cfc8ba',
+  street: '#ffffff',
+  streetCasing: '#cfc8ba',
+  arterial: '#f7e9ce',
+  arterialCasing: '#d6c7ad',
+  path: '#f4f1eb',
+  hospital: '#e9e1dc',
+  school: '#e7e1d6',
+  industrial: '#e2ded5',
+  aerodrome: '#e4e0d8',
+  boundary: '#b9b2a5',
+  label: '#5c574d',
+  labelMinor: '#7a7468',
+  labelHalo: '#ebe7df',
+  waterLabel: '#5f7f99',
+};
