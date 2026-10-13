@@ -44,6 +44,7 @@ npm run build && npm run e2e   # production build, then the browser tests
 npm run bake:plan  # what Boston's bake reads, writes and checks; no network
 npm run bake:fixture           # re-cut mini-Boston from the mirrored sources (downloads ~0.5 GB once)
 npm run bake:sim               # bake mini-Boston's sim.json and check it against its golden hash
+node tools/bake/sim.mjs boston inner-boston --check   # cut and bake the play extent from the mirror (~5 min, ~0.5 GB once)
 npm run bench                  # time the demand recompute (I14); `npm run bench compare` checks it against the reference loop
 ```
 

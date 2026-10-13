@@ -117,9 +117,11 @@ export function onewayOf(tags) {
 /**
  * The routable graph in the city frame. `frame` is { origin: [lon, lat], metresPerDegLon,
  * metresPerDegLat } (src/sim/core/geo.ts writes the same constants). `adjust` is the city's
- * adjust.json: streets OSM leaves untagged that are closed to buses anyway.
+ * adjust.json: streets OSM leaves untagged that are closed to buses anyway. `box` [w, s, e, n] is
+ * what the inputs were clipped to: G2 counts the streets whose middle lies in it, since the clip
+ * keeps whole ways and their far ends are stranded by design.
  */
-export function buildStreets(osm, frame, adjust = { closeToBuses: [] }) {
+export function buildStreets(osm, frame, adjust = { closeToBuses: [] }, box = null) {
   const closedByName = new Map(adjust.closeToBuses.map((c) => [c.name, c.why]));
   const toXY = (n) => [(n.lon - frame.origin[0]) * frame.metresPerDegLon, (n.lat - frame.origin[1]) * frame.metresPerDegLat];
   const closed = [];
@@ -175,7 +177,13 @@ export function buildStreets(osm, frame, adjust = { closeToBuses: [] }) {
   // 5. Keep the largest strongly connected piece (by drivable length).
   const kept = largestStrongPiece(segments);
   const metres = (list, keep = () => true) => list.reduce((s, e) => s + (keep(e) ? e.metres : 0), 0);
-  const offMotorways = (e) => !MOTORWAY_CLASSES.has(e.cls);
+  const [x0, y0] = box ? toXY({ lon: box[0], lat: box[1] }) : [-Infinity, -Infinity];
+  const [x1, y1] = box ? toXY({ lon: box[2], lat: box[3] }) : [Infinity, Infinity];
+  const offMotorways = (e) => {
+    if (MOTORWAY_CLASSES.has(e.cls)) return false;
+    const [x, y] = e.points[Math.floor(e.points.length / 2)];
+    return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  };
   const totalMetres = metres(segments);
   const keptMetres = metres(kept);
   const localMetres = metres(segments, offMotorways);
@@ -206,7 +214,7 @@ export function buildStreets(osm, frame, adjust = { closeToBuses: [] }) {
       edges: edges.length,
       keptKm: Math.round(keptMetres) / 1000,
       droppedKm: Math.round(totalMetres - keptMetres) / 1000,
-      /** G2: the share of drivable km off motorways that the kept piece holds. */
+      /** G2: the share of drivable km off motorways (inside `box`, if given) that the kept piece holds. */
       keptShare: localMetres > 0 ? metres(kept, offMotorways) / localMetres : 0,
       closed,
     },

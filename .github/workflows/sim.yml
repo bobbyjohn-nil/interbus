@@ -1,8 +1,9 @@
 # Bakes a city's sim.json from its pinned inputs and publishes it as a release asset, so the deploy
 # can ship it (PLAN §5: city files come only from a dispatch-only job; the deploy never bakes).
-# Until week 3's full bake only the committed fixture bakes, and it must match its golden hash
-# (tools/bake/fixtures/<id>/sim.lock.json) byte for byte before anything is published. After a
-# published run, put the summary's entry in cities/index.json in a PR.
+# The fixture bakes from its committed inputs; the play extent (inner-boston) from the mirrored
+# sources, cut by tools/bake/extent.mjs (pyosmium, about 5 minutes). Either must match its golden
+# hash (the fixture's sim.lock.json, or cities/<city>/sim-<extent>.lock.json) byte for byte before
+# anything is published. After a published run, put the summary's entry in cities/index.json in a PR.
 name: City sim file (manual)
 
 on:
@@ -13,7 +14,7 @@ on:
         required: true
         default: boston
       extent:
-        description: Gate profile in the city's city.json (only the fixture until week 3)
+        description: Gate profile in the city's city.json (the fixture, or the play extent)
         required: true
         default: mini-boston
       publish:
@@ -27,15 +28,26 @@ permissions:
 jobs:
   bake:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      BAKE_PYTHON: python
     steps:
       - uses: actions/checkout@v7
         with:
+          # pyosmium (a compiled wheel) runs below; keep the write token out of .git/config.
           persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install pyosmium (pinned, hashed)
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -r tools/bake/requirements.txt
 
       - name: Check the names
         env:
@@ -67,7 +79,7 @@ jobs:
           tag="city-${CITY}-sim-${EXTENT}-${sha:0:8}"
           mv sim.json "$file"
           gh release create "$tag" "$file" --title "${CITY^} sim file, ${EXTENT}" \
-            --notes "Baked by the City sim file workflow (run ${GITHUB_RUN_ID}) at ${GITHUB_SHA} from the pinned inputs committed under tools/bake/fixtures/, matching the golden hash in sim.lock.json. Map data © OpenStreetMap contributors (ODbL). U.S. Census Bureau: TIGER/Line 2020 and LEHD Origin-Destination Employment Statistics (LODES 8.4, 2023)."
+            --notes "Baked by the City sim file workflow (run ${GITHUB_RUN_ID}) at ${GITHUB_SHA} from the pinned inputs (the fixture's committed under tools/bake/fixtures/, the play extent's from the mirror named in cities/${CITY}/sources.lock.json), matching its golden hash. Map data © OpenStreetMap contributors (ODbL). U.S. Census Bureau: TIGER/Line 2020 and LEHD Origin-Destination Employment Statistics (LODES 8.4, 2023)."
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${file}"
           {
             echo "### cities/index.json entry"

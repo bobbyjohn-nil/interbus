@@ -1,5 +1,5 @@
 {
-  "about": "The golden hash of this fixture's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
+  "about": "The golden hash of this extent's sim.json (I17): `node tools/bake/sim.mjs <city> <extent> --check` re-bakes it and fails on any byte of difference. Written with --lock.",
   "format": 1,
   "sha256": "20b38b02c227efb2901f7717318c5cbfd1d7703c2e6ba19e16842d1b5267b32f",
   "bytes": 134361,
@@ -26,7 +26,7 @@
     },
     {
       "gate": "G2 kept share",
-      "value": 0.8198,
+      "value": 0.8745,
       "ok": true,
       "limit": "≥0.7"
     },
