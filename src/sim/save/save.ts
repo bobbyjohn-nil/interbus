@@ -18,7 +18,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 6;
+export const SAVE_FORMAT = 7;
 
 export interface BuildRef {
   readonly sha: string;

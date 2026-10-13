@@ -32,7 +32,7 @@ export type Infer<F> = F extends 'int' | 'uint32' | 'number'
 
 /**
  * Intent only (PLAN §6, K12): no demand, geometry, camera or theme. Stops are anchored by place.
- * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6.
+ * Contracts, medals and buses join as their systems land, each with a format bump; depots joined in format 3, each line's buses in format 4, its model in 5, each stop's tier in 6, the report card's row in 7.
  */
 export const SAVE_SCHEMA = {
   object: {

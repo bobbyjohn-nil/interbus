@@ -499,6 +499,18 @@ body,
   border-top: 1px solid var(--ui-line);
 }
 
+/* A quarter's report card, above the day's rows. */
+.day-card .report h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.day-card .report p {
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
 .day-card button {
   font: inherit;
   min-height: 24px;

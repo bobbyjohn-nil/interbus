@@ -2,11 +2,14 @@
 // step. At every game-hour boundary each line banks the hour's boardings as ledger rows, fares and
 // the city's subsidy at that fare (rules/fare.ts), in whole boardings and whole cents, and the hour's costs (running, wages,
 // deadhead; economy/costs.ts), and each depot its upkeep; at 24:00 the day closes, its rows merge
-// by kind and line, and they are the day card (I1).
+// by kind and line, and they are the day card (I1). A quarter's last day closes with its report card
+// (economy/reportCard.ts), whose payout or fine is one of that day's rows.
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour } from './economy/costs';
 import { closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
+import { gradeQuarter, type ReportCard } from './economy/reportCard';
+import { DAYS_PER_QUARTER } from './config/time';
 import { subsidyCents } from './rules/fare';
 import type { World } from './world';
 
@@ -16,6 +19,8 @@ export type SimEvent = {
   readonly rows: readonly LedgerRow[];
   readonly cashBeforeCents: number;
   readonly cashAfterCents: number;
+  /** The quarter's report card, on its last day's close; null on other days. */
+  readonly card: ReportCard | null;
 };
 
 /** Posts the hour that just ended: its boardings as fare and subsidy rows, its costs, each depot's upkeep. */
@@ -49,10 +54,12 @@ export function simStep(world: World): SimEvent[] {
   const ended = toCalendarTime(state.elapsed - 1);
   bankHour(world, ended.hour, ended.day);
   if (sinceMidnightOfDay1 % SECONDS_PER_DAY !== 0) return [];
+  const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
+  if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
   closeDay(state.ledger, ended.day);
   const rows = rowsOfDay(state.ledger, ended.day);
   const cashAfterCents = state.ledger.cashCents;
-  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents }];
+  return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card }];
 }
 
 /** Whole steps covering `seconds` (a multiple of the step). */
