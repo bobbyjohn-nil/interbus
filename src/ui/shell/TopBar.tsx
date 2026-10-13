@@ -21,7 +21,7 @@ export function TopBar({ sim }: { sim: Sim }) {
   const founded = s.company.name !== '';
   const checklist = checklistText({ depots: s.depots.length, lines: s.lines.length, elapsed: s.elapsed, profitableDays: s.profitableDays });
   return (
-    <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-costs={s.costsPerDayCents}>
+    <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
       <span className="chip">
         <span className="chip-label">Day {s.day}</span> {clock(s.hour, s.minute)}
       </span>

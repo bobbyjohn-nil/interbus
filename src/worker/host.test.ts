@@ -3,17 +3,24 @@ import { bakeSim } from '../../tools/bake/sim.mjs';
 import { STEP_SECONDS } from '../sim/config/time';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
-import type { FromWorker } from '../sim/types';
+import type { FromWorker, Snapshot } from '../sim/types';
 import { createHost, MAX_SLICE_MS, SPEEDS } from './host';
 
 const baked = bakeSim('boston', 'mini-boston');
 const CITY = { id: 'boston', revision: 'mini-boston', hash: baked.sha256 };
+const BUILD = { sha: 'c0ffee0'.padEnd(40, '0'), version: '0.0.0' };
+const KEY = 'interbus.save.boston';
 
-function started() {
+/** A host started on the fixture from `save` (the page's answer to read-save). */
+function started(save: string | null = null) {
   const out: FromWorker[] = [];
   const host = createHost((m) => out.push(m));
-  host.handle({ type: 'init', simText: baked.text, city: CITY, seed: 1 });
-  return { host, out, last: <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined };
+  host.handle({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
+  host.handle({ type: 'save-text', text: save });
+  const last = <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined;
+  /** Every save the host handed the page, oldest first. */
+  const saves = () => out.flatMap((m) => (m.type === 'store' ? m.effects : [])).flatMap((e) => (e.op === 'write' && e.key === KEY ? [e.value] : []));
+  return { host, out, last, saves };
 }
 
 /** Copley to Longwood (the debug line's four stops), as the line tool's clicks. */
@@ -152,7 +159,79 @@ describe('the sim host', () => {
 
   it('refuses a broken sim file in words', () => {
     const out: FromWorker[] = [];
-    createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1 });
+    createHost((m) => out.push(m)).handle({ type: 'init', simText: '{"format":9}', city: CITY, seed: 1, build: BUILD });
     expect(out).toEqual([{ type: 'failed', problem: 'format 9, not 1' }]);
+  });
+});
+
+describe('saves through the page’s store (the M2 spec, item 9; the exit check’s reload)', () => {
+  /** A founded company with the debug line, run to its first day card and paused. */
+  function played() {
+    const game = started();
+    game.host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    game.host.handle({ type: 'place-depot', at: depotSpot(game.last('ready')!.depotLand as [number, number][][]) });
+    game.host.handle({ type: 'create-line', clicks: CLICKS });
+    game.host.handle({ type: 'speed', speed: 3 });
+    let t = 0;
+    for (; !game.last('day-card'); t += 250) game.host.tick(t);
+    for (const end = t + 1_000; t < end; t += 37) game.host.tick(t); // into day 2, uneven ticks as a real timer's, ending mid-step
+    game.host.handle({ type: 'speed', speed: 0 });
+    return game;
+  }
+  /** A snapshot as a player sees it: linesVersion only counts the page's redraws. */
+  const comparable = (s: Snapshot) => ({ ...s, linesVersion: 0 });
+
+  it('asks for its save by key before it starts, and a new game is not saved until founded', () => {
+    const out: FromWorker[] = [];
+    const host = createHost((m) => out.push(m));
+    host.handle({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
+    expect(out).toEqual([{ type: 'read-save', key: KEY }]);
+    host.handle({ type: 'probe', id: 1, at: [-71.0857, 42.3424] });
+    expect(out.at(-1)).toEqual({ type: 'refused', command: 'probe', reason: 'not_started' });
+    host.handle({ type: 'save-text', text: null });
+    expect(out.at(-1)).toMatchObject({ type: 'ready', load: 'none' });
+    expect(out.some((m) => m.type === 'store')).toBe(false);
+  });
+
+  it('saves after each command, at each pause and every game hour', () => {
+    const game = played();
+    // Found, depot, line, speed 3: four; then one per game hour to past 05:00 on day 2; and the pause.
+    const hours = Math.floor(game.last('snapshot')!.snapshot.elapsed / 3_600);
+    expect(game.saves().length).toBe(4 + hours + 1);
+    expect(game.saves().at(-1)).toContain('"Back Bay Transit"');
+  });
+
+  it('carries on from a reload exactly where it was paused, and runs on the same as if never saved (I8)', () => {
+    const before = played();
+    const after = started(before.saves().at(-1)!);
+    expect(after.last('ready')!.load).toBe('ok');
+    const was = before.last('snapshot')!.snapshot;
+    expect(was.day).toBe(2);
+    expect(comparable(after.last('ready')!.snapshot)).toEqual(comparable(was));
+    for (const game of [before, after]) {
+      game.host.handle({ type: 'speed', speed: 2 });
+      for (let t = 0; t <= 5_000; t += 37) game.host.tick(1e6 + t);
+    }
+    expect(comparable(after.last('snapshot')!.snapshot)).toEqual(comparable(before.last('snapshot')!.snapshot));
+    expect(after.last('snapshot')!.snapshot.elapsed).toBeGreaterThan(was.elapsed);
+  });
+
+  it('sets aside a save from an older build or another bake of the city, starts fresh and says so (D12)', () => {
+    const text = played().saves().at(-1)!;
+    const older = JSON.stringify({ ...JSON.parse(text), format: 3 });
+    const rebaked = text.replace(CITY.hash, 'f'.repeat(64));
+    for (const [save, outcome] of [[older, 'older'], [rebaked, 'other-city']] as const) {
+      const game = started(save);
+      const store = game.out.findIndex((m) => m.type === 'store');
+      expect(game.out[store]).toEqual({
+        type: 'store',
+        effects: [
+          { op: 'write', key: `interbus.backup.boston.${outcome}`, value: save },
+          { op: 'remove', key: KEY },
+        ],
+      });
+      expect(store).toBeLessThan(game.out.findIndex((m) => m.type === 'ready')); // kept before anything replaces it
+      expect(game.last('ready')).toMatchObject({ load: outcome, snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
+    }
   });
 });

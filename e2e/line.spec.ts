@@ -3,8 +3,9 @@ import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
 import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
-// The M2 spec's exit check, steps 1–5: found, a depot on the green tint, four stops from Copley to
-// Longwood, Create, its buses running, and a day whose cost rows land on the card (I1).
+// The M2 spec's exit check as one game (I15): found, a depot on the green tint, four stops from
+// Copley to Longwood, Create, its buses running, a day whose cost rows land on the card and add up to
+// the change in cash (I1), then a reload that carries on from the save where the game was paused.
 test.describe('the line tool on the fixture', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
@@ -91,6 +92,24 @@ test.describe('the line tool on the fixture', () => {
     expect(await cents('upkeep')).toBe(-19 * 1_250);
     // About $1,400 ahead on its running rows: the checklist moves on to contracts (M3).
     await expect(page.getByTestId('checklist')).toHaveText('5/5 Take a contract');
+
+    // Reload and compare: paused, the game is saved where it stands, and a reload carries on from it.
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    const kept = { cash: await panel.getAttribute('data-cash'), elapsed: await panel.getAttribute('data-elapsed') };
+    expect(Number(kept.elapsed)).toBeGreaterThan(19 * 3_600);
+    await page.reload();
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await expect(panel).toHaveAttribute('data-elapsed', kept.elapsed!, { timeout: 30_000 });
+    await expect(panel).toHaveAttribute('data-cash', kept.cash!);
+    await expect(page.getByTestId('founding-card')).toHaveCount(0);
+    await expect(page.getByTestId('checklist')).toHaveText('5/5 Take a contract');
+    await expect(page.getByTestId('notice')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Lines' }).click();
+    await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
+    // It runs on from there (overnight, so no buses until about 05:00).
+    await page.getByRole('button', { name: '1×' }).click();
+    await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 10_000 }).toBeGreaterThan(Number(kept.elapsed));
     expect(errors).toEqual([]);
   });
 });

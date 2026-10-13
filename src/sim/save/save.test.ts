@@ -138,7 +138,7 @@ describe('I7: create, delete, save and load never reuse an id', () => {
 
 describe('refusals (first failure wins; the live key is never overwritten by one)', () => {
   const state = playedGame();
-  const setAside = (why: 'unreadable' | 'older', text: string) => [
+  const setAside = (why: 'unreadable' | 'older' | 'other-city', text: string) => [
     { op: 'write', key: backupKey('boston', why), value: text },
     { op: 'remove', key: saveKey('boston') },
   ];
@@ -168,8 +168,9 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     expect(decode(raw(state, (e) => void (e.format = 0)), CITY).result).toEqual({ outcome: 'unreadable', problem: 'no format' });
   });
 
-  it('refuses another city or revision without writing anything (never a substitute city)', () => {
-    expect(decode(encode(state, BUILD), { ...CITY, revision: 'r1' })).toEqual({ result: { outcome: 'other-city', city: CITY }, effects: [] });
+  it('sets aside another city or revision, never reading it into this one (a rebake, D12)', () => {
+    const text = encode(state, BUILD);
+    expect(decode(text, { ...CITY, revision: 'r1' })).toEqual({ result: { outcome: 'other-city', city: CITY }, effects: setAside('other-city', text) });
   });
 
   // Each of these V3 read as something: V3 defaulted a missing nextIds to 0 (reissuing live ids),

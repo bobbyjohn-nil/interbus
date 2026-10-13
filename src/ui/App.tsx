@@ -64,10 +64,17 @@ export function App() {
   useEffect(() => draftFor(clicks), [clicks, draftFor]);
 
   // A tool closes once its purchase lands: a new depot, or a new line.
+  const started = sim.snapshot !== null;
   const depots = sim.snapshot?.depots.length ?? 0;
   const lines = sim.snapshot?.lines.length ?? 0;
-  const counts = useRef({ depots, lines });
+  // Counted from the game as it starts, so a reloaded game's lines are not new ones.
+  const counts = useRef<{ depots: number; lines: number } | null>(null);
   useEffect(() => {
+    if (!started) return;
+    if (!counts.current) {
+      counts.current = { depots, lines };
+      return;
+    }
     if (depots > counts.current.depots || lines > counts.current.lines) {
       setTool('none');
       setClicks([]);
@@ -79,7 +86,7 @@ export function App() {
       setPanel('lines');
     }
     counts.current = { depots, lines };
-  }, [depots, lines, depotSiteAt]);
+  }, [started, depots, lines, depotSiteAt]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

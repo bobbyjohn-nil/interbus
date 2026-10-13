@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REFUSAL_COPY, refusalText } from './copy';
+import { LOAD_COPY, REFUSAL_COPY, refusalText } from './copy';
 
 // Every code a rule or command can return (sim/rules/depot.ts, line.ts, stop.ts, periods.ts and the
 // commands), so a new code without copy fails here.
@@ -28,4 +28,14 @@ describe('refusal copy (UX-03)', () => {
   });
 
   it('reads an unknown code as a sentence', () => expect(refusalText({ reason: 'mystery_code' })).toBe('That can’t be done here'));
+
+  it('says in one line of 8 words or fewer when a save was set aside, and nothing when it loaded (D12)', () => {
+    expect(LOAD_COPY.none).toBeNull();
+    expect(LOAD_COPY.ok).toBeNull();
+    for (const outcome of ['older', 'newer', 'unreadable', 'other-city'] as const) {
+      const text = LOAD_COPY[outcome]!;
+      expect(text.split(/\s+/).length, `${outcome}: "${text}"`).toBeLessThanOrEqual(8);
+      expect(text).toContain('set aside');
+    }
+  });
 });

@@ -1,7 +1,7 @@
 // Refusals in words (the M2 spec, item 3; UX-03): every reason code a rule or command returns, as
 // copy of 8 words or fewer, in money where money is short. Never a raw code on screen (V3 showed
 // `insufficient_funds`).
-import type { RefusalView } from '../sim/types';
+import type { LoadView, RefusalView } from '../sim/types';
 import { usd } from './format';
 
 type Copy = (r: RefusalView) => string;
@@ -39,3 +39,13 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
 export function refusalText(r: RefusalView): string {
   return (REFUSAL_COPY[r.reason] ?? (() => 'That can’t be done here'))(r);
 }
+
+/** A save the game could not start from, in one line (D12): kept under a backup key, never overwritten. */
+export const LOAD_COPY: Readonly<Record<LoadView, string | null>> = {
+  none: null,
+  ok: null,
+  older: 'Save from an older build set aside',
+  newer: 'Save from a newer build set aside',
+  unreadable: 'Unreadable save set aside',
+  'other-city': 'Save from an older map set aside',
+};

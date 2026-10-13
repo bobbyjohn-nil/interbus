@@ -133,8 +133,16 @@ export interface DayCard {
   readonly cashAfterCents: number;
 }
 
+/** A write or removal in the page's save store, in order (the sim names its keys; the page only carries them out). */
+export type StoreEffect = { readonly op: 'write'; readonly key: string; readonly value: string } | { readonly op: 'remove'; readonly key: string };
+
+/** What became of the save a game started from: none, read, or set aside for a fresh start (D12). */
+export type LoadView = 'none' | 'ok' | 'newer' | 'older' | 'unreadable' | 'other-city';
+
 export type ToWorker =
-  | { readonly type: 'init'; readonly simText: string; readonly city: CityRefData; readonly seed: number }
+  | { readonly type: 'init'; readonly simText: string; readonly city: CityRefData; readonly seed: number; readonly build: { readonly sha: string; readonly version: string } }
+  /** The page's answer to read-save: the text under that key, or null. */
+  | { readonly type: 'save-text'; readonly text: string | null }
   | { readonly type: 'speed'; readonly speed: Speed }
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
@@ -151,7 +159,12 @@ export type FromWorker =
       /** Where depots may stand, for the green tint: rings of [lon, lat]. */
       readonly depotLand: readonly (readonly LngLatPair[])[];
       readonly snapshot: Snapshot;
+      readonly load: LoadView;
     }
+  /** The sim asks for the save under its key before it starts. */
+  | { readonly type: 'read-save'; readonly key: string }
+  /** Saves and set-asides for the page to carry out, in order. */
+  | { readonly type: 'store'; readonly effects: readonly StoreEffect[] }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }
   | { readonly type: 'day-card'; readonly card: DayCard }
   | { readonly type: 'probe'; readonly id: number; readonly people: number }
