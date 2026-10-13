@@ -6,7 +6,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` aea4ff0. Deploy preview run 38349009192's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ee8d74f. Deploy preview run 38354291134's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston, flat or tilted with `T`;
   - the dots of homes and jobs on mini-Boston;
   - "people within a walk" at the pointer;
@@ -17,7 +17,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - **Data:**
   - release `city-boston-sim-mini-boston-20b38b02` holds mini-Boston's `sim.json` at `tripScale` 111‰ with bus access by OSM's hierarchy (134,361 B), published by **City sim file (manual)** run 38352676465, which matched the golden on GitHub's runner. The older `7efc98ec` and `ba4110d6` stay for pages of older builds;
   - release `city-boston-tiles-20261012-57ac68da` holds Boston's map file (15.6 MB);
-  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs;
+  - release `city-boston-sources-20261012` holds the bake's eight pinned inputs; Inner Boston bakes from them to the golden in `cities/boston/sim-inner-boston.lock.json` (**City sim file** run 38353671557 matched it on GitHub's runner), not yet published;
   - mini-Boston is committed under `tools/bake/fixtures/mini-boston/`, and G4 is exact (Boston 675,647).
 
 ## Waiting on the owner
