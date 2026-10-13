@@ -12,6 +12,8 @@ export interface EdgeInput {
   readonly dm: number;
   /** Free-flow driving time, whole centiseconds. */
   readonly cs: number;
+  /** 1: a → b only; -1: b → a only; 0 or absent: both ways. */
+  readonly oneway?: -1 | 0 | 1;
 }
 
 export interface Graph {
@@ -33,6 +35,8 @@ export interface Graph {
   readonly slotEdge: Int32Array;
   /** The slot leaving the other end of the same edge in the other direction. */
   readonly slotTwin: Int32Array;
+  /** 1 where a vehicle may drive the slot's way along its edge: 0 against a one-way street. */
+  readonly slotOpen: Uint8Array;
   /** The fewest centiseconds any edge takes per decimetre: the A* heuristic's speed limit. */
   readonly minCsPerDm: number;
 }
@@ -78,7 +82,10 @@ export function buildGraph(nodes: readonly (readonly [number, number])[], edges:
   const slotNode = new Int32Array(2 * e);
   const slotEdge = new Int32Array(2 * e);
   const slotTwin = new Int32Array(2 * e);
+  const slotOpen = new Uint8Array(2 * e);
   for (let i = 0; i < e; i++) {
+    const oneway = edges[i]!.oneway ?? 0;
+    if (oneway !== 0 && oneway !== 1 && oneway !== -1) throw new RangeError(`edge ${i} oneway must be -1, 0 or 1`);
     const a = edgeA[i]!;
     const b = edgeB[i]!;
     const ka = fill[a]!++;
@@ -89,8 +96,10 @@ export function buildGraph(nodes: readonly (readonly [number, number])[], edges:
     slotEdge[kb] = i;
     slotTwin[ka] = kb;
     slotTwin[kb] = ka;
+    slotOpen[ka] = oneway === -1 ? 0 : 1;
+    slotOpen[kb] = oneway === 1 ? 0 : 1;
   }
-  return { nodeCount: n, x, y, edgeA, edgeB, edgeDm, edgeCs, start, slotNode, slotEdge, slotTwin, minCsPerDm: Number.isFinite(minCsPerDm) ? minCsPerDm : 0 };
+  return { nodeCount: n, x, y, edgeA, edgeB, edgeDm, edgeCs, start, slotNode, slotEdge, slotTwin, slotOpen, minCsPerDm: Number.isFinite(minCsPerDm) ? minCsPerDm : 0 };
 }
 
 /** Connected components by flood fill (V2's labelComponents, 20-city.js:1543-1561). */

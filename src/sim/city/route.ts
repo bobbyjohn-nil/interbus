@@ -103,6 +103,7 @@ export function createRouter(g: Graph): Router {
       }
       size = 0;
       for (let k = g.start[from]!; k < g.start[from + 1]!; k++) {
+        if (!g.slotOpen[k]) continue;
         best[k] = g.edgeCs[g.slotEdge[k]!]!;
         seen[k] = gen;
         prev[k] = -1;
@@ -116,7 +117,7 @@ export function createRouter(g: Graph): Router {
         if (node === to) return unwind(k);
         const inEdge = g.slotEdge[k]!;
         for (let out = g.start[node]!; out < g.start[node + 1]!; out++) {
-          if (closed[out] === gen) continue;
+          if (closed[out] === gen || !g.slotOpen[out]) continue;
           const outEdge = g.slotEdge[out]!;
           const cost = best[k]! + g.edgeCs[outEdge]! + (turnCost ? turnCost(node, inEdge, outEdge) : 0);
           if (seen[out] !== gen || cost < best[out]!) {
