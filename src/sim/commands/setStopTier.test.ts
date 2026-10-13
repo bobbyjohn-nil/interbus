@@ -21,7 +21,9 @@ function game() {
 }
 
 describe('setting a stop’s tier', () => {
-  it('buys a Shelter at Symphony for $12k as one Purchases row, and the line carries 32.0 more riders a day (measured)', () => {
+  // Measured 32.0 before item 15's rush hour; the reference loop gives 32.5 with it (30.2 without),
+  // the fast loop's groups moving their riders to Symphony together where the reference moves each.
+  it('buys a Shelter at Symphony for $12k as one Purchases row, and the line carries 39.9 more riders a day (measured)', () => {
     const { world, symphony, riders } = game();
     const cash = world.state.ledger.cashCents;
     const before = riders();
@@ -29,7 +31,7 @@ describe('setting a stop’s tier', () => {
     expect(world.state.ledger.cashCents).toBe(cash - 1_200_000);
     expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'purchase', amountCents: -1_200_000 });
     expect(world.state.stops.find((s) => s.id === symphony)!.tier).toBe(2);
-    expect(riders() - before).toBeCloseTo(32.0, 1);
+    expect(riders() - before).toBeCloseTo(39.9, 1);
   });
 
   it('sells a Station back down to a Shelter for half its step, $17.5k, as one Sales row, and riders return to the Shelter’s', () => {

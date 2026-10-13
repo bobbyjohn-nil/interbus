@@ -1,18 +1,19 @@
 // What hourly congestion (the M3 spec, item 15) does to round trips and bus counts: each period's
 // factor by street class, then the fixture's debug line and Inner Boston's ten corridors, each line's
 // rush weight, its round trip at the day's average traffic and in each period, and the buses it needs
-// at 10 and 15 minutes with congestion and without. `npm run bench congestion`.
+// at 10 and 15 minutes with congestion and without, then Inner Boston's riders by period with and
+// without. `npm run bench congestion`.
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity } from '../src/sim/city/simfile';
 import { CLASS_RUSH, STREET_RUSH } from '../src/sim/config/traffic';
 import { SPARROW } from '../src/sim/config/fleet';
 import { busesNeeded, cycleSeconds, cyclesOf } from '../src/sim/rules/cycle';
-import type { Headways } from '../src/sim/rules/periods';
 import { newGame } from '../src/sim/state';
 import { periodCongestion } from '../src/sim/traffic/congestion';
 import { createWorld, planLine } from '../src/sim/world';
-import type { LinePlan } from '../src/sim/demand/assign';
+import { assign, type LinePlan } from '../src/sim/demand/assign';
+import { PERIODS, periodAt, type Headways } from '../src/sim/rules/periods';
 import { innerBoston } from './inner';
 
 const f3 = (v: number) => v.toFixed(3);
@@ -55,4 +56,10 @@ const inner = innerBoston();
 if (inner) {
   inner.plans.forEach((plan, n) => report(inner.names[n]!, plan));
   console.log(`Inner Boston's ten corridors at 10/15 min: ${before} buses without congestion, ${after} with`);
+  // And the riders: the same plans with no rush, then with their routes' own.
+  const calm = assign(inner.world.city, inner.world.commuters, inner.plans.map((p) => ({ ...p, rush: 0 })));
+  const busy = assign(inner.world.city, inner.world.commuters, inner.plans);
+  const periods = (a: typeof calm) => PERIODS.map((p) => [...a.lines.values()].reduce((sum, d) => sum + d.bySlot.reduce((s, v, k) => s + (periodAt(k * 1800 + 900) === p ? v : 0), 0), 0));
+  const [c, b] = [periods(calm), periods(busy)];
+  console.log(`Inner Boston's riders a day: ${calm.tripsPerDay.toFixed(1)} without congestion, ${busy.tripsPerDay.toFixed(1)} with (${(((busy.tripsPerDay - calm.tripsPerDay) / calm.tripsPerDay) * 100).toFixed(2)}%); boardings at peak ${c[0]!.toFixed(1)} → ${b[0]!.toFixed(1)}, off-peak ${c[1]!.toFixed(1)} → ${b[1]!.toFixed(1)}, overnight ${c[2]!.toFixed(1)} → ${b[2]!.toFixed(1)}`);
 }
