@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 4146418 (a stop comes off a line from its card), with extending a line from either end in review; r1's Overture heights next (look work), then week 5's presentation items.
+**Updated:** 2026-10-13, at `main` 85f8226 (a line extends from either end): step 11 is done, so M3's items are all in but r1's Overture heights (look work, next) and week 5's presentation items.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4146418. Deploy preview run 38413436227's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 85f8226. Deploy preview run 38414763751's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -20,6 +20,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a fare per line from $1.00 to $5.00 on the line card, with the band of fares that net the most;
   - each stop's day on a click (boardings, alightings, net), and QUIET or LOSS stops ringed on the map;
   - stop tiers from a Sign to a Transfer Hub on the stop card, and each line's button there to take the stop off it;
+  - a line extended from either end, from Lines, priced on the draft card;
   - Finance in the dock: every row by kind for today, yesterday and the quarter, beside a day's forecast;
   - undo while paused, on a chip and Ctrl+Z;
   - a save from another bake of the map carried onto it;
@@ -192,13 +193,16 @@ The spec is [`docs/specs/current.md`](specs/current.md). The calendar puts M3 in
    - [x] **β fitted to LODES** (2026-10-13): 3,260 m on Inner Boston (V1's 4 km), the fixture taking the same; `sim.json` carries `calib.gravityBetaM`. The debug line carries 614.4 riders a day, inside the band, so the fixture keeps 111‰ (DECISIONS, Measured).
    - [x] **Inner Boston's `tripScale` and the starting cash** (2026-10-13): 279‰, so the debug line carries 613.9 there as on the fixture; 16 of 19 starters along T03's corridors fit the founding capital and four pay on day 2, the best Washington Street at +$2,267; at calibrated demand almost no one is turned away (DECISIONS, Measured).
    - [x] **The preview plays Inner Boston** (2026-10-13): `cities/index.json` names Inner Boston's `sim.json` and the fixture beside it; `npm run build` and the deploy play Inner Boston, and CI smoke-tests that build before running every e2e test on `npm run build:fixture` (DECISIONS, Measured).
-   - [ ] Overture heights in the map file (look work, PLAN §10's week 5: at most one session in three).
+   - [ ] Overture heights in the map file (look work, PLAN §10's week 5: at most one session in three). The plan, from reading the bake on 2026-10-13:
+     - **The input.** Overture has no single file to download: its buildings are partitioned parquet on S3. `tools/bake/fetch.mjs` (City sources workflow) queries the pinned release (2026-09-23.1, PLAN §5) for the extent with DuckDB: each building's centroid and `height`. It mirrors the result as a hashed asset in the sources lock, so the bake never reads Overture itself.
+     - **The join.** The City tiles workflow's strip pass rewrites each tile. Each `buildings` feature with no `height` takes the height of the Overture building whose centroid falls inside it. `tools/bake/mvt.mjs`'s `rewriteTile` passes only properties today, so it needs the feature's geometry in tile coordinates, and a numeric value writer: the style's `fill-extrusion-height` reads a number, and only strings are written now.
+     - **Done when:** a dispatched City tiles run publishes the new map file, and its counts land in DECISIONS (share of buildings with a height, before and after). Then `cities/index.json` names it, the style test still stands an untagged building at the default, and the tilt e2e passes.
 8. [x] **The report card** (item 9, done before step 7 because r1's bake work is not needed for it; 2026-10-13): Coverage, Reliability, Comfort and Money on the quarter's last day card, paid or fined as a Report card row. Ten seeded opening companies grade 53.7–63.8 (median 57.9), so V1's bars stay at 55 and 35; the card pays the debug line 3.9 times its quarter's net, for week 9 (DECISIONS, Measured).
 9. [x] **The failure floor** (item 10, also before step 7; 2026-10-13): cash may go to −$150k on a credit line, at 0.06% a day as an Interest row; a countdown chip from the first close below it, and on the fifth the run ends with **Restart this quarter**, from a save the game writes by itself at each quarter's start (save format 8; DECISIONS, Measured).
 10. [x] **HEADWAY contracts** (item 11, I11), checklist step 5 and **Export session** (item 12).
     - [x] **Contracts and the checklist's last step** (2026-10-13): three offers at landmarks, a bus every 10, 15 or 20 minutes for $240k, $150k or $60k, met at the best stop within a walk at the slower of peak and off-peak, paid after 10 days in a row within 20 as a Contracts row (save format 9). Asks come from a shuffled deck, so 100 seeds earn $1.11M–$1.29M over 40 days (I11). "5/5 Take a contract" opens them and gives way to a Contracts chip; rings on the map (DECISIONS, Measured).
     - [x] **Export session** (2026-10-13): in Saves, the session's save, its speed and every command since; the same host replays it to the same game fingerprint, a Chromium session in Node included, and `npm run bench replay <file>` replays a player's (DECISIONS, Measured).
-11. [ ] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
+11. [x] **Transfers** (item 13, I5) and **route remove and extend** (item 14).
     - [x] **Riders scan every line at a stop** (I5; 2026-10-13): of the lines serving a trip, they take the first bus among those worth waiting for, split by frequency, at the combined headway's wait; six lines along the same stops carry a sixth each, where the first took them all (DECISIONS, Measured).
     - [x] **One change of line, paid once a trip** (I4; 2026-10-13): at a shared stop or within 250 m, for the walk, the boarding stop's tier's penalty and the second wait, never onto a line the home can walk to nor off one that reaches work; fare and subsidy felt and paid once, on the first line. Splitting a line now loses 4.8% to 40.6% where charging each boarding gained up to +22.7%; Copley–Kenmore and Kenmore–Longwood carry 52.6 changes a day at Kenmore, on its stop card (exit check 5); Inner Boston's recompute is 81–96 ms p50 (DECISIONS, Measured).
     - [x] **Remove a stop** (item 14; 2026-10-13): the stop card takes it off each line, a line keeping two; a stop no other line calls at comes down for half of what it and its fittings cost, as a Refunds row, and the undo chip puts it back. Symphony off the debug line leaves 311.8 trips a day of 614.4 (DECISIONS, Measured).
