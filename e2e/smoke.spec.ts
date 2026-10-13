@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 /** Distinct colours in a PNG, counted inside the page so no image library is needed. */
@@ -81,6 +82,11 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
   }
 
   await expect(page.getByTestId('replaced-card')).toHaveCount(0);
+
+  // Accessibility, proportionate (PLAN §8, UX-08): axe-core finds nothing on the opening screen.
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.length} × ${v.help}`)).toEqual([]);
+
   expect(errors).toEqual([]);
   expect([...origins]).toEqual([new URL(page.url()).origin]);
 });

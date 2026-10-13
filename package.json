@@ -33,12 +33,14 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@maplibre/maplibre-gl-style-spec": "26.4.4",
     "@playwright/test": "1.63.0",
     "@types/node": "24.19.0",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "6.1.1",
+    "axe-core": "4.13.0",
     "eslint": "10.11.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "fontnik": "0.7.7",
