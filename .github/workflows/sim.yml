@@ -1,0 +1,77 @@
+# Bakes a city's sim.json from its pinned inputs and publishes it as a release asset, so the deploy
+# can ship it (PLAN §5: city files come only from a dispatch-only job; the deploy never bakes).
+# Until week 3's full bake only the committed fixture bakes, and it must match its golden hash
+# (tools/bake/fixtures/<id>/sim.lock.json) byte for byte before anything is published. After a
+# published run, put the summary's entry in cities/index.json in a PR.
+name: City sim file (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: City id in cities/index.json
+        required: true
+        default: boston
+      extent:
+        description: Gate profile in the city's city.json (only the fixture until week 3)
+        required: true
+        default: mini-boston
+      publish:
+        description: Create the release (off = bake and check only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  bake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Check the names
+        env:
+          CITY: ${{ inputs.city }}
+          EXTENT: ${{ inputs.extent }}
+        run: |
+          for v in "$CITY" "$EXTENT"; do
+            if ! [[ "$v" =~ ^[a-z][a-z0-9-]*$ ]]; then echo "::error::bad name '$v'"; exit 1; fi
+          done
+          test -f "cities/$CITY/city.json" || { echo "::error::no cities/$CITY/city.json"; exit 1; }
+
+      - name: Bake, and match the golden hash
+        env:
+          CITY: ${{ inputs.city }}
+          EXTENT: ${{ inputs.extent }}
+        run: node tools/bake/sim.mjs "$CITY" "$EXTENT" --check --out "sim.json"
+
+      - name: Publish as a release asset
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CITY: ${{ inputs.city }}
+          EXTENT: ${{ inputs.extent }}
+        run: |
+          sha=$(sha256sum sim.json | cut -d' ' -f1)
+          bytes=$(stat -c %s sim.json)
+          file="sim-${CITY}-${EXTENT}-${sha:0:8}.json"
+          tag="city-${CITY}-sim-${EXTENT}-${sha:0:8}"
+          mv sim.json "$file"
+          gh release create "$tag" "$file" --title "${CITY^} sim file, ${EXTENT}" \
+            --notes "Baked by the City sim file workflow (run ${GITHUB_RUN_ID}) at ${GITHUB_SHA} from the pinned inputs committed under tools/bake/fixtures/, matching the golden hash in sim.lock.json. Map data © OpenStreetMap contributors (ODbL). U.S. Census Bureau: TIGER/Line 2020 and LEHD Origin-Destination Employment Statistics (LODES 8.4, 2023)."
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${file}"
+          {
+            echo "### cities/index.json entry"
+            echo '```json'
+            echo "\"sim\": { \"file\": \"$file\", \"url\": \"$url\", \"sha256\": \"$sha\", \"bytes\": $bytes, \"extent\": \"$EXTENT\" }"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

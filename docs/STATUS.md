@@ -2,7 +2,7 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` 27dc1ab, with the fare-row signal in review.
+**Updated:** 2026-10-13, at `main` 7c37cf8, with the sim file's publish workflow in review.
 
 ## Live now
 
@@ -53,7 +53,10 @@ PLAN §14 items 10–13. The exit check: `T` tilts and returns; dots sit where B
     - 84 cells;
     - G1–G3 per extent;
     - a golden hash in `sim.lock.json` (I17).
-  - [ ] the fixture's `sim.json` published by a dispatch-only job and named in `cities/index.json`, so the deploy ships it;
+  - [ ] the fixture's `sim.json` published and named in `cities/index.json`, so the deploy ships it:
+    - the dispatch-only **City sim file (manual)** workflow (`.github/workflows/sim.yml`) re-bakes it, matches the golden hash and publishes a release asset;
+    - `npm run cities` fetches and checks a named `sim` like the tiles;
+    - left: run it with publish on, then add its entry to `cities/index.json`.
   - [x] the `sim.json` loader (2026-10-13, `src/sim/city/simfile.ts`):
     - strict, with refusals named;
     - one-way streets honoured by the router;
