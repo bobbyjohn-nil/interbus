@@ -59,8 +59,9 @@ async function checkChip() {
       }
     }
     if (cities.some((c) => c.sim)) {
-      // The sim worker started on this deploy's sim file: the panel appears only once it is ready.
-      await page.getByTestId('sim-panel').waitFor({ timeout: 60_000 });
+      // The sim worker started on this deploy's sim file: Home, the first screen, appears only once
+      // it is ready (the M5 spec, item 3; the chip row waits for the game behind it).
+      await page.getByTestId('home').waitFor({ timeout: 60_000 });
       console.log('live-check: the sim worker is running on the city\'s sim file');
     }
     console.log(`live-check: build chip shows ${sha.slice(0, 7)}; the map is ready and fills the window`);
