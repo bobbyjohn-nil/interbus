@@ -24,7 +24,13 @@
         "source": "Protomaps daily build 20261012",
         "maxzoom": 15
       },
-      "sim": null
+      "sim": {
+        "file": "sim-boston-mini-boston-ba4110d6.json",
+        "url": "https://github.com/bobbyjohn-nil/interbus/releases/download/city-boston-sim-mini-boston-ba4110d6/sim-boston-mini-boston-ba4110d6.json",
+        "sha256": "ba4110d6f8d706ff79f5d3f612b5eb1820df95cf8e0a789f5c7494b31c221df8",
+        "bytes": 132908,
+        "extent": "mini-boston"
+      }
     }
   ]
 }

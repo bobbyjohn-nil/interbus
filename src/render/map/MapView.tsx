@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { onReplaced } from '../../platform';
 import { CITIES } from '../../cities';
+import type { Dots, LineView, LngLatPair } from '../../sim/types';
 import type { MountedMap } from './loadMap';
 import { afterIdle, afterMountError, afterTimeout, type MapStatus as Status } from './status';
 import { buildingsLayer, isTiltKey, toggled, type ViewMode } from './tilt';
@@ -15,8 +16,32 @@ const MESSAGES: Record<Exclude<Status, 'loading' | 'ready' | 'replaced'>, string
   failed: 'The map could not start on this computer.',
 };
 
-export function MapView() {
+export interface MapViewProps {
+  /** Where people live and work, from the sim worker. */
+  readonly dots?: Dots | null;
+  readonly lines?: readonly LineView[];
+  /** Changes whenever `lines` does (Snapshot.linesVersion). */
+  readonly linesVersion?: number;
+  readonly onPointer?: (at: LngLatPair | null, screen: [number, number] | null) => void;
+}
+
+/** Sets the dots and, drawn rather than merely sent (TS-07), counts what the next settled frame shows. */
+function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void): () => void {
+  mounted.setDots(dots);
+  const onIdle = () => setDrawn(mounted.dotsDrawn());
+  mounted.map.once('idle', onIdle);
+  return () => void mounted.map.off('idle', onIdle);
+}
+
+export function MapView({ dots = null, lines = [], linesVersion = 0, onPointer }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
+  /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
+  const mountedRef = useRef<MountedMap | null>(null);
+  const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
+  const latest = useRef({ dots, lines, onPointer });
+  useEffect(() => {
+    latest.current = { dots, lines, onPointer };
+  });
   const city = CITIES[0];
   const [status, setStatus] = useState<Status>(city?.tiles ? 'loading' : 'no-city-file');
   const [tileReads, setTileReads] = useState<string>('');
@@ -70,6 +95,11 @@ export function MapView() {
       .then((mounted) => {
         if (disposed) return mounted.dispose();
         dispose = mounted.dispose;
+        mountedRef.current = mounted;
+        const now = latest.current;
+        if (now.dots) showDots(mounted, now.dots, setDotsDrawn);
+        mounted.setLines(now.lines);
+        mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
         setTileReads(mounted.tileReads);
         // 'idle' also fires when nothing was drawn (a style that names layers the tiles lack), so
         // ready means the first idle frame holds at least one feature (status.ts).
@@ -87,9 +117,20 @@ export function MapView() {
     return () => {
       disposed = true;
       ready.current = null;
+      mountedRef.current = null;
       dispose?.();
     };
   }, [city]);
+
+  useEffect(() => {
+    const mounted = mountedRef.current;
+    if (!mounted || !dots) return;
+    return showDots(mounted, dots, setDotsDrawn);
+  }, [dots]);
+
+  useEffect(() => {
+    mountedRef.current?.setLines(latest.current.lines);
+  }, [linesVersion]);
 
   return (
     <div
@@ -102,6 +143,7 @@ export function MapView() {
       data-mode={mode}
       data-pitch={settled?.pitch ?? ''}
       data-buildings={settled?.buildings ?? ''}
+      data-dots={dotsDrawn ?? ''}
     >
       {status in MESSAGES ? <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p> : null}
     </div>

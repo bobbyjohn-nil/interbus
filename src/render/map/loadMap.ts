@@ -9,9 +9,11 @@ import { FileSource, PMTiles, Protocol } from 'pmtiles';
 import { assetBase, assetGone, openCityFile, reportReplaced } from '../../platform';
 import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
+import type { Dots, LineView, LngLatPair } from '../../sim/types';
+import { addOverlays, DOT_LAYERS, setDots, setLines } from './overlays';
 import { buildStyle } from './style';
 import { buildingVisibility, cameraFor, MAX_PITCH, MIN_ZOOM, type ViewMode } from './tilt';
-import { LIGHT } from './tokens';
+import { GAME_LIGHT, LIGHT } from './tokens';
 
 let protocol: Protocol | null = null;
 
@@ -29,6 +31,13 @@ export interface MountedMap {
   readonly tileReads: 'range' | 'whole';
   /** Tilts or flattens the board (tilt.ts); call it only once the style has loaded. */
   setMode(mode: ViewMode): void;
+  /** The game's layers (overlays.ts); safe to call before the style loads. */
+  setDots(dots: Dots): void;
+  setLines(lines: readonly LineView[]): void;
+  /** How many dots the last settled frame drew. */
+  dotsDrawn(): number;
+  /** Where the pointer is over the map (null when it leaves), at most every 100 ms. */
+  onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null) => void): void;
   dispose(): void;
 }
 
@@ -102,10 +111,34 @@ export async function mountMap(container: HTMLElement, city: City): Promise<Moun
     map.easeTo({ ...cameraFor(next, map.getZoom()), duration: 600 }, { [TILT_MOVE]: next });
   };
 
+  // The game's layers go on once the style has loaded; data set before then waits.
+  let loaded = false;
+  const pending: { dots?: Dots; lines?: readonly LineView[] } = {};
+  map.once('load', () => {
+    addOverlays(map, GAME_LIGHT);
+    loaded = true;
+    if (pending.dots) setDots(map, pending.dots);
+    if (pending.lines) setLines(map, pending.lines);
+  });
+
+  let pointer: ((at: LngLatPair | null, screen: [number, number] | null) => void) | null = null;
+  let lastPointerMs = 0;
+  map.on('mousemove', (e) => {
+    const now = e.originalEvent.timeStamp;
+    if (!pointer || now - lastPointerMs < 100) return;
+    lastPointerMs = now;
+    pointer([e.lngLat.lng, e.lngLat.lat], [e.point.x, e.point.y]);
+  });
+  map.getCanvas().addEventListener('mouseleave', () => pointer?.(null, null));
+
   return {
     map,
     tileReads: file.kind,
     setMode,
+    setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
+    setLines: (lines) => (loaded ? setLines(map, lines) : void (pending.lines = lines)),
+    dotsDrawn: () => (loaded ? map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).length : 0),
+    onPointer: (listener) => void (pointer = listener),
     dispose: () => map.remove(),
   };
 }

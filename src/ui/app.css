@@ -106,3 +106,105 @@ body,
   background: #fff;
   cursor: pointer;
 }
+
+/* M1's debug panel, probe and day card (src/ui/game); the calm shell replaces them in week 4. */
+.sim-panel {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.chips,
+.controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--ui-paper);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-label {
+  color: var(--ui-ink-soft);
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.controls button,
+.day-card button {
+  font: inherit;
+  min-height: 24px;
+  padding: 3px 10px;
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.controls button[aria-pressed='true'] {
+  font-weight: 600;
+  border-color: var(--ui-ink-soft);
+}
+
+.probe-card {
+  position: absolute;
+  pointer-events: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--ui-paper);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.day-card {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 260px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--ui-paper);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.15);
+  font-size: 14px;
+}
+
+.day-card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.day-card table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+.day-card th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ui-ink-soft);
+}
+
+.day-card td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-card .total th,
+.day-card .total td {
+  font-weight: 600;
+  color: var(--ui-ink);
+  border-top: 1px solid var(--ui-line);
+}

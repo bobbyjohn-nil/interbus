@@ -8,3 +8,4 @@ export { externalLink, ALLOWED_LINKS, type ExternalLinkProps } from './web/links
 export { createWebSaveStore } from './web/saveStore';
 export { createMemorySaveStore } from './memory/saveStore';
 export { applyEffects, type SaveStore, type StoreEffect } from './types';
+export { readSimFile, startSimWorker } from './web/simFile';
