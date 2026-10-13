@@ -288,6 +288,8 @@ export type ToWorker =
   | { readonly type: 'restart-quarter' }
   /** Takes a HEADWAY contract on offer. */
   | { readonly type: 'accept-contract'; readonly contractId: number }
+  /** This session as a file: the save it began from and every command since (Export session). */
+  | { readonly type: 'export-session' }
   /** Asks for a line's fare band, for its open card. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 

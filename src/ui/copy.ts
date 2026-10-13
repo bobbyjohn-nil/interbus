@@ -55,6 +55,7 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   // The failure floor (sim/rules/credit.ts)
   run_ended: () => 'The lender has called in the loan',
   no_quarter_save: () => 'No save from this quarter’s start',
+  no_session: () => 'Found the company first',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',

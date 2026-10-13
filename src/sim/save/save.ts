@@ -11,7 +11,7 @@ import { CONTRACT_ASKS } from '../config/contracts';
 import { STOP_TIER_IDS, type StopTier } from '../config/stops';
 import { ID_KINDS, type ContractId, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
 import { toCalendarTime } from '../core/calendar';
-import { createRng } from '../core/rng';
+import { createRng, hashString } from '../core/rng';
 import type { LedgerRow } from '../economy/ledger';
 import { checkHeadways } from '../rules/periods';
 import type { SaveAbout } from '../types';
@@ -130,6 +130,13 @@ export function fromSaveData(data: SaveData): SimState {
 export function encode(state: SimState, build: BuildRef): string {
   const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: { sha: build.sha, version: build.version }, data: toSaveData(state) };
   return JSON.stringify(envelope);
+}
+
+/** A short fingerprint of the whole game, build aside: two games with the same hash are the same game (Export session, AR-06). */
+export function stateHash(state: SimState): string {
+  const text = JSON.stringify(toSaveData(state));
+  const hex = (n: number) => n.toString(16).padStart(8, '0');
+  return hex(hashString(`a${text}`)) + hex(hashString(`b${text}`));
 }
 
 /** What only a whole file can show: references, duplicates, counters and the ledger's shape. */

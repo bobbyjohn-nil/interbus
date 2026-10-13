@@ -14,7 +14,7 @@ const CODES = [
   'time_has_run', 'nothing_to_undo',
   'empty_slot', 'no_such_slot', 'save_unreadable', 'save_newer', 'save_older', 'save_other_city', 'save_off_street', 'save_none',
   'run_ended', 'no_quarter_save',
-  'no_such_contract', 'already_held',
+  'no_such_contract', 'already_held', 'no_session',
 ];
 
 describe('refusal copy (UX-03)', () => {
