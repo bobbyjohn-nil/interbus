@@ -4,6 +4,9 @@
 import { MAX_DAYTIME_HEADWAY_SECONDS, PEAK_WINDOWS, SERVICE_DAY, SECONDS_PER_DAY } from '../config/time';
 import { ok, refuse, type Result } from '../core/result';
 
+/** The headways the line card offers, in minutes. */
+export { HEADWAY_MINUTES } from '../config/lines';
+
 export type Period = 'peak' | 'offpeak' | 'overnight';
 export const PERIODS: readonly Period[] = ['peak', 'offpeak', 'overnight'];
 

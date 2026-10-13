@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-13, at `main` d8cfb2d (medals): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: a save whose ledger is out of day order is refused (in review), and the full sweep is next.
+**Updated:** 2026-10-13, at `main` e5a9de0 (a save's ledger in day order): M3's items are all in but week 5's presentation items, and M4 (Goals, by Sun Dec 6) is under way: the full sweep is in review, and festival and snow are next.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` d8cfb2d. Deploy preview run 38454551367's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` e5a9de0. Deploy preview run 38455910993's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and the sim panel up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, four buildings in five at their measured height;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -224,7 +224,7 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m
 3. [x] **No bus jumps on a change** (item 4; 2026-10-13): a line changed with its buses out keeps the version it ran on, and its merged plan finishes every trip under way on its own route and times, the new departures taking buses as they come free, until it hands over to its day plan with nothing moving (save format 12). Removing a stop, extending, a new headway or model and roadworks starting moved buses 94–2,774 m at the change and now 0.0 m; the handover comes 20–30 minutes on, or hours after a longer headway on the same buses, by the next morning at the latest (DECISIONS, Measured).
 4. [x] **Route insert** (item 4; 2026-10-13): Insert a stop on the line card, then a click within 300 m of the line goes into its nearest leg, priced on the card with a warning over a 15% detour; one command, one undo, and no bus moves at the click (exit check 3 as e2e; DECISIONS, Measured).
 5. [x] **Medals** (item 3; 2026-10-13): bronze for a quarter of 55, silver at 25,000 trips carried (paid boardings, so a change is not counted twice) with the Goliath behind it, gold for a quarter of 75 with no grade under 60 on a day of 5,000 trips, each awarded once at a close and kept in the save (format 13), on the recommended ladder until the owner answers. On the fixture the debug line alone gets bronze on day 10 and silver on day 41, and two lines every 10 minutes silver on day 23. The medals held are dots on the Contracts chip and the Contracts panel lists the ladder with the trips left to silver, because a chip of their own broke I13 at 1152×720 (6.4% of 6%); the shell at rest late in a game now takes 5.96%, so the chip row is full (DECISIONS, Measured).
-6. [ ] **The full sweep** (item 5), nightly if it passes 8 minutes.
+6. [x] **The full sweep** (item 5; 2026-10-13, in review): I3 over every headway the line card offers (650 settings), every fare, each model and each tier a lone line's stops may take, with and without roadworks on its own streets, on the debug line and two Inner Boston corridors whose stops are laid every 400 m along the street: it holds in all 54 slices, the best always every 12–15 minutes at peak with overnight off at $1.75–$2.00, a starved line at 2.7% of the best or less. It takes about 37 minutes, so it runs nightly, and the PR checks run it in small (DECISIONS, Measured). Festival and snow join its slices when they land.
 7. [ ] Express behind I3 (below the cut's first).
 
 ## Autonomy protocol (the owner's request, 2026-10-13)
@@ -257,3 +257,5 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M3's is archived as [`m
 - **Long downloads and bakes:** the fixture cut takes about 4 minutes. `Bake fixture check (manual)` re-cuts it on a runner and fails on any byte of difference.
 - **Changing the save schema:** bump `SAVE_FORMAT` in `src/sim/save/save.ts` and add the new hash to `src/sim/save/schema.lock.json`. The failing test prints the hash. Never edit an existing line in the lock.
 - **Pitfall:** `pkill -f <pattern>` run inside a command line that contains the same pattern kills its own shell. Find the process id first.
+- **Nightly:** the `Nightly` workflow (`.github/workflows/nightly.yml`) runs I3's full sweep at 07:23 UTC, about 37 minutes here and likely longer on a runner, and a failing verdict fails that run. It never blocks a merge, so a check-in reads its latest run and fixes a red one.
+- **Pitfall:** two `npm run bench` commands at once share `.cache/bench/dist`, and the second empties it under the first. Run them one at a time.

@@ -1,0 +1,44 @@
+# Nightly checks (CLAUDE.md: PR checks stay within 8 minutes; slower checks go nightly and never
+# block). I3's full sweep (the M4 spec, item 5; bench/sweep.ts): every headway the line card offers,
+# every fare, every bus model and every tier a lone line's stops may take, with and without roadworks,
+# on the fixture's debug line and two Inner Boston corridors. A failing verdict fails the run; it
+# blocks no merge, and the next session reads it from the run's log.
+name: Nightly
+
+on:
+  schedule:
+    # 07:23 UTC (03:23 in Boston in summer), off the hour so it starts on time.
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: I3's full sweep
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
+
+      - run: npm run bench sweep inner

@@ -10,6 +10,8 @@ export const STOP_STREET_REACH_M = 150;
 export const MIN_LINE_STOPS = 2;
 /** Founding headways: peak and off-peak alike, overnight off (D7). */
 export const FOUNDING_HEADWAYS = { peak: 1_200, offpeak: 1_200, overnight: null } as const;
+/** The headways the line card offers, in minutes, and so the ones I3's full sweep tries (the M4 spec, item 5). */
+export const HEADWAY_MINUTES: readonly number[] = [5, 6, 8, 10, 12, 15, 20, 30, 45, 60];
 /** Line colours in order of creation; the line card can change them later. */
 export const LINE_COLOURS: readonly string[] = ['#c0392b', '#2471a3', '#1e8449', '#b9770e', '#7d3c98', '#117a65', '#a04000', '#2e4053'];
 /** A stop inserted into a line goes into the leg nearest the click, which must be within this distance of the leg's streets (the M4 spec, item 4). */

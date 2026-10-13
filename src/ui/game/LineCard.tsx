@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { cyclesOf } from '../../sim/rules/cycle';
 import { FARES_CENTS } from '../../sim/rules/fare';
+import { HEADWAY_MINUTES } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
 import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
@@ -9,7 +10,6 @@ import { about, busCount, clock, duration, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /** Headways a player picks from, in minutes; overnight adds "off". */
-const MINUTES = [5, 6, 8, 10, 12, 15, 20, 30, 45, 60];
 const PERIODS = [
   ['peak', 'Peak'],
   ['offpeak', 'Off-peak'],
@@ -129,7 +129,7 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
             {label}
             <select value={next[period] === null ? 'off' : String((next[period] ?? 0) / 60)} onChange={(e) => pick(period, e.target.value)}>
               {period === 'overnight' ? <option value="off">off</option> : null}
-              {MINUTES.map((m) => (
+              {HEADWAY_MINUTES.map((m) => (
                 <option key={m} value={String(m)}>
                   every {m} min
                 </option>
