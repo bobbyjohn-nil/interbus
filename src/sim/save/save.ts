@@ -19,7 +19,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 12;
+export const SAVE_FORMAT = 13;
 
 export interface BuildRef {
   readonly sha: string;
@@ -94,6 +94,9 @@ export function toSaveData(state: SimState): SaveData {
     contractDeck: [...state.contractDeck],
     eventRng: { state: state.eventRng.state },
     event: state.event && { ...state.event, edges: [...state.event.edges] },
+    medals: { bronze: state.medals.bronze, silver: state.medals.silver, gold: state.medals.gold },
+    tripsCarried: state.tripsCarried,
+    tripsToday: state.tripsToday,
   };
 }
 
@@ -130,6 +133,9 @@ export function fromSaveData(data: SaveData): SimState {
     contractDeck: [...data.contractDeck],
     eventRng: createRng(data.eventRng.state),
     event: data.event && { ...data.event, edges: [...data.event.edges] },
+    medals: { ...data.medals },
+    tripsCarried: data.tripsCarried,
+    tripsToday: data.tripsToday,
   };
 }
 
@@ -149,6 +155,8 @@ export function stateHash(state: SimState): string {
 export function integrityProblem(data: SaveData): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
   if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
+  if (data.tripsToday < 0 || data.tripsCarried < data.tripsToday) return 'more trips today than since founding';
+  if (Object.values(data.medals).some((d) => d !== null && (d < 1 || d > toCalendarTime(data.clock.elapsed).day))) return 'a medal awarded on a day not yet played';
   for (const c of data.contracts) {
     if (c.daysMet < 0 || c.hoursMissedToday < 0 || c.ask <= 0 || c.rewardCents < 0) return `contract ${c.id}: a negative count or amount`;
     if (c.acceptedDay !== null && c.acceptedDay < c.offeredDay) return `contract ${c.id}: taken before it was offered`;

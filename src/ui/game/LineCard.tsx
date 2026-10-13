@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { cyclesOf } from '../../sim/rules/cycle';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
+import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
 import { about, busCount, clock, duration, usd, usdK } from '../format';
@@ -36,7 +37,7 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
   }, [fareBandFor, line.id, version]);
   if (!s) return null;
   const band = sim.fareBand?.lineId === line.id ? sim.fareBand.band : null;
-  const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents };
+  const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents, medals: s.medals };
   const next = wanted ?? line.headways;
   const model = BUS_MODELS[line.model];
   const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, cycles: line.cycles, buses: line.buses, model }, wanted) : null;
@@ -69,11 +70,14 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
       <label className="model">
         Buses
         <select value={wantedModel ?? line.model} onChange={(e) => setWantedModel(e.target.value === line.model ? null : (e.target.value as BusModelId))}>
-          {MODEL_IDS.map((id) => (
-            <option key={id} value={id} disabled={BUS_MODELS[id].locked}>
-              {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats{BUS_MODELS[id].locked ? ' · locked' : ''}
-            </option>
-          ))}
+          {MODEL_IDS.map((id) => {
+            const locked = modelLocked(BUS_MODELS[id], s.medals);
+            return (
+              <option key={id} value={id} disabled={locked}>
+                {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats{locked ? ' · locked' : ''}
+              </option>
+            );
+          })}
         </select>
       </label>
       {swap && wantedModel ? (

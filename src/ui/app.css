@@ -172,6 +172,65 @@ body,
   font-weight: 600;
 }
 
+/* Medals held (the M4 spec, item 3): a dot of each one's metal, on the Contracts chip and beside
+   each medal in the Contracts panel. */
+.medal::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--medal);
+}
+
+.medal[data-medal='bronze'] {
+  --medal: #a0612b;
+}
+
+.medal[data-medal='silver'] {
+  --medal: #8a959f;
+}
+
+.medal[data-medal='gold'] {
+  --medal: #c49a14;
+}
+
+.chip .medals {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.medal-ladder h3 {
+  margin: 10px 0 2px;
+  font-size: 14px;
+}
+
+.medal-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.medal-list li {
+  padding: 2px 0;
+}
+
+.medal-list .medal::before {
+  margin-right: 6px;
+}
+
+.medal-list .status {
+  color: var(--ui-ink-soft);
+}
+
+.medal-ladder li[data-held='no'] .medal::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--medal);
+}
+
 /* Undo while paused (I9), the checklist's last step and Contracts: chips that are buttons. */
 .chip.undo,
 button.chip.checklist,

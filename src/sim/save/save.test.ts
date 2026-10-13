@@ -39,6 +39,9 @@ function playedGame(): SimState {
   }
   for (let i = 0; i < 5; i++) state.eventRng.next();
   state.event = { kind: 'roadworks', startDay: 3, endDay: 7, street: 'Huntington Avenue', edges: [12, 13, 40] };
+  state.medals = { bronze: 3, silver: null, gold: null };
+  state.tripsCarried = 1_234;
+  state.tripsToday = 56;
   state.elapsed = 3 * 86_400 + 4_321;
   return state;
 }
@@ -63,6 +66,7 @@ describe('saves', () => {
     expect(loaded.rng.next()).toBe(state.rng.next());
     expect(loaded.eventRng.next()).toBe(state.eventRng.next());
     expect(loaded.event).toEqual(state.event);
+    expect([loaded.medals, loaded.tripsCarried, loaded.tripsToday]).toEqual([{ bronze: 3, silver: null, gold: null }, 1_234, 56]);
     expect(result.envelope.build).toEqual(BUILD);
   });
 
@@ -79,7 +83,7 @@ describe('saves', () => {
 
   it('holds intent only: no demand, geometry, camera or theme (K12)', () => {
     expect(Object.keys((SAVE_SCHEMA as { object: object }).object).sort()).toEqual(
-      ['city', 'clock', 'closesBelowFloor', 'company', 'contractDeck', 'contracts', 'depots', 'event', 'eventRng', 'ledger', 'lines', 'nextIds', 'rng', 'stops'].sort(),
+      ['city', 'clock', 'closesBelowFloor', 'company', 'contractDeck', 'contracts', 'depots', 'event', 'eventRng', 'ledger', 'lines', 'medals', 'nextIds', 'rng', 'stops', 'tripsCarried', 'tripsToday'].sort(),
     );
   });
 });
@@ -209,6 +213,9 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a contract taken before its offer', (e) => void ((dataOf(e).contracts as { acceptedDay: number }[])[0]!.acceptedDay = 0), /taken before it was offered/],
     ['an event that ends before it starts', (e) => void ((dataOf(e).event as { endDay: number }).endDay = 2), /an event with impossible days or streets/],
     ['an event on one street twice', (e) => void ((dataOf(e).event as { edges: number[] }).edges = [12, 12]), /an event with impossible days or streets/],
+    ['a medal from a day not yet played', (e) => void ((dataOf(e).medals as { silver: number }).silver = 9), /a medal awarded on a day not yet played/],
+    ['a medal with no day', (e) => void ((dataOf(e).medals as { gold: unknown }).gold = true), /medals.gold: not a whole number/],
+    ['more trips today than since founding', (e) => void (dataOf(e).tripsToday = 2_000), /more trips today than since founding/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {
@@ -226,4 +233,5 @@ it('a new game starts at founding with one row and fresh counters', () => {
   expect(data.clock.elapsed).toBe(0);
   expect(data.ledger).toEqual([{ day: 1, kind: 'founding', amountCents: 42_720_000, lineId: null }]);
   expect(data.nextIds).toEqual({ stop: 1, line: 1, bus: 1, depot: 1, contract: 1 });
+  expect([data.medals, data.tripsCarried, data.tripsToday]).toEqual([{ bronze: null, silver: null, gold: null }, 0, 0]);
 });

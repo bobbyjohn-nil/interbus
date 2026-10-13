@@ -10,7 +10,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 1. Take a RIDERSHIP contract ("400 boardings a day near Copley Square, 10 days") and meet it by adding a second line there; it pays as one ledger row.
 2. A "Roadworks tomorrow" marker appears hatched on a street a line drives; the next day the line's card shows its slower round trip, and the marker clears when the works end.
 3. Insert a stop between two of a running line's stops at speed: no bus on the map moves more than a few metres at the click, and one undo takes it back.
-4. A quarter graded 55 or better gives the bronze medal; the silver chip names what is left to unlock the Goliath.
+4. A quarter graded 55 or better gives the bronze medal, a dot on the Contracts chip; the Contracts panel names the trips left to silver, which unlocks the Goliath (a chip of its own broke I13; DECISIONS, Measured).
 
 ## Dates
 
@@ -39,7 +39,7 @@ Work starts now, ahead of the calendar, money first; P1 may reorder it.
    - **Bronze:** a quarter's report card at 55 or more (the grant's bar).
    - **Silver:** 25,000 trips carried since founding, counted as trips, not boardings (V3's fix, `Intralines_City@dc63602:studio/docs/design/fleet-and-staff.md:22-40`; V1 and V2's 25,000 boardings let a split line buy the Goliath at half the riders), and unlocks the Goliath.
    - **Gold:** a quarter graded 75 or more with no category under 60, carrying 5,000 trips a day.
-   - Each is awarded once, at a day's close, as a chip and a notice, and kept in the save; Steam achievements later read them (PLAN §4).
+   - Each is awarded once, at a day's close, with a notice on the day card, and kept in the save; Steam achievements later read them (PLAN §4). The medals held are dots on the Contracts chip and the Contracts panel lists the ladder, since a chip of their own broke I13 at 1152×720 (built so; DECISIONS, Measured).
 4. **Route insert, and no bus jumps on any route edit** (PLAN §3; V2's design, `…:Gaming/docs/design/route-editing.md:1-92`):
    - Point at a leg of a line and click: one command places the stop (or joins one within reach) and inserts it there, one undo entry; a detour over 15% of the leg warns, never blocks (V2's `LINE_DETOUR_WARN_SHARE`). The click must be within 300 m of the leg's streets (added in building it; DECISIONS, Measured).
    - **No bus jumps:** a trip under way when a line's route or round trip changes (insert, remove, extend, a model swap, an event starting) finishes on the route and times it began with; the next departures take the new ones. V2's epoch measured 4,165 m → 1.6 m on insert (`57dcdc0`) but kept two timelines in step and still jumped 3,117 m on a reorder (K32, RN-11); here the day plan keeps the old plan's trips until they end, one timeline.

@@ -1,6 +1,7 @@
 // Bus models and the timetable's fixed times, as config rows (C01). V1's numbers, the same in V1, V2
 // and V3 (`Intralines@7af45b1:src/game/constants.ts:161-233`) unless noted. A line runs one model
 // (the M3 spec, item 2), so its speed, seats and cost are one row's, never V1's averaged mixed fleet.
+import type { MedalId } from './medals';
 
 export const MODEL_IDS = ['sparrow', 'metro40', 'goliath'] as const;
 export type BusModelId = (typeof MODEL_IDS)[number];
@@ -14,13 +15,13 @@ export interface BusModel {
   readonly kmh: number;
   /** Running cost per km, cents. V1's `costPerKm`, which already includes fuel. */
   readonly perKmCents: number;
-  /** Not yet for sale: the Goliath waits for a silver medal (PLAN §3, M4). */
-  readonly locked: boolean;
+  /** For sale only once this medal is held: the Goliath waits for silver (PLAN §3; rules/medal.ts modelLocked). */
+  readonly unlockedBy: MedalId | null;
 }
 
-export const SPARROW: BusModel = { id: 'sparrow', name: 'Sparrow', seats: 28, priceCents: 9_500_000, kmh: 26, perKmCents: 90, locked: false };
-export const METRO_40: BusModel = { id: 'metro40', name: 'Metro 40', seats: 70, priceCents: 26_000_000, kmh: 25, perKmCents: 150, locked: false };
-export const GOLIATH: BusModel = { id: 'goliath', name: 'Goliath', seats: 115, priceCents: 44_000_000, kmh: 23, perKmCents: 220, locked: true };
+export const SPARROW: BusModel = { id: 'sparrow', name: 'Sparrow', seats: 28, priceCents: 9_500_000, kmh: 26, perKmCents: 90, unlockedBy: null };
+export const METRO_40: BusModel = { id: 'metro40', name: 'Metro 40', seats: 70, priceCents: 26_000_000, kmh: 25, perKmCents: 150, unlockedBy: null };
+export const GOLIATH: BusModel = { id: 'goliath', name: 'Goliath', seats: 115, priceCents: 44_000_000, kmh: 23, perKmCents: 220, unlockedBy: 'silver' };
 export const BUS_MODELS: Readonly<Record<BusModelId, BusModel>> = { sparrow: SPARROW, metro40: METRO_40, goliath: GOLIATH };
 
 /** A bus sold back fetches half its price (V1's resale, `Intralines@7af45b1:src/game/store.ts`, without wear: wear is out, PLAN §3). */

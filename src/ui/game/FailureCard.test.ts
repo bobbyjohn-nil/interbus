@@ -11,7 +11,7 @@ import type { Sim } from './useSim';
 function sim(floor: Snapshot['floor']): Sim {
   const snapshot = {
     elapsed: 0, day: 3, hour: 9, minute: 0, speed: 0, company: { name: 'Back Bay Transit', colour: '#2471a3' }, cashCents: -20_000_000,
-    ridersPerDay: 0, profitableDays: 0, costsPerDayCents: 0, lines: [], depots: [], undo: null, floor, contracts: [], contractTaken: false,
+    ridersPerDay: 0, profitableDays: 0, costsPerDayCents: 0, lines: [], depots: [], undo: null, floor, contracts: [], contractTaken: false, medals: { bronze: null, silver: null, gold: null }, tripsCarried: 0,
   } as unknown as Snapshot;
   return { status: 'ready', snapshot, send: () => undefined } as unknown as Sim;
 }

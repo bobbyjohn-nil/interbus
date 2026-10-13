@@ -1,4 +1,5 @@
 import { BUS_MODELS, MODEL_IDS } from "../../sim/rules/line";
+import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
 import type { BusModelId } from "../../sim/types";
 import { refusalText } from "../copy";
 import { about, busCount, every, km, usdK } from "../format";
@@ -91,13 +92,19 @@ export function DraftCard({
             value={model}
             onChange={(e) => onModel(e.target.value as BusModelId)}
           >
-            {MODEL_IDS.map((id) => (
-              <option key={id} value={id} disabled={BUS_MODELS[id].locked}>
-                {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats ·{" "}
-                {usdK(BUS_MODELS[id].priceCents)}
-                {BUS_MODELS[id].locked ? " · locked" : ""}
-              </option>
-            ))}
+            {MODEL_IDS.map((id) => {
+              const locked = modelLocked(
+                BUS_MODELS[id],
+                sim.snapshot?.medals ?? NO_MEDALS,
+              );
+              return (
+                <option key={id} value={id} disabled={locked}>
+                  {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats ·{" "}
+                  {usdK(BUS_MODELS[id].priceCents)}
+                  {locked ? " · locked" : ""}
+                </option>
+              );
+            })}
           </select>
         </label>
       )}

@@ -40,7 +40,7 @@ function render(change: Partial<LineView>, band: FareBandView | null = null, eve
     forecastCents: { running: 0, wages: 0, deadhead: 0 },
     ...change,
   };
-  const snapshot = { depots: [], lines: [line], cashCents: 0, event } as unknown as Snapshot;
+  const snapshot = { depots: [], lines: [line], cashCents: 0, event, medals: { bronze: null, silver: null, gold: null } } as unknown as Snapshot;
   const sim = { snapshot, fareBand: band ? { lineId: 1, band } : null, fareBandFor: () => undefined } as unknown as Sim;
   return renderToStaticMarkup(createElement(LineCard, { sim, line }));
 }

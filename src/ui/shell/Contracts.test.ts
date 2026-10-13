@@ -17,7 +17,7 @@ const offer: ContractView = {
 function sim(over: Partial<Snapshot>): Sim {
   const snapshot = {
     elapsed: 86_400, day: 2, hour: 9, minute: 0, speed: 0, company: { name: 'Back Bay Transit', colour: '#2471a3' }, cashCents: 7_120_000,
-    ridersPerDay: 636, profitableDays: 1, costsPerDayCents: 0, lines: [{}], depots: [{}], undo: null, floor: null, contracts: [offer], contractTaken: false, ...over,
+    ridersPerDay: 636, profitableDays: 1, costsPerDayCents: 0, lines: [{}], depots: [{}], undo: null, floor: null, contracts: [offer], contractTaken: false, medals: { bronze: null, silver: null, gold: null }, tripsCarried: 0, ...over,
   } as unknown as Snapshot;
   return { status: 'ready', snapshot, send: () => undefined } as unknown as Sim;
 }
@@ -48,5 +48,27 @@ describe('contracts on the page', () => {
     expect(riders).toContain('400 boardings a day at Copley Square');
     expect(riders).toContain('Today: 254 boardings a day');
     expect(riders).toContain('data-kind="ridership"');
+  });
+});
+
+describe('medals on the page (the M4 spec, item 3)', () => {
+  const panel = (s: Sim) => renderToStaticMarkup(createElement(Contracts, { sim: s, onClose: () => undefined }));
+  it('lists the ladder under the contracts, with the trips left to silver and what it unlocks', () => {
+    const html = panel(sim({ tripsCarried: 18_450 }));
+    expect(html).toContain('data-to-silver="6550"');
+    expect(html).toContain('<strong>Bronze</strong>: a quarter graded 55 or better');
+    expect(html).toContain('<strong>Silver</strong>: 25,000 trips carried<span class="status"> · 6,550 trips to go · unlocks the Goliath</span>');
+    expect(html).toContain('<strong>Gold</strong>: a quarter graded 75 or better, no grade under 60, on a day of 5,000 trips');
+    const held = panel(sim({ tripsCarried: 25_030, medals: { bronze: 10, silver: 41, gold: null } }));
+    expect(held).toContain('since day 10');
+    expect(held).toContain('since day 41 · the Goliath is for sale');
+    expect(held).not.toContain('to go');
+  });
+
+  it('puts a dot of each medal held on the Contracts chip, and nothing before the first', () => {
+    const taken = { contractTaken: true, contracts: [{ ...offer, held: true, daysMet: 3, daysLeft: 17 }] };
+    expect(bar(sim(taken))).not.toContain('data-testid="medals"');
+    const html = bar(sim({ ...taken, medals: { bronze: 10, silver: 41, gold: null } }));
+    expect(html).toContain('<span class="medals" data-testid="medals" data-held="bronze silver"><span class="medal" data-medal="bronze" title="Bronze medal"></span><span class="medal" data-medal="silver" title="Silver medal"></span></span>');
   });
 });

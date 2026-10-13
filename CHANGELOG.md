@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Medals: bronze for a quarter's report card of 55 or better, silver for 25,000 trips carried, and gold for a quarter of 75 or better with no grade under 60 on a day of 5,000 trips. The midnight card says when you win one, the medals you hold show as dots on the Contracts chip, and the Contracts panel lists all three with the trips left to silver.
+- Silver unlocks the Goliath: from the midnight that brings silver, the 115-seat bus is for sale on the line and draft cards.
 - Insert a stop into a running line: in Lines, press Insert a stop and click the line where it should go. The card prices the stop and any bus its longer round trip needs, and warns of a long detour (more than 15% longer on that stretch); Insert adds it, buses already on their way finish their trip as they set out, and Undo takes it back while paused.
 - Roadworks: now and then the city digs up as much as 400 m of a street one of your lines drives, for 3 to 6 days. You hear the evening before, on the day card ("Roadworks on Huntington Avenue tomorrow, for 4 days"), and the street shows hatched on the map. While the works are on it shows solid, and every line through it drives that stretch at about two-thirds speed, so its round trip is longer; a line without the buses for the longer trip runs a little less often until they end.
 - The line card shows the line's round trip at peak and off-peak, and how much roadworks on its streets add to it.

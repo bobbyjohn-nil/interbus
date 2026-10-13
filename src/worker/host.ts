@@ -469,6 +469,8 @@ export function createHost(post: (message: FromWorker) => void): Host {
       contracts: contractsNow(w, t.day),
       contractTaken: w.state.contracts.some((c) => c.acceptedDay !== null) || w.state.ledger.rows.some((r) => r.kind === 'contract'),
       event: eventNow(w, t.day),
+      medals: { ...w.state.medals },
+      tripsCarried: w.state.tripsCarried,
     };
   };
 
@@ -489,6 +491,7 @@ export function createHost(post: (message: FromWorker) => void): Host {
           report: event.card,
           contracts: event.contracts.map((o) => ({ landmark: o.contract.landmark, kind: o.contract.kind, ask: o.contract.ask, rewardCents: o.contract.rewardCents, outcome: o.outcome })),
           events: eventNews(event.rolled, event.ended),
+          medals: event.medals,
         },
       });
       // Roadworks started or ended: every line's round trip, buses and forecast were timed again.
