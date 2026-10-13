@@ -67,9 +67,10 @@ jobs:
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 
-      # The build the deploy ships plays Inner Boston: it boots, names its build and draws Boston.
-      - name: Smoke test the shipped build
-        run: npx playwright test e2e/smoke.spec.ts
+      # The build the deploy ships plays Inner Boston: it boots, names its build and draws Boston, and
+      # draws every bus of the slow-laptop run's busy scene, 200 and more (the M5 spec, item 9).
+      - name: Smoke test the shipped build, with its busy scene
+        run: npx playwright test e2e/smoke.spec.ts e2e/scene.spec.ts
 
       # The e2e tests are written on mini-Boston, so they run on a build that plays it.
       - run: npm run build:fixture
