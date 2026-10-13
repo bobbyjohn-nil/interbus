@@ -166,6 +166,12 @@ body,
   font-weight: 600;
 }
 
+/* The failure floor's countdown (D10), in the refusal's red. */
+.chip.countdown {
+  color: #a3271b;
+  font-weight: 600;
+}
+
 /* Undo while paused (I9): a chip that is a button. */
 .chip.undo {
   font: inherit;

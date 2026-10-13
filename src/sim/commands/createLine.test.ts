@@ -56,14 +56,14 @@ describe('Create on mini-Boston', () => {
     expect(createLine(world, [CLICKS[0]!])).toMatchObject({ ok: false, reason: 'too_few_stops' });
     expect(createLine(world, [CLICKS[0]!, CLICKS[2]!, [-71.0775, 42.35]])).toMatchObject({ ok: false, reason: 'stop_twice', at: 2 });
     expect(createLine(world, CLICKS, { peak: 240, offpeak: 240, overnight: null })).toMatchObject({ ok: false, reason: 'depot_full', room: 6 });
-    world.state.ledger.cashCents = 0; // not a real state; the rule reads cash and nothing else
+    world.state.ledger.cashCents = -15_000_000; // not a real state; the rule reads cash and nothing else: the credit line used up (D10)
     expect(createLine(world, CLICKS)).toMatchObject({ ok: false, reason: 'insufficient_funds', shortCents: 20_600_000 });
     expect(world.state.lines).toEqual([]);
   });
 });
 
 describe('a headway change on mini-Boston (GD-09)', () => {
-  it('buys the second Sparrow every 20 minutes needs, nothing for every 30, and refuses the third in money', () => {
+  it('buys the second Sparrow every 20 minutes needs, nothing for every 30, a third on credit, and refuses more past the credit line in money', () => {
     const world = gameWithDepot();
     const created = createLine(world, CLICKS, THIRTY);
     if (!created.ok) throw new Error(created.reason);
@@ -76,8 +76,12 @@ describe('a headway change on mini-Boston (GD-09)', () => {
     expect(world.services.get(id)!.timing.headways.peak).toBe(1_200);
     expect(setHeadways(world, id, THIRTY)).toEqual({ ok: true, bought: 0, priceCents: 0 });
     expect(world.state.lines[0]!.buses).toBe(2);
-    // $71,200 left after a depot and the starter: every 10 minutes at peak needs a third Sparrow, $23,800 short.
-    expect(setHeadways(world, id, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 2_380_000 });
+    // $71,200 left after a depot and the starter: every 10 minutes at peak needs a third Sparrow, $23,800 into the credit line (D10).
+    expect(setHeadways(world, id, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: true, bought: 1, priceCents: 9_500_000 });
+    expect(world.state.ledger.cashCents).toBe(-2_380_000);
+    // Every 5 minutes needs three more: $285k against the $126,200 the credit line has left.
+    expect(setHeadways(world, id, { peak: 300, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 28_500_000 - 12_620_000 });
+    expect(world.state.ledger.cashCents).toBe(-2_380_000);
     expect(setHeadways(world, id, { peak: 1_800, offpeak: 600, overnight: 300 })).toMatchObject({ ok: false, reason: 'overnight_more_often_than_offpeak' });
     expect(setHeadways(world, 99 as LineId, { peak: 600, offpeak: 600, overnight: null })).toEqual({ ok: false, reason: 'no_such_line' });
   });

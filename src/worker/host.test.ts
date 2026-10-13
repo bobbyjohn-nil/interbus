@@ -155,8 +155,9 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000 - 20_600_000);
     // Finance (the M3 spec, item 6): the depot and the line are today's purchases.
     expect(last('snapshot')!.snapshot.finance.rows.find((r) => r.kind === 'purchase')).toMatchObject({ todayCents: -35_600_000, forecastCents: null });
+    // Every 10 minutes at peak needs a third Sparrow: $95k against $71,200, the rest on the credit line (D10).
     host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 600, offpeak: 1_200, overnight: null } });
-    expect(last('refused')).toEqual({ type: 'refused', command: 'set-headways', reason: 'insufficient_funds', shortCents: 2_380_000 });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -2_380_000, lines: [{ buses: 3 }], floor: null });
   });
 
   it('prices a model change on the line card’s rule: the starter cannot yet afford Metro 40s, and the Goliath is locked (the M3 spec, item 2)', () => {
@@ -166,9 +167,9 @@ describe('the sim host', () => {
     const line = last('snapshot')!.snapshot.lines[0]!;
     host.handle({ type: 'set-model', lineId: line.id, model: 'goliath' });
     expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'model_locked' });
-    // Two Metro 40s are $520k against $95k back for the Sparrows; $71,200 is left after the starter.
+    // Two Metro 40s are $520k against $95k back for the Sparrows; $71,200 is left after the starter, and $150k of credit (D10).
     host.handle({ type: 'set-model', lineId: line.id, model: 'metro40' });
-    expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 - 7_120_000 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 - 7_120_000 - 15_000_000 });
     expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
   });
 
@@ -453,5 +454,89 @@ describe('save slots, export and import', () => {
     expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_newer' });
     expect(store.get(KEY)).toBe(live);
     expect(last('snapshot')!.snapshot).toMatchObject({ depots: [{}], cashCents: 27_720_000 });
+  });
+});
+
+// The failure floor through the worker (the M3 spec, item 10; exit check 4): the countdown in the
+// snapshot, time stopped once the run ends, and Restart this quarter from the save written as the
+// quarter began: at founding for quarter 1, at a quarter's close, or when a slot or file was loaded.
+describe('the failure floor', () => {
+  function founded() {
+    const store = new Map<string, string>();
+    const out: FromWorker[] = [];
+    const host = createHost((m) => out.push(m));
+    let seen = 0;
+    const send = (m: ToWorker) => {
+      host.handle(m);
+      while (seen < out.length) {
+        const n = out[seen++]!;
+        if (n.type === 'store') for (const e of n.effects) void (e.op === 'write' ? store.set(e.key, e.value) : store.delete(e.key));
+        else if (n.type === 'read-keys') host.handle({ type: 'key-texts', id: n.id, texts: n.keys.map((k) => store.get(k) ?? null) });
+      }
+    };
+    send({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
+    send({ type: 'save-text', text: null });
+    send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    const last = <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined;
+    /** This game, owing $200k, with `closes` day closes below the floor behind it, as a save file; `elapsed` moves its clock. */
+    const owing = (closes: number, elapsed = 0) => {
+      const save = JSON.parse(store.get(KEY)!) as {
+        data: { clock: { elapsed: number }; closesBelowFloor: number; ledger: { day: number; kind: string; amountCents: number; lineId: null }[] };
+      };
+      save.data.clock.elapsed = elapsed;
+      save.data.closesBelowFloor = closes;
+      save.data.ledger.push({ day: 1, kind: 'purchase', amountCents: -(42_720_000 + 20_000_000), lineId: null });
+      return JSON.stringify(save);
+    };
+    return { send, last, store, owing, host };
+  }
+
+  it('counts down from five closes once cash is below −$150k', () => {
+    const { send, last, owing } = founded();
+    expect(last('snapshot')!.snapshot.floor).toBeNull();
+    send({ type: 'import', text: owing(0) });
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 5, ended: false });
+    send({ type: 'import', text: owing(3) });
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false });
+  });
+
+  it('restarts quarter 1 from its founding', () => {
+    const { send, last } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'restart-quarter' });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: 42_720_000, depots: [], company: { name: 'Back Bay Transit' } });
+  });
+
+  it('ends the run on the fifth close: time stops, and Restart this quarter reopens where the game was loaded', () => {
+    const { send, last, owing, host } = founded();
+    send({ type: 'import', text: owing(4) });
+    send({ type: 'speed', speed: 3 });
+    for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 600_000; t += 250) host.tick(t);
+    const ended = last('snapshot')!.snapshot;
+    expect(ended).toMatchObject({ speed: 0, floor: { closesLeft: 0, ended: true } });
+    send({ type: 'speed', speed: 1 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'speed', reason: 'run_ended' });
+    send({ type: 'restart-quarter' });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: -20_000_000, floor: { closesLeft: 1, ended: false } });
+  });
+
+  it('never keeps an ended game as the quarter to restart: not when the run ends on the quarter’s last close, nor when one is loaded', () => {
+    const { send, last, owing, host } = founded();
+    // Day 10 at 23:50, the quarter's last close ten minutes off, with four closes below behind it.
+    const lastEvening = 9 * 86_400 + 18 * 3_600 + 50 * 60;
+    send({ type: 'import', text: owing(4, lastEvening) });
+    send({ type: 'speed', speed: 3 });
+    for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 60_000; t += 250) host.tick(t);
+    expect(last('day-card')!.card.report).not.toBeNull();
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
+    send({ type: 'restart-quarter' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: lastEvening, floor: { closesLeft: 1, ended: false } });
+
+    send({ type: 'import', text: owing(5) });
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
+    send({ type: 'restart-quarter' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: lastEvening, floor: { closesLeft: 1, ended: false } });
   });
 });

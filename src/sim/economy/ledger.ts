@@ -7,12 +7,12 @@
 //   instead of V3's console.error and a misleading 'insufficient_funds'.
 // Income rows (K40: V3's income was always zero) are posted by the demand step from M1; cost rows
 // (running, wages, deadhead, depot upkeep) from M2, by the hour.
-import { STARTING_CASH_K_PERMILLE } from '../config/economy';
+import { CREDIT_LIMIT_CENTS, STARTING_CASH_K_PERMILLE } from '../config/economy';
 import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 
-export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep', 'card'] as const;
+export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep', 'interest', 'card'] as const;
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export interface LedgerRow {
@@ -57,13 +57,13 @@ export type SpendRefusal = 'insufficient_funds';
 
 /**
  * A purchase the player chose: refused, with the shortfall, if it would take cash below
- * `floorCents` (0 until the credit line, D10). Writes one negative row when it goes through.
+ * `floorCents` (the credit line's −$150k, D10). Writes one negative row when it goes through.
  */
 export function spend(
   ledger: Ledger,
   costCents: number,
   day: number,
-  floorCents = 0,
+  floorCents = -CREDIT_LIMIT_CENTS,
 ): Result<object, SpendRefusal, { shortCents: number }> {
   assertCents(costCents, 'cost');
   if (costCents < 0) throw new RangeError(`a cost is never negative, got ${costCents}`);

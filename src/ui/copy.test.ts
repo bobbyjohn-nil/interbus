@@ -13,6 +13,7 @@ const CODES = [
   'same_tier', 'no_such_tier', 'needs_lines', 'no_such_stop',
   'time_has_run', 'nothing_to_undo',
   'empty_slot', 'no_such_slot', 'save_unreadable', 'save_newer', 'save_older', 'save_other_city', 'save_off_street', 'save_none',
+  'run_ended', 'no_quarter_save',
 ];
 
 describe('refusal copy (UX-03)', () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CREDIT_LIMIT_CENTS } from '../config/economy';
 import { createRng } from '../core/rng';
 import { bankedBetween, foundingCapitalCents, foundLedger, post, profitableDays, refund, rowsOfDay, spend, type Ledger } from './ledger';
 import { starterBuses, starterLineCents } from './starter';
@@ -28,7 +29,8 @@ describe('I1: cash is the sum of the ledger rows', () => {
           const before = ledger.cashCents;
           const result = spend(ledger, cost, day);
           if (result.ok) expect(ledger.cashCents).toBe(before - cost);
-          else expect(result.shortCents).toBe(cost - before);
+          else expect(result.shortCents).toBe(cost - before - CREDIT_LIMIT_CENTS);
+          expect(ledger.cashCents).toBeGreaterThanOrEqual(-CREDIT_LIMIT_CENTS);
         } else refund(ledger, rng.int(0, 400_000), day);
         expect(ledger.cashCents).toBe(sum(ledger));
       }
@@ -58,12 +60,12 @@ describe('I1: cash is the sum of the ledger rows', () => {
 });
 
 describe('purchases', () => {
-  it('refuses a purchase one cent short and says by how much, leaving no row', () => {
+  it('spends into the credit line to −$150k, and refuses a purchase one cent past it, saying by how much and leaving no row (D10)', () => {
     const ledger = foundLedger(1_000_000);
-    expect(spend(ledger, 1_000_001, 1)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 1 });
+    expect(spend(ledger, 16_000_001, 1)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 1 });
     expect(ledger.rows).toHaveLength(1);
-    expect(spend(ledger, 1_000_000, 1).ok).toBe(true);
-    expect(ledger.cashCents).toBe(0);
+    expect(spend(ledger, 16_000_000, 1).ok).toBe(true);
+    expect(ledger.cashCents).toBe(-15_000_000);
   });
 
   it('gives back exactly what an undone purchase took (I9)', () => {

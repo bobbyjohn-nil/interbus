@@ -14,6 +14,7 @@ import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
 import { busesNeeded, cycleSeconds } from './cycle';
 import { checkHeadways, type HeadwayRefusal, type Headways } from './periods';
+import { spendableCents } from './credit';
 import { checkStopSite, type StopPick, type StopSiteContext } from './stop';
 
 /** What the fleet rules read: depots built, buses owned across every line, and cash. */
@@ -99,7 +100,7 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   if (!headwaysOk.ok) return refuse(headwaysOk.reason, { draft, ...(headwaysOk.limitSeconds === undefined ? {} : { limitSeconds: headwaysOk.limitSeconds }) });
   const room = depotRoom(ctx);
   if (buses > room) return refuse('depot_full', { draft, room });
-  if (draft.priceCents > ctx.cashCents) return refuse('insufficient_funds', { draft, shortCents: draft.priceCents - ctx.cashCents });
+  if (draft.priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { draft, shortCents: draft.priceCents - spendableCents(ctx.cashCents) });
   return ok({ draft });
 }
 
@@ -118,7 +119,7 @@ export function checkHeadwayChange(
   const room = depotRoom(ctx);
   if (extra > room) return refuse('depot_full', { room });
   const priceCents = extra * line.model.priceCents;
-  if (priceCents > ctx.cashCents) return refuse('insufficient_funds', { shortCents: priceCents - ctx.cashCents });
+  if (priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { shortCents: priceCents - spendableCents(ctx.cashCents) });
   return ok({ needed, extra, priceCents });
 }
 
@@ -142,6 +143,6 @@ export function checkModelChange(
   const buyCents = needed * to.priceCents;
   const saleCents = Math.floor((line.buses * line.model.priceCents * RESALE_PERMILLE) / 1000);
   const netCents = buyCents - saleCents;
-  if (netCents > ctx.cashCents) return refuse('insufficient_funds', { shortCents: netCents - ctx.cashCents });
+  if (netCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { shortCents: netCents - spendableCents(ctx.cashCents) });
   return ok({ needed, buyCents, saleCents });
 }

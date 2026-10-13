@@ -18,7 +18,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 7;
+export const SAVE_FORMAT = 8;
 
 export interface BuildRef {
   readonly sha: string;
@@ -37,6 +37,8 @@ export const backupKey = (cityId: string, why: 'unreadable' | 'newer' | 'older' 
 /** Three slots beside the autosave, which is the live key (the M3 spec, item 8). */
 export const SAVE_SLOTS = [1, 2, 3] as const;
 export const slotKey = (cityId: string, slot: number) => `interbus.slot.${cityId}.${slot}`;
+/** The game as each quarter began, written automatically, for Restart this quarter (the M3 spec, item 10). */
+export const quarterKey = (cityId: string) => `interbus.quarter.${cityId}`;
 
 /** A save in a line, for the Saves panel: when it is, the company, its cash and its lines. */
 export function aboutSave(data: SaveData): SaveAbout {
@@ -85,6 +87,7 @@ export function toSaveData(state: SimState): SaveData {
       model: l.model,
     })),
     ledger: state.ledger.rows.map((r) => ({ day: r.day, kind: r.kind, amountCents: r.amountCents, lineId: r.lineId ?? null })),
+    closesBelowFloor: state.closesBelowFloor,
   };
 }
 
@@ -115,6 +118,7 @@ export function fromSaveData(data: SaveData): SimState {
       model: l.model,
     })),
     ledger: { rows, cashCents: rows.reduce((sum, r) => sum + r.amountCents, 0) },
+    closesBelowFloor: data.closesBelowFloor,
   };
 }
 
@@ -126,6 +130,7 @@ export function encode(state: SimState, build: BuildRef): string {
 /** What only a whole file can show: references, duplicates, counters and the ledger's shape. */
 export function integrityProblem(data: SaveData): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
+  if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
   const live: Partial<Record<IdKind, number[]>> = { stop: data.stops.map((s) => s.id), line: data.lines.map((l) => l.id), depot: data.depots.map((d) => d.id) };
   for (const kind of ID_KINDS) {
     const next: number = (data.nextIds as NextIds)[kind];

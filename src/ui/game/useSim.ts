@@ -32,7 +32,7 @@ export interface Sim {
   readonly load: LoadView | null;
   /** The save slots, once asked for (Saves panel), and the last slot or file that became the game. */
   readonly slots: readonly SlotView[] | null;
-  readonly loaded: { readonly from: 'slot' | 'file'; readonly load: LoadView; readonly at: number } | null;
+  readonly loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView; readonly at: number } | null;
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
   importSave(): void;
   send(message: ToWorker): void;

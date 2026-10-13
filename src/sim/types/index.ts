@@ -175,6 +175,8 @@ export interface Snapshot {
   readonly finance: FinanceView;
   /** While paused, the command an undo would take back, such as create-line "Line 2" (sim/undo.ts); null otherwise. */
   readonly undo: { readonly command: string; readonly subject: string } | null;
+  /** Below the credit line's −$150k, or counting closes below it: day closes left before the run ends, and whether it has (D10); null otherwise. */
+  readonly floor: { readonly closesLeft: number; readonly ended: boolean } | null;
 }
 
 /** Where people live and work: each cell's sub-points, weighted. */
@@ -252,6 +254,8 @@ export type ToWorker =
   | { readonly type: 'load-slot'; readonly slot: number }
   | { readonly type: 'import'; readonly text: string }
   | { readonly type: 'export' }
+  /** Reopens the save written as this quarter began (the failure floor's Restart this quarter). */
+  | { readonly type: 'restart-quarter' }
   /** Asks for a line's fare band, for its open card. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number };
 
@@ -274,7 +278,7 @@ export type FromWorker =
   /** This game as a save file, for the page to hand to the player. */
   | { readonly type: 'export'; readonly name: string; readonly text: string }
   /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */
-  | { readonly type: 'loaded'; readonly from: 'slot' | 'file'; readonly load: LoadView }
+  | { readonly type: 'loaded'; readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }
   | { readonly type: 'day-card'; readonly card: DayCard }
   | { readonly type: 'probe'; readonly id: number; readonly people: number }
