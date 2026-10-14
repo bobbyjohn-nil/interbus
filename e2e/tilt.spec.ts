@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { foundCompany } from './found';
 
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown }[] };
@@ -38,19 +38,22 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
   expect(errors).toEqual([]);
 });
 
-// The 2D/3D chip, the right-drag and the snap flat below 12° (the M5 spec, item 6; exit check 3).
-test('the 2D/3D chip and a right-drag tilt the board, and a drag released below 12° snaps it flat', async ({ page }) => {
+// The compass, the right-drag and the snap flat below 12° (the M5 spec, item 6; exit check 3). The
+// compass replaced the 2D/3D chip (D25).
+test('the compass and a right-drag tilt the board, and a drag released below 12° snaps it flat', async ({ page }) => {
   test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
   await page.goto('./?gpu=full');
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await foundCompany(page);
-  const chip = page.getByTestId('mode-chip');
-  await chip.getByRole('button', { name: '3D' }).click();
+  const compass = page.getByTestId('compass');
+  await expect(compass).toHaveAccessibleName('Tilt to 3D (T, or double-click and hold)');
+  await compass.click();
   await expect(map).toHaveAttribute('data-mode', '3d');
   await expect(map).toHaveAttribute('data-pitch', '50', { timeout: 30_000 });
-  await expect(chip.getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true');
-  await chip.getByRole('button', { name: '2D' }).click();
+  await expect(compass).toHaveAttribute('data-mode', '3d');
+  await expect(compass).toHaveAccessibleName('Flatten to 2D (T)');
+  await compass.click();
   await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
 
   // A right-drag up 160 px pitches 40° (0.25° a pixel), and released it settles in 3D there.
@@ -62,7 +65,7 @@ test('the 2D/3D chip and a right-drag tilt the board, and a drag released below 
   await page.mouse.move(x, y - 160, { steps: 4 });
   await page.mouse.up({ button: 'right' });
   await expect(map).toHaveAttribute('data-mode', '3d');
-  await expect(chip.getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(compass).toHaveAttribute('data-mode', '3d');
   await expect(map).toHaveAttribute('data-pitch', '40', { timeout: 30_000 });
 
   // Down 128 px leaves 8°, under the snap: the board flattens.
@@ -74,15 +77,136 @@ test('the 2D/3D chip and a right-drag tilt the board, and a drag released below 
   await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
 });
 
-test('in Low graphics the chip stays at 2D and says why', async ({ page }) => {
+/** A double-click whose second press stays down: the first click, then the second press at the same spot. */
+async function doubleDown(page: Page, x: number, y: number) {
+  await page.mouse.move(x, y);
+  await page.mouse.down({ clickCount: 1 });
+  await page.mouse.up({ clickCount: 1 });
+  await page.mouse.down({ clickCount: 2 });
+}
+
+// The owner's initial playtest (D25): "it would be nice to just hold double click down and be able to
+// switch". Shown failing (TS-04) on the old map, where the held press panned the board, its release
+// zoomed a step and the mode stayed 2D; and with the dblclick left to MapLibre, where the zoom moved.
+test('a double-click held and dragged tilts the board without zooming or panning; held still it flips; a quick one still zooms', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./?gpu=full');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  const box = (await map.boundingBox())!;
+  const [x, y] = [box.width / 2, box.height / 2];
+  const view = async () => (await map.getAttribute('data-view'))!;
+  const before = await view();
+
+  // Held and dragged up 160 px: 40°, the centre and zoom where they were.
+  await doubleDown(page, x, y);
+  await page.mouse.move(x, y - 80, { steps: 4 });
+  await page.mouse.move(x, y - 160, { steps: 4 });
+  await page.mouse.up({ clickCount: 2 });
+  await expect(map).toHaveAttribute('data-mode', '3d');
+  await expect(map).toHaveAttribute('data-pitch', '40', { timeout: 30_000 });
+  await page.waitForTimeout(500); // a zoom the dblclick started would have ended by now
+  const [lon0, lat0, zoom0] = before.split(',').map(Number);
+  const [lon1, lat1, zoom1] = (await view()).split(',').map(Number);
+  expect(zoom1).toBeCloseTo(Math.max(zoom0!, 14), 2);
+  expect(lon1).toBeCloseTo(lon0!, 4);
+  expect(lat1).toBeCloseTo(lat0!, 4);
+
+  // Held still for 0.6 s: it flips to 2D, and the zoom stays.
+  await doubleDown(page, x, y);
+  await page.waitForTimeout(600);
+  await page.mouse.up({ clickCount: 2 });
+  await expect(map).toHaveAttribute('data-mode', '2d');
+  await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
+  await page.waitForTimeout(500);
+  expect(Number((await view()).split(',')[2])).toBeCloseTo(zoom1!, 2);
+
+  // A quick double-click zooms in one step, as it always did.
+  await page.mouse.dblclick(x, y);
+  await expect.poll(async () => Number((await view()).split(',')[2]), { timeout: 10_000 }).toBeCloseTo(zoom1! + 1, 2);
+  await expect(map).toHaveAttribute('data-mode', '2d');
+});
+
+test('with a tool out, a held double-click is clicks, not a tilt', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./?gpu=full');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  await page.getByRole('button', { name: 'Draw a line' }).click();
+  const box = (await map.boundingBox())!;
+  const [x, y] = [box.width / 2, box.height / 2];
+  await doubleDown(page, x, y);
+  await page.mouse.move(x, y - 160, { steps: 6 });
+  await page.mouse.up({ clickCount: 2 });
+  await page.waitForTimeout(800);
+  await expect(map).toHaveAttribute('data-mode', '2d');
+});
+
+// D25: "you also can't rotate when in 3d mode, you can only look from the south to north". Shown
+// failing (TS-04) on the old map, where a sideways right-drag left the bearing at 0.
+test('in 3D a sideways drag and Q and E turn the board; the compass and N face north; flattening faces north', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./?gpu=full');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  const compass = page.getByTestId('compass');
+  const box = (await map.boundingBox())!;
+  const [x, y] = [box.width / 2, box.height / 2];
+
+  // In 2D a sideways drag leaves the board facing north.
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(x + 150, y, { steps: 6 });
+  await page.mouse.up({ button: 'right' });
+  await expect(map).toHaveAttribute('data-bearing', '0');
+  await expect(map).toHaveAttribute('data-mode', '2d');
+
+  await page.keyboard.press('t');
+  await expect(map).toHaveAttribute('data-pitch', '50', { timeout: 30_000 });
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(x + 75, y, { steps: 4 });
+  await page.mouse.move(x + 150, y, { steps: 4 });
+  await page.mouse.up({ button: 'right' });
+  await expect(map).toHaveAttribute('data-bearing', '120', { timeout: 10_000 }); // 0.8° a pixel
+  await expect(map).toHaveAttribute('data-mode', '3d');
+  await expect(compass).toHaveAccessibleName('Face north (N)');
+  await compass.click();
+  await expect(map).toHaveAttribute('data-bearing', '0', { timeout: 10_000 });
+  await expect(map).toHaveAttribute('data-mode', '3d');
+
+  await page.keyboard.press('e');
+  await expect(map).toHaveAttribute('data-bearing', '15', { timeout: 10_000 });
+  await page.keyboard.press('q');
+  await page.keyboard.press('q');
+  await expect(map).toHaveAttribute('data-bearing', '-15', { timeout: 10_000 });
+  await page.keyboard.press('n');
+  await expect(map).toHaveAttribute('data-bearing', '0', { timeout: 10_000 });
+
+  await page.keyboard.press('e');
+  await expect(map).toHaveAttribute('data-bearing', '15', { timeout: 10_000 });
+  await page.keyboard.press('t');
+  await expect(map).toHaveAttribute('data-mode', '2d');
+  await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
+  await expect(map).toHaveAttribute('data-bearing', '0');
+  // Flat, Q and E do nothing.
+  await page.keyboard.press('e');
+  await page.waitForTimeout(400);
+  await expect(map).toHaveAttribute('data-bearing', '0');
+});
+
+test('in Low graphics the compass is off and says why', async ({ page }) => {
   test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
   await page.goto('./?gpu=low');
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-  const chip = page.getByTestId('mode-chip');
-  await expect(chip).toHaveAttribute('title', 'Low graphics: the map stays flat on this computer');
-  await expect(chip.getByRole('button', { name: '3D' })).toBeDisabled();
-  await expect(chip.getByRole('button', { name: '2D' })).toHaveAttribute('aria-pressed', 'true');
+  const compass = page.getByTestId('compass');
+  await expect(compass).toHaveAttribute('title', 'Low graphics: the map stays flat on this computer');
+  await expect(compass).toBeDisabled();
+  await expect(compass).toHaveAttribute('data-mode', '2d');
 });
 
 // PLAN §5's height row: at zoom 15, where the map file draws every footprint, most buildings stand at

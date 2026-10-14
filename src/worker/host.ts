@@ -31,7 +31,7 @@ import { finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
 import type { ContractId, LineId, StopId } from '../sim/core/ids';
-import { peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
+import { jobsWithinWalk, peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { subsidyCents } from '../sim/rules/fare';
@@ -592,7 +592,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         save(); // a pause keeps the game exactly where it stopped
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'probe') {
-        post({ type: 'probe', id: message.id, people: peopleWithinWalk(world.city, toXY(world.city.frame, message.at)) });
+        const at = toXY(world.city.frame, message.at);
+        post({ type: 'probe', id: message.id, within: message.kind === 'job' ? jobsWithinWalk(world.city, at) : peopleWithinWalk(world.city, at) });
       } else if (message.type === 'depot-site') {
         const verdict = checkDepotSite(depotSiteContext(world), toXY(world.city.frame, message.at));
         const site: DepotSiteView = verdict.ok

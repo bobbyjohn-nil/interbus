@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CITIES } from "../cities";
-import { MapView, type MapHit } from "../render/map/MapView";
+import { MapView, type DotKinds, type HoveredDot, type MapHit } from "../render/map/MapView";
+import { readDotPrefs, writeDotPrefs } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
 import type { BusModelId, ExtendData, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
@@ -15,6 +16,7 @@ import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
 import { Finance } from "./shell/Finance";
 import { Contracts } from "./shell/Contracts";
+import { DemandMenu } from "./shell/DemandMenu";
 import { Home } from "./shell/Home";
 import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
@@ -49,20 +51,46 @@ export function App() {
     speedRef.current = { now: speedNow, play: playSpeed, founded: Boolean(sim.snapshot?.company.name) };
   }, [speedNow, playSpeed, sim.snapshot?.company.name]);
 
-  // A tool's pointer: the depot card while placing a depot, "people within a walk" otherwise.
+  // Which kinds of demand dot show, as this viewer last chose (D25); never part of a save.
+  const [dotKinds, setDotKinds] = useState<DotKinds>(() => readDotPrefs());
+  const hoveredRef = useRef<string | null>(null);
+  const showDots = useCallback(
+    (next: DotKinds) => {
+      setDotKinds(next);
+      writeDotPrefs(next);
+      hoveredRef.current = null;
+      probeAt(null);
+    },
+    [probeAt],
+  );
+
+  // A tool's pointer: the depot card while placing a depot; with no tool, a dot's card while the
+  // pointer is on a demand dot, and nothing elsewhere (D25). The sim is asked once per dot.
   const toolRef = useRef(tool);
   useEffect(() => {
     toolRef.current = tool;
   }, [tool]);
+  // The dots as the sim sent them: the card reads a dot's place and count from here, not from the
+  // map's tiles, which round its place.
+  const dotsRef = useRef(sim.dots);
+  useEffect(() => {
+    dotsRef.current = sim.dots;
+  }, [sim.dots]);
   const insertingRef = useRef(false);
   useEffect(() => {
     insertingRef.current = extending?.end === "insert";
   }, [extending]);
   const onPointer = useCallback(
-    (at: LngLatPair | null, point: [number, number] | null) => {
+    (at: LngLatPair | null, point: [number, number] | null, dot: HoveredDot | null) => {
       setScreen(point);
       if (toolRef.current === "depot") depotSiteAt(at);
-      else if (toolRef.current === "none") probeAt(at);
+      else if (toolRef.current === "none") {
+        const exact = dot ? (dot.kind === "home" ? dotsRef.current?.homes : dotsRef.current?.jobs)?.[dot.i] : undefined;
+        const key = dot && exact ? `${dot.kind}:${dot.i}` : null;
+        if (key === hoveredRef.current) return;
+        hoveredRef.current = key;
+        probeAt(dot && exact ? { kind: dot.kind, at: [exact[0], exact[1]], here: exact[2] } : null);
+      }
     },
     [probeAt, depotSiteAt],
   );
@@ -90,6 +118,7 @@ export function App() {
       setClicks([]);
       setExtending(null);
       if (next !== "none") setPanel("none");
+      hoveredRef.current = null;
       probeAt(null);
       depotSiteAt(null);
     },
@@ -115,6 +144,7 @@ export function App() {
       setClicks([]);
       setPanel("none");
       setExtending({ lineId: id, end, stops });
+      hoveredRef.current = null;
       probeAt(null);
     },
     [sim.snapshot, probeAt],
@@ -210,13 +240,13 @@ export function App() {
       <main className="app">
         <MapView
           dots={sim.dots}
+          dotKinds={dotKinds}
           lines={sim.snapshot?.lines ?? []}
           stops={sim.snapshot?.stops ?? []}
           linesVersion={sim.snapshot?.linesVersion ?? 0}
           depotLand={sim.depotLand}
           tint={false}
           depots={sim.snapshot?.depots ?? []}
-          contracts={sim.snapshot?.contracts ?? []}
           event={sim.snapshot?.event ?? null}
           draft={null}
           clock={
@@ -246,13 +276,14 @@ export function App() {
     <main className="app">
       <MapView
         dots={sim.dots}
+        dotKinds={dotKinds}
         lines={sim.snapshot?.lines ?? []}
         stops={sim.snapshot?.stops ?? []}
         linesVersion={sim.snapshot?.linesVersion ?? 0}
         depotLand={sim.depotLand}
         tint={tool === "depot"}
         depots={sim.snapshot?.depots ?? []}
-        contracts={sim.snapshot?.contracts ?? []}
+        tiltGesture={tool === "none"}
         event={sim.snapshot?.event ?? null}
         draft={tool === "line" && clicks.length ? sim.draft : null}
         clock={
@@ -271,6 +302,7 @@ export function App() {
         }}
       />
       {tool === "none" ? <ProbeCard sim={sim} screen={screen} /> : null}
+      {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "line" ? (
         <DraftCard

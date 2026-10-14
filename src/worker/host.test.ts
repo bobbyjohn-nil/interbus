@@ -128,13 +128,18 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.profitableDays).toBe(0);
   });
 
-  it('answers a probe with the people within a walk', () => {
+  it('answers a home probe with the people within a walk, and a job probe with the jobs (D25)', () => {
     const { host, last } = started();
-    host.handle({ type: 'probe', id: 7, at: [-71.0857, 42.3424] }); // Symphony
+    host.handle({ type: 'probe', id: 7, at: [-71.0857, 42.3424], kind: 'home' }); // Symphony
     const probe = last('probe')!;
     expect(probe.id).toBe(7);
-    expect(probe.people).toBeGreaterThan(3_000);
-    expect(probe.people).toBeLessThan(30_000);
+    expect(probe.within).toBeGreaterThan(3_000);
+    expect(probe.within).toBeLessThan(30_000);
+    host.handle({ type: 'probe', id: 8, at: [-71.0775, 42.3499], kind: 'job' }); // Copley
+    const jobs = last('probe')!;
+    expect(jobs.id).toBe(8);
+    expect(jobs.within).toBeGreaterThan(5_000);
+    expect(jobs.within).not.toBe(probe.within);
   });
 
   it('sends depot land, answers the depot card with the rule, and places a depot (M2 item 2)', () => {
@@ -266,7 +271,7 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     const host = createHost((m) => out.push(m));
     host.handle({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
     expect(out).toEqual([{ type: 'read-save', key: KEY }]);
-    host.handle({ type: 'probe', id: 1, at: [-71.0857, 42.3424] });
+    host.handle({ type: 'probe', id: 1, at: [-71.0857, 42.3424], kind: 'home' });
     expect(out.at(-1)).toEqual({ type: 'refused', command: 'probe', reason: 'not_started' });
     host.handle({ type: 'save-text', text: null });
     expect(out.at(-1)).toMatchObject({ type: 'ready', load: 'none' });

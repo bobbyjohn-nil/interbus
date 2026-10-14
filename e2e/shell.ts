@@ -9,15 +9,26 @@ const entry = registry.cities[0]!;
 export const city = { ...entry, sim: entry.fixture ?? entry.sim };
 
 /** Where [lon, lat] lands on screen with the camera at rest (the map's data-view; Web Mercator, 512 px tiles). */
-export async function toScreen(page: Page, [lon, lat]: readonly [number, number]): Promise<[number, number]> {
+export async function toScreen(page: Page, at: readonly [number, number]): Promise<[number, number]> {
+  return (await projector(page)).project(at);
+}
+
+/** The camera at rest, read once: where any [lon, lat] lands on screen, the map's box and its zoom (flat and facing north). */
+export async function projector(page: Page): Promise<{ project: (at: readonly [number, number]) => [number, number]; box: { x: number; y: number; width: number; height: number }; zoom: number }> {
   const map = page.getByTestId('map');
   const box = (await map.boundingBox())!;
   const [clon, clat, zoom] = (await map.getAttribute('data-view'))!.split(',').map(Number) as [number, number, number];
   const world = 512 * 2 ** zoom;
   const merc = ([x, y]: readonly [number, number]) => [((x + 180) / 360) * world, ((1 - Math.log(Math.tan(Math.PI / 4 + (y * Math.PI) / 360)) / Math.PI) / 2) * world];
-  const [px, py] = merc([lon, lat]);
   const [cx, cy] = merc([clon, clat]);
-  return [box.x + box.width / 2 + px! - cx!, box.y + box.height / 2 + py! - cy!];
+  return {
+    project: (at) => {
+      const [px, py] = merc(at);
+      return [box.x + box.width / 2 + px! - cx!, box.y + box.height / 2 + py! - cy!];
+    },
+    box,
+    zoom,
+  };
 }
 
 /** A point inside the sim file's largest parcel of depot land, as the sim tests place a depot. */
