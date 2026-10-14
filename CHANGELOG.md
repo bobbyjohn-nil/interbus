@@ -84,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Finance opens on an overview with a chart of every day since Day 0, the table of every row is under Breakdown with Buying and building folded, and each line's money is under Lines.
 - Place a depot and Draw a line moved into Build, in the dock, beside Place a stop.
 - Saves moved out of the dock to a button at the top right.
+- Panels stay open together and move: Lines, Finance, Saves, Contracts and a stop's card can all be open at once, each opening in a free place beside the others. Drag one by its heading anywhere on the screen and it opens there again for the rest of the session; press one to bring it to the front. A tool's card takes its own place too, so a tool stays out while panels open, and Escape puts everything away. Edit route stands in for the line's panel while it is open.
 - The bus and headway menus on a line's panel and on the new-line card are the game's own, like the speed and fare menus; a locked bus is greyed out and says a silver medal unlocks it.
 - Extending a line from either end and inserting a stop, on a line's panel, are now Edit route, which also reorders the line and takes stops off it.
 - A line's fare and its day forecast moved from its card to Finance, under Lines. The line card says the fare and links there, and otherwise shows only the line.
@@ -100,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - An amount of a few cents out reads $0, not -$0.
-- Opening Lines, Finance or Saves while drawing a line or placing a depot now shows the panel and puts the tool down, instead of leaving the panel hidden behind the tool.
+- Opening Lines, Finance or Saves while drawing a line or placing a depot now shows the panel beside the tool's card, instead of hidden behind it.
 - A save set aside by a new build keeps a name of its own, so the next new build never writes over it.
 - Bus stops and depots no longer land on the Mass Pike, the I-93 tunnel or their ramps, which sent buses kilometres out of their way to the next exit and back.
 - Buses run both ways along the streets you choose instead of looping around blocks of one-way streets in Back Bay and downtown. Most short trips there now drive less than a third further than the straight line, and none more than two and a half times it.

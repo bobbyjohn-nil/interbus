@@ -176,7 +176,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(longwood).toContainText('0 of 8 days · 16 days left');
     await expect(page.getByTestId('checklist')).toHaveCount(0);
     await expect(page.getByTestId('contracts-chip')).toHaveText('Contracts 1 held');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByTestId('contracts').getByRole('button', { name: 'Close' }).click();
     // It runs on from there (overnight, so no buses until about 05:00).
     await setSpeed(page, '600×');
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 10_000 }).toBeGreaterThan(Number(kept.elapsed));

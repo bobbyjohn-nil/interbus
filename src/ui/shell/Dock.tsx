@@ -45,7 +45,7 @@ const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly
  * of the tabs at the bottom, it can be placed at the top"). Picking a tool closes the menu; picking
  * the tool already out puts it down.
  */
-export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; panel: Panel; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Panel) => void }) {
+export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; panels: readonly Panel[]; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Exclude<Panel, 'none'>) => void }) {
   const [open, setOpen] = useState(false);
   const build = useRef<HTMLDivElement>(null);
   // Escape or a press anywhere else closes the menu, as the game's dropdowns do.
@@ -92,13 +92,13 @@ export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; p
           Build
         </button>
       </div>
-      <button type="button" aria-pressed={panel === 'lines'} disabled={!hasLines} onClick={() => onPanel(panel === 'lines' ? 'none' : 'lines')}>
+      <button type="button" aria-pressed={panels.includes('lines')} disabled={!hasLines} onClick={() => onPanel('lines')}>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M4 6h12M4 10h12M4 14h8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
         Lines
       </button>
-      <button type="button" aria-pressed={panel === 'finance'} onClick={() => onPanel(panel === 'finance' ? 'none' : 'finance')}>
+      <button type="button" aria-pressed={panels.includes('finance')} onClick={() => onPanel('finance')}>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M4 16V9M8 16V5M12 16v-5M16 16V7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>

@@ -97,6 +97,8 @@ test.describe('the screen budget (I13)', () => {
       await page.mouse.click(sx, sy);
       await expect(page.getByTestId('stop-card')).toBeVisible();
       shares.stop = await chromeShare(page);
+      // Panels stay open together (D25), so each is measured alone: the stop card closes first.
+      await page.getByTestId('stop-card').getByRole('button', { name: 'Close' }).click();
       await page.getByRole('button', { name: 'Saves' }).click();
       // Every slot full, each naming when it was saved, and a set-aside save: the save list at its tallest (the M5 spec, item 4).
       for (const n of [1, 2, 3]) {

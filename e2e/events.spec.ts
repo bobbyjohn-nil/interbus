@@ -32,7 +32,7 @@ async function edited(page: Page, edit: (d: Data) => void): Promise<void> {
   await page.getByRole('button', { name: 'Import a save file' }).click();
   await (await chooser).setFiles({ name: 'events.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
 }
 
 /** 23:50 on `day`, ten game minutes before its close. */

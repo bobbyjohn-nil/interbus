@@ -368,7 +368,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
      - the line panel shows only the line's information;
      - Edit route opens an expanded editor to reorder, add and remove stops, like Google Maps' trip planner [the editor sets the line's whole route in one command, one undo: it buys new stops and any bus the longer round trip needs, keeps the buses a shorter one leaves spare, and a stop it leaves that no other line calls at comes down for half its cost, as Remove does; Extend and Insert fold into it. A click on the map adds a stop at the end of the list, as a trip planner adds a destination, and the player drags or moves it into place; the draft's stops are numbered on the map to match the list; the card gives the route's change in length where Insert warned of a detour].
   6. **Panels and controls:**
-     - panels can be moved and several used at once (the owner preferred this to one closing another);
+     - panels can be moved and several used at once (the owner preferred this to one closing another) [each panel opens in a free place beside those open, the first at the top right and the next to their left, or below them when a row is full, and stays there; dragged by its heading it opens there again for the session; a press brings it to the front; a tool's card is a panel too, so a panel no longer puts the tool down; Escape closes them all; I13 measures each panel alone, as several open is the player's choice];
      - Saves leaves the bottom tabs for the top [a chip at the top right, the top bar's chips wrapping before they reach it];
      - the browser's dropdowns become custom ones [the line card's and new-line card's bus and headway menus join the speed and fare menus on the game's Dropdown, a locked bus greyed with its reason as the option's hint; `src/ui/controls.test.ts` fails if any screen draws a `<select>` again].
   7. **3D:**
@@ -404,6 +404,11 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-14** (`src/ui/shell/Panels.test.ts`, `e2e/panels.spec.ts`, `e2e/i13.spec.ts`): **Panels and controls, second half** (D25 item 6: panels that move and stay open together).
+  - **The layer** (`src/ui/shell/Panels.tsx`): each panel, and a tool's card, sits on a movable layer above the map and the chips, under the day card and the dropdown lists. `freePlace` puts a new panel at the top right, then left of those in the way, then below them; at 1366×768 Finance opens at the top right and Saves beside it to the left. Places live on the elements, so a drag re-renders nothing.
+  - **Behaviour:** a panel no longer puts the tool down, nor a tool the panels; a new line opens its panel only after Create, not when a save brings lines in; Edit route closes the line's panel while it is open and Save route or Cancel brings it back.
+  - **I13** is measured one panel at a time, as before, and is unchanged: at 1152×720 at rest 4.3%, the line panel 14.4%, the route editor 12.8%, Saves 23.2%.
+  - **Tests** (TS-04): the place test fails with every panel at the top right; the panels spec fails on the shell before the layer, where opening Saves closed Finance.
 - **2026-10-14** (`src/ui/controls.test.ts`, `e2e/line.spec.ts`, `e2e/medals.spec.ts`, `e2e/i13.spec.ts`): **Panels and controls, first half** (D25 item 6: Saves at the top, the game's own dropdowns).
   - **I13** at 1152×720, 1366×768 and 1440×900: at rest 4.3%, 3.4% and 2.8% (4.4%, 3.5% and 2.8% with Saves in the dock); the line panel 14.5%, 11.4% and 9.2% (13.7%, 10.9% and 8.8%: the menus' buttons stand a little taller than the browser's); Saves 23.3%, 18.4% and 14.9%.
   - **Tests** (TS-04): the controls guard fails on the line card and the new-line card before this change; the line and medals specs pick models from the game's menu, the Goliath listed with `aria-disabled` until silver.
