@@ -11,7 +11,7 @@ import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
 import { RouteEditor, routeOf, type RoutePoint } from "./game/RouteEditor";
-import { DepotCard, DraftCard, StopSiteCard, type Tool } from "./game/Tools";
+import { DepotCard, DraftCard, draftShows, StopSiteCard, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
@@ -91,9 +91,12 @@ export function App() {
   useEffect(() => {
     stopsRef.current = sim.snapshot?.stops ?? [];
   }, [sim.snapshot?.stops]);
+  // Where the pointer last was over the map, so a site card is asked again there when the game changes.
+  const pointerAt = useRef<LngLatPair | null>(null);
   const onPointer = useCallback(
     (at: LngLatPair | null, point: [number, number] | null, dot: HoveredDot | null) => {
       setScreen(point);
+      pointerAt.current = at;
       if (toolRef.current === "depot") depotSiteAt(at);
       else if (toolRef.current === "stop") stopSiteAt(at);
       else if (toolRef.current === "none") {
@@ -108,9 +111,12 @@ export function App() {
   );
   const onClick = useCallback(
     (at: LngLatPair, hit: MapHit) => {
+      // A double-click's second click is the same press again: a tool takes it once.
+      if (hit.double && toolRef.current !== "none") return;
       if (toolRef.current === "depot") send({ type: "place-depot", at });
       else if (toolRef.current === "stop") send({ type: "place-stop", at });
-      else if (toolRef.current === "line") setClicks((c) => [...c, at]);
+      // After the stops the draft shows, in the place of a click the line rule refused (draftShows).
+      else if (toolRef.current === "line") setClicks((c) => [...c.slice(0, draftShows(c.length, sim.draftOf === c ? sim.draft : null).kept), at]);
       else if (toolRef.current === "route") {
         // A click on a stop adds that stop; elsewhere, a new one where the click is, at the end.
         const stop = hit.stopId === null ? undefined : stopsRef.current.find((s) => s.id === hit.stopId);
@@ -125,7 +131,12 @@ export function App() {
         show("lines");
       }
     },
-    [send, show],
+    [send, show, sim.draft, sim.draftOf],
+  );
+  // Remove last stop and Backspace take off the last thing the draft card shows, never a click it does not.
+  const removeLast = useCallback(
+    () => setClicks((c) => c.slice(0, Math.max(0, draftShows(c.length, sim.draftOf === c ? sim.draft : null).shown - 1))),
+    [sim.draft, sim.draftOf],
   );
 
   const choose = useCallback(
@@ -141,6 +152,11 @@ export function App() {
     [probeAt, depotSiteAt, stopSiteAt],
   );
 
+  // What the tools' cards read from the game besides the pointer and the clicks: the cash, the stops and
+  // lines, the depots, the day (its roadworks and snow) and the medals. A card is asked again when they
+  // change under it, so it never offers what the click or Create would then refuse (GD-05).
+  const game = sim.snapshot;
+  const gameKey = game ? `${game.cashCents}|${game.linesVersion}|${game.depots.length}|${game.day}|${JSON.stringify(game.medals)}` : "";
   // The draft card: a new line's clicks, or the route editor's whole route (D25).
   const routePoints = routing?.points;
   const routeLine = routing?.lineId;
@@ -153,7 +169,14 @@ export function App() {
         routeLine,
       );
     else draftFor(clicks, draftModel);
-  }, [clicks, draftModel, routePoints, routeLine, draftFor]);
+  }, [clicks, draftModel, routePoints, routeLine, draftFor, gameKey]);
+  // The site card beside a resting pointer: a stop placed there, an undo or the cash changes its verdict.
+  useEffect(() => {
+    const at = pointerAt.current;
+    if (!at) return;
+    if (toolRef.current === "depot") depotSiteAt(at);
+    else if (toolRef.current === "stop") stopSiteAt(at);
+  }, [gameKey, depotSiteAt, stopSiteAt]);
   const startRoute = useCallback(
     (id: number) => {
       const line = sim.snapshot?.lines.find((l) => l.id === id);
@@ -255,12 +278,11 @@ export function App() {
       if (event.key === "Escape") {
         choose("none");
         setOpen([]);
-      } else if (event.key === "Backspace" && toolRef.current === "line")
-        setClicks((c) => c.slice(0, -1));
+      } else if (event.key === "Backspace" && toolRef.current === "line") removeLast();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [choose, send, atHome]);
+  }, [choose, send, atHome, removeLast]);
 
   // A tool and the panels stay out together, each on the panel layer in a place of its own: they no
   // longer cover each other (the owner's initial playtest: "when you open 2 tabs, they conflict and you
@@ -303,7 +325,7 @@ export function App() {
             creating.current = true;
             send({ type: "create-line", clicks, model: draftModel });
           }}
-          onUndo={() => setClicks((c) => c.slice(0, -1))}
+          onUndo={removeLast}
           onCancel={() => choose("none")}
         />
       ),

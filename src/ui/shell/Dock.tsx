@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Tool } from '../game/Tools';
+import { closeOnPressAway } from '../pressAway';
 
 export type Panel = 'none' | 'lines' | 'stop' | 'finance' | 'saves' | 'contracts';
 
@@ -48,15 +49,20 @@ const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly
 export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; panels: readonly Panel[]; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Exclude<Panel, 'none'>) => void }) {
   const [open, setOpen] = useState(false);
   const build = useRef<HTMLDivElement>(null);
-  // Escape or a press anywhere else closes the menu, as the game's dropdowns do.
+  // Escape or a press anywhere else closes the menu, as the game's dropdowns do, and does nothing else:
+  // Escape is heard first, on its way down, and stops there, so the tool and the panels stay out.
   useEffect(() => {
     if (!open) return;
-    const key = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
-    const away = (event: PointerEvent) => !build.current?.contains(event.target as Node) && setOpen(false);
-    window.addEventListener('keydown', key);
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      setOpen(false);
+    };
+    const away = closeOnPressAway((target) => Boolean(build.current?.contains(target)), () => setOpen(false));
+    window.addEventListener('keydown', key, true);
     window.addEventListener('pointerdown', away);
     return () => {
-      window.removeEventListener('keydown', key);
+      window.removeEventListener('keydown', key, true);
       window.removeEventListener('pointerdown', away);
     };
   }, [open]);

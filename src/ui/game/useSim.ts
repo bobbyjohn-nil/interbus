@@ -37,6 +37,8 @@ export interface Sim {
   readonly fareBand: { readonly lineId: number; readonly band: FareBandView | null } | null;
   /** The line rule's draft for the clicks last sent. */
   readonly draft: LineDraftView | null;
+  /** The very list of clicks `draft` answers, so a tool can tell its draft from one for clicks since changed. */
+  readonly draftOf: readonly LngLatPair[] | null;
   /** The last command the sim refused, until the next command. */
   readonly refusal: ({ readonly command: string } & RefusalView) | null;
   /** What became of the save this game started from. */
@@ -72,6 +74,7 @@ export function useSim(city: City | undefined): Sim {
   const [depotSite, setDepotSite] = useState<Sim['depotSite']>(null);
   const [stopSite, setStopSite] = useState<Sim['stopSite']>(null);
   const [draft, setDraft] = useState<LineDraftView | null>(null);
+  const [draftOf, setDraftOf] = useState<Sim['draftOf']>(null);
   const [fareBand, setFareBand] = useState<Sim['fareBand']>(null);
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
   const [load, setLoad] = useState<LoadView | null>(null);
@@ -82,6 +85,8 @@ export function useSim(city: City | undefined): Sim {
   // Only the newest answer counts: an older one arriving late is dropped.
   const asked = useRef({ site: 0, draft: 0, band: 0, next: 1 });
   const sites = useRef(new Map<number, LngLatPair>());
+  // The clicks of the newest draft asked for: only its answer counts, so it answers these.
+  const draftClicks = useRef<readonly LngLatPair[] | null>(null);
 
   useEffect(() => {
     const sim = city ? simOf(city) : null;
@@ -140,7 +145,10 @@ export function useSim(city: City | undefined): Sim {
             sites.current.delete(m.id);
             if (at && m.id === asked.current.site) setStopSite({ at, site: m.site });
           } else if (m.type === 'line-draft') {
-            if (m.id === asked.current.draft) setDraft(m.draft);
+            if (m.id === asked.current.draft) {
+              setDraft(m.draft);
+              setDraftOf(draftClicks.current);
+            }
           } else if (m.type === 'fare-band') {
             if (m.id === asked.current.band) setFareBand({ lineId: m.lineId, band: m.band });
           }
@@ -213,6 +221,7 @@ export function useSim(city: City | undefined): Sim {
     }
     const id = asked.current.next++;
     asked.current.draft = id;
+    draftClicks.current = clicks;
     worker.current?.postMessage({ type: 'line-draft', id, clicks, model, ...(extend ? { extend } : {}), ...(route === undefined ? {} : { route }) } satisfies ToWorker);
   }, []);
   const fareBandFor = useCallback((lineId: number | null) => {
@@ -233,5 +242,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, fareBand, refusal, load, slots, setAside, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, load, slots, setAside, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }

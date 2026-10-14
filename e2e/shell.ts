@@ -31,11 +31,11 @@ export async function projector(page: Page): Promise<{ project: (at: readonly [n
   };
 }
 
-/** A point inside the sim file's largest parcel of depot land, as the sim tests place a depot. */
-export function onDepotLand(): [number, number] {
+/** A point inside the sim file's largest parcel of depot land, as the sim tests place a depot; or inside the next largest, with `parcel` 1 and up. */
+export function onDepotLand(parcel = 0): [number, number] {
   const loaded = loadCity(readFileSync(`public/cities/${city.sim!.file}`, 'utf8'));
   if (!loaded.ok) throw new Error(loaded.problem);
-  const ring = [...loaded.city.depotLand].sort((a, b) => b.length - a.length)[0]!;
+  const ring = [...loaded.city.depotLand].sort((a, b) => b.length - a.length)[parcel]!;
   const [cx, cy] = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
   for (let t = 0; t <= 1; t += 0.05) {
     const p: XY = [cx + (ring[0]![0] - cx) * t, cy + (ring[0]![1] - cy) * t];
@@ -93,4 +93,17 @@ export async function build(page: Page, tool: 'Place a stop' | 'Draw a line' | '
   const menu = page.getByTestId('build-menu');
   if (!(await menu.isVisible())) await page.getByTestId('build').click();
   await menu.getByRole('button', { name: tool }).click();
+}
+
+/** Moves the pointer onto `at` with two moves on the map's canvas, so a tool's card describes where it rests; returns where that is on screen. */
+export async function pointAt(page: Page, at: [number, number]): Promise<readonly [number, number]> {
+  const [x, y] = await toScreen(page, at);
+  await page.evaluate(
+    ([moves]) => {
+      const canvas = document.querySelector('.maplibregl-canvas')!;
+      for (const [mx, my] of moves!) canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: mx, clientY: my, bubbles: true }));
+    },
+    [[[x - 40, y], [x, y]]] as const,
+  );
+  return [x, y] as const;
 }

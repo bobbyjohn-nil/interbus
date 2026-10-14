@@ -1,6 +1,7 @@
-# PR checks (CLAUDE.md: within 8 minutes; slower checks go nightly and never block). Two jobs side by
+# PR checks (CLAUDE.md: within 8 minutes; slower checks go nightly and never block). Three jobs side by
 # side: the browser's took 7.0 minutes as one with the rest, and 8.1 on a slower runner, so the
-# typecheck, lint and unit tests run on a runner of their own.
+# typecheck, lint and unit tests run on a runner of their own; and the fixture e2e alone took 5.6 to 7.5
+# minutes of the 8 (2026-10-14), so it runs in two halves, Playwright's shards 1/2 and 2/2.
 name: CI
 
 on:
@@ -114,6 +115,46 @@ jobs:
       - name: Smoke test the shipped build, with its busy scene
         run: npx playwright test e2e/smoke.spec.ts e2e/scene.spec.ts
 
-      # The e2e tests are written on mini-Boston, so they run on a build that plays it.
+      # The e2e tests are written on mini-Boston, so they run on a build that plays it. This job runs
+      # half of them; "Fixture e2e, second half" runs the rest.
       - run: npm run build:fixture
-      - run: npm run e2e
+      - run: npm run e2e -- --shard=1/2
+
+  e2e-second-half:
+    name: Fixture e2e, second half
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore fonts
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/fonts
+            .cache/fonts
+          # fontnik draws the glyph ranges, so its installed version is part of the key.
+          key: fonts-${{ hashFiles('scripts/fonts/**', 'node_modules/fontnik/package.json') }}
+
+      - run: npm run fonts
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run build:fixture
+      - run: npm run e2e -- --shard=2/2

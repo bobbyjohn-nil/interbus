@@ -1,7 +1,7 @@
 import { BUS_MODELS, MODEL_IDS } from "../../sim/rules/line";
 import { isExpress } from "../../sim/rules/express";
 import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
-import type { BusModelId } from "../../sim/types";
+import type { BusModelId, LineDraftView } from "../../sim/types";
 import { refusalText } from "../copy";
 import { Dropdown } from "../Dropdown";
 import { about, busCount, every, km, usdK } from "../format";
@@ -34,7 +34,9 @@ export function DepotCard({
     >
       {site.ok
         ? `Industrial land ✓ · street ${site.streetM} m away ✓ · ${usdK(site.priceCents)}`
-        : refusalText(site)}
+        : site.priceCents !== undefined
+          ? `${usdK(site.priceCents)} · ${refusalText(site)}` // the price beside the shortfall, as the draft card shows its total
+          : refusalText(site)}
     </div>
   );
 }
@@ -59,6 +61,18 @@ export function StopSiteCard({ sim, screen }: { sim: Sim; screen: [number, numbe
           : refusalText(site)}
     </div>
   );
+}
+
+/**
+ * A new line's clicks as its card shows them (the systems audit): the line rule reads no click after one
+ * it refuses (sim/rules/line.ts), so `kept` are the clicks that became stops, and `shown` adds the refused
+ * click while the card names it. The next click goes after the kept ones, in the refused one's place, and
+ * Remove last stop leaves one fewer than shown, so it never takes off a click the card does not show.
+ * `draft` is the rule's answer to these very clicks, or null while that is on its way.
+ */
+export function draftShows(clicks: number, draft: LineDraftView | null): { readonly kept: number; readonly shown: number } {
+  const kept = draft ? Math.min(draft.stops.length, clicks) : clicks;
+  return { kept, shown: kept < clicks && draft?.refusal?.at === kept ? kept + 1 : kept };
 }
 
 /**

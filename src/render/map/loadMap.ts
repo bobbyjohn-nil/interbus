@@ -92,11 +92,15 @@ export interface HoveredDot {
   readonly w: number;
 }
 
-/** What a click lands on: a line and, at one of its stops, that stop. */
+/** What a click lands on: a line and, at one of its stops, that stop; and whether it is a double-click's second click. */
 export interface MapHit {
   readonly lineId: number | null;
   readonly stopId: number | null;
+  readonly double: boolean;
 }
+
+/** Longer than any double-click a browser counts, so a click this long after the map's last is never its second. */
+const DOUBLE_CLICK_MS = 1_000;
 
 /** The pointer is reported at most this often. */
 const POINTER_EVERY_MS = 100;
@@ -356,13 +360,19 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let click: ((at: LngLatPair, hit: MapHit) => void) | null = null;
   // MapLibre fires 'click' only when the pointer did not drag between press and release. A stop
   // under the pointer wins over the line it sits on. A double-click held to flip the view clicks nothing.
+  // A double-click's second click counts as one only when the map heard the first: after a press that
+  // only closed a menu, or a click a held double-click swallowed, the next click is a click of its own.
+  let heard = { detail: 0, ms: -Infinity };
   map.on('click', (e) => {
     if (swallow) return;
+    const { detail, timeStamp } = e.originalEvent;
+    const double = detail > 1 && heard.detail === detail - 1 && timeStamp - heard.ms < DOUBLE_CLICK_MS;
+    heard = { detail, ms: timeStamp };
     const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
     const line = hits.find((h) => numberOf(h.properties?.id) !== null);
-    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: numberOf(line?.properties?.id), stopId: numberOf(stop?.properties?.stop) });
+    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: numberOf(line?.properties?.id), stopId: numberOf(stop?.properties?.stop), double });
   });
 
   return {
