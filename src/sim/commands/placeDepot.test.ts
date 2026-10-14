@@ -25,14 +25,14 @@ function insideLand(): XY {
 }
 
 describe('placing a depot on mini-Boston', () => {
-  it('buys a depot on industrial land for $150k, one Purchases row, and saves it by place', () => {
+  it('buys a depot on industrial land for $150k, one Depots row, and saves it by place', () => {
     const world = game();
     const at = toLngLat(city.frame, insideLand());
     const before = world.state.ledger.cashCents;
     const placed = placeDepot(world, at);
     expect(placed).toMatchObject({ ok: true, priceCents: 15_000_000 });
     expect(world.state.ledger.cashCents).toBe(before - 15_000_000);
-    expect(world.state.ledger.rows.at(-1)).toEqual({ day: 1, kind: 'purchase', amountCents: -15_000_000 });
+    expect(world.state.ledger.rows.at(-1)).toEqual({ day: 1, kind: 'depots', amountCents: -15_000_000 });
     expect(world.state.depots).toEqual([{ id: 1, lon: at[0], lat: at[1] }]);
   });
 

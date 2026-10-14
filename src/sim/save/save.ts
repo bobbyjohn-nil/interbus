@@ -12,14 +12,14 @@ import { STOP_TIER_IDS, type StopTier } from '../config/stops';
 import { ID_KINDS, type ContractId, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
 import { toCalendarTime } from '../core/calendar';
 import { createRng, hashString } from '../core/rng';
-import type { LedgerRow } from '../economy/ledger';
+import { OPENING_DAY, type LedgerRow } from '../economy/ledger';
 import { checkHeadways } from '../rules/periods';
 import type { SaveAbout, SetAsideWhy } from '../types';
 import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 15;
+export const SAVE_FORMAT = 16;
 
 export interface BuildRef {
   readonly sha: string;
@@ -200,9 +200,10 @@ export function integrityProblem(data: SaveData): string | null {
     if (!checkHeadways(line.headways).ok) return `line ${line.id} breaks the headway rules`;
     if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0)) return `line ${line.id} has an impossible earlier version`;
   }
-  if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with Founding capital';
-  if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one Founding capital row';
-  if (data.ledger.some((r) => r.day < 1)) return 'a ledger row before day 1';
+  if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with the starting cash';
+  if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one starting cash row';
+  // The starting cash sits on Day 0 (D25), every other row on a day played.
+  if (data.ledger.some((r) => (r.kind === 'founding' ? r.day !== OPENING_DAY : r.day < 1))) return 'a ledger row before day 1';
   // A day's close merges its rows and refuses any other day's after them (economy/ledger.ts closeDay),
   // so a file with rows out of day order, or from a day not yet played, would stop the game there.
   if (data.ledger.some((r, i) => r.day > today || (i > 0 && r.day < data.ledger[i - 1]!.day))) return 'a ledger out of day order';

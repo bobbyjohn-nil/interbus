@@ -3,7 +3,9 @@
 // apportionment (`Intralines_City_dep@archive/intralines-city-v1:Gaming/src/30-sim.js:3757-3792`):
 // what its paid boardings pay at each line's fare and subsidy (a change pays nothing; its trip paid
 // its first line, EC-04), less each line's day of costs shared by boardings, or evenly over its
-// stops when nobody boards. Flagged QUIET under 5 boardings a day and LOSS under −$20 a day.
+// stops when nobody boards, and less its own upkeep (config/stops.ts; D25). Flagged Quiet under 5
+// boardings a day and Loss under −$20 a day.
+import { stopUpkeepCents } from '../config/stops';
 import type { StopId } from '../core/ids';
 import { subsidyCents } from '../rules/fare';
 import { stopFlags } from '../rules/stopDay';
@@ -23,7 +25,7 @@ export interface StopDay {
 
 export function stopDays(world: World): StopDay[] {
   const sums = new Map<StopId, { boardings: number; alightings: number; transfers: number; net: number }>(
-    world.state.stops.map((s) => [s.id, { boardings: 0, alightings: 0, transfers: 0, net: 0 }]),
+    world.state.stops.map((s) => [s.id, { boardings: 0, alightings: 0, transfers: 0, net: -stopUpkeepCents(s.tier) }]),
   );
   for (const line of world.state.lines) {
     const demand = world.assignment.lines.get(line.id);

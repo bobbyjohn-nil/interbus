@@ -1,14 +1,17 @@
-// Finance (the M3 spec, item 6): every ledger row by kind, for today so far, yesterday and this
-// quarter so far, beside a whole day's forecast. Capital rows (founding, purchases, refunds, sales)
+// Finance (the M3 spec, item 6; D25): every ledger row by kind, for today so far, yesterday and this
+// quarter so far, beside a whole day's forecast. Capital rows (buses, stops and depots bought and sold)
 // are included, so each column adds up to the change in cash over it; V1 and V2 left fixed costs and
-// capital out, so their "profit" overstated. Contract, report-card and credit rows join as those
-// systems land. The forecast is the inspector's: the modelled paid riders' fares and subsidy, each line's
-// day plan's costs to the cent, and each depot's upkeep; capital has none.
+// capital out, so their "profit" overstated. The starting cash sits on Day 0, before every column.
+// The forecast is the inspector's: the modelled paid riders' fares and subsidy, each line's day plan's
+// costs to the cent, each depot's and stop's upkeep, and a day's interest while cash is below zero;
+// capital, contracts and the report card have none (sim/rules/money.ts).
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
+import { INTEREST_PER_DAY_PPM } from '../config/economy';
 import { toCalendarTime } from '../core/calendar';
 import { subsidyCents } from '../rules/fare';
+import { isOperating } from '../rules/money';
 import type { World } from '../world';
-import { forecastDay } from './costs';
+import { forecastDay, stopsUpkeepCents } from './costs';
 import { ROW_KINDS, type RowKind } from './ledger';
 
 export interface FinanceRow {
@@ -16,7 +19,7 @@ export interface FinanceRow {
   readonly todayCents: number;
   readonly yesterdayCents: number;
   readonly quarterCents: number;
-  /** A whole day's forecast, or null for a capital row, which no day plans. */
+  /** A whole day's forecast, or null for a row no day plans: capital, a contract's reward, the report card, the opening. */
   readonly forecastCents: number | null;
 }
 
@@ -25,12 +28,11 @@ export interface Finance {
   readonly quarter: number;
   /** The quarter's first day: its column sums that day to today. */
   readonly quarterFirstDay: number;
+  /** The starting cash, posted on Day 0 before any column's days. */
+  readonly openingCents: number;
   /** One row per kind in ROW_KINDS order, every kind there is. */
   readonly rows: readonly FinanceRow[];
 }
-
-/** Rows no day plans: capital, and a quarter's report card. */
-const CAPITAL: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card']);
 
 export function finance(world: World): Finance {
   const { state } = world;
@@ -47,7 +49,18 @@ export function finance(world: World): Finance {
     if (row.day === t.day - 1) sum.yesterday += row.amountCents;
     if (row.day >= quarterFirstDay) sum.quarter += row.amountCents;
   }
-  const forecast: Partial<Record<RowKind, number>> = { fares: 0, subsidy: 0, running: 0, wages: 0, deadhead: 0, upkeep: -state.depots.length * DEPOT_UPKEEP_CENTS };
+  const owing = Math.max(0, -state.ledger.cashCents);
+  const forecast: Partial<Record<RowKind, number>> = {
+    fares: 0,
+    subsidy: 0,
+    running: 0,
+    wages: 0,
+    deadhead: 0,
+    upkeep: -state.depots.length * DEPOT_UPKEEP_CENTS,
+    stopUpkeep: -stopsUpkeepCents(state.stops),
+    // As the close charges it (step.ts), on what is owed now.
+    interest: owing > 0 ? -Math.round((owing * INTEREST_PER_DAY_PPM) / 1_000_000) : 0,
+  };
   for (const line of state.lines) {
     const riders = Math.floor(world.assignment.lines.get(line.id)?.paidPerDay ?? 0);
     forecast.fares! += riders * line.fareCents;
@@ -63,9 +76,10 @@ export function finance(world: World): Finance {
     day: t.day,
     quarter: t.quarter,
     quarterFirstDay,
+    openingCents: state.ledger.rows.find((r) => r.kind === 'founding')?.amountCents ?? 0,
     rows: ROW_KINDS.map((kind) => {
       const s = sums.get(kind)!;
-      return { kind, todayCents: s.today, yesterdayCents: s.yesterday, quarterCents: s.quarter, forecastCents: CAPITAL.has(kind) ? null : (forecast[kind] ?? 0) };
+      return { kind, todayCents: s.today, yesterdayCents: s.yesterday, quarterCents: s.quarter, forecastCents: isOperating(kind) ? (forecast[kind] ?? 0) : null };
     }),
   };
 }

@@ -1,10 +1,10 @@
 // Remove a stop from a line (the M3 spec, item 14): the line runs on without it from the recompute,
 // keeping its buses (a shorter cycle may leave one spare); a stop no other line calls at is taken
-// down and half of what it cost comes back as a Refunds row (rules/route.ts).
+// down and half of what it cost comes back as a Stops sold back row (rules/route.ts; D25).
 import { toCalendarTime } from '../core/calendar';
 import type { LineId, StopId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
-import { refund } from '../economy/ledger';
+import { spendParts } from '../economy/ledger';
 import { checkRemoveStop, type RemoveStopRefusal } from '../rules/route';
 import { recomputeInService, type World } from '../world';
 
@@ -24,7 +24,7 @@ export function removeStop(
   line.stopIds = line.stopIds.filter((id) => id !== stopId);
   if (verdict.orphaned) {
     state.stops = state.stops.filter((s) => s.id !== stopId);
-    if (verdict.refundCents > 0) refund(state.ledger, verdict.refundCents, toCalendarTime(state.elapsed).day);
+    spendParts(state.ledger, [{ kind: 'stopSales', amountCents: verdict.refundCents }], toCalendarTime(state.elapsed).day);
   }
   recomputeInService(world);
   return ok({ orphaned: verdict.orphaned, refundCents: verdict.refundCents });

@@ -22,7 +22,7 @@ function game() {
 }
 
 describe('extending a line', () => {
-  it('adds a stop beyond Longwood, paying for it and any bus the longer cycle needs as one Purchases row', () => {
+  it('adds a stop beyond Longwood, paying for it as a New stops row and any bus the longer cycle needs as a Buses bought row', () => {
     const { world, line } = game();
     const [first, last] = [line.stopIds[0], line.stopIds.at(-1)];
     const cash = world.state.ledger.cashCents;
@@ -36,7 +36,9 @@ describe('extending a line', () => {
     expect(result.priceCents).toBe(STOP_COST_CENTS + result.extraBuses * SPARROW.priceCents);
     expect(line.buses).toBe(buses + result.extraBuses);
     expect(world.state.ledger.cashCents).toBe(cash - result.priceCents);
-    expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'purchase', amountCents: -result.priceCents });
+    const paid = world.state.ledger.rows.filter((r) => r.kind === 'stops' || r.kind === 'buses').slice(result.extraBuses > 0 ? -2 : -1);
+    expect(paid.reduce((s, r) => s + r.amountCents, 0)).toBe(-result.priceCents);
+    expect(world.state.ledger.rows.at(result.extraBuses > 0 ? -2 : -1)).toMatchObject({ kind: 'stops', amountCents: -STOP_COST_CENTS });
     expect(world.services.get(line.id)!.plan.stops).toHaveLength(5);
   });
 

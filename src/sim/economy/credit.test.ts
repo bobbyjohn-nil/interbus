@@ -8,13 +8,13 @@ import { SECONDS_PER_DAY } from '../config/time';
 import { runEnded } from '../rules/credit';
 import { advance } from '../step';
 import { gameWithDepot } from '../testing';
-import { post, spend } from './ledger';
+import { post, spendParts } from './ledger';
 
 function owing(cents: number) {
   const world = gameWithDepot();
   if (!addDebugLine(world).ok) throw new Error('no line');
   // Owe `cents` at once, as a purchase past anything the credit line would allow.
-  post(world.state.ledger, { day: 1, kind: 'purchase', amountCents: -(world.state.ledger.cashCents + cents) });
+  post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + cents) });
   return world;
 }
 
@@ -22,8 +22,9 @@ describe('the failure floor', () => {
   it('lets a purchase spend to −$150k and no further', () => {
     const world = gameWithDepot();
     const cash = world.state.ledger.cashCents;
-    expect(spend(world.state.ledger, cash + 15_000_001, 1)).toMatchObject({ ok: false, shortCents: 1 });
-    expect(spend(world.state.ledger, cash + 15_000_000, 1).ok).toBe(true);
+    const buy = (cents: number) => spendParts(world.state.ledger, [{ kind: 'buses', amountCents: -cents }], 1);
+    expect(buy(cash + 15_000_001)).toMatchObject({ ok: false, shortCents: 1 });
+    expect(buy(cash + 15_000_000).ok).toBe(true);
     expect(world.state.ledger.cashCents).toBe(-15_000_000);
   });
 
@@ -52,7 +53,7 @@ describe('the failure floor', () => {
     const world = owing(20_000_000);
     advance(world, 2 * SECONDS_PER_DAY);
     expect(world.state.closesBelowFloor).toBe(2);
-    post(world.state.ledger, { day: 3, kind: 'sale', amountCents: 10_000_000 });
+    post(world.state.ledger, { day: 3, kind: 'busSales', amountCents: 10_000_000 });
     advance(world, SECONDS_PER_DAY);
     expect(world.state.closesBelowFloor).toBe(0);
   });

@@ -1,10 +1,10 @@
 // A stop's tier: one predicate for the stop card's buttons and the command (GD-05). Up a step costs
 // that tier's price; down gives back half of what the steps cost (the M3 spec, item 5).
-import { STOP_TIER_IDS, STOP_TIERS, type StopTier, type StopTierRow } from '../config/stops';
+import { STOP_TIER_IDS, STOP_TIERS, stopUpkeepCents, type StopTier, type StopTierRow } from '../config/stops';
 import { ok, refuse, type Result } from '../core/result';
 import { spendableCents } from './credit';
 
-export { STOP_TIER_IDS, STOP_TIERS, type StopTier, type StopTierRow };
+export { STOP_TIER_IDS, STOP_TIERS, stopUpkeepCents, type StopTier, type StopTierRow };
 
 export type StopTierRefusal = 'same_tier' | 'no_such_tier' | 'needs_lines' | 'insufficient_funds';
 

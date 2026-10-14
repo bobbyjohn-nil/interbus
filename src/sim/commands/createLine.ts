@@ -1,5 +1,5 @@
-// Create (the M2 spec, item 3): the line rule decides, the ledger pays one Purchases row for the new
-// stops and the buses the founding headway needs, and the line runs from the next hour. The card
+// Create (the M2 spec, item 3): the line rule decides, the ledger pays a New stops row for the new
+// stops and a Buses bought row for the buses the founding headway needs (D25), and the line runs from the next hour. The card
 // read the same rule, so Create buys exactly what the card said (GD-05, I6).
 import { REFERENCE_FARE_CENTS } from '../config/economy';
 import { BUS_MODELS, type BusModelId } from '../config/fleet';
@@ -8,7 +8,7 @@ import { toCalendarTime } from '../core/calendar';
 import { toLngLat, toXY, type LngLat } from '../core/geo';
 import { mint, type LineId, type StopId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
-import { spend } from '../economy/ledger';
+import { spendParts } from '../economy/ledger';
 import { checkLineDraft, type LineRefusal } from '../rules/line';
 import type { Headways } from '../rules/periods';
 import { lineDraftContext, recompute, type World } from '../world';
@@ -27,7 +27,16 @@ export function createLine(
     return refuse(verdict.reason, Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room, shortCents }).filter(([, v]) => v !== undefined)));
   }
   const { draft } = verdict;
-  const paid = spend(state.ledger, draft.priceCents, toCalendarTime(state.elapsed).day);
+  // The id the line will take, for its Buses bought row; minted below, after the stops.
+  const [lineIdNext] = mint(state.nextIds, 'line');
+  const paid = spendParts(
+    state.ledger,
+    [
+      { kind: 'stops', amountCents: -draft.stopsCents },
+      { kind: 'buses', amountCents: -draft.busesCents, lineId: lineIdNext },
+    ],
+    toCalendarTime(state.elapsed).day,
+  );
   if (!paid.ok) return refuse('insufficient_funds', { shortCents: paid.shortCents });
   const stopIds: StopId[] = draft.stops.map((pick) => {
     if (pick.kind === 'join') return pick.stopId as StopId;
@@ -38,6 +47,7 @@ export function createLine(
     return id;
   });
   const [lineId, next] = mint(state.nextIds, 'line');
+  if (lineId !== lineIdNext) throw new Error(`createLine: minted ${lineId}, paid for ${lineIdNext}`);
   state.nextIds = next;
   state.lines.push({
     id: lineId,

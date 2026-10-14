@@ -90,7 +90,7 @@ test.describe('the line tool on the fixture', () => {
     await setSpeed(page, '5,400×');
     const card = page.getByTestId('day-card');
     await expect(card).toBeVisible({ timeout: 90_000 });
-    for (const name of ['Fares', 'Running (per km)', 'Driver wages', 'Deadhead', 'Depot upkeep']) await expect(card).toContainText(name);
+    for (const name of ['Fares', 'Bus fuel and maintenance', 'Driver wages', 'To and from the depot', 'Depot upkeep', 'Stop upkeep']) await expect(card).toContainText(name);
     expect(await card.getAttribute('data-total')).toBe(await card.getAttribute('data-change'));
     const cents = async (kind: string) => Number(await card.locator(`tr[data-kind="${kind}"]`).getAttribute('data-cents'));
     // Day 1 opens at 05:00: every run of the line is on it, so its running cost is the forecast to the
@@ -98,6 +98,8 @@ test.describe('the line tool on the fixture', () => {
     // the host and sim tests: day 1 starts after the first bus left the depot.)
     expect(await cents('running')).toBe(-running);
     expect(await cents('upkeep')).toBe(-19 * 1_250);
+    // Four Signs at $4 a day: 19 hours of 24, each hour a twenty-fourth floored (D25).
+    expect(await cents('stopUpkeep')).toBe(-(Math.floor((1_600 * 24) / 24) - Math.floor((1_600 * 5) / 24)));
     // About $1,400 ahead on its running rows: the checklist moves on to contracts (M3).
     await expect(page.getByTestId('checklist')).toHaveText('5/5 Take a contract');
 

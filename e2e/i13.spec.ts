@@ -58,13 +58,16 @@ test.describe('the screen budget (I13)', () => {
       shares.inspector = await chromeShare(page);
       await page.getByRole('button', { name: 'Close' }).click();
       shares.restWithLine = await chromeShare(page);
-      // Finance: the depot and the line are today's purchases, and on day 1 both today's column and
-      // the quarter's, founding capital included, come to the cash.
+      // Finance: the depot, the line's stops and its buses are today's purchases, each a row (D25), and
+      // on day 1 today's column and the quarter's both come to the cash less the starting cash, on Day 0.
       await page.getByRole('button', { name: 'Finance' }).click();
       const finance = page.getByTestId('finance');
-      await expect(finance.locator('tr[data-kind="purchase"]')).toHaveAttribute('data-today', String(-15_000_000 - 20_600_000));
-      await expect(finance).toHaveAttribute('data-today', '7120000');
-      await expect(finance).toHaveAttribute('data-quarter', '7120000');
+      await expect(finance.locator('tr[data-kind="depots"]')).toHaveAttribute('data-today', String(-15_000_000));
+      await expect(finance.locator('tr[data-kind="stops"]')).toHaveAttribute('data-today', String(-1_600_000));
+      await expect(finance.locator('tr[data-kind="buses"]')).toHaveAttribute('data-today', String(-19_000_000));
+      await expect(finance).toHaveAttribute('data-opening', '42720000');
+      await expect(finance).toHaveAttribute('data-today', String(-35_600_000));
+      await expect(finance).toHaveAttribute('data-quarter', String(-35_600_000));
       shares.finance = await chromeShare(page);
       await page.getByRole('button', { name: 'Close' }).click();
       // A stop's card, from where the second stop snapped.

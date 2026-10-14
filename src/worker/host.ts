@@ -25,7 +25,7 @@ import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/confi
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { FESTIVAL_RADIUS_M } from '../sim/config/events';
-import { forecastDay } from '../sim/economy/costs';
+import { forecastDay, stopsUpkeepCents } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
 import { finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
@@ -481,7 +481,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
       profitableDays: profitableDays(w.state.ledger, t.day),
-      costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS,
+      costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS + stopsUpkeepCents(w.state.stops),
       lines,
       stops,
       linesVersion,

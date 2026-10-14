@@ -25,20 +25,26 @@ describe('Finance', () => {
     advance(world, SECONDS_PER_DAY + 12 * 3_600); // to 17:00 on day 2
     const f = finance(world);
     expect([f.day, f.quarter, f.quarterFirstDay]).toEqual([2, 1, 1]);
-    // Quarter 1 began with the founding capital, so its column is the cash.
-    expect(total(f.rows, 'quarterCents')).toBe(world.state.ledger.cashCents);
+    // The starting cash sits on Day 0 (D25), before Quarter 1's first day: the column is the cash less it.
+    expect(total(f.rows, 'quarterCents')).toBe(world.state.ledger.cashCents - 42_720_000);
     expect(total(f.rows, 'yesterdayCents')).toBe(rowsOfDay(world.state.ledger, 1).reduce((s, r) => s + r.amountCents, 0));
     expect(total(f.rows, 'todayCents')).toBe(rowsOfDay(world.state.ledger, 2).reduce((s, r) => s + r.amountCents, 0));
-    expect(f.rows.find((r) => r.kind === 'founding')).toMatchObject({ yesterdayCents: 42_720_000, forecastCents: null });
-    expect(f.rows.find((r) => r.kind === 'purchase')!.forecastCents).toBeNull();
+    expect(f.rows.find((r) => r.kind === 'founding')).toMatchObject({ todayCents: 0, yesterdayCents: 0, quarterCents: 0, forecastCents: null });
+    // Day 1's purchase, a row of its own kind (the debug line is laid free of charge).
+    expect(f.rows.find((r) => r.kind === 'depots')).toMatchObject({ yesterdayCents: -15_000_000, forecastCents: null });
+    expect(f.rows.find((r) => r.kind === 'stops')).toMatchObject({ yesterdayCents: 0, forecastCents: null });
+    expect(f.rows.find((r) => r.kind === 'contract')!.forecastCents).toBeNull();
   });
 
-  it('forecasts a whole day the way the inspector does: costs to the cent, upkeep for each depot', () => {
+  it('forecasts a whole day the way the inspector does: costs to the cent, upkeep for each depot and stop, interest on what is owed', () => {
     const world = game();
     const f = finance(world);
     const c = forecastDay([...world.services.values()][0]!.costs);
     const forecast = (kind: string) => f.rows.find((r) => r.kind === kind)!.forecastCents;
-    expect([forecast('running'), forecast('wages'), forecast('deadhead'), forecast('upkeep')]).toEqual([-c.running, -c.wages, -c.deadhead, -30_000]);
+    // Four Signs at $4 a day each (config/stops.ts), and nothing owed.
+    expect([forecast('running'), forecast('wages'), forecast('deadhead'), forecast('upkeep'), forecast('stopUpkeep'), forecast('interest')]).toEqual([-c.running, -c.wages, -c.deadhead, -30_000, -1_600, 0]);
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 10_000_000) });
+    expect(finance(world).rows.find((r) => r.kind === 'interest')!.forecastCents).toBe(-6_000); // 0.06% of $100,000
     const riders = Math.floor(world.assignment.lines.get(world.state.lines[0]!.id)!.perDay);
     expect([forecast('fares'), forecast('subsidy')]).toEqual([riders * 225, riders * 160]);
   });

@@ -19,12 +19,15 @@ describe('a stop’s card', () => {
     const sign = render({});
     expect(sign).toContain('Stop 2 · Sign');
     expect(sign).toContain('Make it a Shelter · $12k');
+    // Its upkeep, and the next tier's on the step up (D25: "bus stop upkeep").
+    expect(sign).toContain('Upkeep $4 a day</p>');
+    expect(sign).toContain('title="Upkeep $16 a day"');
     expect(sign).not.toMatch(/Make it an? [A-Za-z ]+ · \$[\d.]+k back/);
     const station = render({ tier: 3 });
-    expect(station).toContain('Feels 1.8 min closer on foot');
+    expect(station).toContain('Upkeep $51 a day · feels 1.8 min closer on foot');
     expect(station).toContain('Make it a Shelter · $17.5k back');
     // An Interchange needs three lines calling; this stop has one, so the step up is refused in words.
-    expect(station).toMatch(/<button type="button" disabled="">Make it an Interchange · \$90k<\/button>/);
+    expect(station).toMatch(/<button type="button" disabled="" title="Upkeep \$141 a day">Make it an Interchange · \$90k<\/button>/);
     expect(station).toContain('Needs 3 lines stopping here');
   });
 

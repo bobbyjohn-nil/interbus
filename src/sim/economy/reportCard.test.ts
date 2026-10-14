@@ -19,13 +19,13 @@ function game() {
 }
 
 describe('the report card', () => {
-  it('closes quarter 1 on day 8 with its card, and pays it as one of day 8’s rows (76.4 overall, measured: a festival on days 3–4 lifts Money; 76.1 on day 10 while a quarter was ten days)', () => {
+  it('closes quarter 1 on day 8 with its card, and pays it as one of day 8’s rows (76.3 overall, measured: a festival on days 3–4 lifts Money; 76.4 before stops had upkeep, D25; 76.1 on day 10 while a quarter was ten days)', () => {
     const world = game();
     const events = advance(world, 8 * SECONDS_PER_DAY);
     expect(events.map((e) => e.card !== null)).toEqual([false, false, false, false, false, false, false, true]);
     const card = events[7]!.card!;
     expect(card).toMatchObject({ quarter: 1, day: 8, reliability: 100, comfort: 80 });
-    expect(card.overall).toBeCloseTo(76.4, 1);
+    expect(card.overall).toBeCloseTo(76.3, 1);
     // $160 a point a day for the quarter's eight days: $1,280 a point (D25; $1,600 over ten days before).
     expect(card.payoutCents).toBe(Math.round((card.overall - 55) * 128_000));
     expect(events[7]!.rows.filter((r) => r.kind === 'card')).toEqual([{ day: 8, kind: 'card', amountCents: card.payoutCents }]);
@@ -64,7 +64,7 @@ describe('the report card', () => {
     const world = game();
     advance(world, 10 * SECONDS_PER_DAY);
     const before = moneyGrade(world, 1, 10);
-    world.state.ledger.rows.push({ day: 5, kind: 'purchase', amountCents: -1_000_000 });
+    world.state.ledger.rows.push({ day: 5, kind: 'buses', amountCents: -1_000_000 });
     expect(moneyGrade(world, 1, 10)).toBe(before);
   });
 });

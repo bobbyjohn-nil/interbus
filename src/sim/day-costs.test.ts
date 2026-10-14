@@ -80,8 +80,8 @@ describe('costs as ledger rows (the M2 spec, item 5)', () => {
     const afterOne = encode(world.state, BUILD).length;
     advance(world, 9 * SECONDS_PER_DAY);
     const rows = world.state.ledger.rows.filter((r) => r.day === 5);
-    expect(rows.map((r) => r.kind)).toEqual(['fares', 'subsidy', 'running', 'wages', 'deadhead', 'upkeep']);
-    // A day of one line and one depot is six rows, about 0.4 KB of save.
+    expect(rows.map((r) => r.kind)).toEqual(['fares', 'subsidy', 'running', 'wages', 'deadhead', 'upkeep', 'stopUpkeep']);
+    // A day of one line, one depot and its stops is seven rows, about 0.4 KB of save.
     expect((encode(world.state, BUILD).length - afterOne) / 9).toBeLessThan(500);
   });
 });
