@@ -37,7 +37,7 @@ test.describe('undo while paused', () => {
     await expect(chip).toHaveCount(0);
     await page.getByRole('button', { name: 'Pause' }).click();
     await page.keyboard.press('Control+z');
-    await expect(page.getByTestId('notice')).toContainText('Time has run since then');
+    await expect(page.getByTestId('notice')).toContainText('Time has passed since then');
     await expect(panel).not.toHaveAttribute('data-cash', '42720000');
   });
 });

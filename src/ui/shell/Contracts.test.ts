@@ -61,7 +61,7 @@ describe('medals on the page (the M4 spec, item 3)', () => {
     expect(html).toContain('<strong>Gold</strong>: a quarter graded 75 or better, no grade under 60, on a day of 5,000 trips');
     const held = panel(sim({ tripsCarried: 25_030, medals: { bronze: 8, silver: 41, gold: null } }));
     expect(held).toContain('Since Year 1, Q1, Day 8');
-    expect(held).toContain('Since Year 2, Q2, Day 1 · The Goliath is for sale');
+    expect(held).toContain('Since Year 2, Q2, Day 1 · the Goliath is for sale');
     expect(held).not.toContain('to go');
   });
 

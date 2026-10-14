@@ -21,7 +21,7 @@ export function Corner() {
         data-sha={build.sha}
         title={`Build ${build.sha}, version ${build.version}`}
       >
-        build {build.shortSha}
+        Build {build.shortSha}
       </span>
     </footer>
   );

@@ -21,7 +21,7 @@ const PERIODS = [
  * A line's card: its riders, its round trip at peak and off-peak and what roadworks or snow add to it (the M4
  * spec, item 2), when its buses fill (K27), its buses and their model, its fare and the
  * band of fares that net the most (the M3 spec, item 4), and three headways (D7). A headway that needs
- * more buses reads "needs 3 buses, you have 2 · $95k" and confirming buys them (GD-09); another model
+ * more buses reads "Needs 3 buses (you have 2) · $95k" and confirming buys them (GD-09); another model
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
  * (sim/rules/line.ts, GD-05).
  */
@@ -56,7 +56,7 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
       <h2>
         <span className="swatch" style={{ background: line.colour }} /> {line.name}
         {planIsExpress(line) ? (
-          <span className="express" data-testid="express" title="5 km or more with its stops 1.2 km apart: riders feel its ride quicker and mind its fare half as much">
+          <span className="express" data-testid="express" title="Express: 5 km or longer, with stops at least 1.2 km apart on average. Riders feel the ride is quicker and mind the fare half as much.">
             Express
           </span>
         ) : null}
@@ -137,10 +137,10 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
           <label key={period}>
             {label}
             <select value={next[period] === null ? 'off' : String((next[period] ?? 0) / 60)} onChange={(e) => pick(period, e.target.value)}>
-              {period === 'overnight' ? <option value="off">off</option> : null}
+              {period === 'overnight' ? <option value="off">Off</option> : null}
               {HEADWAY_MINUTES.map((m) => (
                 <option key={m} value={String(m)}>
-                  every {m} min
+                  Every {m} min
                 </option>
               ))}
             </select>
@@ -150,7 +150,7 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
       {change ? (
         <div className="change" data-testid="headway-change" data-ok={change.ok ? 'yes' : 'no'}>
           {change.ok ? (
-            <p>{change.extra > 0 ? `needs ${change.needed} buses, you have ${line.buses} · ${usdK(change.priceCents)}` : `runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}</p>
+            <p>{change.extra > 0 ? `Needs ${change.needed} buses (you have ${line.buses}) · ${usdK(change.priceCents)}` : `Runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}</p>
           ) : (
             <p className="refusal" role="status">
               {refusalText(change)}
@@ -177,8 +177,8 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
   );
 }
 
-/** "Best net at $1.75–$2.00": the fares whose day nets within 5% of the best. */
+/** "Most profit at $1.75–$2.00": the fares whose day nets within 5% of the best. */
 export function bandText(band: FareBandView): string {
   const from = usd(band.fromCents, { cents: true });
-  return band.fromCents === band.toCents ? `Best net at ${from}` : `Best net at ${from}–${usd(band.toCents, { cents: true })}`;
+  return band.fromCents === band.toCents ? `Most profit at ${from}` : `Most profit at ${from}–${usd(band.toCents, { cents: true })}`;
 }

@@ -59,8 +59,8 @@ describe('the line card', () => {
     const html = render({ fareCents: 250 }, { netCents: [], bestCents: 175, fromCents: 175, toCents: 200 });
     expect(html.match(/<option value="\d+"[^>]*>\$\d\.\d\d<\/option>/g)).toHaveLength(17);
     expect(html).toContain('<option value="250" selected="">$2.50</option>');
-    expect(html).toContain('Best net at $1.75–$2.00');
-    expect(render({}, { netCents: [], bestCents: 200, fromCents: 200, toCents: 200 })).toContain('Best net at $2.00<');
+    expect(html).toContain('Most profit at $1.75–$2.00');
+    expect(render({}, { netCents: [], bestCents: 200, fromCents: 200, toCents: 200 })).toContain('Most profit at $2.00<');
   });
 
   it('reads its round trip, and what roadworks on its streets add to it today', () => {

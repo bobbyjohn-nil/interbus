@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dots show where people live (purple) and where they work (blue) from Back Bay to Longwood, sized by how many.
 - Point at a dot to see how many it stands for and how many more are within a walk: on a home dot, the people who live there and within a walk of it; on a job dot, the jobs there and within a walk.
 - A new company starts with $427,200: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
-- Found your company first: give it a name and pick its colour on the founding card.
+- Found your company first: give it a name and pick its color on the founding card, where your starting cash shows.
 - A checklist chip names the next thing to do: place a depot, draw a line, press play, close a day in profit, take a contract.
 - Place a depot: the industrial land where one may stand turns green, and a card beside the pointer says whether this spot works and what it costs ($150,000 for the first).
 - Draw a line: click the map to place stops (a click near a stop you already have joins it). A card shows the stops, the distance, how many people live within a walk, the buses running every 20 minutes needs and the price; Create buys it all, once you have a depot.
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Undo while paused: the Undo chip (or Ctrl+Z, ⌘Z on a Mac) takes back the last thing you did since you paused, a depot, a line, a headway, a bus model, a fare or a stop, cash and all. Once the clock has run, it says so instead.
 - Finance, in the dock: every kind of money in and out for today, yesterday and this quarter, beside what a whole day is forecast to bring, adding up to the change in cash.
 - Make a stop nicer from its card: a Shelter ($12,000), a Station ($35,000), an Interchange ($90,000, with 3 lines calling) or a Transfer Hub ($200,000, with 5). A nicer stop feels closer on foot, so more people walk to it; stepping it back down returns half of what the step cost.
-- Click a stop to see its day: how many board and get off there, and what it earns. A stop with fewer than 5 boardings a day reads QUIET, and one losing more than $20 a day reads LOSS, with a ring around it on the map.
+- Click a stop to see its day: how many board and get off there, and what it earns. A stop with fewer than 5 boardings a day reads Quiet, and one losing more than $20 a day reads Losing money (Loss on the map), with a ring around it on the map.
 - Set each line's fare, from $1.00 to $5.00, on its card. Riders on short hops mind a dear fare more than riders going far, the city's subsidy shrinks as the fare climbs past $2.25 and is gone at $5.00, and the card names the fares that make the line the most money.
 - Buses fill up: when more riders want a line than its seats carry, the extra riders are turned away in that half-hour, and the line's card says when it is full ("Full at 17:00") and how many riders a day it turns away. Running more often or with bigger buses carries them.
 - Two more buses: the Metro 40 (70 seats, $260,000) and the Goliath (115 seats, locked until a silver medal). Each line runs one model: pick it on the new-line card, or swap a line's buses on its card, where the old ones sell for half their price. Bigger buses are drawn longer on the map.
@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The quarter's report card pays $1,280 a point over 55 and fines $6,400 below 35: the same a day as before, over the shorter quarter.
 - The game saves at least every 30 seconds while time runs, as well as every game hour.
 - The count of people within a walk shows only while the pointer is on a dot, instead of wherever it is.
+- Words across the game start with a capital and read as whole sentences: the headway menus say Off and Every 10 min, the new-line card says "Running every 20 min needs 2 Sparrows", the founding card names its colors (Red, Blue and so on) instead of their codes, a stop's flags read Quiet and Losing money instead of QUIET and LOSS, the fare hint reads "Most profit at", and the game's name, the build chip and a few notices are capitalized and reworded.
 - The dock's buttons are a little slimmer, to leave room on screen for the compass and the demand menu.
 - Changing a line while its buses run no longer throws them across the map: a bus already on its way finishes its trip on the route and the times it set out with, and the next departures follow the change as buses come free. That holds for taking a stop off, extending a line, a new headway or bus model, a new depot, and roadworks starting or ending.
 - Riders a day, in the chips along the top, counts each trip once, even when it rides two lines.

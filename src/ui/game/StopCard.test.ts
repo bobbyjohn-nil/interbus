@@ -19,13 +19,13 @@ describe('a stop’s card', () => {
     const sign = render({});
     expect(sign).toContain('Stop 2 · Sign');
     expect(sign).toContain('Make it a Shelter · $12k');
-    expect(sign).not.toContain('Back to');
+    expect(sign).not.toMatch(/Make it an? [A-Za-z ]+ · \$[\d.]+k back/);
     const station = render({ tier: 3 });
-    expect(station).toContain('Feels 1.8 min nearer on foot');
-    expect(station).toContain('Back to Shelter · $17.5k back');
+    expect(station).toContain('Feels 1.8 min closer on foot');
+    expect(station).toContain('Make it a Shelter · $17.5k back');
     // An Interchange needs three lines calling; this stop has one, so the step up is refused in words.
     expect(station).toMatch(/<button type="button" disabled="">Make it an Interchange · \$90k<\/button>/);
-    expect(station).toContain('Needs 3 lines calling here');
+    expect(station).toContain('Needs 3 lines stopping here');
   });
 
   it('reads its day: who boards, who gets off, what it nets, and its lines', () => {
@@ -33,8 +33,8 @@ describe('a stop’s card', () => {
     expect(html).toContain('≈29 board and ≈8 get off a day');
     expect(html).toContain('Nets ≈$12.34 a day');
     expect(html).toContain('Line 1');
-    expect(html).not.toContain('QUIET');
-    expect(html).not.toContain('LOSS');
+    expect(html).not.toContain('Quiet');
+    expect(html).not.toContain('Losing money');
     expect(html).not.toContain('change here');
   });
 
@@ -43,12 +43,12 @@ describe('a stop’s card', () => {
   });
 
   it('names QUIET and LOSS in words, as the map does', () => {
-    expect(render({ boardings: 1.7, quiet: true })).toContain('QUIET · fewer than 5 boardings a day');
-    expect(render({ netCents: -3_423, loss: true })).toContain('LOSS · losing more than $20 a day');
+    expect(render({ boardings: 1.7, quiet: true })).toContain('Quiet: fewer than 5 boardings a day');
+    expect(render({ netCents: -3_423, loss: true })).toContain('Losing money: more than $20 a day');
     expect([flagWord({ quiet: true, loss: false }), flagWord({ quiet: false, loss: true }), flagWord({ quiet: true, loss: true }), flagWord({ quiet: false, loss: false })]).toEqual([
-      'QUIET',
-      'LOSS',
-      'QUIET · LOSS',
+      'Quiet',
+      'Loss',
+      'Quiet · loss',
       null,
     ]);
   });

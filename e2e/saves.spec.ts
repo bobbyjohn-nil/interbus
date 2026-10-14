@@ -56,7 +56,7 @@ test.describe('saves: slots, export and import', () => {
     let chooser = page.waitForEvent('filechooser');
     await saves.getByRole('button', { name: 'Import a save file' }).click();
     await (await chooser).setFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello": "world"}') });
-    await expect(page.getByTestId('notice')).toContainText('Not a save this game can read');
+    await expect(page.getByTestId('notice')).toContainText('A save this game can’t read');
     await expect(panel).toHaveAttribute('data-cash', '27720000');
 
     // The exported file imports back.

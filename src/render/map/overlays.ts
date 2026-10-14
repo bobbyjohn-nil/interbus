@@ -217,9 +217,9 @@ export function setDotKinds(map: Pick<MapLibreMap, 'setLayoutProperty'>, shown: 
   for (const kind of ['home', 'job'] as const) map.setLayoutProperty(DOT_LAYER[kind], 'visibility', shown[kind] ? 'visible' : 'none');
 }
 
-/** The flag a stop shows on the map, or null: QUIET, LOSS, or both. */
+/** The flag a stop shows on the map, or null: Quiet, Loss, or both (in sentence case, D25's copy pass). */
 export function flagWord(stop: Pick<StopView, 'quiet' | 'loss'>): string | null {
-  return stop.quiet && stop.loss ? 'QUIET · LOSS' : stop.quiet ? 'QUIET' : stop.loss ? 'LOSS' : null;
+  return stop.quiet && stop.loss ? 'Quiet · loss' : stop.quiet ? 'Quiet' : stop.loss ? 'Loss' : null;
 }
 
 export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[]): void {

@@ -7,7 +7,7 @@ import type { Sim } from '../game/useSim';
 const SET_ASIDE_NAMES: Readonly<Record<'older' | 'newer' | 'unreadable' | 'other-city', string>> = {
   older: 'A save from an older build',
   newer: 'A save from a newer build',
-  unreadable: 'A save this game could not read',
+  unreadable: 'A save this game can’t read',
   'other-city': 'A save from another city',
 };
 const setAsideName = (why: SetAsideWhy): string => (why.startsWith('older-') ? `${SET_ASIDE_NAMES.older} (format ${why.slice(6)})` : SET_ASIDE_NAMES[why as keyof typeof SET_ASIDE_NAMES]);
@@ -43,10 +43,10 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
             <span>
               Slot {slot} ·{' '}
               {about
-                ? `${dateText(about.day)}, ${clock(about.hour, about.minute)} · ${about.company || 'Unnamed'} · ${usd(about.cashCents)} · ${about.lines} ${about.lines === 1 ? 'line' : 'lines'} · ${about.buses} ${about.buses === 1 ? 'bus' : 'buses'}`
+                ? `${dateText(about.day)}, ${clock(about.hour, about.minute)} · ${about.company || 'no company yet'} · ${usd(about.cashCents)} · ${about.lines} ${about.lines === 1 ? 'line' : 'lines'} · ${about.buses} ${about.buses === 1 ? 'bus' : 'buses'}`
                 : readable
                   ? 'Empty'
-                  : 'A save this game cannot read'}
+                  : 'A save this game can’t read'}
               {about?.savedAt != null ? (
                 <span className="when" data-testid={`slot-${slot}-when`}>
                   {' · '}
@@ -143,7 +143,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
         </button>
       </div>
       <div className="controls">
-        <button type="button" title="For a bug report: this session from the quarter’s start, every command replayable" onClick={() => send({ type: 'export-session' })}>
+        <button type="button" title="For bug reports: everything since this quarter began, with every command, so it can be replayed" onClick={() => send({ type: 'export-session' })}>
           Export session
         </button>
         {onHome ? (

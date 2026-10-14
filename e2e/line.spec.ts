@@ -19,7 +19,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     // Home first (the M5 spec, item 3), then step 1: name and colour the company; cash reads the founding capital.
     await leaveHome(page);
-    await expect(page.getByTestId('founding-card')).toContainText('Founding capital $427,200');
+    await expect(page.getByTestId('founding-card')).toContainText('Starting cash: $427,200');
     await foundCompany(page);
     await expect(panel).toHaveAttribute('data-cash', '42720000');
     await expect(page.getByTestId('checklist')).toHaveText('1/5 Place a depot');
@@ -44,7 +44,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(depotCard).toHaveAttribute('data-ok', 'yes', { timeout: 10_000 });
     const [lon, lat] = (await depotCard.getAttribute('data-at'))!.split(',').map(Number) as [number, number];
     expect(Math.abs(lon - spot[0]) * 82_000 + Math.abs(lat - spot[1]) * 111_000).toBeLessThan(15); // metres, about 2 px
-    await expect(depotCard).toContainText('Industrial ✓');
+    await expect(depotCard).toContainText('Industrial land ✓');
     await expect(depotCard).toContainText('$150k');
     await page.mouse.click(dx, dy);
     await expect(panel).toHaveAttribute('data-cash', '27720000');
@@ -61,10 +61,10 @@ test.describe('the line tool on the fixture', () => {
     await expect(draft).toHaveAttribute('data-price', '20600000', { timeout: 10_000 });
     await expect(draft).toHaveAttribute('data-refusal', '');
     await expect(draft).toContainText('4 stops');
-    await expect(draft).toContainText('every 20 min needs 2 Sparrows · $190k');
+    await expect(draft).toContainText('Running every 20 min needs 2 Sparrows · $190k');
     // Metro 40s on the same draft: the card prices them, and the starter's cash and credit cannot buy them yet.
     await draft.getByLabel('Buses').selectOption('metro40');
-    await expect(draft).toContainText('every 20 min needs 2 Metro 40s · $520k');
+    await expect(draft).toContainText('Running every 20 min needs 2 Metro 40s · $520k');
     await expect(draft).toHaveAttribute('data-refusal', 'insufficient_funds');
     await expect(draft).toContainText('$108,800 short'); // past the $150k credit line too (D10)
     await draft.getByLabel('Buses').selectOption('sparrow');
@@ -121,7 +121,7 @@ test.describe('the line tool on the fixture', () => {
     // The fare: the card names the fares that net the most (the M3 spec, item 4), and a pick sets it.
     const lineCard = page.getByTestId('line-card');
     await expect(page.getByTestId('fare-band')).toHaveAttribute('data-from', '175', { timeout: 10_000 });
-    await expect(page.getByTestId('fare-band')).toContainText('Best net at $1.75');
+    await expect(page.getByTestId('fare-band')).toContainText('Most profit at $1.75');
     await lineCard.getByLabel('Fare').selectOption('175');
     await expect(lineCard.getByLabel('Fare')).toHaveValue('175');
     // A stop's card: with the inspector closed (it covers the map's right side), a click on
@@ -143,7 +143,7 @@ test.describe('the line tool on the fixture', () => {
     await stopCard.getByRole('button', { name: 'Make it a Shelter · $12k' }).click();
     await expect(stopCard).toHaveAttribute('data-tier', '2');
     await expect(panel).toHaveAttribute('data-cash', String(cashBefore - 1_200_000));
-    await expect(stopCard).toContainText('Back to Sign · $6k back');
+    await expect(stopCard).toContainText('Make it a Sign · $6k back');
     await stopCard.getByRole('button', { name: 'Line 1', exact: true }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();
     // The checklist's last step opens Contracts (the M3 spec, items 11 and 12; exit check 2): the line

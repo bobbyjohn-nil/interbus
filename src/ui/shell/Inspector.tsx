@@ -90,7 +90,7 @@ function Forecast({ line }: { line: LineView }) {
       data-wages={f.wages}
       data-deadhead={f.deadhead}
     >
-      <caption>A whole day’s forecast</caption>
+      <caption>Forecast for a full day</caption>
       <tbody>
         {rows.map(([name, cents, modelled]) => (
           <tr key={name}>

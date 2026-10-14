@@ -47,6 +47,7 @@ test.describe('the GPU ladder', () => {
     await page.goto('./?gpu=none');
     const card = page.getByTestId('gpu-card');
     await expect(card).toContainText('Turn on hardware acceleration to see the map.');
+    await expect(card).toContainText('It is off in this browser: switch it on in the browser’s settings, then reload.'); // not "has none for it" (D25's copy pass)
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'no-gpu');
     const home = page.getByTestId('home');
     await expect(home).toBeVisible({ timeout: 30_000 });

@@ -94,12 +94,12 @@ test.describe('medals', () => {
     // One trip short, the next evening: its close gives silver, and the Goliath is for sale.
     await edited(page, company(9, 24_999, { bronze: 8 }), eveningOf(9));
     await setSpeed(page, '5,400×');
-    await expect(card.getByTestId('medal-news')).toHaveText('Silver medal: 25,000 trips carried. The Goliath is for sale', { timeout: 30_000 });
+    await expect(card.getByTestId('medal-news')).toHaveText('Silver medal: 25,000 trips carried · the Goliath is for sale', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Pause' }).click();
     await card.getByRole('button', { name: 'Continue' }).click();
     await expect(dots).toHaveAttribute('data-held', 'bronze silver');
     await contracts.click();
-    await expect(silver).toContainText('Since Year 1, Q2, Day 1 · The Goliath is for sale');
+    await expect(silver).toContainText('Since Year 1, Q2, Day 1 · the Goliath is for sale');
     await page.getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
     await expect(goliath).toHaveJSProperty('disabled', false);

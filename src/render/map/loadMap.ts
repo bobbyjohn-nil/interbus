@@ -75,7 +75,7 @@ export interface MountedMap {
   setEvent(event: EventView | null): void;
   /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day, game seconds per real second, and the game day. */
   setClock(second: number, rate: number, day: number): void;
-  /** How many dots the last settled frame drew. */
+  /** How many distinct dots the last settled frame drew. */
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), and the dot it is on, if any: at most every 100 ms and always its last position. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null, dot: HoveredDot | null) => void): void;
@@ -401,7 +401,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     setDraft: (draft) => (loaded ? setDraft(map, draft) : void (pending.draft = draft)),
     setEvent: (event) => (loaded ? setEvent(map, event) : void (pending.event = event)),
     // Asked of both layers whatever is shown: MapLibre leaves a hidden layer out, so this counts what draws.
-    dotsDrawn: () => (loaded ? map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).length : 0),
+    // Distinct dots: a dot near a tile's edge is drawn in each tile it reaches, and counted once.
+    dotsDrawn: () => (loaded ? new Set(map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).map((f) => `${f.properties.kind}:${f.properties.i}`)).size : 0),
     onPointer: (listener) => void (pointer = listener),
     onClick: (listener) => void (click = listener),
     dispose: () => {
