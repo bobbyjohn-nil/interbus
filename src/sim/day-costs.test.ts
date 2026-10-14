@@ -51,9 +51,10 @@ describe('costs as ledger rows (the M2 spec, item 5)', () => {
     const service = [...world.services.values()][0]!;
     expect(busesOut(service.day)).toBe(2);
     const day = forecastDay(service.costs);
-    // 57 departures out and back × 3.5 km × $0.90 ≈ $363 (the spec's magnitude), and two buses out
-    // about 18.7 hours each × $26 ≈ $972.
-    expect(day.running).toBe(114 * 318);
+    // 57 departures out and back × 3.2 km × $0.90 ≈ $332 (3.5 km and $363, the spec's magnitude,
+    // until buses drove one-way streets both ways on 2026-10-14), and two buses out about 18.7 hours
+    // each × $26 ≈ $972.
+    expect(day.running).toBe(114 * 291);
     expect(day.wages).toBeGreaterThan(96_000);
     expect(day.wages).toBeLessThan(98_000);
     expect(day.running + day.wages).toBeGreaterThan(130_000);

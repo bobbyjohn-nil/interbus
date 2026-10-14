@@ -6,6 +6,20 @@
 export const STOP_JOIN_M = 250;
 /** A new stop stands on the nearest street node within this distance of the click (a tunable). */
 export const STOP_STREET_REACH_M = 150;
+/**
+ * Street classes no stop or depot stands on: motorways and every ramp. A click by the Mass Pike or
+ * the I-93 tunnel put its stop on the highway, so its buses drove to the next exit and back: 8.6 km
+ * for a 271 m leg in Back Bay (DECISIONS, Measured, 2026-10-14). Buses still drive these streets
+ * between stops.
+ */
+export const NO_STOP_CLASSES: ReadonlySet<string> = new Set(['motorway', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link']);
+/**
+ * Whether buses keep to one-way streets. They do not: a line runs both ways along the streets the
+ * player picks, and the way back already drove the way out in reverse (rules/position.ts), so
+ * keeping one-way streets on the way out only sent buses round the block. Back Bay legs over twice
+ * the straight line fell from 29% to 2% (DECISIONS, Measured, 2026-10-14).
+ */
+export const BUSES_KEEP_ONE_WAY = false;
 /** A line needs at least this many stops. */
 export const MIN_LINE_STOPS = 2;
 /** Founding headways: peak and off-peak alike, overnight off (D7). */

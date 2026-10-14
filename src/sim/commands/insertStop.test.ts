@@ -15,8 +15,8 @@ import { insertStop } from './insertStop';
 const BUILD = { sha: 'test', version: '0.0.0' };
 /** On Huntington Avenue between Symphony and the MFA: the debug line's second leg, no detour. */
 const ON_HUNTINGTON: LngLat = [-71.0903, 42.33995];
-/** Beside the third leg, off its streets: 435 m more on the leg, 39%. */
-const DETOUR: LngLat = [-71.0995, 42.3368];
+/** Beside the third leg, off its streets: 351 m more on the leg, 32% (measured 2026-10-14; the old spot, [-71.0995, 42.3368], stopped detouring once buses drove one-way streets both ways). */
+const DETOUR: LngLat = [-71.107, 42.338];
 /** Over 300 m from any of its streets. */
 const AWAY: LngLat = [-71.093, 42.344];
 
@@ -47,7 +47,8 @@ describe('inserting a stop (the M4 spec, item 4)', () => {
     const line = world.state.lines[0]!;
     const stops = line.stopIds.map((id) => world.state.stops.find((s) => s.id === id)!).map((s) => toXY(world.city.frame, [s.lon, s.lat]));
     const shape = { stops, buses: line.buses, headways: line.headways, model: BUS_MODELS[line.model] };
-    expect(checkInsert(lineDraftContext(world), shape, toXY(world.city.frame, ON_HUNTINGTON))).toMatchObject({ ok: true, leg: 1, detourM: 0, warn: false });
+    expect(checkInsert(lineDraftContext(world), shape, toXY(world.city.frame, ON_HUNTINGTON))).toMatchObject({ ok: true, leg: 1, warn: false });
+    expect(checkInsert(lineDraftContext(world), shape, toXY(world.city.frame, ON_HUNTINGTON)).detourM).toBeCloseTo(0, 6);
     const card = checkInsert(lineDraftContext(world), shape, toXY(world.city.frame, DETOUR));
     expect(card).toMatchObject({ ok: true, leg: 2, warn: true });
     expect(card.detourShare).toBeGreaterThan(0.15);

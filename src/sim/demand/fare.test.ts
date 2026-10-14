@@ -31,17 +31,18 @@ describe('the fare against the ride', () => {
     expect(fareSensitivity(0)).toBe(1.6);
   });
 
-  it('keeps more than 1.8 times the share of riders on a 3.5 km ride as on a 1.3 km hop when the fare rises', () => {
+  it('keeps more than 1.8 times the share of riders on a 3.2 km ride as on a 1.3 km hop when the fare rises', () => {
     const hop = kept(twoStops(0, 1));
     const ride = kept(twoStops(0, 3));
     expect(debug.stopDistM[1]).toBeLessThan(1_400);
-    expect(debug.stopDistM[3]).toBeGreaterThan(3_500);
+    expect(debug.stopDistM[3]).toBeGreaterThan(3_200); // 3,535 m until buses drove one-way streets both ways (2026-10-14)
     expect(ride / hop).toBeGreaterThan(1.8);
   });
 
   it('leaves riders as they were at $2.25, whatever the ride', () => {
     const plain = assign(world.city, world.commuters, [debug]).lines.get(debug.id)!.perDay;
-    // 614.4 before item 15's rush hour slowed its peak rides and sped its midday ones.
-    expect(plain).toBeCloseTo(610.5, 1);
+    // 614.4 before item 15's rush hour slowed its peak rides and sped its midday ones; 610.5 before
+    // buses drove one-way streets both ways (2026-10-14), which shortened its rides.
+    expect(plain).toBeCloseTo(639.7, 1);
   });
 });

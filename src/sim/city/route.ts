@@ -28,7 +28,9 @@ export interface Router {
 
 const GEN_LIMIT = 2_000_000_000;
 
-export function createRouter(g: Graph): Router {
+/** `oneway: false` drives every street both ways; the default keeps to one-way streets. */
+export function createRouter(g: Graph, { oneway = true }: { readonly oneway?: boolean } = {}): Router {
+  const drivable = (k: number) => !oneway || g.slotOpen[k] === 1;
   const slots = g.slotNode.length;
   const best = new Int32Array(slots);
   const seen = new Uint32Array(slots);
@@ -103,7 +105,7 @@ export function createRouter(g: Graph): Router {
       }
       size = 0;
       for (let k = g.start[from]!; k < g.start[from + 1]!; k++) {
-        if (!g.slotOpen[k]) continue;
+        if (!drivable(k)) continue;
         best[k] = g.edgeCs[g.slotEdge[k]!]!;
         seen[k] = gen;
         prev[k] = -1;
@@ -117,7 +119,7 @@ export function createRouter(g: Graph): Router {
         if (node === to) return unwind(k);
         const inEdge = g.slotEdge[k]!;
         for (let out = g.start[node]!; out < g.start[node + 1]!; out++) {
-          if (closed[out] === gen || !g.slotOpen[out]) continue;
+          if (closed[out] === gen || !drivable(out)) continue;
           const outEdge = g.slotEdge[out]!;
           const cost = best[k]! + g.edgeCs[outEdge]! + (turnCost ? turnCost(node, inEdge, outEdge) : 0);
           if (seen[out] !== gen || cost < best[out]!) {

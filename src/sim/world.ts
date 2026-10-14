@@ -6,6 +6,7 @@ import { distXY, SpatialGrid, toLngLat, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
+import { BUSES_KEEP_ONE_WAY, NO_STOP_CLASSES } from './config/lines';
 import { BUS_MODELS, LAYOVER_SECONDS, type BusModelId } from './config/fleet';
 import { STOP_TIERS } from './config/stops';
 import { SECONDS_PER_DAY } from './config/time';
@@ -399,12 +400,20 @@ export function settle(world: World): boolean {
   return any;
 }
 
+/** Whether a stop or depot may stand on street node `n`: some street there is not a motorway or a ramp (NO_STOP_CLASSES). */
+export function stopNode(city: Pick<City, 'graph' | 'streets'>, n: number): boolean {
+  const g = city.graph;
+  for (let k = g.start[n]!; k < g.start[n + 1]!; k++) if (!NO_STOP_CLASSES.has(city.streets[g.slotEdge[k]!]!.cls)) return true;
+  return false;
+}
+
 export function createWorld(city: City, state: SimState): World {
+  // Every stop, depot and route end snaps through this one grid (GD-05), so none lands on a motorway.
   const nodes = new SpatialGrid<number>(200);
-  for (let n = 0; n < city.graph.nodeCount; n++) nodes.add([city.graph.x[n]!, city.graph.y[n]!], n);
+  for (let n = 0; n < city.graph.nodeCount; n++) if (stopNode(city, n)) nodes.add([city.graph.x[n]!, city.graph.y[n]!], n);
   const world: World = {
     city,
-    router: createRouter(city.graph),
+    router: createRouter(city.graph, { oneway: BUSES_KEEP_ONE_WAY }),
     commuters: buildCommuters(city),
     nodes,
     state,

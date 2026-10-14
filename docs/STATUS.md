@@ -59,7 +59,7 @@ The running handoff between Claude sessions. Every session reads it right after 
 - [ ] **P0, by Fri Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
 - [x] **D20 (rest), D21 and D22** (the owner, 2026-10-14; DECISIONS): the art under CC BY 4.0, credit "Miticept Studios"; the repo private on Sun Mar 14 2027, a week before the store page is public; the Steamworks and Apple accounts yours as an individual trading as Miticept Studios, with no company, and the Mac version sold only on Steam; the artist's PC for the Windows builds; the full release Tue Jun 29 2027. Still open: D20 (preview) and the GitHub plan, by Sun Feb 21 2027.
-- [ ] **Week 2 check:** "Does this look like Boston?" (PLAN §14 item 14).
+- [x] **Week 2 check:** "Does this look like Boston?" (PLAN §14 item 14). Yes: "it definitely looks like Boston" (the owner, 2026-10-14; [notes](playtests/2026-10-14-owner-first-look.md)).
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare the costs on **day 2's** card: day 1 opens at 05:00, after the first bus left the depot, so its wages and deadhead fall a little short of a whole day's forecast.
 - [ ] **M3's exit check, on the preview** ([`m3-money-loop.md`](specs/m3-money-loop.md)): the checklist to a profitable day and a contract in about 8 minutes; the report card; overspending to the countdown and Restart this quarter.
@@ -68,6 +68,18 @@ The running handoff between Claude sessions. Every session reads it right after 
 - [ ] **P1, Nov 16–22:** the owner and the artist play the preview; notes in `docs/playtests/`. The tuning freeze (M5, item 2) waits for them.
 - [ ] **The medal ladder, by Sun Nov 22** (DECISIONS, Open), now with the pacing run's numbers: on Inner Boston the scripted company gets bronze on day 10 and silver on day 29 but no gold in 200 days, coverage reaching 43.5 with seven lines against gold's 60. Recommended: keep bronze and silver as they are, and let week 9's tuning set gold's floor.
 - [ ] **M5's exit check 4, your Mac's fps:** open the preview with `?fps` in stable Chrome, play at 2× flat and tilted, and note the readout in P2's notes. The steps are in [`playtests/PROTOCOL.md`](playtests/PROTOCOL.md), Frame rates; the readout now names its zoom and tilt.
+
+## In progress: the owner's initial playtest (D25, 2026-10-14)
+
+The owner played the preview and asked for 18 changes ([notes](playtests/2026-10-14-owner-first-look.md), DECISIONS D25), then cleared work to move on in the schedule. Each is a small pull request, in this order:
+1. [ ] **Pathing** (this PR): stops and depots never stand on a motorway or a ramp, and buses drive one-way streets both ways. In Back Bay, click pairs 250–600 m apart driven over twice the straight line fell from 30.1% to 1.4% (worst 41.3× to 2.4×); downtown from 28.8% to 1.6% (worst 20.4× to 2.2×). `npm run bench routes`; DECISIONS, Measured.
+2. [ ] **Time:** minutes and days; 8-day quarters, 4 a year; 1× real time, then 60×, 600×, 1,800× and 5,400×; a 1-second step; saves set aside once.
+3. [ ] **Map:** the demand dots toggled by kind from a custom menu; the population count only over a dot; the contract rings gone; sentence case and grammar everywhere.
+4. [ ] **Finance:** charts, where the money goes, each line's money moved here, "Day 0".
+5. [ ] **Building:** a Build tab (Place stop, Draw line, Place depot); an info-only line panel; Edit route to reorder, add and remove stops.
+6. [ ] **Panels and controls:** movable panels, several open at once; Saves at the top; custom dropdowns.
+7. [ ] **3D:** double-click and hold to switch and tilt; rotation, with a compass back to north; the 2D | 3D chip retired.
+8. [ ] **Then the schedule** (the clearance): the tuning freeze from the pacing run, ahead of P1.
 
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13
 

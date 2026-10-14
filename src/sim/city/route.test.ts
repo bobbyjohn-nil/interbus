@@ -129,6 +129,17 @@ describe('A* (ported from V2, on directed half-edges)', () => {
     expect(createRouter(reversed).route(1, 0)?.cs).toBe(100);
   });
 
+  it('drives a one-way street both ways when told to', () => {
+    // Buses do (config/lines.ts BUSES_KEEP_ONE_WAY): the way back from 1 to 0 is the street itself, not round by 2.
+    const g = buildGraph([[0, 0], [100, 0], [50, 80]], [
+      { a: 0, b: 1, dm: 1000, cs: 100, oneway: 1 },
+      { a: 1, b: 2, dm: 1000, cs: 100 },
+      { a: 2, b: 0, dm: 1000, cs: 100 },
+    ]);
+    expect(createRouter(g, { oneway: false }).route(1, 0)?.nodes).toEqual([1, 0]);
+    expect(createRouter(g, { oneway: true }).route(1, 0)?.nodes).toEqual([1, 2, 0]);
+  });
+
   it('takes the better arrival when a turn costs time (K13)', () => {
     // S→A→X is quicker to X than S→B→X, but turning from A–X onto X–T costs 100. Closing X on its
     // first arrival, as V1 and V2 did, misses S→B→X→T entirely.
