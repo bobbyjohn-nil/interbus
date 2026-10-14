@@ -68,7 +68,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
    - when each was saved, stamped into the save's envelope by the worker's clock, never the sim's (built so: an optional field outside the schema, so no new format, and an older build ignores it);
    - Delete, after a question.
 
-   A save set aside by a format change shows as a row "A save from an older build, set aside", with Export and Delete, so it is never lost silently. Built so (DECISIONS, Measured): the panel at its tallest takes 22.3% of 1152×720.
+   A save set aside by a format change shows as a row "A save from an older build, set aside", with Export and Delete, so it is never lost silently. Built so (DECISIONS, Measured): the panel at its tallest takes 22.3% of 1152×720, and 24.3% since the autosave has a row of its own (D26).
 5. **The GPU ladder** (PLAN §6 "No GPU"; never cut). Since Chrome 139 a machine without a usable GPU gets no WebGL at all (PLAN §6's source). No earlier version had a ladder; V1 had only a lost-context card (`Intralines@7af45b1:src/map/MapView.tsx:124-131`).
    - **The rungs:**
      - **Hardware:** as now.

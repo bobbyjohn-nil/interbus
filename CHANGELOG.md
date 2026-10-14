@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Saves lists the autosave as it lists a slot, with its day, company, cash, lines and buses, and when it was saved, in place of the line that said the game saves itself.
+- Save here over a slot that already holds a save asks first, so it is never replaced by accident.
 - Time runs in minutes and days on a calendar of 8-day quarters, four to a year. The top bar names the year and quarter, then the day of the quarter and the time ("Year 1, Q2 Day 4, 08:10"), and the day card, Home, Saves and the medals say the date the same way.
 - Speeds are true multiples of real time: 1× runs a game second a second, then 60×, 600×, 2,700× and 5,400×, picked from a speed menu beside Play and Pause. Space pauses and plays again, and the keys 1 to 5 pick a speed. At 1× and 60× the buses glide instead of stopping and jumping.
 - Contracts ask for a quarter in a row, 8 days, within two quarters, 16 days, and an offer nobody takes is withdrawn after a quarter.
@@ -100,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A slot saved by an older build now says so in Saves, instead of calling itself a save this game can't read, and Export, beside it, hands it over as a file.
+- If your browser won't keep site data, the game now says once that this browser isn't keeping saves, and Saves says so too, with Export to keep your game. Before, every save failed without a word and a reload lost the game.
+- A save set aside because its stops are off the new map is listed in Saves that way, as its notice said, instead of as a save from another city, and one set aside for each reason is kept, so neither replaces the other.
+- Importing an Export session file is refused as a save this game can't read, instead of saying it was saved by an older build.
+- Restart this quarter, after loading the ended game of a company with another name or color, no longer brings back the company you played before: with no save from that game's quarter start, it says so.
 - The report card drops each grade's fraction instead of rounding it to the nearest point, so a grade never shows a bar it missed: a quarter graded 54.7 read "Overall 55" with no grant and no bronze, and now reads 54.
 - When the lender calls in the loan, the midnight card of that last day shows first, every row of it readable, and the lender's card follows when you press Continue, instead of covering it.
 - After you change a line while its buses are out, Finance's Breakdown forecasts Bus fuel and maintenance, Driver wages and To and from the depot for today as the line's own forecast under Lines does, and as the day then banks, instead of costing the whole day on the new timetable until midnight.

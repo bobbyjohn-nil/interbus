@@ -42,7 +42,7 @@ export const backupKey = (cityId: string, why: SetAsideWhy) => `interbus.backup.
  * a save set aside by one format change is never written over by the next (DP-06; D25 changed the
  * format twice in a week), then the rest.
  */
-export const SET_ASIDE: readonly SetAsideWhy[] = ['older', ...Array.from({ length: SAVE_FORMAT - 1 }, (_, i): SetAsideWhy => `older-${i + 1}`), 'newer', 'unreadable', 'other-city'];
+export const SET_ASIDE: readonly SetAsideWhy[] = ['older', ...Array.from({ length: SAVE_FORMAT - 1 }, (_, i): SetAsideWhy => `older-${i + 1}`), 'newer', 'unreadable', 'other-city', 'off-street'];
 /** Three slots beside the autosave, which is the live key (the M3 spec, item 8). */
 export const SAVE_SLOTS = [1, 2, 3] as const;
 export const slotKey = (cityId: string, slot: number) => `interbus.slot.${cityId}.${slot}`;
@@ -235,6 +235,9 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
     return unreadable('not JSON');
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return unreadable('not an object');
+  // Export session's file (worker/host.ts SessionFile) has a `format` of its own, 1, which is no save
+  // format: it is not a save at all, never one from an older build.
+  if ((parsed as { kind?: unknown }).kind === 'interbus-session') return unreadable('a session file, not a save');
   const format = (parsed as { format?: unknown }).format;
   if (!Number.isSafeInteger(format) || (format as number) < 1) return unreadable('no format');
   if ((format as number) > current) {
