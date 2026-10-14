@@ -137,9 +137,22 @@ test.describe('the line tool on the fixture', () => {
     await fare.click();
     await page.getByRole('option', { name: '$1.75', exact: true }).click();
     await expect(fare).toContainText('$1.75');
+    // The link opens the line's money every press, Finance on another view or not; and Finance from the
+    // dock opens on its Overview however it was last closed (D25 item 4). Shown failing (TS-04) on
+    // d6e81e6: data-view read overview after the second press, not lines; and, with that check cut,
+    // lines when the dock opened Finance after Escape, not overview.
+    await finance.getByTestId('finance-overview').click();
+    await expect(finance).toHaveAttribute('data-view', 'overview');
+    await page.getByRole('button', { name: 'Fare and money in Finance' }).click();
+    await expect(finance).toHaveAttribute('data-view', 'lines');
+    await page.keyboard.press('Escape');
+    await expect(finance).toHaveCount(0);
+    const dockFinance = page.getByTestId('dock').getByRole('button', { name: 'Finance', exact: true });
+    await dockFinance.click();
+    await expect(finance).toHaveAttribute('data-view', 'overview');
     // A stop's card: with Finance closed (it covers the map's right side), a click on Symphony's stop
     // shows its day and no flag (the M3 spec, item 5).
-    await page.keyboard.press('Escape');
+    await dockFinance.click();
     await expect(finance).toHaveCount(0);
     // Where Symphony's stop stands: its click snapped to the nearest street.
     const placed = (await map.getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number) as [number, number, number]);

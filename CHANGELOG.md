@@ -102,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The route editor follows the line as it stands: a stop taken off the line while the editor is open, from the stop's card or with Undo, leaves the editor's list, and an Undo that puts a stop back on the line puts it back in the list too, so Save route never builds or takes down a stop you didn't ask for.
+- When Undo takes away a line whose route editor is open, the editor closes and clicks on the map work as usual again, instead of adding numbered stops to a route no card shows.
+- A double-click on Save route no longer shows "The route is as it was" after the route is saved.
+- After Create, the Lines panel opens on the line you just made, not on Line 1, so its headways and Edit route are the new line's.
+- The line card's Fare and money in Finance opens Finance on that line's money every time you press it, and Finance from the dock opens on its Overview, however you last closed it.
 - Pressing Q, E or N while the map tilts into 3D, or dragging or zooming it while it tilts or flattens, no longer leaves 3D lying flat, or the flat map tilted or turned: 3D always ends tilted at least 25°, and 2D always ends flat and facing north.
 - Loading a save or importing a save file no longer sometimes draws its depots, or its festival or roadworks, where the last game's stood until you reloaded the page.
 - While the browser has taken the map's graphics away, anything you do on the map, such as pressing T, showing or hiding homes or jobs, or picking Place a depot, no longer blanks the whole game: the card with Reload stays and the rest of the game keeps working. When the graphics come back, the buses are drawn again without a reload, and the map takes the view you picked meanwhile.

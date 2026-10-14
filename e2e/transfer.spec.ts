@@ -3,6 +3,10 @@
 // Copley to Kenmore and Kenmore to Longwood: homes near Copley walk to neither of the second line's
 // stops, and jobs near Longwood to neither of the first's, so those trips change there (52.6 a day,
 // measured). Shown failing (TS-04) with no changes: the card reads ≈200 boarding and no change.
+// Each Create opens the inspector on the line just made, the second too; and Line 2 undone under its
+// route editor puts the editor and its tool down together, so a click on a stop opens its card again.
+// Shown failing (TS-04) on d6e81e6: the line card's data-line read 1 after the second Create, not 2;
+// and, with that check cut, the clicks on Kenmore's stop after the undo opened no stop card in 10 s.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
@@ -39,7 +43,7 @@ test.describe('a change of line', () => {
     await expect(page.getByTestId('checklist')).toHaveText('2/5 Draw a line');
 
     // Two lines, each Created from its card; the second's first click lands on the first's stop at Kenmore.
-    for (const stops of [[COPLEY, KENMORE], [KENMORE, LONGWOOD]]) {
+    for (const [k, stops] of [[COPLEY, KENMORE], [KENMORE, LONGWOOD]].entries()) {
       await build(page, 'Draw a line');
       for (const stop of stops) {
         const [x, y] = await toScreen(page, stop);
@@ -50,7 +54,7 @@ test.describe('a change of line', () => {
       await expect(draft).toContainText(`${stops.length} stops`);
       await expect(draft).toHaveAttribute('data-refusal', '');
       await draft.getByRole('button', { name: 'Create' }).click();
-      await expect(page.getByTestId('line-card')).toBeVisible();
+      await expect(page.getByTestId('line-card')).toHaveAttribute('data-line', String(k + 1));
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('inspector')).toHaveCount(0);
     }
@@ -71,6 +75,23 @@ test.describe('a change of line', () => {
     const changes = Number(await card.getAttribute('data-transfers'));
     test.info().annotations.push({ type: 'changes a day at Kenmore', description: String(changes) });
     expect(changes).toBeGreaterThan(10);
+
+    // Line 2's route editor, then Line 2 undone under it: no editor, no tool, and Kenmore's stop,
+    // Line 1's alone again, opens its card at a click.
+    await card.getByRole('button', { name: 'Line 2', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit route' }).click();
+    await expect(page.getByTestId('route-editor')).toContainText('Line 2’s route');
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Create Line 2');
+    await page.getByTestId('undo').click();
+    await expect(page.getByTestId('route-editor')).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Line 2', exact: true })).toHaveCount(0);
+    await card.getByRole('button', { name: 'Close' }).click();
+    await expect(card).toHaveCount(0);
+    await expect(async () => {
+      await page.mouse.click(sx, sy);
+      await expect(card).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await expect(card.getByRole('button', { name: 'Line 1', exact: true })).toBeVisible();
     expect(errors).toEqual([]);
   });
 });

@@ -17,6 +17,49 @@ export function routeOf(line: LineView): RoutePoint[] {
   return line.stopIds.map((stopId, k) => ({ at: line.stops[k]!, stopId }));
 }
 
+/** The route editor as App keeps it: its line, the stops as edited, and a Save route on its way. */
+export interface Routing {
+  readonly lineId: number;
+  readonly points: RoutePoint[];
+  /** The line's stops as the list last followed them: as the editor opened, then as the game changed them. */
+  readonly base: readonly number[];
+  /** While a Save route is on its way: the line's stops as it was pressed, and how many Save routes the sim had refused by then. */
+  readonly saved: { readonly stops: string; readonly refusals: number } | null;
+}
+
+/** Save route pressed: the editor with its save on its way, or null while one already is (a double-click's second press sends nothing). */
+export function pressSave(routing: Routing, line: LineView, refusals: number): Routing | null {
+  return routing.saved === null ? { ...routing, saved: { stops: line.stopIds.join(","), refusals } } : null;
+}
+
+/**
+ * The editor as the game changes under it, so its card stays the route rule's verdict on the line as it
+ * stands (GD-05). A save on its way waits until the line's stops change (it landed, and App closes the
+ * editor) or the sim refuses it (`refusals` passes the count at the press): a refresh of the lines that
+ * is not its answer, such as the day's close retiming them, leaves it waiting.
+ * Otherwise the list follows the line: as opened, it is the line again; as edited, it keeps the
+ * player's changes less a stop taken off the line or taken down, and a stop put back on the line goes
+ * back in after the stop it follows there. `routing` itself while nothing changed.
+ */
+export function followed(routing: Routing, line: LineView, game: { readonly stops: readonly { readonly id: number }[] }, refusals: number): Routing {
+  const { points, base, saved } = routing;
+  if (saved !== null) return refusals > saved.refusals ? { ...routing, saved: null } : routing;
+  const ids = line.stopIds;
+  const changed = base.length !== ids.length || base.some((id, k) => id !== ids[k]);
+  if (changed && points.length === base.length && points.every((p, k) => p.stopId === base[k])) return { ...routing, points: routeOf(line), base: ids };
+  // A click for a new stop stays, as does a stop on the line, or one of another line the player added while it stands.
+  const keeps = (id: number | null) => id === null || ids.includes(id) || (!base.includes(id) && game.stops.some((s) => s.id === id));
+  const next = points.filter((p) => keeps(p.stopId));
+  ids.forEach((id, k) => {
+    if (base.includes(id) || next.some((p) => p.stopId === id)) return;
+    let at = 0;
+    for (let j = k - 1; j >= 0 && at === 0; j--) at = next.findIndex((p) => p.stopId === ids[j]) + 1;
+    next.splice(at, 0, { at: line.stops[k]!, stopId: id });
+  });
+  if (!changed && next.length === points.length) return routing;
+  return { ...routing, points: next, base: ids };
+}
+
 /** `points` with the stop at `from` moved to `to`. */
 export function moved<T>(points: readonly T[], from: number, to: number): T[] {
   const next = [...points];
@@ -38,6 +81,7 @@ export function RouteEditor({
   sim,
   line,
   points,
+  saving = false,
   onPoints,
   onSave,
   onCancel,
@@ -45,6 +89,8 @@ export function RouteEditor({
   sim: Sim;
   line: LineView;
   points: readonly RoutePoint[];
+  /** True while a Save route is on its way: a press then does nothing, so the button is disabled. */
+  saving?: boolean;
   onPoints: (points: RoutePoint[]) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -143,7 +189,7 @@ export function RouteEditor({
         </>
       ) : null}
       <div className="controls">
-        <button type="button" onClick={onSave} disabled={!draft || refused !== null}>
+        <button type="button" onClick={onSave} disabled={!draft || refused !== null || saving}>
           Save route
         </button>
         <button type="button" onClick={onCancel}>
