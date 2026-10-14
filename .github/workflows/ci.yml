@@ -1,4 +1,6 @@
-# PR checks (CLAUDE.md: within 8 minutes; slower checks go nightly and never block).
+# PR checks (CLAUDE.md: within 8 minutes; slower checks go nightly and never block). Two jobs side by
+# side: the browser's took 7.0 minutes as one with the rest, and 8.1 on a slower runner, so the
+# typecheck, lint and unit tests run on a runner of their own.
 name: CI
 
 on:
@@ -14,7 +16,7 @@ concurrency:
 
 jobs:
   check:
-    name: Typecheck, lint, tests, build, e2e
+    name: Typecheck, lint, tests
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -58,6 +60,39 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:scripts
+
+  e2e:
+    name: Build, smoke and e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore fonts
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/fonts
+            .cache/fonts
+          # fontnik draws the glyph ranges, so its installed version is part of the key.
+          key: fonts-${{ hashFiles('scripts/fonts/**', 'node_modules/fontnik/package.json') }}
+
+      - run: npm run fonts
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
 
       - run: npm run build
 
