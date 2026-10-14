@@ -369,8 +369,8 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
      - Edit route opens an expanded editor to reorder, add and remove stops, like Google Maps' trip planner [the editor sets the line's whole route in one command, one undo: it buys new stops and any bus the longer round trip needs, keeps the buses a shorter one leaves spare, and a stop it leaves that no other line calls at comes down for half its cost, as Remove does; Extend and Insert fold into it. A click on the map adds a stop at the end of the list, as a trip planner adds a destination, and the player drags or moves it into place; the draft's stops are numbered on the map to match the list; the card gives the route's change in length where Insert warned of a detour].
   6. **Panels and controls:**
      - panels can be moved and several used at once (the owner preferred this to one closing another);
-     - Saves leaves the bottom tabs for the top;
-     - the browser's dropdowns become custom ones.
+     - Saves leaves the bottom tabs for the top [a chip at the top right, the top bar's chips wrapping before they reach it];
+     - the browser's dropdowns become custom ones [the line card's and new-line card's bus and headway menus join the speed and fare menus on the game's Dropdown, a locked bus greyed with its reason as the option's hint; `src/ui/controls.test.ts` fails if any screen draws a `<select>` again].
   7. **3D:**
      - double-click and hold to switch 2D and 3D [held still for half a second it flips; held and dragged, up tilts and down flattens; a quick double-click still zooms; only with no tool out, since a tool's first click is a real one];
      - the view rotates in 3D [dragging sideways turns it, with the right button, Ctrl or a held double-click, and so do Q and E; N or the compass faces north; 2D always faces north];
@@ -404,6 +404,9 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-14** (`src/ui/controls.test.ts`, `e2e/line.spec.ts`, `e2e/medals.spec.ts`, `e2e/i13.spec.ts`): **Panels and controls, first half** (D25 item 6: Saves at the top, the game's own dropdowns).
+  - **I13** at 1152×720, 1366×768 and 1440×900: at rest 4.3%, 3.4% and 2.8% (4.4%, 3.5% and 2.8% with Saves in the dock); the line panel 14.5%, 11.4% and 9.2% (13.7%, 10.9% and 8.8%: the menus' buttons stand a little taller than the browser's); Saves 23.3%, 18.4% and 14.9%.
+  - **Tests** (TS-04): the controls guard fails on the line card and the new-line card before this change; the line and medals specs pick models from the game's menu, the Goliath listed with `aria-disabled` until silver.
 - **2026-10-14** (`e2e/build.spec.ts`, `e2e/route.spec.ts`, `e2e/insert.spec.ts`, `e2e/i13.spec.ts`, `e2e/copy.spec.ts`, `src/ui/game/{RouteEditor,StopCard}.test.ts`, `src/ui/copyRules.test.ts`): **Building on screen** (D25 item 5).
   - **Build** opens Place a stop, Draw a line and Place a depot above the dock, and closes on Escape or a press elsewhere. Place a stop's card reads the stop rule at the pointer ("A Sign here · street 66 m away · $4k", or "Stop 1 stands within 250 m: a line can use it"); a lone stop is ringed in the draft's ink and its card offers Take it down.
   - **Edit route** replaces Extend and Insert on the line panel. The editor lists the line's stops; a stop is dragged (HTML drag and drop) or moved with ↑ and ↓, × takes it off, and a map click adds one at the end. Its card is the route rule's verdict, the draft drawn and numbered on the map, and Save route closes it once the line's stops change; a refusal keeps it open. The e2e specs for extending and inserting now drive the editor; the insert spec still finds no bus moving more than 5 m and one undo putting every bus back.

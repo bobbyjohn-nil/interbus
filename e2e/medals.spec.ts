@@ -70,9 +70,14 @@ test.describe('medals', () => {
     expect(await chromeShare(page)).toBeLessThanOrEqual(0.26);
     await page.getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
-    const goliath = page.getByRole('combobox', { name: 'Buses' }).locator('option[value="goliath"]');
-    await expect(goliath).toHaveJSProperty('disabled', true);
+    // The line card's bus menu, the game's own dropdown (D25): the Goliath listed but locked.
+    const models = page.getByTestId('inspector').getByRole('button', { name: 'Buses' });
+    const goliath = page.getByRole('option', { name: /^Goliath/ });
+    await models.click();
+    await expect(goliath).toHaveAttribute('aria-disabled', 'true');
     await expect(goliath).toContainText('locked');
+    await page.keyboard.press('Escape');
+    await expect(goliath).toHaveCount(0);
     await page.getByRole('button', { name: 'Close' }).click();
 
     // Its close grades the quarter at 55 or better: bronze, on the day card, the chip and the panel.
@@ -102,8 +107,10 @@ test.describe('medals', () => {
     await expect(silver).toContainText('Since Year 1, Q2, Day 1 · the Goliath is for sale');
     await page.getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
-    await expect(goliath).toHaveJSProperty('disabled', false);
+    await models.click();
+    await expect(goliath).not.toHaveAttribute('aria-disabled', 'true');
     await expect(goliath).not.toContainText('locked');
+    await page.keyboard.press('Escape');
 
     // At rest, paused with an undo to offer and the notices gone, as I13 measures it: still within 6%.
     await page.getByRole('button', { name: 'Close' }).click();

@@ -6,6 +6,7 @@ import { planIsExpress } from '../../sim/rules/express';
 import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
+import { Dropdown } from '../Dropdown';
 import { about, busCount, clock, duration, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
@@ -67,19 +68,19 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
           Full at {clock(Math.floor(line.fullAtMinute / 60), line.fullAtMinute % 60)} · {about(line.turnedAwayPerDay)} riders a day turned away
         </p>
       ) : null}
-      <label className="model">
-        Buses
-        <select value={wantedModel ?? line.model} onChange={(e) => setWantedModel(e.target.value === line.model ? null : (e.target.value as BusModelId))}>
-          {MODEL_IDS.map((id) => {
+      <div className="model">
+        <span>Buses</span>
+        <Dropdown
+          label="Buses"
+          testId="line-model"
+          value={wantedModel ?? line.model}
+          options={MODEL_IDS.map((id) => {
             const locked = modelLocked(BUS_MODELS[id], s.medals);
-            return (
-              <option key={id} value={id} disabled={locked}>
-                {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats{locked ? ' · locked' : ''}
-              </option>
-            );
+            return { value: id, label: `${BUS_MODELS[id].name} · ${BUS_MODELS[id].seats} seats${locked ? ' · locked' : ''}`, disabled: locked, ...(locked ? { hint: 'A silver medal unlocks it' } : {}) };
           })}
-        </select>
-      </label>
+          onChange={(id: BusModelId) => setWantedModel(id === line.model ? null : id)}
+        />
+      </div>
       {swap && wantedModel ? (
         <div className="change" data-testid="model-change" data-ok={swap.ok ? 'yes' : 'no'}>
           {swap.ok ? (
@@ -119,17 +120,16 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
       </p>
       <div className="headways">
         {PERIODS.map(([period, label]) => (
-          <label key={period}>
-            {label}
-            <select value={next[period] === null ? 'off' : String((next[period] ?? 0) / 60)} onChange={(e) => pick(period, e.target.value)}>
-              {period === 'overnight' ? <option value="off">Off</option> : null}
-              {HEADWAY_MINUTES.map((m) => (
-                <option key={m} value={String(m)}>
-                  Every {m} min
-                </option>
-              ))}
-            </select>
-          </label>
+          <div key={period} className="headway">
+            <span>{label}</span>
+            <Dropdown
+              label={label}
+              testId={`headway-${period}`}
+              value={next[period] === null ? 'off' : String((next[period] ?? 0) / 60)}
+              options={[...(period === 'overnight' ? [{ value: 'off', label: 'Off' }] : []), ...HEADWAY_MINUTES.map((m) => ({ value: String(m), label: `Every ${m} min` }))]}
+              onChange={(value) => pick(period, value)}
+            />
+          </div>
         ))}
       </div>
       {change ? (
