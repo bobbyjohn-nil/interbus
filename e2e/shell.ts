@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { loadCity } from '../src/sim/city/simfile';
+import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { pointInRing, toLngLat, type XY } from '../src/sim/core/geo';
 
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { id: string; sim: { file: string } | null; fixture?: { file: string } | null }[] };
@@ -106,4 +107,31 @@ export async function pointAt(page: Page, at: [number, number]): Promise<readonl
     [[[x - 40, y], [x, y]]] as const,
   );
   return [x, y] as const;
+}
+
+/**
+ * This game exported, edited to day 2 at 09:00 with a depot, the debug line's four stops every 20
+ * minutes and day 1 in profit (so the checklist's last step, Take a contract, opens Contracts), and
+ * imported back: a line on the map without drawing it.
+ */
+export async function withDebugLine(page: Page): Promise<void> {
+  type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; ledger: unknown[] };
+  await page.getByRole('button', { name: 'Saves' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export this game' }).click();
+  const exported = (await (await (await download).createReadStream()).toArray()) as Buffer[];
+  const save = JSON.parse(Buffer.concat(exported).toString()) as { data: Data };
+  const d = save.data;
+  const [lon, lat] = onDepotLand();
+  d.depots = [{ id: 1, lon, lat }];
+  d.stops = DEBUG_STOPS.map((s, k) => ({ id: k + 1, lon: s.at[0], lat: s.at[1], tier: 1 }));
+  d.lines = [{ id: 1, name: 'Line 1', colour: '#2471a3', stopIds: [1, 2, 3, 4], fareCents: 225, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, boardedMilli: 0, buses: 2, model: 'sparrow', earlier: [] }];
+  d.nextIds = { ...d.nextIds, depot: 2, stop: 5, line: 2 };
+  d.ledger.push({ day: 1, kind: 'fares', amountCents: 100_000, lineId: 1 });
+  d.clock.elapsed = 86_400 + 4 * 3_600;
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Import a save file' }).click();
+  await (await chooser).setFiles({ name: 'line.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
+  await expect(page.getByTestId('notice')).toContainText('Save file loaded');
+  await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
 }

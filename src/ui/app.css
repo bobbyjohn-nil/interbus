@@ -1408,7 +1408,8 @@ button.chip.checklist,
 }
 
 /* The movable layer (D25; shell/Panels.tsx): each panel placed by the layer and dragged by its
-   heading, several open at once. */
+   heading, several open at once. --room is the height down to the dock from where the layer put it
+   (roomBelow), so a panel that grows scrolls inside it instead of running over the dock. */
 .movable {
   position: absolute;
 }
@@ -1417,11 +1418,11 @@ button.chip.checklist,
   position: relative;
   top: auto;
   right: auto;
-  max-height: calc(100vh - 128px);
+  max-height: var(--room, calc(100vh - 128px));
 }
 
 .movable > .panel.finance {
-  max-height: min(calc(100vh - 128px), 52vh);
+  max-height: min(var(--room, calc(100vh - 128px)), 52vh);
 }
 
 .movable .panel h2 {

@@ -102,6 +102,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A panel opened with others already on screen opens inside the window, above the dock and the map credits, instead of hanging off the bottom with its last buttons out of reach: what does not fit, or grows later, scrolls inside the panel, and a panel you have not dragged stays whole when the window gets smaller.
+- A panel you drag low on the screen gets shorter and scrolls, so it stops above the dock and the map credits instead of running off the bottom.
+- A panel you dragged near the window's edge comes back within reach when the window gets smaller, whether it is open or you open it again, instead of staying out of sight.
+- A panel you open comes up in front, instead of behind a panel you pressed earlier, and so does a panel already open that you ask for again, such as from the Contracts chip, the checklist's Take a contract, Fare and money in Finance, or a click on a line or a stop.
+- A dropdown opens upward where there is more room above it than below, its list opens at your current choice, and the arrow keys, Home and End keep the highlighted choice in view.
+- The card beside a dot, and the cards of Place a stop and Place a depot, open on the pointer's other side near the window's edge instead of being cut off.
+- When the map moves under a still pointer (the arrow keys, or Q and E in 3D), a dot's card goes once its dot has moved away, and the cards of Place a stop and Place a depot say what the place now under the pointer would take.
 - A slot saved by an older build now says so in Saves, instead of calling itself a save this game can't read, and Export, beside it, hands it over as a file.
 - If your browser won't keep site data, the game now says once that this browser isn't keeping saves, and Saves says so too, with Export to keep your game. Before, every save failed without a word and a reload lost the game.
 - A save set aside because its stops are off the new map is listed in Saves that way, as its notice said, instead of as a save from another city, and one set aside for each reason is kept, so neither replaces the other.
