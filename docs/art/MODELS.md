@@ -17,7 +17,7 @@
 - **Sun Oct 18:** answer the questions below, and commit `art/LICENSE.md`, which puts the art under **CC BY 4.0 with the credit "Miticept Studios"** (text in §12). That commit records the artist's agreement.
 - **Sun Jan 17:** content freeze. Nothing new enters the game after it.
 - **Sun Feb 21 and Sun Apr 11 2027:** Steam store art (§11). By Feb 21 the owner and the artist also sign a short agreement on who owns the art and how any revenue is shared (§12).
-- **Later** (1.1, the first update, or after): a stop shelter and Boston landmarks (§7). **Never:** people, interiors, station scenes, upgraded versions of a bus ([SC-05](../history/lessons-ledger.md), PLAN §2). Names and rider counts come from the plan ([C01](../history/salvage-matrix.md)).
+- **Later** (1.1, the first update, or after): a stop shelter and Boston landmarks (§7). **Not in v1.0:** upgraded versions of a bus (maybe later; PLAN §2). **Never:** people, interiors, station scenes ([SC-05](../history/lessons-ledger.md)). Names and rider counts come from the plan ([C01](../history/salvage-matrix.md)).
 - **Tip:** build the Metro 40 as a kit (front, back, window section, door, wheel, mirror). The Sparrow is then a shorter body, and the Goliath two bodies and a joint.
 
 **Questions to answer by Sun Oct 18:**
@@ -38,7 +38,7 @@
 - [ ] **Origin on the ground, under the middle of the bus** seen from above; transforms applied (*Object → Apply → All Transforms*).
 - [ ] **Passenger doors on the bus's right** (−X): Boston drives on the right.
 - [ ] **One top object**, named after the model (`metro-40`). Optional parts: `Front` and `Rear` for the Goliath, both with their origin at the joint (a rigid bus is fine for v1.0), and `Door_1`, `Door_2` and so on, for later.
-- [ ] **Materials named exactly `Body`, `Stripe` and `Lights_Front`**, at most 8 in all (§3).
+- [ ] **Materials named exactly `Body` and `Stripe`** (the depot needs only `Body`), plus `Lights_Front` on the headlights (recommended, and every blockout has it: the checks use it to find the front). At most 8 in all (§3).
 - [ ] **`Stripe` visible from straight above:** at least 15% of the bus seen from above, and `Body` at least 30%. A roof band works (§4).
 - [ ] **Base colour only, plus glow on lights.** The game's lighting is plain and matte, with no reflections or shadows ([RN-06](../history/lessons-ledger.md)), so textures, roughness, metal and normal maps are wasted work.
 - [ ] Within the triangle limit in §1.
@@ -47,7 +47,7 @@
 - [ ] **Fictional designs only:** no real logos or liveries, nothing taken from other games or sites, and nothing AI-made unless the owner agrees and the store disclosure says so. Anything not made from scratch goes in `art/CREDITS.md` with its licence, never a "non-commercial" one (§12).
 - [ ] Exported with the §6 settings. **Apply Modifiers must be on; Blender's default is off.**
 
-**Sending:** a pull request (a request to add files, which the owner reviews) puts the file at `art/models/vehicles/metro-40.glb`; the other folders are `depots/`, `shelters/` and `landmarks/`. Run `git lfs install` once beforehand: Git LFS is how Git stores big files. No `_final` or `v2` in names, since Git keeps every version; the commit message names the step instead (`metro-40: blockout`, `metro-40: final`). The `.blend` files stay with the artist.
+**Sending:** a pull request (a request to add files, which the owner reviews) puts the file at `art/models/vehicles/metro-40.glb`; the other folders are `depots/`, `shelters/` and `landmarks/`. Run `git lfs install` once beforehand: Git LFS is how Git stores big files. File names are lowercase words joined by hyphens, with no `_final` or `v2`, since Git keeps every version; the commit message names the step instead (`metro-40: blockout`, `metro-40: final`). The `.blend` files stay with the artist.
 
 ## 3. Material names: how the game paints the bus
 
@@ -57,7 +57,7 @@ The game finds materials **by name, spelled exactly**, capitals included. Blende
 |---|---|---|
 | **`Body`** | buses, depot | Paints it in the **company colour** |
 | **`Stripe`** | buses | Paints it in the **line colour** of the bus's route. **Must be visible from straight above** (§4) |
-| **`Lights_Front`** | buses (the checks warn without it) | Glows at dusk. The checks use it to find the front |
+| `Lights_Front` | recommended on buses (the checks warn without it) | Glows at dusk. The checks use it to find the front |
 | `Lights_Rear` | optional | Glows red at dusk |
 | `Glass` | recommended | Keeps the artist's colour. Use a dark, greyish blue |
 | anything else (`Trim`, `Tyre`, …) | — | Keeps the artist's colour. Keep these quiet and greyish, so the company and line colours carry the meaning |
@@ -90,7 +90,7 @@ One model makes both the flat map and the tilted 3D map, so they always match. *
 
 ## 6. Reference: Blender export settings
 
-Checked against the exporter in **Blender 5.2 LTS** (5.2.39) and **4.5 LTS** (4.5.47), with option names from its source (§13). Apply transforms and rename `Body.001` to `Body` first.
+Checked against the glTF exporter in **Blender 5.2 LTS** (exporter 5.2.39) and **4.5 LTS** (exporter 4.5.47), with option names from its source (§13). Apply transforms and rename `Body.001` to `Body` first.
 
 *File → Export → glTF 2.0 (.glb/.gltf)*
 
@@ -104,7 +104,7 @@ Checked against the exporter in **Blender 5.2 LTS** (5.2.39) and **4.5 LTS** (4.
 | Data → Mesh → Vertex Color | Use Vertex Color: **None** |
 | Data → Material | Materials: **Export**. Images: **None** (WebP Format for a textured landmark, 1.1+) |
 | Shape Keys, Armature, Skinning, Animation | **Off** |
-| Compression | **Draco off and Meshopt off** (5.2 only). The game compresses files itself, and Draco would need extra decoder code in the game ([DP-11](../history/lessons-ledger.md)) |
+| Compression | **Draco off and Meshopt off** (5.2 only). The checks compress each file for the game (§8), and Draco would need extra decoder code in the game ([DP-11](../history/lessons-ledger.md)) |
 | Copyright | `see art/LICENSE.md in the interbus repo` |
 
 The same settings as a script, for one-click re-exports: save the `.blend`, select the model and run it from the Scripting tab. It writes the `.glb` next to the `.blend`.
@@ -138,7 +138,7 @@ bpy.ops.export_scene.gltf(
 | landmark (1.1+) | ≤ 15,000 | ≤ 3,000 | ≤ 300 KB with its image | ≤ 10 MB |
 
 - **All v1.0 models together: ≤ 600 KB optimised.** A file over a limit fails with the numbers, and nothing is cut down silently (V3 simplified models by up to half without saying). At 80% of a limit the checks warn.
-- **No textures in v1.0:** the game recolours the bus instead of painting it (V3's rule). From 1.1 a landmark may carry one WebP image holding all its textures, at most 1024 × 1024 px, each side a power of two. A landmark replaces the plain raised block the map draws for that building, at its real footprint, and is named `landmark-<osm id>-<slug>` (its OpenStreetMap number and a short lowercase name).
+- **No textures in v1.0:** the game recolours the bus instead of painting it (V3's rule). From 1.1 a landmark may carry one WebP image holding all its textures, at most 1024 × 1024 px, each side a power of two. A landmark replaces the plain raised block the map draws for that building, at its real footprint, and is named `landmark-<osm id>-<slug>` (its OpenStreetMap number and a short name in lowercase words joined by hyphens).
 - **Measured** on 2026-10-12, on a 5,136-triangle test bus made in code to this contract (`@gltf-transform` 4.5.1, `meshoptimizer` 1.3.0): 329 KB as Blender exports it, **27.5 KB optimised (5.4 bytes a triangle), 7.8 KB gzipped**, against V3's unmeasured guess of 11.5 bytes a triangle (`Intralines_City@dc63602:studio/docs/design/renderer-3d.md` §4). Real models will compress less well; the first real file replaces these numbers.
 - **No far-away copy in the first delivery.** Automatic simplification toward a 900-triangle copy stopped at 1,860 at every setting tried, because separate parts and hard edges cannot merge. Sixty buses at 8,000 triangles is 480k triangles in at most three draw calls (all buses of one model go to the graphics card in one request; V1 used 18–33 per bus, [K09](../history/salvage-matrix.md), [X-14](../history/lessons-ledger.md)), which most laptops handle. A copy (`metro-40_LOD1`, under the top object) is asked for only if the 3D frame-rate check (30 fps, 200 buses, the slowest laptop) fails, and then hand-made beats generated.
 
@@ -152,7 +152,7 @@ bpy.ops.export_scene.gltf(
 
 1. [glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) (npm `gltf-validator` 2.0.0-dev.3.10) reports any error.
 2. The file is not `.glb` or is over its sent size; it contains cameras, lights, animation, skins, morph targets or (in v1.0) textures.
-3. A needed material is missing (§3), or there are more than 8.
+3. `Body` (buses, depot) or `Stripe` (buses) is missing (§3), or there are more than 8 materials. A missing `Lights_Front` only warns.
 4. Over its triangle limit, or over its optimised size after `dedup → prune → weld → quantize → meshopt` (`@gltf-transform` 4.5.1; meshopt rather than Draco).
 5. The length is outside ±10% or 10 times or more off; the lowest point is more than 2 cm from y = 0; the centre is more than 10% of the footprint's diagonal from x = z = 0; the model is taller than it is long (a Z-up export).
 6. The centre of `Lights_Front` is not at +Z (front backwards), or `Door_*` objects are not on −X.
