@@ -51,6 +51,11 @@ export function DemandMenu({ dots, shown, onShown }: { dots: Dots | null; shown:
       ArrowUp: () => setActive((i) => Math.max(0, i - 1)),
       Home: () => setActive(0),
       End: () => setActive(KINDS.length - 1),
+      // Space and Enter turn the active kind on or off here and go no further, so the page's Space never
+      // pauses or plays instead, whether the mouse or the keyboard focused the item (App.tsx). A held Space
+      // flips it once, as a button's press does.
+      Enter: () => flip(KINDS[active]!.kind),
+      ' ': () => void (event.repeat || flip(KINDS[active]!.kind)),
       Escape: close,
       Tab: () => setOpen(false),
     };
