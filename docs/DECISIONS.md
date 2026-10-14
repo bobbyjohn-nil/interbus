@@ -420,6 +420,7 @@ Filled in as they are measured, with the date and the commit, each by a committe
     The bands hold. The first card graded 76.4 (76.1 on day 10 before).
   - **On Inner Boston**, the routes change alone (#92, before this), 200 days on the old calendar: the second line on day 48 at 43.7 minutes (day 51 at 46.1 before). But only five lines by day 200, against seven, carrying 3,620 trips a day against 7,054; no gold; cards 65–69. Shorter rides changed which corridors the scripted player finds worth a line, and this is the tuning's to look at with the new calendar (the nightly re-measures it).
   - **The panel fix:** opening Lines, Finance or Saves from the dock while a tool was out set the panel, but panels show only with no tool, so it opened unseen and the tool blocked it ("when you open 2 tabs, they conflict and you can't use it"). The dock's panel buttons now put the tool down first (`e2e/time.spec.ts`).
+  - **I13** at 1152×720, late in a game and paused with an undo to offer (the medals e2e): the top bar with the speed menu first took 6.04%. A tighter speed chip and a comma in the date brought it to 5.99% here, but CI's browser measured 6.014% (run 38527061766). Every chip's side padding falls from 10 px to 9 px, about 0.04% of the screen: 5.96% here.
   - **Tests** (TS-04), each shown failing with the old behaviour put back:
     - ten-day quarters fail the calendar test;
     - the old ladder fails "1× is real time" (18,000 game seconds in 30 real seconds);
