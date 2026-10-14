@@ -1,11 +1,12 @@
-// The game's layers on the map: depot land and depots, demand dots (where people live and work),
-// the lines with their stops and the stops' QUIET and LOSS flags, the line being drawn, and each
-// contract's reach as a ring at its landmark, dashed while on offer, with its progress once held, and
-// a city event's street, hatched while pending and solid while on. GeoJSON sources set only when their data
+// The game's layers on the map: depot land and depots, demand dots (where people live and work, each
+// kind shown or hidden by the player), the lines with their stops and the stops' QUIET and LOSS flags,
+// the line being drawn, and a city event's street, hatched while pending and solid while on. Contracts
+// draw no rings: the Contracts panel lists every offer (D25). GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
-import type { ContractView, DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import { dotRadiusExpression, type DotKind } from './pick';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -14,38 +15,20 @@ export const LINES = 'lines';
 export const DEPOT_LAND = 'depot-land';
 export const DEPOTS = 'depots';
 export const DRAFT = 'draft';
-export const CONTRACTS = 'contracts';
 export const EVENTS = 'events';
 export const DOT_LAYERS = ['dots-homes', 'dots-jobs'] as const;
+/** Each kind of dot's layer. */
+export const DOT_LAYER: Readonly<Record<DotKind, (typeof DOT_LAYERS)[number]>> = { home: 'dots-homes', job: 'dots-jobs' };
 export const LINE_LAYERS = ['lines-route', 'lines-stops'] as const;
 export const FLAG_LAYERS = ['stops-flag-ring', 'stops-flag-word'] as const;
 export const TINT_LAYERS = ['depot-land-fill', 'depot-land-edge'] as const;
 export const DRAFT_LAYERS = ['draft-rings', 'draft-route', 'draft-stops'] as const;
-export const CONTRACT_LAYERS = ['contracts-offered', 'contracts-held', 'contracts-label'] as const;
 export const EVENT_LAYERS = ['event-pending', 'event-on', 'event-label'] as const;
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
 
 export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'labelHalo'>): void {
-  for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, CONTRACTS, EVENTS]) map.addSource(id, { type: 'geojson', data: empty });
-  // Contracts first, under the lines: the walk a stop must be within, dashed while on offer.
-  for (const held of [false, true]) {
-    map.addLayer({
-      id: held ? 'contracts-held' : 'contracts-offered',
-      type: 'line',
-      source: CONTRACTS,
-      filter: ['all', ['==', ['get', 'kind'], 'ring'], ['==', ['get', 'held'], held]],
-      paint: { 'line-color': t.draft, 'line-width': held ? 2 : 1.5, 'line-opacity': 0.7, ...(held ? {} : { 'line-dasharray': [3, 2] }) },
-    });
-  }
-  map.addLayer({
-    id: 'contracts-label',
-    type: 'symbol',
-    source: CONTRACTS,
-    filter: ['==', ['get', 'kind'], 'label'],
-    layout: { 'text-field': ['get', 'text'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-allow-overlap': true },
-    paint: { 'text-color': t.draft, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
-  });
+  for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, EVENTS]) map.addSource(id, { type: 'geojson', data: empty });
   // A city event's street (the M4 spec, item 2), under the lines and wider than them so it shows on
   // either side of a route: hatched while pending, solid while on, in the warning colour.
   for (const on of [false, true]) {
@@ -69,8 +52,8 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
   // The tint shows only while a depot is being placed (setTint): exactly the land the rule allows.
   map.addLayer({ id: 'depot-land-fill', type: 'fill', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'fill-color': t.depotLand, 'fill-opacity': 0.28 } });
   map.addLayer({ id: 'depot-land-edge', type: 'line', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'line-color': t.depotLand, 'line-width': 1.5 } });
-  // A dot's area grows with its people: radius by the square root, larger as the map zooms in.
-  const radius = (scale: number) => ['interpolate', ['linear'], ['zoom'], 12, ['*', scale * 0.5, ['sqrt', ['get', 'w']]], 16, ['*', scale * 2, ['sqrt', ['get', 'w']]]];
+  // A dot's area grows with its people: radius by the square root, larger as the map zooms in (pick.ts,
+  // which finds the dot under the pointer by the same numbers).
   for (const [id, kind, colour] of [
     ['dots-homes', 'home', t.homeDot],
     ['dots-jobs', 'job', t.jobDot],
@@ -80,7 +63,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       type: 'circle',
       source: DOTS,
       filter: ['==', ['get', 'kind'], kind],
-      paint: { 'circle-color': colour, 'circle-opacity': 0.55, 'circle-radius': radius(0.12) as never, 'circle-pitch-alignment': 'map' },
+      paint: { 'circle-color': colour, 'circle-opacity': 0.55, 'circle-radius': dotRadiusExpression() as never, 'circle-pitch-alignment': 'map' },
     });
   }
   map.addLayer({
@@ -197,20 +180,6 @@ export function setDraft(map: MapLibreMap, draft: LineDraftView | null): void {
   (map.getSource(DRAFT) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 }
 
-/** The words at a contract's landmark: its ask (HEADWAY's headway or RIDERSHIP's boardings a day), and once held its days met. */
-export function contractLabel(c: Pick<ContractView, 'kind' | 'ask' | 'held' | 'daysMet' | 'daysNeeded'>): string {
-  const ask = c.kind === 'headway' ? `every ${c.ask / 60} min` : `${c.ask} boardings a day`;
-  return c.held ? `${ask} · ${c.daysMet}/${c.daysNeeded} days` : ask;
-}
-
-export function setContracts(map: MapLibreMap, contracts: readonly ContractView[]): void {
-  const features = contracts.flatMap((c) => [
-    { type: 'Feature' as const, properties: { kind: 'ring', held: c.held }, geometry: { type: 'LineString' as const, coordinates: ring(c.at as LngLatPair, c.reachM) } },
-    { type: 'Feature' as const, properties: { kind: 'label', text: contractLabel(c) }, geometry: { type: 'Point' as const, coordinates: [...c.at] } },
-  ]);
-  (map.getSource(CONTRACTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
-}
-
 const EVENT_NAMES: Readonly<Record<EventView['kind'], string>> = { roadworks: 'Roadworks', festival: 'Festival', snow: 'Snow' };
 
 /** The words at a city event: "Roadworks tomorrow", "Festival tomorrow" or "Snow tomorrow" while pending, then the days left. */
@@ -230,13 +199,22 @@ export function setEvent(map: MapLibreMap, event: EventView | null): void {
   (map.getSource(EVENTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 }
 
+/** Each dot carries its kind, its people (`w`) and its place in its kind's list (`i`), for the pick under the pointer. */
 export function setDots(map: MapLibreMap, dots: Dots): void {
-  const point = (kind: string) => ([lon, lat, w]: readonly [number, number, number]) => ({
+  const point = (kind: DotKind) => ([lon, lat, w]: readonly [number, number, number], i: number) => ({
     type: 'Feature' as const,
-    properties: { kind, w },
+    properties: { kind, w, i },
     geometry: { type: 'Point' as const, coordinates: [lon, lat] },
   });
   (map.getSource(DOTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features: [...dots.homes.map(point('home')), ...dots.jobs.map(point('job'))] });
+}
+
+/** Which kinds of dot the map shows. */
+export type DotKinds = Readonly<Record<DotKind, boolean>>;
+
+/** Shows or hides each kind of dot: once per change, never per frame (RN-04). */
+export function setDotKinds(map: Pick<MapLibreMap, 'setLayoutProperty'>, shown: DotKinds): void {
+  for (const kind of ['home', 'job'] as const) map.setLayoutProperty(DOT_LAYER[kind], 'visibility', shown[kind] ? 'visible' : 'none');
 }
 
 /** The flag a stop shows on the map, or null: QUIET, LOSS, or both. */

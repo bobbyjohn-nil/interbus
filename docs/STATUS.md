@@ -2,14 +2,15 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-14, at `main` 9f8250b, with `main` now protected (D24), V1's site confirmed for P0, the owner's answers to D20 (rest), D21 and D22 recorded, and the model contract rewritten to lead with what to make, when and how: in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events, the 2D/3D chip, D2's guard, the slow-laptop run's busy scene, I14's first frame, the heap budget and the frame-rate steps in the playtest protocol. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
+**Updated:** 2026-10-14, at `main` 4ee665a, with the owner's initial playtest (D25) under way: the pathing (#92) and the time system (#93) merged, the map and 3D items in this PR. Before that, at 9f8250b, with `main` now protected (D24), V1's site confirmed for P0, the owner's answers to D20 (rest), D21 and D22 recorded, and the model contract rewritten to lead with what to make, when and how: in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events, the 2D/3D chip, D2's guard, the slow-laptop run's busy scene, I14's first frame, the heap budget and the frame-rate steps in the playtest protocol. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 9f8250b (#92: no stops on highways and one-way streets driven both ways, so Back Bay and downtown lose their loops; the owner's initial playtest recorded as D25). Deploy preview run 38525027629's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
-  - Boston with no transit on the map, flat or tilted with `T`, the 2D/3D chip or a right-drag (snapping flat below 12°, the buildings cross-fading), four buildings in five at their measured height; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
-  - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
-  - "people within a walk" at the pointer;
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4ee665a (#93: minutes and days, 8-day quarters, 1× real time and a speed menu). Deploy preview run 38529382564's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows, with this PR's items:
+  - Boston with no transit on the map, flat or tilted with `T`, the compass, a right-drag or a double-click held (snapping flat below 12°, the buildings cross-fading), turned in 3D by a sideways drag or Q and E and faced north by N or the compass, four buildings in five at their measured height;
+  - time in minutes and days, 8 days to a quarter and 4 quarters to a year, from 1× real time up to 5,400× in a speed menu beside Play and Pause; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
+  - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs, each kind shown or hidden from the demand menu;
+  - on a home dot, its people and the people within a walk; on a job dot, its jobs and the jobs within a walk; nothing elsewhere;
   - Home, the first screen: Continue, New game and Saves over the paused map, and Back to Home in Saves;
   - the founding card, and the checklist chip naming the next step;
   - the calm shell: a chip row, a dock with **Place a depot**, **Draw a line** and **Lines**, the line inspector with its headways and a day's forecast, and notices in one corner;
@@ -33,7 +34,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a line changed with its buses out finishing every trip under way as it began, no bus jumping;
   - roadworks, snow and festivals rolled a day ahead, hatched on the map and named on the day card the evening before, solid while on, and the line card's round trip with what roadworks or snow add;
   - I3's full sweep over every fare, headway, model and tier, run nightly;
-  - HEADWAY and RIDERSHIP contracts at landmarks, dealt from one deck of six, taken from the checklist's last step or the Contracts chip, with rings on the map, paid as a Contracts row, an untaken offer withdrawn after a quarter (8 days);
+  - HEADWAY and RIDERSHIP contracts at landmarks, dealt from one deck of six, taken from the checklist's last step or the Contracts chip, paid as a Contracts row, an untaken offer withdrawn after a quarter (8 days);
   - Export session in Saves, a file that replays to the same game for a bug report;
   - buses pulling out, running the line's day plan and driving home, drawn by the vehicle layer;
   - a day card at midnight listing fares, subsidy, running, wages, deadhead and upkeep;
@@ -73,12 +74,12 @@ The running handoff between Claude sessions. Every session reads it right after 
 
 The owner played the preview and asked for 18 changes ([notes](playtests/2026-10-14-owner-first-look.md), DECISIONS D25), then cleared work to move on in the schedule. Each is a small pull request, in this order:
 1. [x] **Pathing** ([#92](https://github.com/bobbyjohn-nil/interbus/pull/92), merged 2026-10-14): stops and depots never stand on a motorway or a ramp, and buses drive one-way streets both ways. In Back Bay, click pairs 250–600 m apart driven over twice the straight line fell from 30.1% to 1.4% (worst 41.3× to 2.4×); downtown from 28.8% to 1.6% (worst 20.4× to 2.2×). `npm run bench routes`; DECISIONS, Measured.
-2. [ ] **Time** (this PR): minutes and days; 8-day quarters, 4 a year; 1× real time, then 60×, 600×, 1,800× and 5,400× from a speed menu beside Play and Pause, Space and 1–5 on the keyboard; a 1-second step, so buses glide at 1×; a save at least every 30 real seconds; contracts a quarter in a row within two; the card's grant and fine per day. Saves are set aside once (format 15), each older format under its own key. Also the panel fix: a dock panel opened while a tool is out puts the tool down.
-3. [ ] **Map:** the demand dots toggled by kind from a custom menu; the population count only over a dot; the contract rings gone; sentence case and grammar everywhere.
+2. [x] **Time** ([#93](https://github.com/bobbyjohn-nil/interbus/pull/93), merged 2026-10-14): minutes and days; 8-day quarters, 4 a year; 1× real time, then 60×, 600×, 1,800× and 5,400× from a speed menu beside Play and Pause, Space and 1–5 on the keyboard; a 1-second step, so buses glide at 1×; a save at least every 30 real seconds; contracts a quarter in a row within two; the card's grant and fine per day. Saves are set aside once (format 15), each older format under its own key. Also the panel fix: a dock panel opened while a tool is out puts the tool down, and `advance()` moves the clock over the seconds between hour boundaries at once (the 1-second step made the sim tests 4× slower).
+3. [ ] **Map** (this PR, with item 7): a demand menu beside the compass shows or hides homes and jobs, remembered in that browser through `src/platform`; a dot's card only on a dot (a home dot's people, a job dot's jobs, and those within a walk), asked once per dot with only the newest answer kept; the contract rings gone. Sentence case and grammar everywhere follows as its own PR.
 4. [ ] **Finance:** charts, where the money goes, each line's money moved here, "Day 0".
 5. [ ] **Building:** a Build tab (Place stop, Draw line, Place depot); an info-only line panel; Edit route to reorder, add and remove stops.
 6. [ ] **Panels and controls:** movable panels, several open at once; Saves at the top; custom dropdowns.
-7. [ ] **3D:** double-click and hold to switch and tilt; rotation, with a compass back to north; the 2D | 3D chip retired.
+7. [ ] **3D** (this PR, with item 3): a double-click held still for half a second flips 2D and 3D, held and dragged tilts, and a quick one still zooms (with no tool out); in 3D a sideways drag and Q and E turn the board, N faces north, and 2D always faces north; a 26×26 compass replaces the 56×28 chip, and the demand chip takes the other half of its room.
 8. [ ] **Then the schedule** (the clearance): the tuning freeze from the pacing run, ahead of P1.
 
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13

@@ -91,7 +91,7 @@ A mechanic that needs a second mechanic to explain it is cut ([GD-06](docs/histo
 | 2:00 | "2/5 Draw a line" along Massachusetts Avenue: a 650 m walk ring, "≈9,000 people within a walk" |
 | 3:00 | Four stops to the Longwood Medical Area. "Every 20 min needs 2 Sparrows · $190k" (the cycle function, 2026-10-13; the M2 spec): founding sets peak and off-peak alike, overnight off; about $71k left at k ≈ 1.2 |
 | 3:30 | "3/5 Press play" at 05:00 on day 1. The bus pulls out; the 06:30 peak fills it |
-| 4:30 | The 2D/3D chip (or `T`) tilts the map: Back Bay rises around the bus; again to flatten. Nothing in the game changes |
+| 4:30 | The compass (or `T`, or a double-click held) tilts the map: Back Bay rises around the bus; again to flatten. Nothing in the game changes |
 | 5:30 | First daily close, every figure a ledger row ([AR-12](docs/history/lessons-ledger.md)); "QUIET · 3 boardings" |
 | 7:00 | "4/5 Make a profitable day": prune the stop or nudge the fare |
 | 8:00 | "5/5 Take a contract": "Every 15 min at Longwood, 8 days, $120k" |
@@ -208,7 +208,7 @@ Inner Boston keeps the crossings, Longwood, Kendall, Logan and downtown, with 20
 
 **The map.**
 - **City files.** `CityTileSource` reads tiles by HTTP Range from the content-hashed file, with ordinary caching and no Cache Storage copy; if Pages refuses Range (week-1 check), it downloads the whole file; the desktop reads it whole.
-- **2D and 3D.** In 2D buildings are flat footprints with a hairline outline; in 3D, extrusions, cross-faded once per mode change ([RN-04](docs/history/lessons-ledger.md)). From week 2 `T` sets pitch 50° (a raw tilt); the chip, cross-fade, right-drag and the snap flat below 12° land in week 10. 3D allows 25–60° at zoom ≥14. Bounds are the extent plus 1.5 km behind V1's board mask (`Intralines@7af45b1:src/map/overlays.ts:55-114`).
+- **2D and 3D.** In 2D buildings are flat footprints with a hairline outline; in 3D, extrusions, cross-faded once per mode change ([RN-04](docs/history/lessons-ledger.md)). From week 2 `T` sets pitch 50° (a raw tilt); the chip, cross-fade, right-drag and the snap flat below 12° land in week 10. Since D25 the chip is a compass, a double-click held tilts or flips the board, and 3D turns freely (drags, Q and E; N faces north) while 2D always faces north. 3D allows 25–60° at zoom ≥14. Bounds are the extent plus 1.5 km behind V1's board mask (`Intralines@7af45b1:src/map/overlays.ts:55-114`).
 - **Buses.** One custom vehicle layer from week 4, the code-drawn glyph first: top-down instanced icons in one draw call, flat to the screen when tilted, at least 20 px long (Sparrow), 24 (Metro 40) and 32 (Goliath) ([RN-05](docs/history/lessons-ledger.md)). **Meshes replace icons only in 3D at zoom ≥17**, where a Sparrow is 19 px at true scale; at zoom 15 it would be 5 px, V3's failure again. A mesh draws at the larger of true scale and its icon length, at most 2.5×, one draw call per family. Positions come from V3's pure `busPositionAt` ([S03](docs/history/salvage-matrix.md)); no per-frame GeoJSON source, which lags the clock.
 - **No GPU.** Since Chrome 139, machines without a usable GPU get no WebGL at all ([blink-dev](https://groups.google.com/a/chromium.org/g/blink-dev/c/yhFguWS_3pM/m/oLrB5up_BwAJ)). The ladder: hardware; **Low graphics** (2D only, 30 fps); a calm "turn on hardware acceleration" card, saves and Export intact.
 
@@ -320,7 +320,7 @@ Copy from code, never from the manuals ([X-09](docs/history/lessons-ledger.md), 
 
 **The chrome** stays flat and crisp, after V3's labelled chips (`Intralines_City@dc63602:src/ui/TopBar.tsx:73-79`); no emoji ([UX-10](docs/history/lessons-ledger.md)); a side-by-side with V1 at every milestone. **Call: the shell is measured from the first screen**, its chip row in week 1, all of it in week 4 ([UX-02](docs/history/lessons-ledger.md), [SC-04](docs/history/lessons-ledger.md)).
 
-**Screen budget (I13).** Chrome ≤6% at rest and ≤26% with a panel at 1440×900, 1366×768 and 1152×720; the 2D/3D chip and the 12 px build chip (in the OSM-attribution corner) count. Labelled chips: date, speed, Cash, Riders/day, Grade, Contracts ([K20](docs/history/salvage-matrix.md)). A dock of ≤8 slots. No inspector at rest; notices in one corner ([UX-05](docs/history/lessons-ledger.md)). At most three overlays: Residents, Jobs, Traffic ([UX-12](docs/history/lessons-ledger.md)).
+**Screen budget (I13).** Chrome ≤6% at rest and ≤26% with a panel at 1440×900, 1366×768 and 1152×720; the compass, the demand chip and the 12 px build chip (in the OSM-attribution corner) count. Labelled chips: date, speed, Cash, Riders/day, Grade, Contracts ([K20](docs/history/salvage-matrix.md)). A dock of ≤8 slots. No inspector at rest; notices in one corner ([UX-05](docs/history/lessons-ledger.md)). At most three overlays: Residents, Jobs, Traffic ([UX-12](docs/history/lessons-ledger.md)).
 
 **Rules drawn on the map**, each from its `sim/rules` predicate ([GD-05](docs/history/lessons-ledger.md)): the depot tint; the 650 m walk ring; a 250 m snap ring ("joins Mass Ave · transfer"); express chevrons; QUIET/LOSS as icon and word; contract rings with progress; events hatched a day ahead; ribbon width by frequency, dashes as well as colour ([RN-09](docs/history/lessons-ledger.md)); refusals in money, "$55k short" ([UX-03](docs/history/lessons-ledger.md)).
 

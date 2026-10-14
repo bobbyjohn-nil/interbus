@@ -35,8 +35,11 @@ test.describe('the camera and the sim (D2)', () => {
 
     // Tilted while time runs, flattened again, and a fare changed in between.
     await setSpeed(page, '5,400×');
-    await page.getByTestId('mode-chip').getByRole('button', { name: '3D' }).click();
+    await page.getByTestId('compass').click();
     await expect(map).toHaveAttribute('data-mode', '3d');
+    // Turned too (D25): the camera's bearing is no command either.
+    await page.keyboard.press('e');
+    await expect(map).not.toHaveAttribute('data-bearing', '0', { timeout: 10_000 });
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 30_000 }).toBeGreaterThan(4 * 3_600);
     await page.getByRole('button', { name: 'Lines' }).click();
     await page.getByTestId('line-card').getByLabel('Fare').selectOption('200');

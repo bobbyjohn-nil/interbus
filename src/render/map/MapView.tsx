@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { fpsSwitch, gpuSwitch, onReplaced, reload } from '../../platform';
 import { CITIES } from '../../cities';
-import type { ContractView, DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
-import type { MapHit, MountedMap } from './loadMap';
+import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
+import type { HoveredDot, MapHit, MountedMap } from './loadMap';
+import type { DotKinds } from './overlays';
 
-export type { MapHit };
+export type { DotKinds, HoveredDot, MapHit };
 import { afterIdle, afterMountError, afterTimeout, MAP_READY_MARK, type MapStatus as Status } from './status';
 import { FpsMeter, probeWebGL, rungFor, type GraphicsRung } from './gpu';
-import { buildingsLayer, isTiltKey, toggled, type ViewMode } from './tilt';
+import { buildingsLayer, toggled, TURN_STEP_DEG, viewKey, type ViewMode } from './tilt';
 
 /** A map still loading after this long has failed; MapLibre does not always say why. */
 const LOAD_TIMEOUT_MS = 60_000;
@@ -33,7 +34,10 @@ export interface MapViewProps {
   readonly stops?: readonly StopView[];
   /** Changes whenever `lines` and `stops` do (Snapshot.linesVersion). */
   readonly linesVersion?: number;
-  readonly onPointer?: (at: LngLatPair | null, screen: [number, number] | null) => void;
+  /** Which kinds of dot show (D25: the player turns each on and off). */
+  readonly dotKinds?: DotKinds;
+  /** The pointer over the map, and the shown dot it is on, if any. */
+  readonly onPointer?: (at: LngLatPair | null, screen: [number, number] | null, dot: HoveredDot | null) => void;
   readonly onClick?: (at: LngLatPair, hit: MapHit) => void;
   /** Where depots may stand, tinted while `tint` is on. */
   readonly depotLand?: readonly (readonly LngLatPair[])[] | null;
@@ -41,8 +45,8 @@ export interface MapViewProps {
   readonly depots?: readonly DepotView[];
   /** The line being drawn, or null. */
   readonly draft?: LineDraftView | null;
-  /** Contracts, drawn as rings at their landmarks. */
-  readonly contracts?: readonly ContractView[];
+  /** Whether a double-click held on the map tilts it: only while no tool is out (loadMap.ts). */
+  readonly tiltGesture?: boolean;
   /** The city event pending or on, drawn on its street. */
   readonly event?: EventView | null;
   /** The sim's clock at the last snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
@@ -57,17 +61,18 @@ function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void
   return () => void mounted.map.off('idle', onIdle);
 }
 
-export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, contracts = [], event = null, clock = null }: MapViewProps) {
+const BOTH: DotKinds = { home: true, job: true };
+
+export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
   const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
-  const latest = useRef({ dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, contracts, event, clock });
+  const latest = useRef({ dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, tiltGesture, event, clock });
   useEffect(() => {
-    latest.current = { dots, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, contracts, event, clock };
+    latest.current = { dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, tiltGesture, event, clock };
   });
-  // Set only when what a ring shows changes (RN-04).
-  const contractsKey = contracts.map((c) => `${c.id}:${c.held ? 1 : 0}:${c.daysMet}`).join(',');
+  const dotKindsKey = (['home', 'job'] as const).filter((k) => dotKinds[k]).join(',');
   const eventKey = event ? `${event.street}:${event.startDay}:${event.phase}:${event.daysLeft}` : '';
   // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
   const depotsKey = depots.map((d) => d.id).join(',');
@@ -86,17 +91,29 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   const [mode, setMode] = useState<ViewMode>('2d');
   // What the camera settled on after the last mode change, for the e2e tests.
   const [settled, setSettled] = useState<{ pitch: number; buildings: number; measured: number } | null>(null);
-  // Where the camera rests after each move ("lon,lat,zoom"), so the e2e tests can aim at a place.
+  // Where the camera rests after each move ("lon,lat,zoom"), so the e2e tests can aim at a place, and
+  // which way it faces and how far it leans, for the compass.
   const [view, setView] = useState('');
+  const [camera, setCamera] = useState({ bearing: 0, pitch: 0 });
 
   useEffect(() => onReplaced(() => setStatus('replaced')), []);
 
+  // T tilts and flattens; in 3D, Q and E turn the board and N faces north (D25). Low graphics says why not.
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!isTiltKey(event) || !ready.current) return;
+      const key = viewKey(event);
+      const mounted = ready.current;
+      if (!key || !mounted) return;
+      if (key !== 'tilt' && modeRef.current !== '3d') return;
       event.preventDefault();
       if (rung === 'low') setFlatNotice(true);
-      else setMode(toggled);
+      else if (key === 'tilt') setMode(toggled);
+      else if (key === 'north') mounted.faceNorth();
+      else mounted.turn(key === 'left' ? -TURN_STEP_DEG : TURN_STEP_DEG);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -157,20 +174,22 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
           stopMeter = () => window.clearInterval(timer);
         }
         const now = latest.current;
+        mounted.setDotKinds(now.dotKinds);
+        mounted.setTiltGesture(now.tiltGesture);
         if (now.dots) showDots(mounted, now.dots, setDotsDrawn);
         mounted.setLines(now.lines, now.stops);
         if (now.depotLand) mounted.setDepotLand(now.depotLand);
         mounted.setDepots(now.depots);
         mounted.setTint(now.tint);
         mounted.setDraft(now.draft);
-        mounted.setContracts(now.contracts);
         mounted.setEvent(now.event);
         if (now.clock) mounted.setClock(now.clock.second, now.clock.rate, now.clock.day);
-        mounted.onPointer((at, screen) => latest.current.onPointer?.(at, screen));
+        mounted.onPointer((at, screen, dot) => latest.current.onPointer?.(at, screen, dot));
         mounted.onClick((at, hit) => latest.current.onClick?.(at, hit));
         const rest = () => {
           const c = mounted.map.getCenter();
           setView(`${c.lng.toFixed(6)},${c.lat.toFixed(6)},${mounted.map.getZoom().toFixed(3)}`);
+          setCamera({ bearing: Math.round(mounted.map.getBearing()), pitch: Math.round(mounted.map.getPitch()) });
         };
         rest();
         mounted.map.on('moveend', rest);
@@ -206,6 +225,21 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
     return showDots(mounted, dots, setDotsDrawn);
   }, [dots]);
 
+  // Shown or hidden by kind, and counted again once drawn (data-dots follows what shows).
+  useEffect(() => {
+    const mounted = mountedRef.current;
+    if (!mounted) return;
+    mounted.setDotKinds(latest.current.dotKinds);
+    const onIdle = () => setDotsDrawn(mounted.dotsDrawn());
+    mounted.map.once('idle', onIdle);
+    mounted.map.triggerRepaint();
+    return () => void mounted.map.off('idle', onIdle);
+  }, [dotKindsKey]);
+
+  useEffect(() => {
+    mountedRef.current?.setTiltGesture(tiltGesture);
+  }, [tiltGesture]);
+
   useEffect(() => {
     mountedRef.current?.setLines(latest.current.lines, latest.current.stops);
   }, [linesVersion]);
@@ -225,10 +259,6 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
   useEffect(() => {
     mountedRef.current?.setDraft(draft);
   }, [draft]);
-
-  useEffect(() => {
-    mountedRef.current?.setContracts(latest.current.contracts);
-  }, [contractsKey]);
 
   useEffect(() => {
     mountedRef.current?.setEvent(latest.current.event);
@@ -257,7 +287,8 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
       data-dots={dotsDrawn ?? ''}
       data-tint={tint ? 'on' : 'off'}
       data-view={view}
-      data-contracts={contractsKey}
+      data-bearing={camera.bearing}
+      data-dot-kinds={dotKindsKey}
       data-event={eventKey}
       data-stops={stops.map((s) => `${s.id}:${s.at[0].toFixed(6)},${s.at[1].toFixed(6)}`).join(' ')}
       data-graphics={rung}
@@ -281,14 +312,16 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         </p>
       ) : null}
       {status === 'ready' ? (
-        // The 2D/3D chip (the M5 spec, item 6; PLAN §8 counts it in I13): `T` and a right-drag do the same.
-        <div className="mode-chip" role="group" aria-label="View" data-chrome="rest" data-testid="mode-chip" title={rung === 'low' ? 'Low graphics: the map stays flat on this computer' : 'Flat or tilted (T, or drag with the right button)'}>
-          {(['2d', '3d'] as const).map((m) => (
-            <button key={m} type="button" aria-pressed={mode === m} disabled={rung === 'low'} onClick={() => setMode(m)}>
-              {m.toUpperCase()}
-            </button>
-          ))}
-        </div>
+        <Compass
+          mode={mode}
+          bearing={camera.bearing}
+          pitch={camera.pitch}
+          low={rung === 'low'}
+          onPress={() => {
+            if (mode === '3d' && camera.bearing !== 0) ready.current?.faceNorth();
+            else setMode(toggled);
+          }}
+        />
       ) : null}
       {fps ? (
         <p className="fps" data-testid="fps">
@@ -296,5 +329,39 @@ export function MapView({ dots = null, lines = [], stops = [], linesVersion = 0,
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** What the compass does when pressed, in the words its label uses. */
+export function compassLabel(mode: ViewMode, bearing: number, low: boolean): string {
+  if (low) return 'Low graphics: the map stays flat on this computer';
+  if (mode === '2d') return 'Tilt to 3D (T, or double-click and hold)';
+  return bearing === 0 ? 'Flatten to 2D (T)' : 'Face north (N)';
+}
+
+/**
+ * The compass (D25; it replaced the 2D/3D chip and takes half its room, which the demand menu took):
+ * its needle points north, turning with the board and leaning with its tilt. Pressed, it tilts the
+ * flat board, faces a turned one north, and flattens one that faces north. PLAN §8 counts it in I13.
+ */
+function Compass({ mode, bearing, pitch, low, onPress }: { mode: ViewMode; bearing: number; pitch: number; low: boolean; onPress: () => void }) {
+  const label = compassLabel(mode, bearing, low);
+  return (
+    <button
+      type="button"
+      className="compass"
+      data-chrome="rest"
+      data-testid="compass"
+      data-mode={mode}
+      aria-label={label}
+      title={label}
+      disabled={low}
+      onClick={onPress}
+    >
+      <svg viewBox="-10 -10 20 20" width="18" height="18" aria-hidden="true" style={{ transform: `rotateX(${pitch}deg) rotate(${-bearing}deg)` }}>
+        <path className="compass-north" d="M0 -9 L3.5 0 L-3.5 0 Z" />
+        <path className="compass-south" d="M0 9 L3.5 0 L-3.5 0 Z" />
+      </svg>
+    </button>
   );
 }

@@ -8,8 +8,17 @@ import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, re
 import { simOf, type City } from '../../cities';
 import type { BusModelId, DayCard, DepotSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
+import { LatestAsk } from './latest';
 
 export type SimStatus = 'none' | 'loading' | 'ready' | 'failed';
+
+/** A demand dot the pointer is on: a home dot (its people) or a job dot (its jobs), and where it is. */
+export interface ProbeDot {
+  readonly kind: 'home' | 'job';
+  readonly at: LngLatPair;
+  /** The dot's own people or jobs. */
+  readonly here: number;
+}
 
 export interface Sim {
   readonly status: SimStatus;
@@ -18,8 +27,8 @@ export interface Sim {
   readonly depotLand: readonly (readonly LngLatPair[])[] | null;
   readonly snapshot: Snapshot | null;
   readonly dayCard: DayCard | null;
-  /** The last probe: where, and how many people live within a walk of it. */
-  readonly probe: { readonly at: LngLatPair; readonly people: number } | null;
+  /** The demand dot last asked about: its kind, where it is, its own count, and how many live or work within a walk of it. */
+  readonly probe: (ProbeDot & { readonly within: number }) | null;
   /** The depot rule's verdict where the pointer last was, while placing a depot. */
   readonly depotSite: { readonly at: LngLatPair; readonly site: DepotSiteView } | null;
   /** The fare band of the line last asked about. */
@@ -38,7 +47,8 @@ export interface Sim {
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
   importSave(): void;
   send(message: ToWorker): void;
-  probeAt(at: LngLatPair | null): void;
+  /** Asks about a demand dot; null clears the card and drops any answer still to come. */
+  probeAt(dot: ProbeDot | null): void;
   depotSiteAt(at: LngLatPair | null): void;
   /** Asks for the draft card of these clicks, or of a line extended by them; an empty list clears it. */
   draftFor(clicks: readonly LngLatPair[], model?: BusModelId, extend?: ExtendData): void;
@@ -63,8 +73,7 @@ export function useSim(city: City | undefined): Sim {
   const [slots, setSlots] = useState<Sim['slots']>(null);
   const [setAside, setSetAside] = useState<Sim['setAside']>(null);
   const [loaded, setLoaded] = useState<Sim['loaded']>(null);
-  const probes = useRef(new Map<number, LngLatPair>());
-  const nextProbe = useRef(1);
+  const probes = useRef(new LatestAsk<ProbeDot>());
   // Only the newest answer counts: an older one arriving late is dropped.
   const asked = useRef({ site: 0, draft: 0, band: 0, next: 1 });
   const sites = useRef(new Map<number, LngLatPair>());
@@ -125,9 +134,8 @@ export function useSim(city: City | undefined): Sim {
           }
           else if (m.type === 'day-card') setDayCard(m.card);
           else if (m.type === 'probe') {
-            const at = probes.current.get(m.id);
-            probes.current.delete(m.id);
-            if (at) setProbe({ at, people: m.people });
+            const dot = probes.current.answer(m.id);
+            if (dot) setProbe({ ...dot, within: m.within });
           } else if (m.type === 'failed') {
             errors.report({ severity: 'fatal', source: 'sim', code: 'start-failed', detail: m.problem });
             setStatus('failed');
@@ -158,11 +166,13 @@ export function useSim(city: City | undefined): Sim {
     setRefusal(null);
     worker.current?.postMessage(message);
   }, []);
-  const probeAt = useCallback((at: LngLatPair | null) => {
-    if (!at) return setProbe(null);
-    const id = nextProbe.current++;
-    probes.current.set(id, at);
-    worker.current?.postMessage({ type: 'probe', id, at } satisfies ToWorker);
+  const probeAt = useCallback((dot: ProbeDot | null) => {
+    if (!dot) {
+      probes.current.withdraw();
+      return setProbe(null);
+    }
+    const id = probes.current.ask(dot);
+    worker.current?.postMessage({ type: 'probe', id, at: dot.at, kind: dot.kind } satisfies ToWorker);
   }, []);
   const depotSiteAt = useCallback((at: LngLatPair | null) => {
     if (!at) {

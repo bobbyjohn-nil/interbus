@@ -148,8 +148,8 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('line-card')).toBeVisible();
     // The checklist's last step opens Contracts (the M3 spec, items 11 and 12; exit check 2): the line
     // every 20 minutes serves Longwood, whose offer shows that against its ask, a headway or boardings
-    // a day as the deck dealt it (the M4 spec, item 1); taking it ends the checklist, the Contracts
-    // chip takes its place, and its ring on the map is held.
+    // a day as the deck dealt it (the M4 spec, item 1); taking it ends the checklist and the Contracts
+    // chip takes its place. The map draws no contract rings (D25).
     await page.getByTestId('checklist').click();
     const longwood = page.getByTestId('contracts').locator('[data-landmark="Longwood"]');
     if ((await longwood.getAttribute('data-kind')) === 'headway') {
@@ -164,7 +164,6 @@ test.describe('the line tool on the fixture', () => {
     await expect(longwood).toContainText('0 of 8 days · 16 days left');
     await expect(page.getByTestId('checklist')).toHaveCount(0);
     await expect(page.getByTestId('contracts-chip')).toHaveText('Contracts 1 held');
-    await expect(map).toHaveAttribute('data-contracts', /:1:0/);
     await page.getByRole('button', { name: 'Close' }).click();
     // It runs on from there (overnight, so no buses until about 05:00).
     await setSpeed(page, '600×');

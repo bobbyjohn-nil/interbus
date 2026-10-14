@@ -346,7 +346,8 @@ export type ToWorker =
   /** The page's answer to read-save: the text under that key, or null. */
   | { readonly type: 'save-text'; readonly text: string | null }
   | { readonly type: 'speed'; readonly speed: Speed }
-  | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair }
+  /** How many live (a home dot) or work (a job dot) within a walk of `at`. */
+  | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair; readonly kind: 'home' | 'job' }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'place-depot'; readonly at: LngLatPair }
   | { readonly type: 'found'; readonly name: string; readonly colour: string }
@@ -408,7 +409,8 @@ export type FromWorker =
   | { readonly type: 'loaded'; readonly from: 'slot' | 'file' | 'quarter' | 'new'; readonly load: LoadView }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }
   | { readonly type: 'day-card'; readonly card: DayCard }
-  | { readonly type: 'probe'; readonly id: number; readonly people: number }
+  /** People (a home probe) or jobs (a job probe) within a walk. */
+  | { readonly type: 'probe'; readonly id: number; readonly within: number }
   | { readonly type: 'depot-site'; readonly id: number; readonly site: DepotSiteView }
   | { readonly type: 'line-draft'; readonly id: number; readonly draft: LineDraftView }
   /** Null for a line that runs no buses. */

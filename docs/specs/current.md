@@ -19,7 +19,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 The plan's two checks: "Home → founding → a profitable day" (week 10), and "the scripted pacing run meets §3's targets; Home to a profitable day in ≤8 minutes; your Mac's fps recorded" (week 9). Concretely, on Inner Boston:
 1. **Home to a profitable day.** The preview opens on Home. New game leads to founding, then to a day closed in profit by following the checklist, all in 8 minutes or less.
 2. **The save list.** Saves lists the autosave and the slots, each with its company, game day, cash and lines, and when it was saved. Continue on Home opens the newest.
-3. **Tilt and back.** The 2D/3D chip, `T` and a right-drag all tilt the map, and a drag below 12° snaps it flat. The buildings cross-fade, and nothing in the game changes.
+3. **Tilt and back.** The compass (the 2D/3D chip until D25), `T`, a right-drag and a held double-click all tilt the map, and a drag below 12° snaps it flat. The buildings cross-fade, and nothing in the game changes.
 4. **Your Mac's fps.** The fps readout gives your Mac's 2D and 3D frame rates in stable Chrome. They go in P2's notes.
 5. **The pacing report.** DECISIONS records the scripted run's minutes against §3's targets.
 
@@ -71,7 +71,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 5. **The GPU ladder** (PLAN §6 "No GPU"; never cut). Since Chrome 139 a machine without a usable GPU gets no WebGL at all (PLAN §6's source). No earlier version had a ladder; V1 had only a lost-context card (`Intralines@7af45b1:src/map/MapView.tsx:124-131`).
    - **The rungs:**
      - **Hardware:** as now.
-     - **Low graphics:** 2D only, capped at 30 fps. The 2D/3D chip says why it is off.
+     - **Low graphics:** 2D only, capped at 30 fps. The compass says why it is off.
      - **No WebGL, or a context lost and not restored:** a calm card, "Turn on hardware acceleration to see the map", with Saves and Export intact.
    - **The fps readout:** behind `?fps`, read through `src/platform/`. It records frame times for exit check 4 and the slow-laptop run.
    - **CI:** CI's Chromium renders in software (SwiftShader). Built so (DECISIONS, Measured): software is known by WebGL's caveat or by its renderer's name, since this Chromium grants SwiftShader without the caveat; so the e2e tests run in Low graphics, which tests the probe, and the tilt tests ask `?gpu=full`. `?gpu=none` forces the card. Low graphics' `T` says "the map stays flat" for a moment until week 10's chip says why.
@@ -81,6 +81,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
    - **Prior art:** V1 started tilted with MapLibre's pitch control (`Intralines@7af45b1:src/map/MapView.tsx:83-111`). V3 used drag at 0.25°/px and a 400 ms ease that is instant under reduced motion (`Intralines_City@dc63602:src/render/three/constants.ts:14-49`). Reduced motion makes both the cross-fade and the snap instant.
    - **I13:** the shell at rest late in a game takes 5.96% of the 6% at 1152×720 (DECISIONS, medals). The chip must find its room in the row, measured in its PR. If nothing fits, that becomes the week's question to the owner, with a recommendation.
    - **Built so** (DECISIONS, Measured): the chip sits above the OSM corner, 56×28 px (0.19%); the dock gave 5 px of height for it (icons 18 px, buttons still 39 px tall), so the shell at rest late in a game takes 5.98%. MapLibre runs the buildings' opacity transitions; the faded layer stops drawing after 400 ms. Two fingers pitch through MapLibre's own touch pitch, and settle the same way.
+   - **Since D25** (2026-10-14): the chip is a 26×26 compass that tilts, flattens and faces north, and the demand menu's 26×26 chip takes the other half of its room. A double-click held still flips 2D and 3D, held and dragged tilts; in 3D drags, Q and E turn the board.
 7. **P2's fixes** (Dec 12–13). The notes go in `docs/playtests/`, and their fixes come first in week 10.
 8. **The light style pass** (D8; PLAN §8 rules 1–5). It applies the owner's Nov 8 token pick, keeps the palette and contrast tests green, and puts a side-by-side with V1 in the milestone's notes.
 9. **The slow-laptop run** (PLAN §6 budgets): 2D must hold ≥30 fps on the slowest machine with 200 buses, and 3D at zoom 17, pitch 60 must hold ≥30. Under that, PLAN §10's trigger applies in this order: a 3D zoom floor of 14.5, no extrusion gradient, pitch capped at 50°.
@@ -119,7 +120,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 | k after tuning | 1.0–1.8 (now 1.2) | I10 |
 | Home and the save list in the menu chunk | within 200 KiB gzip | PLAN §6 |
 | Low graphics | 30 fps cap, 2D only | PLAN §6 |
-| I13 with the 2D/3D chip | ≤6% at rest at 1152×720 late in a game; 0.04% is left today | Item 6 |
+| I13 with the compass and the demand chip | ≤6% at rest at 1152×720 late in a game; 0.04% is left today | Item 6 |
 
 ## Tests that must be green (each shown failing with the old bug restored, [TS-04](../history/lessons-ledger.md))
 
@@ -128,7 +129,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
   - the best profitable first line fits the starting cash;
   - the best four-bus line costs ≥1.15× it;
   - k stays in 1.0–1.8.
-- **I13** at rest and with a panel, at all three sizes, with Home, the save list and the 2D/3D chip.
+- **I13** at rest and with a panel, at all three sizes, with Home, the save list, the compass and the demand menu.
 - **D2:** the same commands give the same fingerprint, whether flat, tilted or in Low graphics. Built so: `e2e/modes.spec.ts` tilts and flattens a session in full graphics while time runs and replays it in Node to the same fingerprint; `e2e/session.spec.ts` does the same in Low graphics.
 - **I7** for any envelope change the save list needs.
 - **e2e (I15):**

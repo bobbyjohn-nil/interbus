@@ -6,13 +6,17 @@ import {
   buildingsLayer,
   buildingVisibility,
   cameraFor,
+  draggedBearing,
   draggedPitch,
+  holdOutcome,
   isTiltKey,
   MAX_PITCH,
   MIN_ZOOM,
+  normalBearing,
   settled,
   TILT_PITCH,
   toggled,
+  viewKey,
   type KeyPress,
 } from './tilt';
 
@@ -30,8 +34,8 @@ describe('raw tilt', () => {
   it('T tilts to 50° and back to flat', () => {
     expect(toggled('2d')).toBe('3d');
     expect(toggled(toggled('2d'))).toBe('2d');
-    expect(cameraFor('3d', 15)).toEqual({ pitch: TILT_PITCH, zoom: 15 });
-    expect(cameraFor('2d', 15)).toEqual({ pitch: 0, zoom: 15 });
+    expect(cameraFor('3d', 15)).toEqual({ pitch: TILT_PITCH, zoom: 15, bearing: 0 });
+    expect(cameraFor('2d', 15)).toEqual({ pitch: 0, zoom: 15, bearing: 0 });
     expect(TILT_PITCH).toBeLessThanOrEqual(MAX_PITCH);
   });
 
@@ -86,14 +90,60 @@ describe('drag, snap and cross-fade', () => {
   });
 
   it('snaps flat below 12°, and settles in 3D at 25–60° otherwise', () => {
-    expect(settled(8)).toEqual({ mode: '2d', pitch: 0 });
-    expect(settled(11.9)).toEqual({ mode: '2d', pitch: 0 });
-    expect(settled(12)).toEqual({ mode: '3d', pitch: 25 });
-    expect(settled(40)).toEqual({ mode: '3d', pitch: 40 });
+    expect(settled(8)).toEqual({ mode: '2d', pitch: 0, bearing: 0 });
+    expect(settled(11.9)).toEqual({ mode: '2d', pitch: 0, bearing: 0 });
+    expect(settled(12)).toEqual({ mode: '3d', pitch: 25, bearing: 0 });
+    expect(settled(40)).toEqual({ mode: '3d', pitch: 40, bearing: 0 });
   });
 
   it('fades the mode’s buildings in and the other’s out', () => {
     expect(buildingOpacity('2d')).toEqual({ buildings: 1, 'buildings-3d': 0 });
     expect(buildingOpacity('3d')).toEqual({ buildings: 0, 'buildings-3d': 1 });
+  });
+});
+
+// The owner's initial playtest (D25): "it would be nice to just hold double click down and be able to
+// switch. you also can't rotate when in 3d mode, you can only look from the south to north". Shown
+// failing (TS-04) with the old cameraFor and settled, which carried no bearing, and with no hold.
+describe('double-click and hold, and turning in 3D', () => {
+  it('reads a held double-click: a drag once it moves 3 px, a flip once still for half a second, else the zoom', () => {
+    expect(holdOutcome(1, 120)).toBe('zoom');
+    expect(holdOutcome(3, 100)).toBe('drag');
+    expect(holdOutcome(2, 500)).toBe('toggle');
+    expect(holdOutcome(1, 499)).toBe('zoom');
+    expect(holdOutcome(10, 900)).toBe('drag');
+  });
+
+  it('turns 0.8° a pixel sideways, all the way round', () => {
+    expect(draggedBearing(0, 500, 600)).toBe(80);
+    expect(draggedBearing(170, 0, 25)).toBe(-170);
+    expect(draggedBearing(-170, 25, 0)).toBe(170);
+    expect(normalBearing(360)).toBe(0);
+    expect(normalBearing(-180)).toBe(180);
+    expect(Object.is(normalBearing(-0), 0)).toBe(true);
+  });
+
+  it('settles flat facing north, and in 3D keeps the turn unless it is within 7° of north', () => {
+    expect(settled(8, 135)).toEqual({ mode: '2d', pitch: 0, bearing: 0 });
+    expect(settled(40, 5)).toEqual({ mode: '3d', pitch: 40, bearing: 0 });
+    expect(settled(40, -6.9)).toEqual({ mode: '3d', pitch: 40, bearing: 0 });
+    expect(settled(40, 135)).toEqual({ mode: '3d', pitch: 40, bearing: 135 });
+    expect(settled(40, 190)).toEqual({ mode: '3d', pitch: 40, bearing: -170 });
+  });
+
+  it('flattens to north and tilts keeping the turn', () => {
+    expect(cameraFor('2d', 15, 135).bearing).toBe(0);
+    expect(cameraFor('3d', 15, 135).bearing).toBe(135);
+  });
+
+  it('reads T, N, Q and E with the T key’s guards', () => {
+    expect(viewKey(press({ key: 'n' }))).toBe('north');
+    expect(viewKey(press({ key: 'Q' }))).toBe('left');
+    expect(viewKey(press({ key: 'e' }))).toBe('right');
+    expect(viewKey(press({ key: 't' }))).toBe('tilt');
+    expect(viewKey(press({ key: 'Enter' }))).toBeNull();
+    expect(viewKey(press({ key: 'e', metaKey: true }))).toBeNull();
+    expect(viewKey(press({ key: 'q', repeat: true }))).toBeNull();
+    expect(viewKey(press({ key: 'n', target: { tagName: 'INPUT' } as unknown as EventTarget }))).toBeNull();
   });
 });
