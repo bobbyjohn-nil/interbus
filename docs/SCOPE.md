@@ -24,11 +24,11 @@ and keep the company solvent while the city offers contracts and grades you ever
 
 ## Out of v1.0 (D9)
 
-Procedural cities and a second city · a public web release (Steam is the release, D4) · live data
-fetches and third-party tiles · a second renderer · company type, lobbying, staff, fuel, schedule
-assistant · per-bus wear, Mk tiers, undo across time · existing transit of any kind (D17) ·
-pedestrians, dioramas, landmark models · Steamworks SDK, achievements, cloud saves (full release) ·
-audio · phones.
+Procedural cities and a second city · a public web release or a Mac App Store build (Steam is the
+only store, D4, D21 (a)) · live data fetches and third-party tiles · a second renderer · company
+type, lobbying, staff, fuel, schedule assistant · per-bus wear, Mk tiers, undo across time ·
+existing transit of any kind (D17) · pedestrians, dioramas, landmark models · Steamworks SDK,
+achievements, cloud saves (full release) · audio · phones.
 
 ## Milestones
 
@@ -41,7 +41,7 @@ audio · phones.
 | Sun Dec 6 | No new game systems after this |
 | Sun Dec 20 | Tagged `prototype` (not a version, D16) |
 | Sun Feb 7 2027 | v1.0 complete on the preview (hard deadline Feb 28) |
-| Jun 14–21 2027 | Free Steam demo at Next Fest (D18); full release proposed Tue Jul 27 |
+| Jun 14–21 2027 | Free Steam demo at Next Fest (D18); full release Tue Jun 29 (D22) |
 
 ## Never cut
 

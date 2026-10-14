@@ -4,7 +4,7 @@ The game's code is under [LICENSE](LICENSE): © Miticept Studios, all rights res
 
 ## The city files
 
-Boston comes to the game as two files, both published under the Open Database License (ODbL) 1.0 as release assets of this repository, with the bake that makes them in `tools/bake/` and its pinned, hashed inputs in `cities/boston/sources.lock.json` (D14): the map file (`cities/index.json`'s `tiles`) and the sim file (its `sim`).
+Boston comes to the game as two files, both published under the Open Database License (ODbL) 1.0 as public release assets (of this repository until it goes private a week before the store page is public, then of a public home set up before that, D20), with the bake that makes them in `tools/bake/` and its pinned, hashed inputs in `cities/boston/sources.lock.json` (D14): the map file (`cities/index.json`'s `tiles`) and the sim file (its `sim`).
 
 | Source | What the game takes from it | Licence | Credit |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Boston comes to the game as two files, both published under the Open Database Li
 
 ## The art
 
-The studio's own art, once it lands, is under the licence `art/LICENSE.md` names when D20's choice is made; until then it stays all rights reserved (D20).
+The studio's own art, once it lands, is under CC BY 4.0 with the credit "Miticept Studios", named in `art/LICENSE.md` (D20); until that file lands it stays all rights reserved.
 
 ## Before a Steam build
 
