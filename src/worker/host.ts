@@ -15,7 +15,11 @@ import { setStopTier } from '../sim/commands/setStopTier';
 import { removeStop } from '../sim/commands/removeStop';
 import { extendLine } from '../sim/commands/extendLine';
 import { insertStop } from '../sim/commands/insertStop';
+import { placeStop } from '../sim/commands/placeStop';
+import { routeVerdict, setRoute } from '../sim/commands/setRoute';
+import { takeDownStop } from '../sim/commands/takeDownStop';
 import { checkExtend, checkInsert } from '../sim/rules/route';
+import { checkPlaceStop } from '../sim/rules/stop';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
@@ -47,7 +51,7 @@ import { eventDaysLeft, eventPhase } from '../sim/rules/event';
 import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { ContractView, DayCard, DepotSiteView, Dots, EventView, ExtendData, FinanceView, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, FinanceView, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
 import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
 import { SPEED_RATES } from '../sim/rules/speed';
@@ -84,7 +88,23 @@ export interface SessionFile {
 }
 
 /** Commands a session records: everything that changes the game or what undo would do. Loads and restarts begin a new session instead. */
-const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set(['speed', 'place-depot', 'create-line', 'set-headways', 'set-model', 'set-fare', 'set-stop-tier', 'remove-stop', 'extend-line', 'insert-stop', 'accept-contract', 'undo']);
+const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set([
+  'speed',
+  'place-depot',
+  'place-stop',
+  'take-down-stop',
+  'create-line',
+  'set-headways',
+  'set-model',
+  'set-fare',
+  'set-stop-tier',
+  'remove-stop',
+  'extend-line',
+  'insert-stop',
+  'set-route',
+  'accept-contract',
+  'undo',
+]);
 
 /** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
@@ -255,7 +275,15 @@ function extendDraftView(world: World, extend: ExtendData, clicks: readonly LngL
   return viewOfDraft(world, verdict.draft, verdict.extraBuses, refusal);
 }
 
-function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: RefusalView | null, detour: LineDraftView['detour'] = null): LineDraftView {
+/** The editor's card for a line's whole route (D25): the line as it would run, priced at what the edit adds, with the stops it takes down. */
+function routeDraftView(world: World, lineId: number, points: readonly LngLatPair[]): LineDraftView {
+  const verdict = routeVerdict(world, lineId as LineId, points);
+  if (!verdict) return { ...draftView(world, points, FOUNDING_HEADWAYS, 'sparrow'), refusal: { reason: 'no_such_line' } };
+  const refusal = verdict.ok ? null : refusalView(verdict);
+  return viewOfDraft(world, verdict.draft, verdict.extraBuses, refusal, null, { removed: verdict.removed.map((r) => r.stopId), refundCents: verdict.refundCents });
+}
+
+function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: RefusalView | null, detour: LineDraftView['detour'] = null, edit: LineDraftView['edit'] = null): LineDraftView {
   const stops = draft.stops.map((s) => s.at);
   return {
     stops: draft.stops.map((s) => ({ at: [...toLngLat(world.city.frame, s.at)] as LngLatPair, joins: s.kind === 'join' ? s.stopId : null })),
@@ -269,6 +297,7 @@ function viewOfDraft(world: World, draft: LineDraft, buses: number, refusal: Ref
     busesCents: draft.busesCents,
     priceCents: draft.priceCents,
     refusal,
+    edit,
     detour,
   };
 }
@@ -600,6 +629,36 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           ? { ok: true, streetM: Math.round(verdict.streetM), priceCents: verdict.priceCents }
           : { ok: false, reason: verdict.reason, ...(verdict.limitM === undefined ? {} : { limitM: verdict.limitM }), ...(verdict.nearestM === undefined ? {} : { nearestM: Math.round(verdict.nearestM) }) };
         post({ type: 'depot-site', id: message.id, site });
+      } else if (message.type === 'stop-site') {
+        const verdict = checkPlaceStop(lineDraftContext(world), toXY(world.city.frame, message.at));
+        const site: StopSiteView = verdict.ok
+          ? { ok: true, at: [...toLngLat(world.city.frame, verdict.at)] as LngLatPair, streetM: Math.round(verdict.distM), priceCents: verdict.priceCents }
+          : { ok: false, reason: verdict.reason, ...(verdict.limitM === undefined ? {} : { limitM: verdict.limitM }), ...(verdict.stopId === undefined ? {} : { stopId: verdict.stopId }), ...(verdict.shortCents === undefined ? {} : { shortCents: verdict.shortCents }) };
+        post({ type: 'stop-site', id: message.id, site });
+      } else if (message.type === 'place-stop') {
+        const result = command({ command: 'place-stop', subject: `Stop ${world.state.nextIds.stop}` }, () => placeStop(world!, message.at));
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines(); // the stops' views
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'take-down-stop') {
+        const result = command({ command: 'take-down-stop', subject: `Stop ${message.stopId}` }, () => takeDownStop(world!, message.stopId as StopId));
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines(); // the stops' views
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'set-route') {
+        const result = command({ command: 'set-route', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setRoute(world!, message.lineId as LineId, message.points));
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'place-depot') {
         const result = command({ command: 'place-depot', subject: `Depot ${world.state.nextIds.depot}` }, () => placeDepot(world!, message.at));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
@@ -617,7 +676,12 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'line-draft') {
-        const draft = message.extend ? extendDraftView(world, message.extend, message.clicks) : draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow');
+        const draft =
+          message.route !== undefined
+            ? routeDraftView(world, message.route, message.clicks)
+            : message.extend
+              ? extendDraftView(world, message.extend, message.clicks)
+              : draftView(world, message.clicks, message.headways ?? FOUNDING_HEADWAYS, message.model ?? 'sparrow');
         post({ type: 'line-draft', id: message.id, draft });
       } else if (message.type === 'create-line') {
         const result = command({ command: 'create-line', subject: `Line ${world.state.nextIds.line}` }, () =>

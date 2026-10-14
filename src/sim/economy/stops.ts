@@ -4,7 +4,7 @@
 // what its paid boardings pay at each line's fare and subsidy (a change pays nothing; its trip paid
 // its first line, EC-04), less each line's day of costs shared by boardings, or evenly over its
 // stops when nobody boards, and less its own upkeep (config/stops.ts; D25). Flagged Quiet under 5
-// boardings a day and Loss under −$20 a day.
+// boardings a day where a line calls, and Loss under −$20 a day.
 import { stopUpkeepCents } from '../config/stops';
 import type { StopId } from '../core/ids';
 import { subsidyCents } from '../rules/fare';
@@ -24,8 +24,8 @@ export interface StopDay {
 }
 
 export function stopDays(world: World): StopDay[] {
-  const sums = new Map<StopId, { boardings: number; alightings: number; transfers: number; net: number }>(
-    world.state.stops.map((s) => [s.id, { boardings: 0, alightings: 0, transfers: 0, net: -stopUpkeepCents(s.tier) }]),
+  const sums = new Map<StopId, { boardings: number; alightings: number; transfers: number; net: number; served: boolean }>(
+    world.state.stops.map((s) => [s.id, { boardings: 0, alightings: 0, transfers: 0, net: -stopUpkeepCents(s.tier), served: false }]),
   );
   for (const line of world.state.lines) {
     const demand = world.assignment.lines.get(line.id);
@@ -39,6 +39,7 @@ export function stopDays(world: World): StopDay[] {
       if (!sum) return;
       const boardings = demand?.boardingsByStop[q] ?? 0;
       const transfers = demand?.transfersByStop[q] ?? 0;
+      sum.served = true;
       sum.boardings += boardings;
       sum.alightings += demand?.alightingsByStop[q] ?? 0;
       sum.transfers += transfers;
@@ -47,6 +48,6 @@ export function stopDays(world: World): StopDay[] {
   }
   return [...sums].map(([id, s]) => {
     const netCents = Math.round(s.net);
-    return { id, boardings: s.boardings, alightings: s.alightings, transfers: s.transfers, netCents, ...stopFlags(s.boardings, netCents) };
+    return { id, boardings: s.boardings, alightings: s.alightings, transfers: s.transfers, netCents, ...stopFlags(s.boardings, netCents, s.served) };
   });
 }

@@ -1,8 +1,9 @@
 // Route edits (the M3 spec, item 14): one predicate each for the card and the command (GD-05).
 // - Remove: a line gives up a stop and keeps at least MIN_LINE_STOPS; the streets that joined its
 //   neighbours through it still join them, so no route is lost. A stop no other line calls at goes
-//   with it and gives back half of what it and its fittings cost, as a Refunds row: no stop stands
-//   without a line, as V2's orphans did.
+//   with it and gives back half of what it and its fittings cost, as a Stops sold back row: an edit
+//   never leaves a stop standing unnoticed, as V2's orphans did. A stop stands alone only where the
+//   player placed it so (D25).
 // - Extend: clicks beyond either end become new stops or join standing ones, and the whole line
 //   must pass the line rule at its model and headways. It buys the new stops and the buses its
 //   longer cycle needs beyond those it has.
@@ -11,6 +12,9 @@
 //   the line rule as for an extension, and a detour over DETOUR_WARN_SHARE of the leg warns but never
 //   blocks (V2's design, `Intralines_City_dep@archive/intralines-city-v1:Gaming/docs/design/
 //   route-editing.md:20-30`).
+// - Route (D25): the line's whole list of stops set at once, reordered, added to and taken from, by
+//   the same rule as an extension; a stop it leaves comes down as Remove's does.
+// - Take down (D25): a stop placed on its own, no line calling there, comes down for half its cost.
 import { STOP_COST_CENTS } from '../config/economy';
 import type { BusModel } from '../config/fleet';
 import { DETOUR_WARN_SHARE, INSERT_REACH_M, MIN_LINE_STOPS } from '../config/lines';
@@ -149,4 +153,68 @@ export function checkInsert(
   }
   if (draft.priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { ...insertion, shortCents: draft.priceCents - spendableCents(ctx.cashCents) });
   return ok(insertion);
+}
+
+export type TakeDownRefusal = 'stop_in_use';
+
+/** A stop no line calls at, taken down: half of what it and its fittings cost comes back, as when the last line leaves it. */
+export function checkTakeDownStop(stop: { readonly tier: StopTier }, linesHere: number): Result<{ readonly refundCents: number }, TakeDownRefusal, { limit?: number }> {
+  if (linesHere > 0) return refuse('stop_in_use', { limit: linesHere });
+  return ok({ refundCents: Math.floor(stopCostCents(stop.tier) / 2) });
+}
+
+export type RouteRefusal = LineRefusal | 'no_change';
+
+/** A route edit as far as it resolves: the whole line as it would run, what it adds, and the stops it leaves behind. */
+export interface RouteEdit extends LineExtension {
+  /** The line's stops the edit leaves that no other line calls at: each comes down, half its cost back. */
+  readonly removed: readonly { readonly stopId: number; readonly refundCents: number }[];
+  readonly refundCents: number;
+}
+
+export type RouteVerdict = Result<
+  RouteEdit,
+  RouteRefusal,
+  RouteEdit & { readonly at?: number; readonly limitM?: number; readonly limitSeconds?: number; readonly room?: number; readonly shortCents?: number }
+>;
+
+/**
+ * A line's whole route set at once (D25: "an expanded menu there you can reorder, add, and remove
+ * stops"): `points` (frame metres) in running order, each the place of a stop standing, which joins
+ * it, or a click for a new one. The whole line passes the line rule at its model and headways, as
+ * an extension does; it buys the new stops and any bus the longer cycle needs, keeps the buses a
+ * shorter one leaves spare, and a stop it leaves that no other line calls at comes down, half its
+ * cost back, as Remove does. The cash check is on what it costs less what comes back.
+ */
+export function checkRoute(
+  ctx: LineDraftContext,
+  line: {
+    readonly stopIds: readonly number[];
+    readonly buses: number;
+    readonly headways: Headways;
+    readonly model: BusModel;
+  },
+  points: readonly XY[],
+  stopsHere: (stopId: number) => { readonly tier: StopTier; readonly otherLines: number } | null,
+): RouteVerdict {
+  const whole = checkLineDraft({ ...ctx, busesOwned: ctx.busesOwned - line.buses, cashCents: Number.MAX_SAFE_INTEGER }, points, line.headways, line.model);
+  const extraBuses = Math.max(0, whole.draft.buses - line.buses);
+  const busesCents = extraBuses * line.model.priceCents;
+  const draft: LineDraft = { ...whole.draft, busesCents, priceCents: whole.draft.stopsCents + busesCents };
+  const kept = new Set(whole.draft.stops.flatMap((s) => (s.kind === 'join' ? [s.stopId] : [])));
+  const removed = line.stopIds.flatMap((stopId) => {
+    const here = kept.has(stopId) ? null : stopsHere(stopId);
+    return here && here.otherLines === 0 ? [{ stopId, refundCents: Math.floor(stopCostCents(here.tier) / 2) }] : [];
+  });
+  const refundCents = removed.reduce((s, r) => s + r.refundCents, 0);
+  const edit: RouteEdit = { draft, extraBuses, removed, refundCents };
+  if (!whole.ok) {
+    const { at, limitM, limitSeconds, room } = whole;
+    return refuse(whole.reason, { ...edit, ...Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined)) });
+  }
+  const same = whole.draft.stops.length === line.stopIds.length && whole.draft.stops.every((s, k) => s.kind === 'join' && s.stopId === line.stopIds[k]);
+  if (same) return refuse('no_change', edit);
+  const net = draft.priceCents - refundCents;
+  if (net > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { ...edit, shortCents: net - spendableCents(ctx.cashCents) });
+  return ok(edit);
 }

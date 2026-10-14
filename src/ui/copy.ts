@@ -42,6 +42,10 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   line_keeps_two: (r) => `A line keeps at least ${r.limit ?? 2} stops`,
   no_new_stops: () => 'Click the map beyond the line',
   no_leg_near: (r) => `Click within ${r.limitM ?? 300} m of the line`,
+  no_change: () => 'The route is as it was',
+  // Stops placed alone (sim/rules/stop.ts, sim/rules/route.ts; D25)
+  stop_near: (r) => `A stop stands within${metres(r.limitM)}`,
+  stop_in_use: (r) => (r.limit === 1 ? 'A line still stops here' : `${r.limit ?? 2} lines still stop here`),
   // Undo (sim/undo.ts)
   time_has_run: () => 'Time has passed since then',
   nothing_to_undo: () => 'Nothing to undo',
@@ -84,6 +88,9 @@ export function loadedText(loaded: { readonly from: 'slot' | 'file' | 'quarter';
 /** What Undo would take back, named (the M3 spec, item 7): "Create Line 2", "Line 2’s fare". A change is named by what it changed, without "Change", which would widen the chip past I13 (D25's copy pass). */
 const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'place-depot': (s) => `Place ${s}`,
+  'place-stop': (s) => `Place ${s}`,
+  'take-down-stop': (s) => `Take down ${s}`,
+  'set-route': (s) => `${s}’s route`,
   'create-line': (s) => `Create ${s}`,
   'extend-line': (s) => `Extend ${s}`,
   'insert-stop': (s) => `Insert a stop on ${s}`,

@@ -77,6 +77,8 @@ export interface LineDraftView {
   readonly busesCents: number;
   readonly priceCents: number;
   readonly refusal: RefusalView | null;
+  /** Editing a route (D25): the line's stops it leaves that no other line calls at, which come down, and what they give back; null otherwise. */
+  readonly edit: { readonly removed: readonly number[]; readonly refundCents: number } | null;
   /** Inserting a stop: the street metres it adds to its leg and that as a share of the leg, with a warning over 15% (sim/rules/route.ts); null otherwise. */
   readonly detour: { readonly addedM: number; readonly share: number; readonly warn: boolean } | null;
 }
@@ -175,6 +177,11 @@ export interface FareBandView {
 }
 
 /** The depot rule's verdict for a spot, as the cursor card reads it (sim/rules/depot.ts). */
+/** Where Place stop would put a stop (D25): the street it stands on and its price, or why not, naming a stop already standing near. */
+export type StopSiteView =
+  | { readonly ok: true; readonly at: LngLatPair; readonly streetM: number; readonly priceCents: number }
+  | { readonly ok: false; readonly reason: string; readonly limitM?: number; readonly stopId?: number; readonly shortCents?: number };
+
 export type DepotSiteView =
   | { readonly ok: true; readonly streetM: number; readonly priceCents: number }
   | { readonly ok: false; readonly reason: string; readonly limitM?: number; readonly nearestM?: number };
@@ -356,8 +363,15 @@ export type ToWorker =
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair; readonly kind: 'home' | 'job' }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
   | { readonly type: 'place-depot'; readonly at: LngLatPair }
+  /** Place stop (D25): where a stop would stand, and placing it; taking down a stop no line calls at. */
+  | { readonly type: 'stop-site'; readonly id: number; readonly at: LngLatPair }
+  | { readonly type: 'place-stop'; readonly at: LngLatPair }
+  | { readonly type: 'take-down-stop'; readonly stopId: number }
   | { readonly type: 'found'; readonly name: string; readonly colour: string }
-  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId; readonly extend?: ExtendData }
+  /** A draft's card: a new line's clicks, an extension's, or with `route`, a line's whole route as the editor has it (D25). */
+  | { readonly type: 'line-draft'; readonly id: number; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId; readonly extend?: ExtendData; readonly route?: number }
+  /** Sets a line's whole route: each point a stop standing, which it joins, or a click for a new one (D25). */
+  | { readonly type: 'set-route'; readonly lineId: number; readonly points: readonly LngLatPair[] }
   | { readonly type: 'extend-line'; readonly lineId: number; readonly end: 'start' | 'end'; readonly clicks: readonly LngLatPair[] }
   /** Inserts a stop where the click is, into the leg of the line nearest it (the M4 spec, item 4). */
   | { readonly type: 'insert-stop'; readonly lineId: number; readonly at: LngLatPair }
@@ -418,6 +432,7 @@ export type FromWorker =
   /** People (a home probe) or jobs (a job probe) within a walk. */
   | { readonly type: 'probe'; readonly id: number; readonly within: number }
   | { readonly type: 'depot-site'; readonly id: number; readonly site: DepotSiteView }
+  | { readonly type: 'stop-site'; readonly id: number; readonly site: StopSiteView }
   | { readonly type: 'line-draft'; readonly id: number; readonly draft: LineDraftView }
   /** Null for a line that runs no buses. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number; readonly band: FareBandView | null }
