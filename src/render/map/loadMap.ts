@@ -28,6 +28,7 @@ import {
   MAX_PITCH,
   MIN_ZOOM,
   normalBearing,
+  resettle,
   settled,
   toggled,
   type ViewMode,
@@ -51,7 +52,7 @@ function pmtilesProtocol(): Protocol {
 export interface MountedMap {
   readonly map: MapLibreMap;
   readonly tileReads: 'range' | 'whole';
-  /** Tilts or flattens the board (tilt.ts), to `pitch` or the mode's own; call it only once the style has loaded. Low graphics stays flat. */
+  /** Tilts or flattens the board (tilt.ts), to `pitch` or the mode's own; before the style has loaded the buildings follow once it has. Low graphics stays flat. */
   setMode(mode: ViewMode, pitch?: number): void;
   /** The mode a drag, a held double-click or a two-finger pitch settled on, when it changed (tilt.ts settled). */
   onModeChange(listener: (mode: ViewMode) => void): void;
@@ -161,6 +162,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   });
 
   let mode: ViewMode = '2d';
+  // The pitch the last change of mode went to: a 3D one cut short finishes there (resettle, below).
+  let aimPitch = 0;
   map.on('moveend', (event) => {
     // 3D raises the zoom floor only once its own ease has ended (or a drag cut it short): raising it
     // sooner would jump the camera and stop the ease short of 50°. MapLibre copies easeTo's event
@@ -172,6 +175,9 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // MapLibre runs the opacity transitions, then the faded one stops. Reduced motion swaps at once.
   let fadeTimer: number | undefined;
   const fadeBuildings = (next: ViewMode) => {
+    // Before the style has loaded, or while the graphics are lost, there is no style to fade: the
+    // buildings follow the mode once it has loaded (below).
+    if (!loaded) return;
     const duration = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : CROSS_FADE_MS;
     const opacity = buildingOpacity(next);
     window.clearTimeout(fadeTimer);
@@ -182,8 +188,17 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     map.setPaintProperty(BUILDINGS_2D, 'fill-opacity', opacity[BUILDINGS_2D]);
     map.setPaintProperty(BUILDINGS_3D, 'fill-extrusion-opacity', opacity[BUILDINGS_3D]);
     fadeTimer = window.setTimeout(() => {
-      for (const [id, visibility] of Object.entries(buildingVisibility(next))) map.setLayoutProperty(id, 'visibility', visibility);
+      if (loaded) for (const [id, visibility] of Object.entries(buildingVisibility(next))) map.setLayoutProperty(id, 'visibility', visibility);
     }, duration);
+  };
+  // The buildings as `next` shows them, at once, for a style that comes back after a loss: a cross-fade
+  // there would make the extrusions visible for its length and build them in every tile for nothing.
+  const setBuildings = (next: ViewMode) => {
+    window.clearTimeout(fadeTimer);
+    const opacity = buildingOpacity(next);
+    map.setPaintProperty(BUILDINGS_2D, 'fill-opacity', opacity[BUILDINGS_2D]);
+    map.setPaintProperty(BUILDINGS_3D, 'fill-extrusion-opacity', opacity[BUILDINGS_3D]);
+    for (const [id, visibility] of Object.entries(buildingVisibility(next))) map.setLayoutProperty(id, 'visibility', visibility);
   };
   // Two fingers turn the board in 3D only: 2D always faces north (D25).
   const touchTurns = (on: boolean) => (on ? map.touchZoomRotate.enableRotation() : map.touchZoomRotate.disableRotation());
@@ -191,14 +206,17 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     if (rung === 'low' && next === '3d') return;
     if (next === mode) {
       if (pitch !== undefined || bearing !== undefined) map.easeTo({ ...(pitch === undefined ? {} : { pitch }), ...(bearing === undefined ? {} : { bearing }), duration: 300 });
+      if (pitch !== undefined) aimPitch = pitch;
       return;
     }
     mode = next;
     fadeBuildings(next);
     touchTurns(next === '3d');
     map.setMinZoom(MIN_ZOOM['2d']);
+    const to = { ...cameraFor(next, map.getZoom(), bearing ?? map.getBearing()), ...(pitch === undefined ? {} : { pitch }) };
+    aimPitch = to.pitch;
     // MapLibre jumps instead of easing when the system asks for reduced motion.
-    map.easeTo({ ...cameraFor(next, map.getZoom(), bearing ?? map.getBearing()), ...(pitch === undefined ? {} : { pitch }), duration: 600 }, { [TILT_MOVE]: next });
+    map.easeTo({ ...to, duration: 600 }, { [TILT_MOVE]: next });
   };
 
   // Released, a drag or a two-finger pitch settles: flat and facing north below 12°, else 3D at
@@ -279,10 +297,26 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   map.on('pitchend', (e) => {
     if (e.originalEvent && 'touches' in e.originalEvent) settle(map.getPitch(), map.getBearing());
   });
+  // A move that cuts a mode change's ease short (Q, E, N, a pan, a zoom) leaves the camera between the
+  // modes: 3D flat, or 2D tilted and turned. Once the camera rests, the change finishes (resettle).
+  // MapLibre ends the cut-short move just before the new one starts, so the check waits for the next
+  // frame, by which the new move is under way; started in the frame that ends the last move, the
+  // finishing ease keeps that frame from reporting the map idle.
+  let resting = false;
+  map.on('moveend', () => {
+    if (resting) return;
+    resting = true;
+    map.once('render', () => {
+      resting = false;
+      const fix = press?.dragging || map.isMoving() ? null : resettle(mode, map.getPitch(), map.getBearing(), aimPitch);
+      if (fix) map.easeTo({ ...fix, duration: 300 }, { [TILT_MOVE]: mode });
+    });
+  });
 
-  // The game's layers go on once the style has loaded; data set before then waits.
+  // The game's layers go on once the style has loaded; data set before then waits, and so does data set
+  // while the graphics are lost (below).
   let loaded = false;
-  const pending: {
+  let pending: {
     dots?: Dots;
     lines?: { lines: readonly LineView[]; stops: readonly StopView[] };
     depotLand?: readonly (readonly LngLatPair[])[];
@@ -295,19 +329,49 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let shownKinds: DotKinds = { home: true, job: true };
   // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
   const fleet = new Fleet();
+  const addVehicles = () => map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
+  const flush = () => {
+    loaded = true;
+    const waiting = pending;
+    pending = {};
+    if (waiting.dots) setDots(map, waiting.dots);
+    if (waiting.lines) setLines(map, waiting.lines.lines, waiting.lines.stops);
+    if (waiting.depotLand) setDepotLand(map, waiting.depotLand);
+    if (waiting.depots) setDepots(map, waiting.depots);
+    if (waiting.tint !== undefined) setTint(map, waiting.tint);
+    if (waiting.draft !== undefined) setDraft(map, waiting.draft);
+    if (waiting.dotKinds) setDotKinds(map, waiting.dotKinds);
+    if (waiting.event !== undefined) setEvent(map, waiting.event);
+  };
+  let overlaid = false;
   map.once('load', () => {
     performance.mark(MAP_LOADED_MARK);
     addOverlays(map, GAME_LIGHT, LIGHT);
-    map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
-    loaded = true;
-    if (pending.dots) setDots(map, pending.dots);
-    if (pending.lines) setLines(map, pending.lines.lines, pending.lines.stops);
-    if (pending.depotLand) setDepotLand(map, pending.depotLand);
-    if (pending.depots) setDepots(map, pending.depots);
-    if (pending.tint !== undefined) setTint(map, pending.tint);
-    if (pending.draft !== undefined) setDraft(map, pending.draft);
-    if (pending.dotKinds) setDotKinds(map, pending.dotKinds);
-    if (pending.event !== undefined) setEvent(map, pending.event);
+    addVehicles();
+    overlaid = true;
+    flush();
+    // A drag or a two-finger pitch may have settled in 3D while the style loaded: its buildings stand up now.
+    if (mode === '3d') fadeBuildings(mode);
+  });
+  // A lost context takes MapLibre's style with it, and until one is back the game's data waits as
+  // before the first load, so nothing pressed meanwhile reaches a style that is not there. MapLibre
+  // 6.11.2 (src/ui/map.ts _contextRestored) calls setStyle with the style it kept at the loss before
+  // it fires 'webglcontextrestored', and that style loads a frame later: it holds the game's layers as
+  // they were, but no custom layer, so once it loads the buses' layer goes back on and the buildings
+  // follow the mode. A style lost again before it had loaded is not kept, so the map comes back with
+  // none: the board stays blank, and MapView keeps the card with Reload.
+  const restore = () => {
+    addVehicles();
+    flush();
+    setBuildings(mode);
+  };
+  // A restore whose style was lost again before it loaded never fires: its listener goes with the loss.
+  map.on('webglcontextlost', () => {
+    loaded = false;
+    map.off('style.load', restore);
+  });
+  map.on('webglcontextrestored', () => {
+    if (overlaid && map.style) map.once('style.load', restore);
   });
 
   // Where Q and E are turning the board to, until the turn ends.

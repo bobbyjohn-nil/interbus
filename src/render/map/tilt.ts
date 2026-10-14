@@ -2,10 +2,10 @@
 // again flattens it; a right-drag (or Ctrl-drag, or a double-click held and dragged) pitches it, and
 // released below 12° it snaps flat (the M5 spec, item 6). A double-click held still for half a second
 // flips 2D and 3D; a quick one still zooms (D25). In 3D the same drags turn the board sideways, and Q
-// and E turn it; N or the compass faces north. 2D always faces north. The buildings cross-fade once per
-// mode change, never per frame (RN-04). The camera never changes a sim number, a save byte or a rule
-// verdict (CLAUDE.md). It imports nothing, so the menu chunk that reads the keys stays free of the
-// style (I14).
+// and E turn it; N or the compass faces north. 2D always faces north, and a mode change that another
+// move cuts short still ends in its mode (resettle). The buildings cross-fade once per mode change,
+// never per frame (RN-04). The camera never changes a sim number, a save byte or a rule verdict
+// (CLAUDE.md). It imports nothing, so the menu chunk that reads the keys stays free of the style (I14).
 
 export type ViewMode = '2d' | '3d';
 
@@ -83,6 +83,17 @@ export function settled(pitch: number, bearing = 0): { readonly mode: ViewMode; 
   if (pitch < SNAP_FLAT_DEG) return { mode: '2d', pitch: 0, bearing: 0 };
   const b = normalBearing(bearing);
   return { mode: '3d', pitch: Math.min(MAX_PITCH, Math.max(MIN_3D_PITCH, pitch)), bearing: Math.abs(b) < BEARING_SNAP_DEG ? 0 : b };
+}
+
+/**
+ * Where a camera at rest goes to agree with its mode, or null when it does: 2D flat and facing north,
+ * 3D at 25–60°. A mode change that another move cut short (a turn, N, a pan) finishes there, a 3D one
+ * at `aim`, the pitch it was going to.
+ */
+export function resettle(mode: ViewMode, pitch: number, bearing: number, aim = TILT_PITCH): { readonly pitch: number; readonly bearing?: number } | null {
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
+  if (mode === '2d') return near(pitch, 0) && near(normalBearing(bearing), 0) ? null : { pitch: 0, bearing: 0 };
+  return pitch > MIN_3D_PITCH - 0.01 && pitch < MAX_PITCH + 0.01 ? null : { pitch: Math.min(MAX_PITCH, Math.max(MIN_3D_PITCH, aim)) };
 }
 
 /** A press that moves this far is a drag: MapLibre's own click tolerance, so its click and ours agree. */

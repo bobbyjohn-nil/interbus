@@ -199,6 +199,38 @@ test('in 3D a sideways drag and Q and E turn the board; the compass and N face n
   await expect(map).toHaveAttribute('data-bearing', '0');
 });
 
+// The systems audit (D26): a key or a drag inside the 600 ms tilt stopped the ease where it was, leaving
+// 3D flat (T then E or N) or 2D tilted and turned (T then a pan), which N, Q and E could not fix since
+// they act only in 3D. Shown failing (TS-04) on the old map: data-pitch read 0 in 3D, and 50 in 2D.
+test('a mode change cut short by a turn or a pan still ends tilted in 3D, and flat and facing north in 2D', async ({ page }) => {
+  test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
+  await page.goto('./?gpu=full');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  const box = (await map.boundingBox())!;
+  const [x, y] = [box.width / 2, box.height / 2];
+  await page.mouse.move(x, y);
+
+  // T, then E at once, while the board has hardly begun to tilt: 3D at 50°, turned 15°. (E pressed after
+  // the tilt passes 25° would leave a 3D board resettle has no reason to move.)
+  await page.keyboard.press('t');
+  await page.keyboard.press('e');
+  await expect(map).toHaveAttribute('data-mode', '3d');
+  await expect(map).toHaveAttribute('data-pitch', '50', { timeout: 30_000 });
+  await expect(map).toHaveAttribute('data-bearing', '15');
+
+  // T, then a pan while it flattens: flat and facing north.
+  await page.keyboard.press('t');
+  await page.waitForTimeout(100);
+  await page.mouse.down();
+  await page.mouse.move(x - 60, y, { steps: 3 });
+  await page.mouse.up();
+  await expect(map).toHaveAttribute('data-mode', '2d');
+  await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
+  await expect(map).toHaveAttribute('data-bearing', '0');
+});
+
 test('in Low graphics the compass is off and says why', async ({ page }) => {
   test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
   await page.goto('./?gpu=low');

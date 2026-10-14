@@ -59,6 +59,25 @@ function showDots(mounted: MountedMap, dots: Dots): void {
   mounted.map.triggerRepaint();
 }
 
+/** Each depot's id and place ("1@lon,lat"), which key the depots' layer: ids restart in every game, so a loaded game's depot 1 may stand elsewhere. */
+export function depotsKey(depots: readonly DepotView[]): string {
+  return depots.map((d) => `${d.id}@${d.at[0].toFixed(6)},${d.at[1].toFixed(6)}`).join(' ');
+}
+
+/** Sets the depots' layer; the map's data-depots says where it last set them, for the e2e tests (as vehicles.ts counts its frames). */
+function drawDepots(mounted: MountedMap, depots: readonly DepotView[]): void {
+  mounted.setDepots(depots);
+  mounted.map.getContainer().dataset.depots = depotsKey(depots);
+}
+
+/** What the city event's layer draws: its words (its kind, street and days, overlays.ts eventLabel) and where (its label's place and its stretch's ends). */
+export function eventLayerKey(event: EventView | null): string {
+  if (!event) return '';
+  const place = (p: readonly [number, number] | undefined) => (p ? `${p[0].toFixed(6)},${p[1].toFixed(6)}` : '');
+  const ends = event.path.map((piece) => `${place(piece[0])}-${place(piece[piece.length - 1])}`).join(';');
+  return `${event.kind}:${event.street}:${event.startDay}:${event.phase}:${event.daysLeft}@${place(event.at)}|${ends}`;
+}
+
 const BOTH: DotKinds = { home: true, job: true };
 
 export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null }: MapViewProps) {
@@ -71,9 +90,14 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
     latest.current = { dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, tiltGesture, event, clock };
   });
   const dotKindsKey = (['home', 'job'] as const).filter((k) => dotKinds[k]).join(',');
+  // data-event keeps its old form, which e2e/events.spec.ts reads; the layer has a fuller key below.
   const eventKey = event ? `${event.street}:${event.startDay}:${event.phase}:${event.daysLeft}` : '';
-  // Depots arrive with every snapshot; their layer is set only when the set of depots changes (RN-04).
-  const depotsKey = depots.map((d) => d.id).join(',');
+  // The event's layer is set only when what it draws changes, its kind and place included: every game
+  // starts from one seed, so a loaded game's event may be another kind, or the same kind elsewhere on the
+  // same street or by the same landmark, on the same days.
+  const eventLayer = eventLayerKey(event);
+  // Depots arrive with every snapshot; their layer is set only when the depots change (RN-04).
+  const depotsNow = depotsKey(depots);
   const city = CITIES[0];
   // The GPU ladder's rung, once, before the map mounts (gpu.ts); `?gpu=` can pick one.
   const [rung] = useState<GraphicsRung>(() => rungFor(probeWebGL(), gpuSwitch()));
@@ -160,7 +184,10 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
         mounted.onModeChange((next) => setMode(next));
         // A context lost and not given back leaves a blank board: say so, with Reload (gpu.ts).
         mounted.map.on('webglcontextlost', () => setStatus((now) => (now === 'replaced' ? now : 'lost')));
-        mounted.map.on('webglcontextrestored', () => setStatus((now) => (now === 'lost' ? 'ready' : now)));
+        // Given back with no style (lost again before the restored one had loaded; loadMap.ts), the board stays blank.
+        mounted.map.on('webglcontextrestored', () => {
+          if (mounted.map.style) setStatus((now) => (now === 'lost' ? 'ready' : now));
+        });
         if (fpsSwitch()) {
           const meter = new FpsMeter();
           mounted.map.on('render', () => meter.frame(performance.now()));
@@ -180,7 +207,7 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
         mounted.map.on('idle', () => setDotsDrawn(mounted.dotsDrawn()));
         mounted.setLines(now.lines, now.stops);
         if (now.depotLand) mounted.setDepotLand(now.depotLand);
-        mounted.setDepots(now.depots);
+        drawDepots(mounted, now.depots);
         mounted.setTint(now.tint);
         mounted.setDraft(now.draft);
         mounted.setEvent(now.event);
@@ -247,8 +274,9 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
   }, [depotLand]);
 
   useEffect(() => {
-    mountedRef.current?.setDepots(latest.current.depots);
-  }, [depotsKey]);
+    const mounted = mountedRef.current;
+    if (mounted) drawDepots(mounted, latest.current.depots);
+  }, [depotsNow]);
 
   useEffect(() => {
     mountedRef.current?.setTint(tint);
@@ -260,7 +288,7 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
 
   useEffect(() => {
     mountedRef.current?.setEvent(latest.current.event);
-  }, [eventKey]);
+  }, [eventLayer]);
 
   // A snapshot about 10 times a second while time runs; the layer runs the clock on between them.
   const clockSecond = clock?.second ?? null;
