@@ -69,6 +69,18 @@ The running handoff between Claude sessions. Every session reads it right after 
 - [ ] **The medal ladder, by Sun Nov 22** (DECISIONS, Open), now with the pacing run's numbers: on Inner Boston the scripted company gets bronze on day 10 and silver on day 29 but no gold in 200 days, coverage reaching 43.5 with seven lines against gold's 60. Recommended: keep bronze and silver as they are, and let week 9's tuning set gold's floor.
 - [ ] **M5's exit check 4, your Mac's fps:** open the preview with `?fps` in stable Chrome, play at 2× flat and tilted, and note the readout in P2's notes. The steps are in [`playtests/PROTOCOL.md`](playtests/PROTOCOL.md), Frame rates; the readout now names its zoom and tilt.
 
+## In progress: the owner's initial playtest (D25, 2026-10-14)
+
+The owner played the preview and asked for 18 changes ([notes](playtests/2026-10-14-owner-first-look.md), DECISIONS D25), then cleared work to move on in the schedule. Each is a small pull request, in this order:
+1. [ ] **Pathing** (this PR): stops and depots never stand on a motorway or a ramp, and buses drive one-way streets both ways. In Back Bay, click pairs 250–600 m apart driven over twice the straight line fell from 30.1% to 1.4% (worst 41.3× to 2.4×); downtown from 28.8% to 1.6% (worst 20.4× to 2.2×). `npm run bench routes`; DECISIONS, Measured.
+2. [ ] **Time:** minutes and days; 8-day quarters, 4 a year; 1× real time, then 60×, 600×, 1,800× and 5,400×; a 1-second step; saves set aside once.
+3. [ ] **Map:** the demand dots toggled by kind from a custom menu; the population count only over a dot; the contract rings gone; sentence case and grammar everywhere.
+4. [ ] **Finance:** charts, where the money goes, each line's money moved here, "Day 0".
+5. [ ] **Building:** a Build tab (Place stop, Draw line, Place depot); an info-only line panel; Edit route to reorder, add and remove stops.
+6. [ ] **Panels and controls:** movable panels, several open at once; Saves at the top; custom dropdowns.
+7. [ ] **3D:** double-click and hold to switch and tilt; rotation, with a compass back to north; the 2D | 3D chip retired.
+8. [ ] **Then the schedule** (the clearance): the tuning freeze from the pacing run, ahead of P1.
+
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13
 
 The exit check: `T` tilts and returns; dots sit where Back Bay to Longwood lives and works; "people within a walk"; does it look like Boston (the owner's check, above)?

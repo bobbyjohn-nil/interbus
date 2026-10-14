@@ -86,6 +86,17 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 9. **The slow-laptop run** (PLAN §6 budgets): 2D must hold ≥30 fps on the slowest machine with 200 buses, and 3D at zoom 17, pitch 60 must hold ≥30. Under that, PLAN §10's trigger applies in this order: a 3D zoom floor of 14.5, no extrusion gradient, pitch capped at 50°.
    - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7). Its heaps grow 1.0% over 30 minutes at 2× (≤10%), checked nightly.
 
+10. **The owner's initial playtest** (2026-10-14; DECISIONS D25, which wins over this spec where they differ; [notes](../playtests/2026-10-14-owner-first-look.md)). In order, each a small PR:
+    - routes without loops;
+    - the time system (8-day quarters, 1× real time);
+    - the map's demand menu and copy;
+    - Finance with charts;
+    - the Build tab and route editor;
+    - movable panels, Saves at the top and custom dropdowns;
+    - 3D by double-click and hold, with rotation.
+
+    Done first, before items 2 and 7–9. Then the clearance moves the tuning freeze ahead of P1. Progress is in STATUS.
+
 ## Below the cut line (cut in this order if Dec 20 is at risk)
 
 1. **The model viewer** with the Boston-map preview (≤1.5; `docs/art/MODELS.md:80-88`). It is built only once the artist's `metro-40` blockout has landed ([RN-07](../history/lessons-ledger.md)); otherwise it waits for week 13. V3's `.glb` viewer had no map (`Intralines_City@dc63602:studio/viewer/main.ts:1-8`).

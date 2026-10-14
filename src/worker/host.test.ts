@@ -145,13 +145,13 @@ describe('the sim host', () => {
     const draft = last('line-draft')!;
     expect(draft.id).toBe(2);
     expect(draft.draft).toMatchObject({ buses: 2, newStops: 4, priceCents: 20_600_000, refusal: null });
-    expect(draft.draft.routeM).toBeGreaterThan(3_400);
+    expect(draft.draft.routeM).toBeGreaterThan(3_200);
     expect(draft.draft.people).toBeGreaterThan(5_000);
     expect(draft.draft.route.length).toBeGreaterThan(10);
     host.handle({ type: 'create-line', clicks });
     const line = last('snapshot')!.snapshot.lines[0]!;
     expect(line).toMatchObject({ name: 'Line 1', buses: 2, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
-    expect(line.cycle).toBeGreaterThan(1_500);
+    expect(line.cycle).toBeGreaterThan(1_400); // 1,457 s; over 1,500 until buses drove one-way streets both ways (2026-10-14)
     expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000 - 20_600_000);
     // Finance (the M3 spec, item 6): the depot and the line are today's purchases.
     expect(last('snapshot')!.snapshot.finance.rows.find((r) => r.kind === 'purchase')).toMatchObject({ todayCents: -35_600_000, forecastCents: null });

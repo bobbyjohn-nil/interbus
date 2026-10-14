@@ -341,6 +341,46 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **Why:** CLAUDE.md's rules (merge commits only, versions only via `/ship`) become GitHub's rules too, so a session's slip is refused rather than noticed later. The tag ruleset cannot tell who pushes; it keeps a released tag where it was made.
 - **How to reverse:** Settings → Rules → Rulesets, to disable or delete either ruleset; Settings → General → Pull Requests, for the merge methods.
 
+### D25 · The owner's initial playtest: what changes, and the clearance to move on
+
+- **Decided:** 2026-10-14, by the owner, in the notes of the initial playtest ([docs/playtests/2026-10-14-owner-first-look.md](playtests/2026-10-14-owner-first-look.md), kept verbatim), ending: "fix the errors and the changes I described in the playtest thing, and I grant you permission to move on in the schedule if you run out of things to do." The owner asked that every sentence be read as written, including what worked.
+- **What stays:** the map ("it is boston"), and the industrial land showing where a depot can go.
+- **What changes**, each a small pull request in this order (Claude's readings in brackets, to be corrected by the owner):
+  1. **Pathing:** no more loops in Back Bay and downtown. Stops and depots never stand on a motorway or a ramp, and buses drive one-way streets both ways (Measured, 2026-10-14).
+  2. **Time:**
+     - minutes and days on the clock;
+     - 8 days to a quarter, 4 quarters to a year;
+     - 1x is real time, a second a second, with faster speeds above it. [The ladder is 1x, 60x, 600x, 1,800x and 5,400x. 5,400x is today's fastest, and 600x and 1,800x are where every pacing number was measured. The chip shows the day within the quarter: "Year 1 · Q2 · Day 4 · 08:15". Contracts ask for a quarter in a row within two (8 days within 16). The report card's grant and fine are stated per day, so a quarter's card pays what its days earned. The fixed step falls from 30 game seconds to 1, so buses glide at 1x. Saves are set aside once (DP-06).]
+  3. **Map:**
+     - the demand dots toggle by kind, from a custom menu [homes in purple and jobs in blue, the only two kinds; both on at first, and the choice remembered in that browser];
+     - the population count shows only while the pointer is on a dot;
+     - the dashed circles with figures on them go [they are the contract rings, which the Contracts panel already lists; a festival's ring stays, as the event's only mark on the map];
+     - every word on screen is in sentence case, with proper grammar, held by a guard test.
+  4. **Finance:**
+     - charts of money in and out over the days;
+     - plain labels, with where the money goes, such as bus maintenance and stop upkeep;
+     - each line's finances moved here from the line panel;
+     - the opening balance labelled "Day 0", not "Founding capital".
+  5. **Building:**
+     - a Build tab with Place stop (a stop that stands alone until a line uses it), Draw line (today's tool, reusing placed stops) and Place depot;
+     - the line panel shows only the line's information;
+     - Edit route opens an expanded editor to reorder, add and remove stops, like Google Maps' trip planner.
+  6. **Panels and controls:**
+     - panels can be moved and several used at once (the owner preferred this to one closing another);
+     - Saves leaves the bottom tabs for the top;
+     - the browser's dropdowns become custom ones.
+  7. **3D:**
+     - double-click and hold to switch 2D and 3D [then drag up or down to tilt; dragging sideways rotates];
+     - the view rotates in 3D [right-drag rotates too, and a compass button turns it back to north];
+     - [the 2D | 3D chip goes, and `T` stays; its room on the screen goes to the demand menu, since I13's budget at rest is spent].
+- **The clearance:** once these are built and deployed, work moves on to the schedule's next items without waiting for their calendar weeks. The first is the tuning freeze from the scripted pacing run, ahead of P1. CLAUDE.md's hard limits stand:
+  - no Steam or desktop session before v1.0;
+  - no renderer change after Sun Nov 1;
+  - no new sim system after Sun Dec 6;
+  - versions only through `/ship`.
+- **Why:** the owner played the preview and named what confused or annoyed them. The owner's direction also brings the 3D and look items forward, ahead of PLAN §10's one session in three for look work before M3 is signed off.
+- **How to reverse:** any item, by saying so. Each is its own pull request and can be reverted alone. The time change sets older web saves aside, and a revert does not bring them back.
+
 ### CL · Versions only on the owner's say
 
 - **Decided:** 2026-10-12, by the owner: "create a changelog that will only make versions with my say."
@@ -362,6 +402,38 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-14** (`npm run bench routes`; `src/sim/world.test.ts`, `src/sim/city/route.test.ts`): **routes without loops in Back Bay and downtown** (D25, the owner's initial playtest: "it makes all these large loops").
+  - **Two causes:**
+    - **Stops on the highway.** 188 of Inner Boston's 11,687 street nodes touch only motorways or ramps: the Mass Pike under Back Bay and the I-93 tunnel and its ramps downtown. A click near one put the stop on the highway, and its buses drove to the next exit and back. Prudential to Back Bay station came back by 7,976 m for 442 m.
+    - **One-way streets kept on the way out only.** A leg had to leave and reach each stop in the street's direction, so a stop on a one-way street facing against the line sent the bus round the block. The way back already drove the way out in reverse, against those streets (`rules/position.ts`).
+  - **The fix:**
+    - Stops, depots and route ends snap through one grid that leaves those nodes out (`world.ts` `stopNode`; `config/lines.ts` `NO_STOP_CLASSES`). Buses still drive the highways between stops.
+    - The router drives every street both ways (`BUSES_KEEP_ONE_WAY`, false). One-way streets stay in the city file for the lane markings (PLAN §8 rule 9).
+    - No rebake, and no save byte changes.
+  - **Seeded click pairs 250–600 m apart**, the distance driven against the straight line between the nodes they snap to. The four routings are before, stops off motorways, one-way not kept, and both:
+
+    | 500 pairs | Median | p99 | Worst | Over 2× | On a motorway |
+    |---|---|---|---|---|---|
+    | Back Bay, before | 1.49× | 19.1× | 41.3× | 30.1% | 21 |
+    | Back Bay, stops off motorways | 1.46× | 5.9× | 7.6× | 28.5% | 0 |
+    | **Back Bay, both** | **1.27×** | **2.1×** | **2.4×** | **1.4%** | 0 |
+    | Downtown, before | 1.62× | 9.8× | 20.4× | 28.8% | 31 |
+    | Downtown, stops off motorways | 1.60× | 5.4× | 9.8× | 24.2% | 0 |
+    | **Downtown, both** | **1.27×** | **2.1×** | **2.2×** | **1.6%** | 0 |
+
+  - **Named legs, there and back** (metres, straight line in brackets):
+    - Copley to Boylston at Mass Ave: 1,203 / 834 → 826 / 826 (825).
+    - Prudential to Back Bay station: 907 / 7,976 → 600 / 600 (422).
+    - Downtown Crossing to Government Center: 817 / 945 → 679 / 679 (481).
+    - South Station to Park Street: 1,515 / 1,334 → 1,066 / 1,066 (693).
+  - **What else moved:**
+    - The fixture's debug line went from 3,535 m (3,706 m back) to 3,238 m both ways.
+    - Its running cost fell from $3.18 to $2.91 a departure, its riders rose from 610.5 to 639.7 a day, and its first quarter's card went from 75.6 to 76.1.
+    - Eleven unit tests carried those measured numbers and now carry the new ones, each noting the old value. The insert test's detour click moved, because the old one no longer detours.
+    - The Inner Boston pacing run is re-measured nightly.
+  - **Tests** (TS-04):
+    - With every node back in the grid, the synthetic motorway test fails: the click snaps to the motorway, 5 m away.
+    - With one-way streets kept, both Inner Boston boxes fail: 28.5% and 24.2% of pairs over twice the straight line, and the worst over 5 times. The router's both-ways test fails too.
 - **2026-10-13** (`e2e/heap.spec.ts`, nightly on the shipped build): **PLAN §6's heap budget, at most 10% growth over 30 minutes.** The slow-laptop run's busy scene ran at 2× after a 2-minute warm-up: 209 buses on Inner Boston, game days 2.6 to 39.9. Each heap was read after a garbage collection:
 
   | Heap | After the warm-up | After 30 minutes |

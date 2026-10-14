@@ -19,13 +19,13 @@ function game() {
 }
 
 describe('the report card', () => {
-  it('closes quarter 1 on day 10 with its card, and pays it as one of day 10’s rows (75.6 overall, measured: a festival on days 3–4 lifts Money)', () => {
+  it('closes quarter 1 on day 10 with its card, and pays it as one of day 10’s rows (76.1 overall, measured: a festival on days 3–4 lifts Money; 75.6 before buses drove one-way streets both ways)', () => {
     const world = game();
     const events = advance(world, 10 * SECONDS_PER_DAY);
     expect(events.map((e) => e.card !== null)).toEqual([false, false, false, false, false, false, false, false, false, true]);
     const card = events[9]!.card!;
     expect(card).toMatchObject({ quarter: 1, day: 10, reliability: 100, comfort: 80 });
-    expect(card.overall).toBeCloseTo(75.6, 1);
+    expect(card.overall).toBeCloseTo(76.1, 1);
     expect(card.payoutCents).toBe(Math.round((card.overall - 55) * 160_000));
     expect(events[9]!.rows.filter((r) => r.kind === 'card')).toEqual([{ day: 10, kind: 'card', amountCents: card.payoutCents }]);
   });

@@ -45,9 +45,10 @@ const off = (got: number, want: number) => Math.abs(got - want) / want;
 
 describe('rush hour in the riders (the M3 spec, item 15)', () => {
   it('moves the debug line’s riders off the peak onto the rest of the day, the day’s trips within 1%', () => {
-    // Measured: peak 307.5 → 290.4 (−5.6%), off-peak 306.9 → 320.2 (+4.3%), the day 614.4 → 610.5
-    // (−0.6%). Shown failing (TS-04) with the demand model ignoring the rush: the peak does not move.
-    expect(debug.rush).toBeCloseTo(1.072, 3);
+    // Measured: peak 323.3 → 304.3 (−5.9%), off-peak 322.6 → 335.4 (+4.0%), the day 645.9 → 639.7
+    // (−1.0%), with buses driving one-way streets both ways (2026-10-14; before it, peak 307.5 → 290.4
+    // and rush 1.072). Shown failing (TS-04) with the demand model ignoring the rush: the peak does not move.
+    expect(debug.rush).toBeCloseTo(1.065, 3);
     const calm = assign(world.city, world.commuters, [{ ...debug, rush: 0 }]).lines.get(debug.id)!;
     const busy = assign(world.city, world.commuters, [debug]).lines.get(debug.id)!;
     const [calmPeak, calmOff] = byPeriod(calm.bySlot);

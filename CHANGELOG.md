@@ -79,4 +79,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bus stops and depots no longer land on the Mass Pike, the I-93 tunnel or their ramps, which sent buses kilometres out of their way to the next exit and back.
+- Buses run both ways along the streets you choose instead of looping around blocks of one-way streets in Back Bay and downtown. Most short trips there now drive less than a third further than the straight line, and none more than two and a half times it.
 - Importing a save file whose money rows are out of day order is now refused as unreadable, with your game kept as it was, instead of stopping the game at that night's close.

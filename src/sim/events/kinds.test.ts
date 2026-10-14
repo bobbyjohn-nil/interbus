@@ -35,8 +35,9 @@ describe('snow', () => {
     expect(starts!.retimed).toBe(true);
     const snowy = world.services.get(line.id)!;
     // The spec's magnitude: the debug line's peak round trip from about 1,641 s to about 2,060 s
-    // (dwells and layovers keep their time; only the driving slows).
-    expect(calm.timing.cycles!.peak).toBeGreaterThan(1_550);
+    // (dwells and layovers keep their time; only the driving slows); 1,549 s calm once buses drove
+    // one-way streets both ways (2026-10-14).
+    expect(calm.timing.cycles!.peak).toBeGreaterThan(1_450);
     expect(calm.timing.cycles!.peak).toBeLessThan(1_750);
     expect(snowy.timing.cycles!.peak / calm.timing.cycles!.peak).toBeGreaterThan(1.2);
     expect(snowy.timing.cycles!.peak / calm.timing.cycles!.peak).toBeLessThan(1 / 0.72);

@@ -33,7 +33,7 @@ describe('each stop’s day', () => {
     expect(days.some((d) => d.quiet || d.loss)).toBe(false); // the starter's stops all pay (measured: $54.54 to $714.74)
   });
 
-  it('flags a starved line’s stops: Longwood QUIET at 1.7 boardings, Symphony LOSS at −$33.51 a day (measured; −$35.92 before item 15’s congestion shortened its off-peak runs)', () => {
+  it('flags a starved line’s stops: Longwood QUIET at 1.7 boardings, Symphony LOSS at −$22.65 a day (measured; −$33.51 before buses drove one-way streets both ways, −$35.92 before item 15’s congestion)', () => {
     line.headways = { peak: 3_600, offpeak: 3_600, overnight: null };
     line.buses = 1;
     recompute(world);
@@ -41,7 +41,7 @@ describe('each stop’s day', () => {
     const [, symphony, , longwood] = line.stopIds.map((id) => days.find((d) => d.id === id)!);
     expect(longwood).toMatchObject({ quiet: true, loss: false });
     expect(longwood!.boardings).toBeLessThan(5);
-    expect(symphony).toMatchObject({ quiet: false, loss: true, netCents: -3_351 });
+    expect(symphony).toMatchObject({ quiet: false, loss: true, netCents: -2_265 });
     expect(Math.abs(days.reduce((s, d) => s + d.netCents, 0) - lineNet())).toBeLessThanOrEqual(2);
   });
 });

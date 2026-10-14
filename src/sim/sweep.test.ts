@@ -39,7 +39,7 @@ describe('I3 in the full sweep, in small (the M4 spec, item 5)', () => {
 
   it('times roadworks on the line’s own street and snow on every drive, which cost it, and a festival, which pays', () => {
     const [clear, works, , , snow, festival] = results;
-    expect(works!.street).toBe('Huntington Avenue');
+    expect(works!.street).toBe('Longwood Avenue'); // Huntington Avenue until the line's streets changed with one-way driving (2026-10-14)
     expect(works!.best.netCents).toBeLessThan(clear!.best.netCents);
     expect(snow!.best.netCents).toBeLessThan(works!.best.netCents);
     expect(festival!.best.netCents).toBeGreaterThan(clear!.best.netCents);
