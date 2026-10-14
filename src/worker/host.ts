@@ -627,7 +627,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         const verdict = checkDepotSite(depotSiteContext(world), toXY(world.city.frame, message.at));
         const site: DepotSiteView = verdict.ok
           ? { ok: true, streetM: Math.round(verdict.streetM), priceCents: verdict.priceCents }
-          : { ok: false, reason: verdict.reason, ...(verdict.limitM === undefined ? {} : { limitM: verdict.limitM }), ...(verdict.nearestM === undefined ? {} : { nearestM: Math.round(verdict.nearestM) }) };
+          : { ok: false, reason: verdict.reason, ...(verdict.limitM === undefined ? {} : { limitM: verdict.limitM }), ...(verdict.nearestM === undefined ? {} : { nearestM: Math.round(verdict.nearestM) }), ...(verdict.shortCents === undefined ? {} : { shortCents: verdict.shortCents }), ...(verdict.priceCents === undefined ? {} : { priceCents: verdict.priceCents }) };
         post({ type: 'depot-site', id: message.id, site });
       } else if (message.type === 'stop-site') {
         const verdict = checkPlaceStop(lineDraftContext(world), toXY(world.city.frame, message.at));

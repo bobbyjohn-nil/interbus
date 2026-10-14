@@ -184,7 +184,7 @@ export type StopSiteView =
 
 export type DepotSiteView =
   | { readonly ok: true; readonly streetM: number; readonly priceCents: number }
-  | { readonly ok: false; readonly reason: string; readonly limitM?: number; readonly nearestM?: number };
+  | { readonly ok: false; readonly reason: string; readonly limitM?: number; readonly nearestM?: number; readonly shortCents?: number; readonly priceCents?: number };
 
 /** Every ledger row by kind for today, yesterday and this quarter, beside a day's forecast (sim/economy/finance.ts). */
 export interface FinanceView {

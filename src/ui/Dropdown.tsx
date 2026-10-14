@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { closeOnPressAway } from './pressAway';
 
 export interface DropdownOption<T> {
   readonly value: T;
@@ -13,7 +14,8 @@ export interface DropdownOption<T> {
  * The game's own dropdown, in place of the browser's (D25: "I don't like the default dropdown menus,
  * there should be custom ones"). A button names the choice; it opens a list the keyboard can work:
  * the arrows move, Home and End jump, Enter or Space picks, Escape and a click elsewhere close it
- * without picking. Escape stops there, so it never also closes the panel the dropdown sits in. The
+ * without picking. Escape stops there, so it never also closes the panel the dropdown sits in, and
+ * the click elsewhere does nothing more, so it never also uses the tool on the map (pressAway.ts). The
  * list is drawn over the page beside its button, so a panel that scrolls never clips it.
  */
 export function Dropdown<T extends string | number>({
@@ -58,10 +60,7 @@ export function Dropdown<T extends string | number>({
 
   useEffect(() => {
     if (!open) return;
-    const away = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!root.current?.contains(target) && !list.current?.contains(target)) setOpen(false);
-    };
+    const away = closeOnPressAway((target) => Boolean(root.current?.contains(target) || list.current?.contains(target)), () => setOpen(false));
     window.addEventListener('pointerdown', away);
     list.current?.focus();
     return () => window.removeEventListener('pointerdown', away);

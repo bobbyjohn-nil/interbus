@@ -242,7 +242,7 @@ export function lineDraftContext(world: Pick<World, 'city' | 'router' | 'nodes' 
   };
 }
 
-/** What the depot rule reads for this world: its depot land, street nodes and the depots built (GD-05). */
+/** What the depot rule reads for this world: its depot land, street nodes, the depots built and the cash (GD-05). */
 export function depotSiteContext(world: Pick<World, 'nodes' | 'city' | 'state'>): DepotSiteContext {
   return {
     land: world.city.depotLand,
@@ -251,6 +251,7 @@ export function depotSiteContext(world: Pick<World, 'nodes' | 'city' | 'state'>)
       return hit ? { node: hit.item, distM: hit.distM } : null;
     },
     depots: world.state.depots.map((d) => toXY(world.city.frame, [d.lon, d.lat])),
+    cashCents: world.state.ledger.cashCents,
   };
 }
 

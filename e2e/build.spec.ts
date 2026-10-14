@@ -4,26 +4,13 @@
 // stops"). Build opens its three tools; Place a stop shows its verdict at the pointer and places a
 // Sign for $4k, standing alone with a card that says so and takes it down; the line tool joins it;
 // and the line's Edit route reorders by drag and takes a stop off, priced on its card.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, pointAt, toScreen, zoomOutOnce } from './shell';
 
 /** On Huntington Avenue between Symphony and the MFA, more than 250 m from each. */
 const ON_HUNTINGTON: [number, number] = [-71.0903, 42.33995];
-
-/** Moves the pointer onto `at` the way the line spec does, so the card describes where it rests. */
-async function pointAt(page: Page, at: [number, number]) {
-  const [x, y] = await toScreen(page, at);
-  await page.evaluate(
-    ([moves]) => {
-      const canvas = document.querySelector('.maplibregl-canvas')!;
-      for (const [mx, my] of moves!) canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: mx, clientY: my, bubbles: true }));
-    },
-    [[[x - 40, y], [x, y]]] as const,
-  );
-  return [x, y] as const;
-}
 
 test.describe('the Build menu', () => {
   test.skip(!city.sim, 'no sim file in this build yet');

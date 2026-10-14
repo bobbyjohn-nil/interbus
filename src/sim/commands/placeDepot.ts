@@ -1,5 +1,5 @@
-// Places a depot (the M2 spec, item 2): the depot rule says where, the ledger pays (a Purchases row),
-// and the depot is saved by place. A depot comes before any line or bus (V1).
+// Places a depot (the M2 spec, item 2): the depot rule says where and whether the cash covers it, the
+// ledger pays (a Purchases row), and the depot is saved by place. A depot comes before any line or bus (V1).
 import { toXY, type LngLat } from '../core/geo';
 import { mint, type DepotId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';

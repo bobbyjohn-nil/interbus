@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The compass, in the corner above the map credits: its needle points north and leans as the map tilts. Click it to tilt the flat map into 3D, to turn a turned map back to north, or to lay a map that faces north flat again, as T does. Drag with the right mouse button (Ctrl-drag on a Mac, or two fingers) to tilt the map as far as you like between 25° and 60°; let go below 12° and it snaps flat. The buildings fade between flat and standing instead of jumping. In Low graphics the compass is off and says why.
-- Double-click and hold on the map: hold still for half a second to switch between flat and 3D, or keep holding and drag up to tilt and down to flatten. A quick double-click still zooms in. With a tool out, a double-click stays two clicks.
+- Double-click and hold on the map: hold still for half a second to switch between flat and 3D, or keep holding and drag up to tilt and down to flatten. A quick double-click still zooms in. With a tool out, a double-click never tilts, and the tool takes it as one click.
 - Turn the map in 3D: drag sideways with the right button (or Ctrl-drag, or double-click and drag), or press Q and E; N or the compass faces north again. The flat map always faces north.
 - The demand menu, a small chip beside the compass: show or hide where people live (purple) and where they work (blue), each on its own. It says how many people and jobs each stands for, and this browser remembers what you chose.
 - Low graphics: on a computer that draws the map in software, the game keeps the map flat and its buses at a steady 30 frames a second or fewer, and says so when you press T. Without graphics acceleration at all, a card asks you to turn it on in the browser's settings, and your game, Saves and Export still work. If the browser takes the map's graphics away mid-game, a card says so with Reload. Add ?fps to the address to see the frame rate.
@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- While you draw a line, a click it can't take (a stop it already calls at, or a spot with no street near) no longer stops every later click from adding a stop: your next click takes its place, and Remove last stop or Backspace takes off the last one the card shows.
+- The new-line card and the cards of Place a stop and Place a depot keep up with the game under them: when your cash changes, a stop goes up or comes down, a day passes or you undo, they say what Create or a click would now do, instead of offering what is then refused.
+- Place a depot's card says how much you are short, beside the depot's price, when it costs more than you can spend (your cash, down to -$150,000), instead of offering a depot the click then refuses.
+- Escape with the Build menu or a dropdown open closes just that menu: the tool stays out, a line you are drawing stays, and your panels stay open.
+- A click on the map that closes the Build menu, a dropdown or the demand menu only closes it: it no longer also places a stop, adds a stop to the line you are drawing or buys a depot. A click on another button closes the menu and works that button.
 - Keys pressed on Home no longer reach the paused game behind it: Space and 1 to 5 used to run time there, and Ctrl+Z to take back your last purchase.
 - A new game, or a game loaded from Saves, starts clean: the old game's line tool, route editor, draft and day card no longer come with it, so pointing at a dot shows its card again.
 - A notice shows once, instead of again each time you go between Home and the game.

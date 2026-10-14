@@ -27,9 +27,9 @@ function started(save: string | null = null) {
 /** Copley to Longwood (the debug line's four stops), as the line tool's clicks. */
 const CLICKS: [number, number][] = [[-71.077, 42.3499], [-71.0857, 42.3424], [-71.095, 42.3375], [-71.1035, 42.336]];
 
-/** A point inside the fixture's largest parcel of depot land: halfway from its first corner to the middle of its corners. */
-function depotSpot(land: readonly (readonly [number, number])[][]): [number, number] {
-  const ring = [...land].sort((a, b) => b.length - a.length)[0]!;
+/** A point inside the fixture's largest parcel of depot land (or the next largest, with `parcel` 1 and up): halfway from its first corner to the middle of its corners. */
+function depotSpot(land: readonly (readonly [number, number])[][], parcel = 0): [number, number] {
+  const ring = [...land].sort((a, b) => b.length - a.length)[parcel]!;
   const mid = ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
   return [(ring[0]![0] + mid[0]!) / 2, (ring[0]![1] + mid[1]!) / 2];
 }
@@ -191,6 +191,12 @@ describe('the sim host', () => {
     // Every 7½ minutes at peak needs two more Sparrows: $190k against $118,548, the rest on the credit line (D10).
     host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 450, offpeak: 1_200, overnight: null } });
     expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -7_145_200, lines: [{ buses: 4 }], floor: null });
+    // The next depot, on another parcel, costs $225k against the $78,548 left on the credit line: the card says by how much, as the click would.
+    const other = depotSpot(last('ready')!.depotLand as [number, number][][], 1);
+    host.handle({ type: 'depot-site', id: 3, at: other });
+    expect(last('depot-site')).toEqual({ type: 'depot-site', id: 3, site: { ok: false, reason: 'insufficient_funds', shortCents: 14_645_200, priceCents: 22_500_000 } });
+    host.handle({ type: 'place-depot', at: other });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'place-depot', reason: 'insufficient_funds', shortCents: 14_645_200 });
   });
 
   it('places a stop on its own, edits a route through it on the editor’s card and Set route, and takes down only a lone stop (D25)', () => {

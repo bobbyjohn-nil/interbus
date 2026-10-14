@@ -3,6 +3,7 @@ import { GAME_LIGHT } from '../../render/map/tokens';
 import type { DotKinds } from '../../render/map/MapView';
 import type { Dots } from '../../sim/types';
 import { about } from '../format';
+import { closeOnPressAway } from '../pressAway';
 
 const KINDS = [
   { kind: 'home', name: 'Homes', what: 'Where people live', unit: 'people', colour: GAME_LIGHT.homeDot },
@@ -19,7 +20,8 @@ export function dotTotal(dots: Dots | null, kind: 'home' | 'job'): number {
  * have a separate dropdown or other type of menu to toggle demand point types"). A small chip in the
  * map's corner, beside the compass, opens a menu with one checkbox per kind, each with its colour and
  * how many it stands for, so it is the map's legend too. Arrow keys move, Space or Enter turns one on or
- * off, and Escape or a click elsewhere closes it; Escape stops there, so an open panel stays open.
+ * off, and Escape or a click elsewhere closes it; Escape stops there, so an open panel stays open, and
+ * the click does nothing more (pressAway.ts).
  */
 export function DemandMenu({ dots, shown, onShown }: { dots: Dots | null; shown: DotKinds; onShown: (next: DotKinds) => void }) {
   const [open, setOpen] = useState(false);
@@ -30,9 +32,7 @@ export function DemandMenu({ dots, shown, onShown }: { dots: Dots | null; shown:
 
   useEffect(() => {
     if (!open) return;
-    const away = (event: PointerEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
-    };
+    const away = closeOnPressAway((target) => !root.current || root.current.contains(target), () => setOpen(false));
     window.addEventListener('pointerdown', away);
     return () => window.removeEventListener('pointerdown', away);
   }, [open]);

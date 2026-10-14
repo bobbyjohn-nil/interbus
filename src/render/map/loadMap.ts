@@ -92,10 +92,11 @@ export interface HoveredDot {
   readonly w: number;
 }
 
-/** What a click lands on: a line and, at one of its stops, that stop. */
+/** What a click lands on: a line and, at one of its stops, that stop; and whether it is a double-click's second click. */
 export interface MapHit {
   readonly lineId: number | null;
   readonly stopId: number | null;
+  readonly double: boolean;
 }
 
 /** The pointer is reported at most this often. */
@@ -356,13 +357,25 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let click: ((at: LngLatPair, hit: MapHit) => void) | null = null;
   // MapLibre fires 'click' only when the pointer did not drag between press and release. A stop
   // under the pointer wins over the line it sits on. A double-click held to flip the view clicks nothing.
+  // A double-click's second click counts as one only when the map heard the click just before it:
+  // after a press that only closed a menu, or a click a held double-click swallowed, the next click is
+  // a click of its own. Every click on the page passes the window first, the dropped ones included.
+  let heardLast = false;
+  let heardBefore = false;
+  const onAnyClick = () => {
+    heardBefore = heardLast;
+    heardLast = false;
+  };
+  window.addEventListener('click', onAnyClick, true);
   map.on('click', (e) => {
     if (swallow) return;
+    const double = e.originalEvent.detail > 1 && heardBefore;
+    heardLast = true;
     const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
     const line = hits.find((h) => numberOf(h.properties?.id) !== null);
-    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: numberOf(line?.properties?.id), stopId: numberOf(stop?.properties?.stop) });
+    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: numberOf(line?.properties?.id), stopId: numberOf(stop?.properties?.stop), double });
   });
 
   return {
@@ -411,6 +424,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       window.clearTimeout(press?.timer);
       window.removeEventListener('mousemove', onDragMove);
       window.removeEventListener('mouseup', onDragEnd);
+      window.removeEventListener('click', onAnyClick, true);
       map.remove();
     },
   };
