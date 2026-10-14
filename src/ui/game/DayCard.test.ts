@@ -20,11 +20,26 @@ describe('the day card at a quarter’s close', () => {
     const html = render({ day: 8, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report, contracts: [], events: [], medals: [] });
     expect(html).toContain('<h2>Year 1, Q1, Day 8 closed</h2>');
     expect(html).toContain('Year 1, Q1 report card');
-    for (const text of ['<th scope="row">Coverage</th><td>51</td>', '<th scope="row">Reliability</th><td>100</td>', '<th scope="row">Comfort</th><td>80</td>', '<th scope="row">Money</th><td>67</td>', '<th scope="row">Overall</th><td>74</td>']) {
+    for (const text of ['<th scope="row">Coverage</th><td>50</td>', '<th scope="row">Reliability</th><td>100</td>', '<th scope="row">Comfort</th><td>80</td>', '<th scope="row">Money</th><td>66</td>', '<th scope="row">Overall</th><td>74</td>']) {
       expect(html).toContain(text);
     }
     expect(html).toContain('The city pays $30,813');
     expect(html).toContain('<th scope="row">City grant or fine</th><td>$30,813.00</td>');
+  });
+
+  // The grant, the fine and the medals compare each grade unrounded against whole-number bars
+  // (economy/reportCard.ts, rules/medal.ts), so a grade shows its whole points, never rounded up past a
+  // bar: an overall of 54.7 read "Overall 55" beside "The city neither pays nor fines" and no bronze.
+  // Shown failing (TS-04) with the grades rounded to the nearest point.
+  it('shows each grade as the bars judge it: 54.7 is not a grant’s 55, 34.7 is fined, 59.6 is under gold’s 60', () => {
+    const html = render({ day: 8, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: { quarter: 1, coverage: 38.82, reliability: 77.22, comfort: 80, money: 59.6, overall: 54.69999, payoutCents: 0 }, contracts: [], events: [], medals: [] });
+    expect(html).toContain('<th scope="row">Overall</th><td>54</td>');
+    expect(html).toContain('The city neither pays nor fines');
+    expect(html).toContain('<th scope="row">Money</th><td>59</td>');
+    // The tests' hook too, which the medals spec reads against bronze's 55: 54.96 is 54.9, not 55.0.
+    expect(render({ day: 8, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: { ...report, overall: 54.96, payoutCents: 0 }, contracts: [], events: [], medals: [] })).toContain('data-overall="54.9"');
+    expect(render({ day: 8, rows: [], cashBeforeCents: 0, cashAfterCents: -640_000, report: { ...report, overall: 34.7, payoutCents: -640_000 }, contracts: [], events: [], medals: [] })).toContain('<th scope="row">Overall</th><td>34</td>');
+    expect(render({ day: 8, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: { ...report, overall: 55, payoutCents: 0 }, contracts: [], events: [], medals: [] })).toContain('<th scope="row">Overall</th><td>55</td>');
   });
 
   it('says so when the city fines, and shows no card on other days', () => {

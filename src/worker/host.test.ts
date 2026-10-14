@@ -614,6 +614,20 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false });
   });
 
+  // Interest is a running cost (sim/rules/money.ts) and Finance forecasts a day of it while owing; the
+  // chip left it out, so here, owing $556,000, it read $333.60 a day less than Finance's running costs.
+  // Shown failing (TS-04) with Costs/day summed without the interest.
+  it('counts a day’s interest in Costs/day while owing, as Finance’s running costs forecast it', () => {
+    const { send, last, owing } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'import', text: owing(0) });
+    const s = last('snapshot')!.snapshot;
+    const forecast = (kind: string) => -s.finance.rows.find((r) => r.kind === kind)!.forecastCents!;
+    expect(forecast('interest')).toBeGreaterThan(0);
+    expect(s.costsPerDayCents).toBe(['running', 'wages', 'deadhead', 'upkeep', 'stopUpkeep', 'interest'].reduce((sum, kind) => sum + forecast(kind), 0));
+  });
+
   it('restarts quarter 1 from its founding', () => {
     const { send, last } = founded();
     send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });

@@ -223,7 +223,7 @@ export interface Snapshot {
   readonly ridersPerDay: number;
   /** Closed days whose running rows came out ahead (the checklist's "a day in profit"). */
   readonly profitableDays: number;
-  /** Every line's forecast and every depot's upkeep for a whole day, in cents. */
+  /** A whole day's running costs as Finance forecasts them, in cents: every line's, every depot's and stop's upkeep, and the interest while owing. */
   readonly costsPerDayCents: number;
   readonly lines: readonly LineView[];
   /** Every stop standing, with its day; changes with `lines`. */

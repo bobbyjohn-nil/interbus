@@ -30,4 +30,14 @@ describe('the failure floor on the page', () => {
     expect(html).toContain('Restart this quarter');
     expect(renderToStaticMarkup(createElement(FailureCard, { sim: sim({ closesLeft: 2, ended: false }) }))).toBe('');
   });
+
+  // The close that ends the run posts its day card too, and the two cards took the same spot, the
+  // failure card over the day card's rows. Shown failing (TS-04) with the failure card drawn while the
+  // day card is open.
+  it('waits for the closing day’s card to be read, and shows once Continue closes it', () => {
+    const ended = sim({ closesLeft: 0, ended: true });
+    const dayCard = { day: 1, rows: [], cashBeforeCents: 47_454_800, cashAfterCents: -20_012_000, report: null, contracts: [], events: [], medals: [] };
+    expect(renderToStaticMarkup(createElement(FailureCard, { sim: { ...ended, dayCard } }))).toBe('');
+    expect(renderToStaticMarkup(createElement(FailureCard, { sim: { ...ended, dayCard: null } }))).toContain('The lender has called in the loan');
+  });
 });

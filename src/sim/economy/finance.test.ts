@@ -4,12 +4,13 @@
 // "profit": the quarter no longer adds up to the cash.
 import { describe, expect, it } from 'vitest';
 import { addDebugLine } from '../commands/debugLine';
+import { setHeadways } from '../commands/setHeadways';
 import { SECONDS_PER_DAY } from '../config/time';
 import { advance } from '../step';
 import { gameWithDepot } from '../testing';
 import { forecastDay } from './costs';
 import { finance } from './finance';
-import { foundingCapitalCents, post, rowsOfDay } from './ledger';
+import { foundingCapitalCents, post, rowsOfDay, type RowKind } from './ledger';
 
 function game() {
   const world = gameWithDepot();
@@ -47,6 +48,25 @@ describe('Finance', () => {
     expect(finance(world).rows.find((r) => r.kind === 'interest')!.forecastCents).toBe(-6_000); // 0.06% of $100,000
     const riders = Math.floor(world.assignment.lines.get(world.state.lines[0]!.id)!.perDay);
     expect([forecast('fares'), forecast('subsidy')]).toEqual([riders * 225, riders * 160]);
+  });
+
+  // A line settling after a change made with its buses out banks each leg at the version it ran on,
+  // and the Lines view forecasts that; Finance forecast the new day plan alone, so after a headway
+  // change at noon it read 23% more fuel than the day banked. Shown failing (TS-04) with the forecast
+  // made without the day.
+  it('forecasts what a line settling after a change will bank today, as the Lines view does', () => {
+    const world = game();
+    advance(world, SECONDS_PER_DAY + 7 * 3_600); // to 12:00 on day 2, buses out
+    const line = world.state.lines[0]!;
+    if (!setHeadways(world, line.id, { peak: 600, offpeak: 600, overnight: null }).ok) throw new Error('no change');
+    expect(world.services.get(line.id)!.settling).toBeTruthy();
+    const f = finance(world);
+    const forecast = (kind: RowKind) => -f.rows.find((r) => r.kind === kind)!.forecastCents!;
+    const day = { running: forecast('running'), wages: forecast('wages'), deadhead: forecast('deadhead') };
+    expect(day).toEqual(forecastDay(world.services.get(line.id)!.costs, 0, 2));
+    advance(world, 12 * 3_600 + 60); // past day 2's close
+    const banked = (kind: RowKind) => -rowsOfDay(world.state.ledger, 2).filter((r) => r.kind === kind).reduce((s, r) => s + r.amountCents, 0);
+    expect(day).toEqual({ running: banked('running'), wages: banked('wages'), deadhead: banked('deadhead') });
   });
 
   it('starts a new quarter on day 9: its column holds days 9 on, yesterday day 8', () => {

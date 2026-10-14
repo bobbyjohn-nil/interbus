@@ -24,6 +24,7 @@ import { ok, refuse, type Result } from '../core/result';
 import { spendableCents } from './credit';
 import { checkLineDraft, type LineDraft, type LineDraftContext, type LineRefusal } from './line';
 import type { Headways } from './periods';
+import { checkStopSite } from './stop';
 
 export type RemoveStopRefusal = 'not_on_line' | 'line_keeps_two';
 
@@ -201,7 +202,12 @@ export function checkRoute(
   const extraBuses = Math.max(0, whole.draft.buses - line.buses);
   const busesCents = extraBuses * line.model.priceCents;
   const draft: LineDraft = { ...whole.draft, busesCents, priceCents: whole.draft.stopsCents + busesCents };
+  // The draft stops at the first point refused; a stop standing at a point after it is still kept, so only the stops the route leaves out come down.
   const kept = new Set(whole.draft.stops.flatMap((s) => (s.kind === 'join' ? [s.stopId] : [])));
+  for (const p of points.slice(whole.draft.stops.length)) {
+    const site = checkStopSite(ctx, p);
+    if (site.ok && site.kind === 'join') kept.add(site.stopId);
+  }
   const removed = line.stopIds.flatMap((stopId) => {
     const here = kept.has(stopId) ? null : stopsHere(stopId);
     return here && here.otherLines === 0 ? [{ stopId, refundCents: Math.floor(stopCostCents(here.tier) / 2) }] : [];

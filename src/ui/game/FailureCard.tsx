@@ -5,10 +5,11 @@ import type { Sim } from './useSim';
 /**
  * The end of a run (the M3 spec, item 10; D10): five day closes in a row below the credit line's
  * floor, and the lender calls in the loan. Time stays stopped; Restart this quarter reopens the save
- * written as the quarter began.
+ * written as the quarter began. It shows once the day card of the close that ended the run is read
+ * and closed, rather than over it in the same spot, hiding its rows.
  */
 export function FailureCard({ sim }: { sim: Sim }) {
-  if (!sim.snapshot?.floor?.ended) return null;
+  if (!sim.snapshot?.floor?.ended || sim.dayCard) return null;
   return (
     <section className="day-card failure" role="dialog" aria-label="The run is over" data-testid="failure-card" data-chrome="panel">
       <h2>The lender has called in the loan</h2>

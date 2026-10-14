@@ -61,6 +61,11 @@ export interface Finance {
   readonly rows: readonly FinanceRow[];
 }
 
+/** A whole day's running costs as the forecast column has them, interest included: the Costs/day chip, so the two never disagree. */
+export function runningCostsCents(f: Pick<Finance, 'rows'>): number {
+  return -f.rows.reduce((sum, r) => sum + (ROW_GROUP[r.kind] === 'running' ? (r.forecastCents ?? 0) : 0), 0);
+}
+
 export function finance(world: World): Finance {
   const { state } = world;
   const t = toCalendarTime(state.elapsed);
@@ -118,7 +123,8 @@ export function finance(world: World): Finance {
     forecast.subsidy! += riders * subsidyCents(line.fareCents);
     const service = world.services.get(line.id);
     if (!service) continue;
-    const c = forecastDay(service.costs);
+    // Today's, so a line settling after a change bills each leg at the version it runs on, as the day will bank it.
+    const c = forecastDay(service.costs, 0, t.day);
     forecast.running! -= c.running;
     forecast.wages! -= c.wages;
     forecast.deadhead! -= c.deadhead;
