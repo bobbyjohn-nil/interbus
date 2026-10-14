@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
 export interface PanelItem {
@@ -17,6 +17,10 @@ interface Rect {
 const GAP = 12;
 /** The top of the first row of panels: under the chips. */
 const TOP = 56;
+/** The room left at the window's bottom for the dock and the map's credit (app.css's 100vh - 128px is TOP and this). */
+const BOTTOM = 72;
+/** The least room a panel is given below its top: a row with less room down to the dock is not free. */
+const MIN_ROOM = 160;
 /** How far each panel steps down when no row has room. */
 const ROW_STEP = 28;
 /** How much of a dragged panel stays on screen, so it can always be dragged back. */
@@ -25,23 +29,56 @@ const KEEP = 48;
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP;
 
 /**
+ * How tall a panel with its top at `y` may be, on a window `height` tall: the room down to the dock,
+ * or MIN_ROOM where a drag took it lower. Longer content scrolls inside it, so a panel in a free
+ * place never runs over the dock or the map's credit, however much it grows after it opens.
+ */
+export const roomBelow = (y: number, height: number) => Math.max(MIN_ROOM, height - BOTTOM - y);
+
+/** A panel `w` wide at `at`, moved as little as keeps KEEP pixels of it, its heading among them, on a window `width` by `height`: a drag's rule, and a dragged panel's when the window changes size. */
+const inReach = (at: { x: number; y: number }, w: number, width: number, height: number) => ({
+  x: Math.round(Math.min(width - KEEP, Math.max(KEEP - w, at.x))),
+  y: Math.round(Math.min(height - KEEP, Math.max(0, at.y))),
+});
+
+/** A panel `w` by `h` that opened at `at` in a free place, moved as little as keeps it whole on a window `width` by `height` that changed size: inside the window's edges, its top MIN_ROOM or more above the dock. */
+export const keptWhole = (at: { x: number; y: number }, w: number, h: number, width: number, height: number) => ({
+  x: Math.round(Math.max(GAP, Math.min(width - GAP - w, at.x))),
+  y: Math.round(Math.max(TOP, Math.min(height - BOTTOM - Math.min(h, MIN_ROOM), at.y))),
+});
+
+/**
  * The free place for a panel `w` by `h` beside those already on screen (`taken`), in a window
  * `width` by `height`: the rightmost spot of the highest row with room, scanning right to left past
- * each panel in the way. Rows start under the chips and just below each panel; with no room in any,
- * it opens at the top right, a step down for each panel open.
+ * each panel in the way. Rows start under the chips and just below each panel, and a row has room
+ * for a panel that fits beside the others down to the dock, or at least MIN_ROOM of it (roomBelow:
+ * the rest scrolls inside it). With room in none, it opens at the top right, a step down for each
+ * panel open, as far as leaves it MIN_ROOM above the dock.
  */
 export function freePlace(w: number, h: number, taken: readonly Rect[], width: number, height: number): { x: number; y: number } {
-  const rows = [...new Set([TOP, ...taken.map((t) => t.y + t.h + GAP)])].filter((y) => y + Math.min(h, 160) <= height - GAP).sort((a, b) => a - b);
+  const rows = [...new Set([TOP, ...taken.map((t) => t.y + t.h + GAP)])].filter((y) => y + Math.min(h, MIN_ROOM) <= height - BOTTOM).sort((a, b) => a - b);
   for (const y of rows) {
     let x = width - GAP - w;
     for (let tries = 0; x >= GAP && tries <= taken.length; tries++) {
-      const here: Rect = { x, y, w, h };
+      const here: Rect = { x, y, w, h: Math.min(h, roomBelow(y, height)) };
       const inTheWay = taken.filter((t) => overlaps(here, t));
       if (!inTheWay.length) return { x, y };
       x = Math.min(...inTheWay.map((t) => t.x)) - GAP - w;
     }
   }
-  return { x: Math.max(GAP, width - GAP - w), y: TOP + taken.length * ROW_STEP };
+  return { x: Math.max(GAP, width - GAP - w), y: Math.max(TOP, Math.min(TOP + taken.length * ROW_STEP, height - BOTTOM - Math.min(h, MIN_ROOM))) };
+}
+
+/** Puts a panel's box at `at`, no taller than roomBelow allows there (app.css reads --room). */
+function put(box: HTMLElement, at: { x: number; y: number }): void {
+  Object.assign(box.style, { left: `${at.x}px`, top: `${at.y}px` });
+  box.style.setProperty("--room", `${roomBelow(at.y, window.innerHeight)}px`);
+}
+
+/** The panel shown last, and how many panels have been shown: a new one each time, even for a panel already open. */
+export interface PanelFront {
+  readonly id: string;
+  readonly n: number;
 }
 
 /**
@@ -49,12 +86,24 @@ export function freePlace(w: number, h: number, taken: readonly Rect[], width: n
  * use it, either make it so that the tabs are moveable or make it so that one closes when you open
  * another, preferably the former"). A panel opens in a free place, beside those already open (the
  * first at the top right), and stays there; it is dragged by its heading anywhere on the screen, and
- * opens where it was dragged to for the rest of the session. A press brings it to the front. A
- * tool's card is a panel like the others. Places live on the elements, not in React state, so a drag
- * re-renders nothing.
+ * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
+ * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
+ * free place whole, and a dragged one's heading in reach. A tool's card is a panel like the others.
+ * Places live on the elements, not in React state, so a drag re-renders nothing.
  */
-export function Panels({ items }: { items: readonly PanelItem[] }) {
+export function Panels({ items, front = null }: { items: readonly PanelItem[]; front?: PanelFront | null }) {
   const [raised, setRaised] = useState<readonly string[]>([]);
+  // A panel not open at the last render has just opened, and `front` names one shown again: the
+  // player's newest act, in front of those pressed before (React's pattern for state that follows a prop).
+  const ids = items.map((i) => i.id);
+  const [shown, setShown] = useState({ ids: ids.join(" "), front });
+  if (ids.join(" ") !== shown.ids || front !== shown.front) {
+    const before = new Set(shown.ids.split(" "));
+    const again = front && front !== shown.front && ids.includes(front.id) ? front.id : null;
+    const ahead = [...ids.filter((id) => !before.has(id) && id !== again), ...(again ? [again] : [])];
+    setShown({ ids: ids.join(" "), front });
+    setRaised((r) => [...r.filter((id) => ids.includes(id) && !ahead.includes(id)), ...ahead]);
+  }
   const boxes = useRef(new Map<string, HTMLDivElement>());
   /** Where each panel was dragged to, kept for the session. */
   const dragged = useRef(new Map<string, { x: number; y: number }>());
@@ -71,11 +120,25 @@ export function Panels({ items }: { items: readonly PanelItem[] }) {
         const r = boxes.current.get(other)?.getBoundingClientRect();
         return r ? [{ x: r.left, y: r.top, w: r.width, h: r.height }] : [];
       });
-      const at = dragged.current.get(id) ?? freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight);
-      Object.assign(box.style, { left: `${at.x}px`, top: `${at.y}px` });
+      // Where it was dragged to, kept in reach of a window narrower since.
+      const was = dragged.current.get(id);
+      put(box, was ? inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight) : freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight));
       placed.current.add(id);
     }
   });
+
+  // A window that changes size keeps a panel in a free place whole, and a dragged one in reach, as a drag does.
+  useEffect(() => {
+    const resize = () => {
+      for (const [id, box] of boxes.current) {
+        const r = box.getBoundingClientRect();
+        const [width, height] = [window.innerWidth, window.innerHeight];
+        put(box, dragged.current.has(id) ? inReach({ x: r.left, y: r.top }, r.width, width, height) : keptWhole({ x: r.left, y: r.top }, r.width, r.height, width, height));
+      }
+    };
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
 
   const raise = (id: string) => setRaised((r) => (r.at(-1) === id ? r : [...r.filter((x) => x !== id), id]));
   const drag = (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
@@ -84,17 +147,11 @@ export function Panels({ items }: { items: readonly PanelItem[] }) {
     const box = event.currentTarget;
     const start = box.getBoundingClientRect();
     const [x0, y0] = [event.clientX, event.clientY];
-    const place = (cx: number, cy: number) => ({
-      x: Math.round(Math.min(window.innerWidth - KEEP, Math.max(KEEP - start.width, start.left + cx - x0))),
-      y: Math.round(Math.min(window.innerHeight - KEEP, Math.max(0, start.top + cy - y0))),
-    });
+    const place = (cx: number, cy: number) => inReach({ x: start.left + cx - x0, y: start.top + cy - y0 }, start.width, window.innerWidth, window.innerHeight);
     event.preventDefault();
     box.setPointerCapture(event.pointerId);
     box.classList.add("dragging");
-    const move = (e: PointerEvent) => {
-      const at = place(e.clientX, e.clientY);
-      Object.assign(box.style, { left: `${at.x}px`, top: `${at.y}px` });
-    };
+    const move = (e: PointerEvent) => put(box, place(e.clientX, e.clientY));
     const end = (e: PointerEvent) => {
       box.removeEventListener("pointermove", move);
       box.removeEventListener("pointerup", end);

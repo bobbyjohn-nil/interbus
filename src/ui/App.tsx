@@ -15,7 +15,7 @@ import { DepotCard, DraftCard, draftShows, StopSiteCard, type Tool } from "./gam
 import { useSim } from "./game/useSim";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
-import { Panels, type PanelItem } from "./shell/Panels";
+import { Panels, type PanelFront, type PanelItem } from "./shell/Panels";
 import { Finance } from "./shell/Finance";
 import { Contracts } from "./shell/Contracts";
 import { DemandMenu } from "./shell/DemandMenu";
@@ -38,9 +38,14 @@ export function App() {
     readonly points: RoutePoint[];
     readonly saved: string | null;
   } | null>(null);
-  // The panels open, in the order they opened (D25: several at once, each movable; shell/Panels.tsx).
+  // The panels open, in the order they opened (D25: several at once, each movable; shell/Panels.tsx),
+  // and the one shown last: showing a panel already open brings it to the front.
   const [open, setOpen] = useState<readonly Exclude<Panel, "none">[]>([]);
-  const show = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => (o.includes(p) ? o : [...o, p])), []);
+  const [front, setFront] = useState<PanelFront | null>(null);
+  const show = useCallback((p: Exclude<Panel, "none">) => {
+    setOpen((o) => (o.includes(p) ? o : [...o, p]));
+    setFront((f) => ({ id: p, n: (f?.n ?? 0) + 1 }));
+  }, []);
   const hide = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => o.filter((x) => x !== p)), []);
   const toggle = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p])), []);
   const [lineId, setLineId] = useState<number | null>(null);
@@ -471,7 +476,7 @@ export function App() {
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "stop" ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      <Panels items={panelItems} />
+      <Panels items={panelItems} front={front} />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}

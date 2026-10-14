@@ -4,16 +4,34 @@
 // drags by its heading and keeps its place when closed and opened again; a press brings a panel to
 // the front; and the line tool's card takes its own place beside them, the tool still out. Shown
 // failing (TS-04) on the shell before the layer, where opening Finance closed the tool and Saves
-// replaced Finance.
-import { expect, test, type Locator } from '@playwright/test';
+// replaced Finance. The systems audit's (D26) two below were shown failing on the layer before their
+// fix: Contracts opened past the bottom of a 720 px window, over the dock and the map's credit, and behind
+// Lines, pressed before it opened; and a narrower window left a panel dragged near the right edge out
+// of sight and cut off one that opened in a free place.
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
-import { build, city } from './shell';
+import { build, city, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
 const apart = async (a: Locator, b: Locator) => {
   const [p, q] = [(await a.boundingBox())!, (await b.boundingBox())!];
   return p.x + p.width <= q.x || q.x + q.width <= p.x || p.y + p.height <= q.y || q.y + q.height <= p.y;
 };
 const z = (l: Locator) => l.evaluate((el) => Number(getComputedStyle(el.closest('.movable')!).zIndex));
+/** Whether a press at the middle of `l` lands on it, not on a panel over it. */
+const onTop = (l: Locator) =>
+  l.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+  });
+/** Drags a panel by its heading. */
+const dragBy = async (page: Page, panel: Locator, heading: string, dx: number, dy: number) => {
+  const h = (await panel.getByRole('heading', { name: heading }).boundingBox())!;
+  await page.mouse.move(h.x + 10, h.y + h.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(h.x + 10 + dx, h.y + h.height / 2 + dy, { steps: 8 });
+  await page.mouse.up();
+};
 
 test.describe('movable panels', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -71,5 +89,95 @@ test.describe('movable panels', () => {
     await expect(draft).toHaveCount(0);
     await expect(finance).toHaveCount(0);
     await expect(saves).toHaveCount(0);
+  });
+
+  test('open inside the window on a crowded screen, clear of the dock and the map’s credit, the stop card’s Close in reach, the newest in front', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1152, height: 720 }); // I13's tightest size
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await zoomOutOnce(page);
+    await withDebugLine(page);
+    // Three panels across the top and a stop's card, then Lines pressed and Contracts opened from the
+    // checklist: no row has room for all 510 px of it.
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByRole('button', { name: 'Saves' }).click();
+    const [sx, sy] = await toScreen(page, DEBUG_STOPS[2]!.at);
+    await page.mouse.click(sx, sy);
+    const stop = page.getByTestId('stop-card');
+    await expect(stop).toBeVisible();
+    const lines = page.getByTestId('inspector');
+    await lines.locator('h2').first().click();
+    await page.getByTestId('checklist').click();
+    const contracts = page.getByTestId('contracts');
+    await expect(contracts).toBeVisible();
+    // Every panel inside the window; what does not fit above the dock scrolls inside its panel.
+    const panels = page.locator('.movable');
+    await expect(panels).toHaveCount(5);
+    for (const box of await panels.all()) {
+      const r = (await box.boundingBox())!;
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.y).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.width).toBeLessThanOrEqual(1152);
+      expect(r.y + r.height).toBeLessThanOrEqual(720);
+    }
+    // Contracts, the newest, in front of Lines, pressed before it; the dock's buttons and the OSM credit still take a press.
+    expect(await z(contracts)).toBeGreaterThan(await z(lines));
+    expect(await onTop(contracts.getByRole('heading', { name: 'Contracts' }))).toBe(true);
+    for (const name of ['Lines', 'Finance']) expect(await onTop(page.locator('.dock').getByRole('button', { name, exact: true }))).toBe(true);
+    expect(await onTop(page.getByRole('link', { name: '© OpenStreetMap contributors' }))).toBe(true);
+    // Lines pressed again, then Contracts shown again from the checklist: it comes to the front again.
+    await lines.locator('h2').first().click();
+    expect(await z(lines)).toBeGreaterThan(await z(contracts));
+    await page.getByTestId('checklist').click();
+    await expect.poll(async () => (await z(contracts)) > (await z(lines))).toBe(true);
+    // No panel hides another: the stop's card, opened before Contracts, still closes with its own button.
+    const close = stop.getByRole('button', { name: 'Close' });
+    expect(await onTop(close)).toBe(true);
+    await close.click();
+    await expect(stop).toHaveCount(0);
+  });
+
+  test('keep panels in reach when the window narrows: a dragged one’s heading, open or opened again, and one in a free place whole', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const finance = page.getByTestId('finance');
+    const saves = page.getByTestId('saves');
+    const dockFinance = page.getByRole('button', { name: 'Finance', exact: true });
+    await dockFinance.click();
+    // Dragged 400 px right: a strip of it stays on screen, as the layer allows.
+    await dragBy(page, finance, 'Finance', 400, 0);
+    expect((await finance.boundingBox())!.x).toBeGreaterThan(1366 - 100);
+    // Saves opens in a free place to its left, whole, its right edge 64 px from the window's.
+    await page.getByRole('button', { name: 'Saves' }).click();
+    await expect(saves).toBeVisible();
+    const before = (await saves.boundingBox())!;
+    expect(before.x + before.width).toBeGreaterThan(1152);
+    // The window narrows: Finance comes back within reach (its heading is pressed once it is in front,
+    // below), and Saves, never dragged, comes back whole, its Close button free to press.
+    await page.setViewportSize({ width: 1152, height: 720 });
+    const heading = finance.getByRole('heading', { name: 'Finance' });
+    const grabbed = async () => {
+      const r = (await heading.boundingBox())!;
+      return page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('h2')?.textContent, [r.x + 20, r.y + r.height / 2]);
+    };
+    await expect.poll(async () => (await finance.boundingBox())!.x).toBeLessThanOrEqual(1152 - 48);
+    await expect.poll(async () => (await saves.boundingBox())!.x + before.width).toBeLessThanOrEqual(1152 - 12);
+    expect(await onTop(saves.getByRole('button', { name: 'Close' }))).toBe(true);
+    // Saves pressed, over Finance's heading; Finance closed and opened again, at its place inside the
+    // narrower window, comes up in front, its heading under a press.
+    await saves.getByRole('heading', { name: 'Saves' }).click();
+    expect(await grabbed()).not.toBe('Finance');
+    await dockFinance.click();
+    await expect(finance).toHaveCount(0);
+    await dockFinance.click();
+    await expect(finance).toBeVisible();
+    expect((await finance.boundingBox())!.x).toBeLessThanOrEqual(1152 - 48);
+    expect(await z(finance)).toBeGreaterThan(await z(saves));
+    expect(await grabbed()).toBe('Finance');
   });
 });

@@ -5,6 +5,7 @@ import type { BusModelId, LineDraftView } from "../../sim/types";
 import { refusalText } from "../copy";
 import { Dropdown } from "../Dropdown";
 import { about, busCount, every, km, usdK } from "../format";
+import { useBesidePointer } from "./besidePointer";
 import type { Sim } from "./useSim";
 
 /** The Build menu's tools (D25): a stop on its own, a line, a depot; and the route editor, opened from a line. */
@@ -22,12 +23,13 @@ export function DepotCard({
   screen: [number, number] | null;
 }) {
   const verdict = sim.depotSite;
+  const card = useBesidePointer(screen, screen && verdict);
   if (!verdict || !screen) return null;
   const { site } = verdict;
   return (
     <div
+      ref={card}
       className="probe-card"
-      style={{ left: screen[0] + 14, top: screen[1] + 14 }}
       data-testid="depot-card"
       data-ok={site.ok ? "yes" : "no"}
       data-at={verdict.at.join(",")}
@@ -44,12 +46,13 @@ export function DepotCard({
 /** Place stop's verdict beside the pointer (D25): "A Sign here · street 20 m away · $4k", or why not, as the command checks it (GD-05). */
 export function StopSiteCard({ sim, screen }: { sim: Sim; screen: [number, number] | null }) {
   const verdict = sim.stopSite;
+  const card = useBesidePointer(screen, screen && verdict);
   if (!verdict || !screen) return null;
   const { site } = verdict;
   return (
     <div
+      ref={card}
       className="probe-card"
-      style={{ left: screen[0] + 14, top: screen[1] + 14 }}
       data-testid="stop-site-card"
       data-ok={site.ok ? "yes" : "no"}
       data-at={site.ok ? site.at.join(",") : ""}

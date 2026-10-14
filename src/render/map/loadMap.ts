@@ -341,12 +341,23 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     lastPointerMs = performance.now();
     if (latestMove) pointer?.(latestMove.at, latestMove.screen, dotAt(latestMove.screen));
   };
-  map.on('mousemove', (e) => {
-    if (!pointer) return;
-    latestMove = { at: [e.lngLat.lng, e.lngLat.lat], screen: [e.point.x, e.point.y] };
+  const soon = () => {
     const wait = POINTER_EVERY_MS - (performance.now() - lastPointerMs);
     if (wait <= 0) report();
     else trailing ??= window.setTimeout(report, wait);
+  };
+  map.on('mousemove', (e) => {
+    if (!pointer) return;
+    latestMove = { at: [e.lngLat.lng, e.lngLat.lat], screen: [e.point.x, e.point.y] };
+    soon();
+  });
+  // The camera moving under a resting pointer (the keys, Q and E, an ease) puts another place under
+  // it: reported as a move, so a dot's card goes once its dot has moved away (D25: only on a dot).
+  map.on('move', () => {
+    if (!pointer || !latestMove) return;
+    const at = map.unproject(latestMove.screen);
+    latestMove = { at: [at.lng, at.lat], screen: latestMove.screen };
+    soon();
   });
   map.getCanvas().addEventListener('mouseleave', () => {
     window.clearTimeout(trailing);

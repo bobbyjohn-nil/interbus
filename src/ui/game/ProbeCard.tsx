@@ -1,4 +1,5 @@
 import { about } from '../format';
+import { useBesidePointer } from './besidePointer';
 import type { Sim } from './useSim';
 
 /** The words on a dot's card: its own count, then how many live or work within a walk (the catchment rule's own numbers). */
@@ -11,15 +12,17 @@ export function probeLines(probe: NonNullable<Sim['probe']>): readonly [string, 
 /**
  * Beside the pointer while it is on a demand dot, and only then (D25: "it should only do that when
  * hovering on a demand point"): a home dot's people and those within a walk, or a job dot's jobs
- * and those within a walk (sim/rules/catchment).
+ * and those within a walk (sim/rules/catchment). Below and to the right of the pointer, or on its
+ * other side where the window ends, so the whole card shows.
  */
 export function ProbeCard({ sim, screen }: { sim: Sim; screen: [number, number] | null }) {
+  const card = useBesidePointer(screen, screen && sim.probe);
   if (!sim.probe || !screen) return null;
   const [here, within] = probeLines(sim.probe);
   return (
     <div
+      ref={card}
       className="probe-card"
-      style={{ left: screen[0] + 14, top: screen[1] + 14 }}
       data-testid="probe-card"
       data-kind={sim.probe.kind}
       data-here={sim.probe.here}
