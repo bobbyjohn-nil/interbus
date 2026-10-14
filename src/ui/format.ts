@@ -1,6 +1,9 @@
 // Display copy for numbers (V3's format.ts moved out of the sim, which never formats). Integer
 // maths on cents, so -150 cents reads -$1.50, never V3's rounded "-$1".
+import { calendarOfDay } from '../sim/rules/calendar';
 import { BRONZE_OVERALL, GOLD_GRADE_MIN, GOLD_OVERALL, GOLD_TRIPS_PER_DAY, SILVER_TRIPS, type MedalId } from '../sim/rules/medal';
+import { SPEED_RATES } from '../sim/rules/speed';
+import type { Speed } from '../sim/types';
 
 /** "$313,200" for whole-dollar chips; "$1,234.56" with `cents`. */
 export function usd(amountCents: number, options: { cents?: boolean } = {}): string {
@@ -50,6 +53,42 @@ export function about(n: number): string {
 export function clock(hour: number, minute: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
+
+/**
+ * The clock as the top bar shows it at a speed (game seconds a second): the exact minute up to 60x, the
+ * ten minutes at 600x and the hour above, so the digits change about once a second or slower and can
+ * be read (D25).
+ */
+export function clockText(hour: number, minute: number, rate: number): string {
+  if (rate <= 60) return clock(hour, minute);
+  return clock(hour, rate <= 600 ? minute - (minute % 10) : 0);
+}
+
+/** "Year 1, Q2, Day 4": a game day (from 1, since founding) as the calendar reads it, eight days to a quarter (D25). */
+export function dateText(day: number): string {
+  const { year, quarter, dayOfQuarter } = calendarOfDay(day);
+  return `Year ${year}, Q${quarter}, Day ${dayOfQuarter}`;
+}
+
+/** "Year 1, Q2": the quarter a game day falls in. */
+export function quarterText(day: number): string {
+  const { year, quarter } = calendarOfDay(day);
+  return `Year ${year}, Q${quarter}`;
+}
+
+/** "600×": a speed as a multiple of real time. */
+export function speedText(speed: Exclude<Speed, 0>): string {
+  return `${SPEED_RATES[speed].toLocaleString('en-US')}×`;
+}
+
+/** What a speed means, for its menu: "Real time", "10 minutes a second". */
+export const SPEED_HINTS: Readonly<Record<Exclude<Speed, 0>, string>> = {
+  1: 'Real time',
+  2: 'A minute a second',
+  3: '10 minutes a second',
+  4: 'Half an hour a second',
+  5: 'An hour and a half a second',
+};
 
 const SAVED_THIS_YEAR = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 const SAVED_ANOTHER_YEAR = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });

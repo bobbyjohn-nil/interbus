@@ -11,6 +11,7 @@ import { DEPOT_CAPACITY, MAX_DEPOTS } from '../src/sim/config/depots';
 import { encode } from '../src/sim/save/save';
 import { busyScene, FIXTURE_CORRIDORS } from '../src/sim/scene';
 import { foundCompany } from './found';
+import { setSpeed } from './shell';
 
 test('the busy scene imports, and every bus in it is drawn', async ({ page }) => {
   test.setTimeout(180_000);
@@ -34,7 +35,7 @@ test('the busy scene imports, and every bus in it is drawn', async ({ page }) =>
   await page.getByRole('button', { name: 'Close' }).click();
 
   const map = page.getByTestId('map');
-  await page.getByRole('button', { name: '1×' }).click();
+  await setSpeed(page, '600×');
   await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 30_000 }).toBe(scene.buses);
   test.info().annotations.push({ type: 'scene', description: `${scene.buses} buses on ${scene.lines} lines drawn on ${city.extent}` });
 });

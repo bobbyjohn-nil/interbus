@@ -1,12 +1,12 @@
 // Medals (the M4 spec, item 3; exit check 4): a quarter graded 55 or better gives the bronze medal,
 // and the Contracts panel names the trips left to unlock the Goliath; silver puts it on sale on the
 // line card. The medals held are dots on the Contracts chip, and the shell keeps to I13's budget at
-// 1152×720, the tightest screen. A quarter is ten game days, so the game is a save file edited to the
+// 1152×720, the tightest screen. A quarter is eight game days (D25), so the game is a save file edited to the
 // evening of its last, its checklist done (a day in profit and a contract paid).
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
-import { chromeShare, city, onDepotLand } from './shell';
+import { chromeShare, city, onDepotLand, setSpeed } from './shell';
 
 type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; ledger: unknown[] };
 
@@ -62,7 +62,7 @@ test.describe('medals', () => {
     const silver = ladder.locator('li[data-medal="silver"]');
 
     // The quarter's last evening, 5,000 trips short of silver: no medal yet, and the Goliath locked.
-    await edited(page, company(10, 20_000, {}), eveningOf(10));
+    await edited(page, company(8, 20_000, {}), eveningOf(8)); // a quarter is eight days (D25)
     await expect(dots).toHaveCount(0);
     await contracts.click();
     await expect(ladder).toHaveAttribute('data-to-silver', '5000');
@@ -76,7 +76,7 @@ test.describe('medals', () => {
     await page.getByRole('button', { name: 'Close' }).click();
 
     // Its close grades the quarter at 55 or better: bronze, on the day card, the chip and the panel.
-    await page.getByRole('button', { name: '3×' }).click();
+    await setSpeed(page, '5,400×');
     const card = page.getByTestId('day-card');
     await expect(card.getByTestId('medal-news')).toHaveText('Bronze medal: a quarter graded 55 or better', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Pause' }).click();
@@ -84,7 +84,7 @@ test.describe('medals', () => {
     await card.getByRole('button', { name: 'Continue' }).click();
     await expect(dots).toHaveAttribute('data-held', 'bronze');
     await contracts.click();
-    await expect(ladder.locator('li[data-medal="bronze"]')).toContainText('since day 10');
+    await expect(ladder.locator('li[data-medal="bronze"]')).toContainText('Since Year 1, Q1, Day 8');
     const left = Number(await ladder.getAttribute('data-to-silver'));
     expect(left).toBeGreaterThan(0);
     expect(left).toBeLessThan(5_000); // the evening's trips counted
@@ -92,14 +92,14 @@ test.describe('medals', () => {
     await page.getByRole('button', { name: 'Close' }).click();
 
     // One trip short, the next evening: its close gives silver, and the Goliath is for sale.
-    await edited(page, company(11, 24_999, { bronze: 10 }), eveningOf(11));
-    await page.getByRole('button', { name: '3×' }).click();
+    await edited(page, company(9, 24_999, { bronze: 8 }), eveningOf(9));
+    await setSpeed(page, '5,400×');
     await expect(card.getByTestId('medal-news')).toHaveText('Silver medal: 25,000 trips carried. The Goliath is for sale', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Pause' }).click();
     await card.getByRole('button', { name: 'Continue' }).click();
     await expect(dots).toHaveAttribute('data-held', 'bronze silver');
     await contracts.click();
-    await expect(silver).toContainText('since day 11 · the Goliath is for sale');
+    await expect(silver).toContainText('Since Year 1, Q2, Day 1 · The Goliath is for sale');
     await page.getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
     await expect(goliath).toHaveJSProperty('disabled', false);

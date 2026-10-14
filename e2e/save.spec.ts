@@ -12,7 +12,7 @@ test.describe('saves', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
   test('sets aside a save from an older build with a one-line notice, and starts a new game (D12)', async ({ page }) => {
-    const [live, backup] = [saveKey(city.id), backupKey(city.id, 'older')];
+    const [live, backup] = [saveKey(city.id), backupKey(city.id, `older-${JSON.parse(OLD).format}`)];
     await page.addInitScript(([key, text]) => localStorage.setItem(key!, text!), [live, OLD]);
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });

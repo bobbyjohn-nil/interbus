@@ -17,8 +17,9 @@ const rows = [
 
 describe('the day card at a quarter’s close', () => {
   it('grades the quarter and says what the city pays, as one of the day’s rows', () => {
-    const html = render({ day: 10, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report, contracts: [], events: [], medals: [] });
-    expect(html).toContain('Quarter 1 report card');
+    const html = render({ day: 8, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report, contracts: [], events: [], medals: [] });
+    expect(html).toContain('<h2>Year 1, Q1, Day 8 closed</h2>');
+    expect(html).toContain('Year 1, Q1 report card');
     for (const text of ['<th scope="row">Coverage</th><td>51</td>', '<th scope="row">Reliability</th><td>100</td>', '<th scope="row">Comfort</th><td>80</td>', '<th scope="row">Money</th><td>67</td>', '<th scope="row">Overall</th><td>74</td>']) {
       expect(html).toContain(text);
     }
@@ -27,7 +28,7 @@ describe('the day card at a quarter’s close', () => {
   });
 
   it('says so when the city fines, and shows no card on other days', () => {
-    expect(render({ day: 10, rows: [], cashBeforeCents: 0, cashAfterCents: -800_000, report: { ...report, overall: 0, payoutCents: -800_000 }, contracts: [], events: [], medals: [] })).toContain('The city fines $8,000');
+    expect(render({ day: 8, rows: [], cashBeforeCents: 0, cashAfterCents: -640_000, report: { ...report, overall: 0, payoutCents: -640_000 }, contracts: [], events: [], medals: [] })).toContain('The city fines $6,400');
     expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [], medals: [] })).not.toContain('report card');
   });
 });

@@ -50,16 +50,15 @@ import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } f
 import type { ContractView, DayCard, DepotSiteView, Dots, EventView, ExtendData, FinanceView, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
 import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
+import { SPEED_RATES } from '../sim/rules/speed';
 
-/**
- * Game-seconds per real second at each speed. Speed 1 is about 10 game-minutes a second, so the
- * service day (05:00–24:00) passes in two minutes as PLAN §3's first ten minutes have it; the
- * ladder is re-derived from the pacing targets in week 9 (GD-10).
- */
-export const SPEEDS: Readonly<Record<Speed, number>> = { 0: 0, 1: 600, 2: 1800, 3: 5400 };
+/** Game-seconds per real second at each speed: 1x is real time (sim/rules/speed.ts; D25). */
+export const SPEEDS: Readonly<Record<Speed, number>> = SPEED_RATES;
 /** A slice of real time longer than this (a tab in the background) runs as this long, so the game never leaps days. */
 export const MAX_SLICE_MS = 250;
 export const SNAPSHOT_EVERY_MS = 100;
+/** While time runs, the game saves at each new game hour and at least this often by the real clock: at 1x a game hour is a real one (D25). */
+export const SAVE_EVERY_MS = 30_000;
 
 export interface Host {
   handle(message: ToWorker): void;
@@ -335,6 +334,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   let lastMs: number | null = null;
   let carrySeconds = 0;
   let lastSnapshotMs = -Infinity;
+  let savedAtMs = -Infinity;
   // Routes change only when the network does, not ten times a second.
   let lines: LineView[] = [];
   let stops: StopView[] = [];
@@ -474,7 +474,9 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       minute: t.minute,
       speed,
       company: { ...w.state.company },
-      secondOfDay: (START_SECOND_OF_DAY + w.state.elapsed) % SECONDS_PER_DAY,
+      // The part-step of game time run so far counts on the clock the buses are drawn by, so at 1x they
+      // glide rather than wait for the next whole step (display only: the sim's clock is whole steps).
+      secondOfDay: ((START_SECOND_OF_DAY + w.state.elapsed) % SECONDS_PER_DAY) + carrySeconds,
       rate: SPEEDS[speed],
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
@@ -755,6 +757,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         lastMs = null;
         return;
       }
+      if (lastMs === null) savedAtMs = nowMs;
       const sliceMs = lastMs === null ? 0 : Math.min(Math.max(nowMs - lastMs, 0), MAX_SLICE_MS);
       lastMs = nowMs;
       carrySeconds += (sliceMs / 1000) * SPEEDS[speed];
@@ -762,7 +765,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         carrySeconds -= STEP_SECONDS;
         if (!stepOnce()) return;
       }
-      if (Math.floor(world.state.elapsed / 3_600) !== savedHour) save();
+      if (Math.floor(world.state.elapsed / 3_600) !== savedHour || nowMs - savedAtMs >= SAVE_EVERY_MS) {
+        save();
+        savedAtMs = nowMs;
+      }
       if (nowMs - lastSnapshotMs >= SNAPSHOT_EVERY_MS) {
         lastSnapshotMs = nowMs;
         post({ type: 'snapshot', snapshot: snapshot() });

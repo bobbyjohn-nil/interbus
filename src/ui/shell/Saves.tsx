@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { clock, savedWhen, usd } from '../format';
+import { clock, dateText, savedWhen, usd } from '../format';
 import type { SetAsideWhy } from '../../sim/types';
 import type { Sim } from '../game/useSim';
 
 /** What a set-aside save is, in its row (D12, DP-06). */
-const SET_ASIDE_NAMES: Readonly<Record<SetAsideWhy, string>> = {
+const SET_ASIDE_NAMES: Readonly<Record<'older' | 'newer' | 'unreadable' | 'other-city', string>> = {
   older: 'A save from an older build',
   newer: 'A save from a newer build',
   unreadable: 'A save this game could not read',
   'other-city': 'A save from another city',
 };
+const setAsideName = (why: SetAsideWhy): string => (why.startsWith('older-') ? `${SET_ASIDE_NAMES.older} (format ${why.slice(6)})` : SET_ASIDE_NAMES[why as keyof typeof SET_ASIDE_NAMES]);
 
 /**
  * Saves (the M3 spec, item 8; the M5 spec, item 4): the autosave, which is this game as it plays,
@@ -34,7 +35,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
       </button>
       <h2>Saves</h2>
       <p className="hint">
-        This game saves itself as it plays: day {s.day}, {clock(s.hour, s.minute)}.
+        This game saves itself as it plays: {dateText(s.day)}, {clock(s.hour, s.minute)}.
       </p>
       <ul className="slots">
         {(sim.slots ?? []).map(({ slot, about, readable }) => (
@@ -42,7 +43,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
             <span>
               Slot {slot} ·{' '}
               {about
-                ? `Day ${about.day}, ${clock(about.hour, about.minute)} · ${about.company || 'unnamed'} · ${usd(about.cashCents)} · ${about.lines} ${about.lines === 1 ? 'line' : 'lines'} · ${about.buses} ${about.buses === 1 ? 'bus' : 'buses'}`
+                ? `${dateText(about.day)}, ${clock(about.hour, about.minute)} · ${about.company || 'Unnamed'} · ${usd(about.cashCents)} · ${about.lines} ${about.lines === 1 ? 'line' : 'lines'} · ${about.buses} ${about.buses === 1 ? 'bus' : 'buses'}`
                 : readable
                   ? 'Empty'
                   : 'A save this game cannot read'}
@@ -104,7 +105,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
         ))}
         {(sim.setAside ?? []).map((why) => (
           <li key={why} data-testid={`set-aside-${why}`} className="set-aside">
-            <span>{SET_ASIDE_NAMES[why]}, set aside</span>
+            <span>{setAsideName(why)}, set aside</span>
             <span className="controls">
               <button type="button" onClick={() => send({ type: 'export-set-aside', why })}>
                 Export

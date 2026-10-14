@@ -11,8 +11,8 @@ export type { BusModelId, MedalId, Medals };
 
 export type LngLatPair = [lon: number, lat: number];
 
-/** Paused, then three speeds (worker/host.ts SPEEDS). */
-export type Speed = 0 | 1 | 2 | 3;
+/** Paused, then five speeds from real time up (sim/rules/speed.ts SPEED_RATES). */
+export type Speed = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface CityRefData {
   readonly id: string;
@@ -203,7 +203,7 @@ export interface Snapshot {
   readonly speed: Speed;
   /** The company, unnamed until founded. */
   readonly company: { readonly name: string; readonly colour: string };
-  /** Seconds since midnight of the game day, and game seconds per real second (0 paused): the vehicle layer runs the clock on between snapshots. */
+  /** Seconds since midnight of the game day, with the part-step run so far, and game seconds per real second (0 paused): the vehicle layer runs the clock on between snapshots. */
   readonly secondOfDay: number;
   readonly rate: number;
   readonly cashCents: number;
@@ -331,7 +331,8 @@ export interface SlotView {
 }
 
 /** Why a save was set aside under its backup key (D12, DP-06): it is kept until the player exports or deletes it. */
-export type SetAsideWhy = 'older' | 'newer' | 'unreadable' | 'other-city';
+/** Why a save was set aside. A save from an older build keeps its format in its key (`older-14`), so a later format change never writes over it; plain `older` is a backup made before that. */
+export type SetAsideWhy = 'older' | `older-${number}` | 'newer' | 'unreadable' | 'other-city';
 
 /**
  * What became of the save a game started from: none, read, read onto another bake of the map with

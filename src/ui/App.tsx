@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CITIES } from "../cities";
 import { MapView, type MapHit } from "../render/map/MapView";
-import type { BusModelId, ExtendData, LngLatPair } from "../sim/types";
+import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
+import type { BusModelId, ExtendData, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
 import { DayCard } from "./game/DayCard";
 import { FailureCard } from "./game/FailureCard";
@@ -38,6 +39,15 @@ export function App() {
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
   const [homeAt, setHomeAt] = useState<number | null>(0);
   const { probeAt, depotSiteAt, draftFor, send } = sim;
+  // Play resumes the speed last played at, 600x the first time (D25).
+  const [playSpeed, setPlaySpeed] = useState<Exclude<Speed, 0>>(PLAY_SPEED);
+  const speedNow = sim.snapshot?.speed ?? 0;
+  // Kept as the game runs, during render (React's pattern for state that follows a prop).
+  if (speedNow !== 0 && speedNow !== playSpeed) setPlaySpeed(speedNow);
+  const speedRef = useRef({ now: speedNow, play: playSpeed, founded: false });
+  useEffect(() => {
+    speedRef.current = { now: speedNow, play: playSpeed, founded: Boolean(sim.snapshot?.company.name) };
+  }, [speedNow, playSpeed, sim.snapshot?.company.name]);
 
   // A tool's pointer: the depot card while placing a depot, "people within a walk" otherwise.
   const toolRef = useRef(tool);
@@ -161,9 +171,22 @@ export function App() {
     const onKey = (event: KeyboardEvent) => {
       if (
         event.target instanceof HTMLSelectElement ||
-        event.target instanceof HTMLInputElement
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
       )
         return;
+      // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A focused button keeps Space.
+      const { now, play, founded } = speedRef.current;
+      if (founded && event.key === " " && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        send({ type: "speed", speed: now === 0 ? play : 0 });
+        return;
+      }
+      const pick = founded && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
+      if (pick !== undefined && /^[1-5]$/.test(event.key)) {
+        send({ type: "speed", speed: pick });
+        return;
+      }
       // Ctrl+Z or ⌘Z takes back the newest command taken while paused (I9).
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
@@ -241,6 +264,7 @@ export function App() {
       />
       <TopBar
         sim={sim}
+        playSpeed={playSpeed}
         onContracts={() => {
           choose("none");
           setPanel("contracts");
@@ -328,7 +352,13 @@ export function App() {
           panel={panel}
           hasLines={(sim.snapshot?.lines.length ?? 0) > 0}
           onTool={choose}
-          onPanel={setPanel}
+          onPanel={(next) => {
+            // A panel shows only while no tool is in use, so opening one puts the tool down: with a tool
+            // still active, the panel opened unseen and the two blocked each other (the owner's
+            // initial playtest: "when you open 2 tabs, they conflict and you can't use it").
+            if (next !== "none") choose("none");
+            setPanel(next);
+          }}
         />
       ) : null}
       <Notices sim={sim} />

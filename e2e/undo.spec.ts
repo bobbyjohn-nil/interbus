@@ -2,7 +2,7 @@
 // does the same, and once time has run the notice says why it cannot.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 test.describe('undo while paused', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -33,7 +33,7 @@ test.describe('undo while paused', () => {
     await expect(panel).toHaveAttribute('data-cash', '42720000');
 
     await placeDepot();
-    await page.getByRole('button', { name: '1×' }).click();
+    await setSpeed(page, '600×');
     await expect(chip).toHaveCount(0);
     await page.getByRole('button', { name: 'Pause' }).click();
     await page.keyboard.press('Control+z');

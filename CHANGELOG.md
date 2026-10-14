@@ -69,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Time runs in minutes and days on a calendar of 8-day quarters, four to a year. The top bar names the year and quarter, then the day of the quarter and the time ("Year 1, Q2 · Day 4 · 08:10"), and the day card, Home, Saves and the medals say the date the same way.
+- Speeds are true multiples of real time: 1× runs a game second a second, then 60×, 600×, 1,800× and 5,400×, picked from a speed menu beside Play and Pause. Space pauses and plays again, and the keys 1 to 5 pick a speed. At 1× and 60× the buses glide instead of stopping and jumping.
+- Contracts ask for a quarter in a row, 8 days, within two quarters, 16 days, and an offer nobody takes is withdrawn after a quarter.
+- The quarter's report card pays $1,280 a point over 55 and fines $6,400 below 35: the same a day as before, over the shorter quarter.
+- The game saves at least every 30 seconds while time runs, as well as every game hour.
+
 - The dock's buttons are a little slimmer, to leave room on screen for the 2D/3D chip.
 - Changing a line while its buses run no longer throws them across the map: a bus already on its way finishes its trip on the route and the times it set out with, and the next departures follow the change as buses come free. That holds for taking a stop off, extending a line, a new headway or bus model, a new depot, and roadworks starting or ending.
 - A contract nobody takes is withdrawn after 10 days, and a new offer takes its place.
@@ -79,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Opening Lines, Finance or Saves from the bottom bar while drawing a line or placing a depot now shows the panel and puts the tool down, instead of leaving the panel hidden behind the tool.
+- A save set aside by a new build keeps a name of its own, so the next new build never writes over it.
 - Bus stops and depots no longer land on the Mass Pike, the I-93 tunnel or their ramps, which sent buses kilometres out of their way to the next exit and back.
 - Buses run both ways along the streets you choose instead of looping around blocks of one-way streets in Back Bay and downtown. Most short trips there now drive less than a third further than the straight line, and none more than two and a half times it.
 - Importing a save file whose money rows are out of day order is now refused as unreadable, with your game kept as it was, instead of stopping the game at that night's close.

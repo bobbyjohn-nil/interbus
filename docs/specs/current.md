@@ -37,10 +37,10 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 
 1. **The scripted pacing run** (PLAN §3's targets; [GD-10](../history/lessons-ledger.md), [EC-11](../history/lessons-ledger.md)). No earlier version had one: V1 took about 15 game days to a second bus, and nobody had checked (GD-10). `bench/pacing.ts` is a committed scripted player on Inner Boston.
    - **What the player does:**
-     - founds with the founding recipe and plays its first day at speed 1, then speed 2;
+     - founds with the founding recipe and plays its first day at 600×, then 1,800×;
      - draws a second line along a sweep corridor once its cash covers that line and its buses;
      - takes the contracts its lines can meet, and nothing else.
-   - **What it reports, in real minutes on the speed ladder** (`SPEEDS`: 600, 1,800 and 5,400 game seconds a second; `src/worker/host.ts`): first profitable day, second line, the report card, then bronze, silver and gold.
+   - **What it reports, in real minutes on the speed ladder** (`SPEED_RATES`, `src/sim/rules/speed.ts`: 1×, 60×, 600×, 1,800× and 5,400× since D25; the pacing run plays at 600× and 1,800×, the old ladder's 1 and 2): first profitable day, second line, the report card, then bronze, silver and gold.
    - **The targets:** profit by 8 minutes, the second line after 15–25, the report card by 20, the top medal in 2–4 hours.
    - **The first line's 3–5 minutes** is the player's own time at the tools. The e2e founding run times its clicks, and P2 times people.
    - **Built so** (`src/sim/pacing.ts`; DECISIONS, Measured): it also adds lines past the second (with depots of their own), the fixture version holds bands in the PR checks, and the nightly runs it on Inner Boston. Profit at 5.4 and the report card at 12.6 minutes meet their targets; the second line at 46.1 (day 51) and gold (none in 200 days, coverage the lowest grade) do not, which is the tuning's work.
@@ -110,9 +110,9 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 
 | Quantity | Expected | Source |
 |---|---|---|
-| New game to a profitable day, scripted e2e with no thinking time | ≤5 of the 8 minutes: founding, a depot, four stops and day 1 at speed 1 (2.4 minutes a game day) | Item 1, §3 |
-| A game day at speeds 1, 2 and 3 | 144, 48 and 16 s | `SPEEDS` |
-| The report card under the scripted player | about 10–12 minutes: day 1 at speed 1, days 2–10 at speed 2 | Item 1, §3 |
+| New game to a profitable day, scripted e2e with no thinking time | ≤5 of the 8 minutes: founding, a depot, four stops and day 1 at 600× (2.4 minutes a game day) | Item 1, §3 |
+| A game day at 600×, 1,800× and 5,400× | 144, 48 and 16 s (a day at 1× is a real day; D25) | `SPEED_RATES` |
+| The report card under the scripted player | about 10–12 minutes: day 1 at 600×, days 2–8 at 1,800× (measured on the fixture: 11.0) | Item 1, §3 |
 | Days to a second line | 6–10 game days (V1: about 15, unchecked) | Item 1, GD-10 |
 | Bronze and silver | bronze in the first quarter; silver about day 23–41 (the fixture: two lines, one line) | M4's medals bench |
 | Gold on Inner Boston | 5,000 trips a day needs about eight lines like the debug line (610 a day on the fixture); within 2–4 hours if the ladder holds | Item 2, §3 |

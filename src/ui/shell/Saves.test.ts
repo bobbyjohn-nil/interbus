@@ -26,7 +26,7 @@ describe('the save list', () => {
       ],
       [],
     );
-    expect(html).toContain('Slot 1 · Day 12, 07:05 · Back Bay Transit · $123,456 · 2 lines · 5 buses');
+    expect(html).toContain('Slot 1 · Year 1, Q2, Day 4, 07:05 · Back Bay Transit · $123,456 · 2 lines · 5 buses');
     expect(html).toContain(savedWhen(AT));
     expect(html).toContain('1 line · 1 bus');
     expect(html).not.toContain('data-testid="slot-2-when"'); // saved before the time was kept

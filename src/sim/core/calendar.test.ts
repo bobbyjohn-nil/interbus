@@ -2,7 +2,7 @@
 // 05:00 founding (D7) and whole seconds.
 import { describe, expect, it } from 'vitest';
 import { DAYS_PER_QUARTER, QUARTERS_PER_YEAR, SECONDS_PER_DAY, START_SECOND_OF_DAY } from '../config/time';
-import { dayStart, toCalendarTime, toElapsed } from './calendar';
+import { calendarOfDay, dayStart, toCalendarTime, toElapsed } from './calendar';
 
 describe('calendar', () => {
   it('founding is Year 1, Quarter 1, Day 1 at 05:00 (D7)', () => {
@@ -25,13 +25,22 @@ describe('calendar', () => {
     expect(dayStart(2)).toBe(lastSecond + 1);
   });
 
-  it('rolls the quarter after ten days and the year after four quarters', () => {
+  it('rolls the quarter after eight days and the year after four quarters (D25; ten days a quarter before)', () => {
+    expect(DAYS_PER_QUARTER).toBe(8);
     const quarter = DAYS_PER_QUARTER * SECONDS_PER_DAY - START_SECOND_OF_DAY;
-    expect(toCalendarTime(quarter - 1)).toMatchObject({ quarter: 1, dayOfQuarter: 10, hour: 23 });
-    expect(toCalendarTime(quarter)).toMatchObject({ quarter: 2, dayOfQuarter: 1, day: 11, hour: 0 });
+    expect(toCalendarTime(quarter - 1)).toMatchObject({ quarter: 1, dayOfQuarter: 8, hour: 23 });
+    expect(toCalendarTime(quarter)).toMatchObject({ quarter: 2, dayOfQuarter: 1, day: 9, hour: 0 });
     const year = DAYS_PER_QUARTER * QUARTERS_PER_YEAR * SECONDS_PER_DAY - START_SECOND_OF_DAY;
-    expect(toCalendarTime(year - 1)).toMatchObject({ year: 1, quarter: 4, dayOfQuarter: 10 });
-    expect(toCalendarTime(year)).toMatchObject({ year: 2, quarter: 1, dayOfQuarter: 1, day: 41 });
+    expect(toCalendarTime(year - 1)).toMatchObject({ year: 1, quarter: 4, dayOfQuarter: 8 });
+    expect(toCalendarTime(year)).toMatchObject({ year: 2, quarter: 1, dayOfQuarter: 1, day: 33 });
+  });
+
+  it('names a game day by its year, quarter and day of the quarter', () => {
+    expect(calendarOfDay(1)).toEqual({ year: 1, quarter: 1, dayOfQuarter: 1 });
+    expect(calendarOfDay(9)).toEqual({ year: 1, quarter: 2, dayOfQuarter: 1 });
+    expect(calendarOfDay(32)).toEqual({ year: 1, quarter: 4, dayOfQuarter: 8 });
+    expect(calendarOfDay(33)).toEqual({ year: 2, quarter: 1, dayOfQuarter: 1 });
+    expect(() => calendarOfDay(0)).toThrow(RangeError);
   });
 
   it('round-trips losslessly', () => {

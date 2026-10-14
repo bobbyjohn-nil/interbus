@@ -32,8 +32,8 @@ is a record of what was actually fun, stuck or ugly, because no earlier version 
 
 Open the preview with `?fps` after its address (`https://bobbyjohn-nil.github.io/interbus/?fps`) in current stable Chrome. A line in the map’s bottom-left corner reads, for example, "57 fps · p95 21 ms · zoom 14.0 · 0° · full graphics": frames a second and the slowest 5% of frame times over the last 2 seconds, then the camera's zoom and tilt. "Low graphics" means Chrome is drawing the map without the GPU: note it, and check that hardware acceleration is on in Chrome's settings.
 
-- **Your Mac (exit check 4):** play your own game at 2×. Note the readout flat after a minute, then tilted with `T`, then at zoom 17 and 60°: zoom in with the scroll wheel, and right-drag upward to tilt. PLAN §6 asks for at least 55 fps flat on your Mac, and 30 at zoom 17 and 60°.
-- **The slow-laptop run (week 10):** on the slowest laptop either of you has, import the busy scene with Saves → Import a save file. It holds 209 buses at 08:00 on day 1. A session sends you the file, or `npm run bench scene` writes it. It replaces the game in play, so export yours first. Press 2×, then note the readout flat and at zoom 17 and 60°. PLAN §6 asks for at least 30 fps in both.
+- **Your Mac (exit check 4):** play your own game at 1,800× (the old 2×). Note the readout flat after a minute, then tilted with `T`, then at zoom 17 and 60°: zoom in with the scroll wheel, and right-drag upward to tilt. PLAN §6 asks for at least 55 fps flat on your Mac, and 30 at zoom 17 and 60°.
+- **The slow-laptop run (week 10):** on the slowest laptop either of you has, import the busy scene with Saves → Import a save file. It holds 209 buses at 08:00 on day 1. A session sends you the file, or `npm run bench scene` writes it. It replaces the game in play, so export yours first. Pick 1,800× in the speed menu (the old 2×), then note the readout flat and at zoom 17 and 60°. PLAN §6 asks for at least 30 fps in both.
 - **In the notes:** each reading as it appears, with the laptop's model and Chrome's version (`chrome://version`).
 
 ## After

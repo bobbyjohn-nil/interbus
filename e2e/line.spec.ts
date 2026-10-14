@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 // The M2 spec's exit check as one game (I15): found, a depot on the green tint, four stops from
 // Copley to Longwood, Create, its buses running, a day whose cost rows land on the card and add up to
@@ -76,7 +76,7 @@ test.describe('the line tool on the fixture', () => {
     const running = Number(await page.getByTestId('line-card').getAttribute('data-running'));
 
     // Its buses: drawn while time runs (TS-07), and the layer asks for no frame while paused (I14).
-    await page.getByRole('button', { name: '1×' }).click();
+    await setSpeed(page, '600×');
     await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 10_000 }).toBeGreaterThan(0);
     await expect.poll(async () => Number(await map.getAttribute('data-asked')), { timeout: 10_000 }).toBeGreaterThan(0);
     await expect(page.getByTestId('checklist')).toHaveText('4/5 Close a day in profit');
@@ -87,7 +87,7 @@ test.describe('the line tool on the fixture', () => {
     expect(await map.getAttribute('data-asked')).toBe(asked);
 
     // A day: every cost is a row, and the rows add up to the change in cash.
-    await page.getByRole('button', { name: '3×' }).click();
+    await setSpeed(page, '5,400×');
     const card = page.getByTestId('day-card');
     await expect(card).toBeVisible({ timeout: 90_000 });
     for (const name of ['Fares', 'Running (per km)', 'Driver wages', 'Deadhead', 'Depot upkeep']) await expect(card).toContainText(name);
@@ -109,7 +109,7 @@ test.describe('the line tool on the fixture', () => {
     await page.reload();
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     // Home names the game and Continue goes on with it (the M5 spec, item 3).
-    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Day 2');
+    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Year 1, Q1, Day 2');
     await leaveHome(page, 'continue');
     await expect(panel).toHaveAttribute('data-elapsed', kept.elapsed!, { timeout: 30_000 });
     await expect(panel).toHaveAttribute('data-cash', kept.cash!);
@@ -161,13 +161,13 @@ test.describe('the line tool on the fixture', () => {
     }
     await longwood.getByRole('button', { name: 'Take it' }).click();
     await expect(longwood).toHaveAttribute('data-held', 'yes');
-    await expect(longwood).toContainText('0 of 10 days · 20 days left');
+    await expect(longwood).toContainText('0 of 8 days · 16 days left');
     await expect(page.getByTestId('checklist')).toHaveCount(0);
     await expect(page.getByTestId('contracts-chip')).toHaveText('Contracts 1 held');
     await expect(map).toHaveAttribute('data-contracts', /:1:0/);
     await page.getByRole('button', { name: 'Close' }).click();
     // It runs on from there (overnight, so no buses until about 05:00).
-    await page.getByRole('button', { name: '1×' }).click();
+    await setSpeed(page, '600×');
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 10_000 }).toBeGreaterThan(Number(kept.elapsed));
     expect(errors).toEqual([]);
   });

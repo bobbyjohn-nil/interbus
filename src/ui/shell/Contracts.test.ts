@@ -21,7 +21,7 @@ function sim(over: Partial<Snapshot>): Sim {
   } as unknown as Snapshot;
   return { status: 'ready', snapshot, send: () => undefined } as unknown as Sim;
 }
-const bar = (s: Sim) => renderToStaticMarkup(createElement(TopBar, { sim: s, onContracts: () => undefined }));
+const bar = (s: Sim) => renderToStaticMarkup(createElement(TopBar, { sim: s, playSpeed: 3, onContracts: () => undefined }));
 
 describe('contracts on the page', () => {
   it('makes the checklist’s last step a button, and puts the Contracts chip in its place once a contract is taken', () => {
@@ -59,9 +59,9 @@ describe('medals on the page (the M4 spec, item 3)', () => {
     expect(html).toContain('<strong>Bronze</strong>: a quarter graded 55 or better');
     expect(html).toContain('<strong>Silver</strong>: 25,000 trips carried<span class="status"> · 6,550 trips to go · unlocks the Goliath</span>');
     expect(html).toContain('<strong>Gold</strong>: a quarter graded 75 or better, no grade under 60, on a day of 5,000 trips');
-    const held = panel(sim({ tripsCarried: 25_030, medals: { bronze: 10, silver: 41, gold: null } }));
-    expect(held).toContain('since day 10');
-    expect(held).toContain('since day 41 · the Goliath is for sale');
+    const held = panel(sim({ tripsCarried: 25_030, medals: { bronze: 8, silver: 41, gold: null } }));
+    expect(held).toContain('Since Year 1, Q1, Day 8');
+    expect(held).toContain('Since Year 2, Q2, Day 1 · The Goliath is for sale');
     expect(held).not.toContain('to go');
   });
 

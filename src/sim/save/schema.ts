@@ -6,6 +6,14 @@ import { EVENT_KINDS } from '../config/events';
 import { MODEL_IDS } from '../config/fleet';
 import { ROW_KINDS } from '../economy/ledger';
 import { hashString } from '../core/rng';
+import { DAYS_PER_QUARTER, QUARTERS_PER_YEAR, START_SECOND_OF_DAY, STEP_SECONDS } from '../config/time';
+
+/**
+ * The calendar a save's clock is counted in. The same `elapsed` falls in another quarter, or between
+ * steps, under another calendar, so the hash holds it too and a calendar change forces a new format
+ * (D25 made the quarter eight days and the step one second).
+ */
+export const CALENDAR = `calendar:${DAYS_PER_QUARTER}/${QUARTERS_PER_YEAR}/${STEP_SECONDS}/${START_SECOND_OF_DAY}`;
 
 export type Field =
   | 'int'
@@ -153,9 +161,9 @@ function canonical(field: Field): string {
   return `{${keys.map((k) => `${k}:${canonical(field.object[k] as Field)}`).join(',')}}`;
 }
 
-/** 64 bits of FNV-1a over the canonical schema: enough to notice any change. */
-export function schemaHash(field: Field = SAVE_SCHEMA): string {
-  const text = canonical(field);
+/** 64 bits of FNV-1a over the canonical schema and the calendar: enough to notice any change. */
+export function schemaHash(field: Field = SAVE_SCHEMA, calendar: string = CALENDAR): string {
+  const text = `${canonical(field)}|${calendar}`;
   const hex = (n: number) => n.toString(16).padStart(8, '0');
   return hex(hashString(`a${text}`)) + hex(hashString(`b${text}`));
 }
