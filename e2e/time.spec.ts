@@ -2,7 +2,7 @@
 // ladder from real time up; and a panel opened from the dock while a tool is out is seen and usable.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
-import { build, city, setSpeed } from './shell';
+import { city, setSpeed } from './shell';
 
 test.describe('time and the speed menu', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -43,15 +43,4 @@ test.describe('time and the speed menu', () => {
     await expect(panel).toHaveAttribute('data-speed', '0');
   });
 
-  test('shows a panel opened from the dock while a tool is out, and puts the tool down', async ({ page }) => {
-    await page.goto('./');
-    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-    await foundCompany(page);
-    await build(page, 'Draw a line');
-    const tools = page.getByTestId('build');
-    await expect(tools).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Finance' }).click();
-    await expect(page.getByTestId('finance')).toBeVisible();
-    await expect(tools).toHaveAttribute('aria-pressed', 'false');
-  });
 });

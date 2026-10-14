@@ -15,6 +15,7 @@ import { DepotCard, DraftCard, StopSiteCard, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
+import { Panels, type PanelItem } from "./shell/Panels";
 import { Finance } from "./shell/Finance";
 import { Contracts } from "./shell/Contracts";
 import { DemandMenu } from "./shell/DemandMenu";
@@ -37,8 +38,11 @@ export function App() {
     readonly points: RoutePoint[];
     readonly saved: string | null;
   } | null>(null);
-  // One panel at a time on the right: the line tool's draft card, the lines' inspector, or a stop's card.
-  const [panel, setPanel] = useState<Panel>("none");
+  // The panels open, in the order they opened (D25: several at once, each movable; shell/Panels.tsx).
+  const [open, setOpen] = useState<readonly Exclude<Panel, "none">[]>([]);
+  const show = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => (o.includes(p) ? o : [...o, p])), []);
+  const hide = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => o.filter((x) => x !== p)), []);
+  const toggle = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p])), []);
   const [lineId, setLineId] = useState<number | null>(null);
   // The line Finance opens on, from the line panel's link to its money; null opens the Overview.
   const [financeLine, setFinanceLine] = useState<number | null>(null);
@@ -115,13 +119,13 @@ export function App() {
       } else if (hit.stopId !== null) {
         // A click on a stop opens its card; on a line, the line's inspector.
         setStopId(hit.stopId);
-        setPanel("stop");
+        show("stop");
       } else if (hit.lineId !== null) {
         setLineId(hit.lineId);
-        setPanel("lines");
+        show("lines");
       }
     },
-    [send],
+    [send, show],
   );
 
   const choose = useCallback(
@@ -129,7 +133,6 @@ export function App() {
       setTool((now) => (now === next ? "none" : next));
       setClicks([]);
       setRouting(null);
-      if (next !== "none") setPanel("none");
       hoveredRef.current = null;
       probeAt(null);
       depotSiteAt(null);
@@ -157,12 +160,13 @@ export function App() {
       if (!line) return;
       setTool("route");
       setClicks([]);
-      setPanel("none");
+      // The editor stands in for the line's panel while it is open; Save route and Cancel bring it back.
+      hide("lines");
       setRouting({ lineId: id, points: routeOf(line), saved: null });
       hoveredRef.current = null;
       probeAt(null);
     },
-    [sim.snapshot, probeAt],
+    [sim.snapshot, probeAt, hide],
   );
   // Save route lands when the line's stops change: the editor closes and the line shows, as a new
   // line does. A refusal leaves the line as it was and the editor open, its notice saying why.
@@ -175,9 +179,12 @@ export function App() {
     setTool("none");
     setRouting(null);
     setLineId(routing.lineId);
-    setPanel("lines");
+    show("lines");
   }
 
+  // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
+  // that arrives with a loaded save leaves the panels as they are).
+  const creating = useRef(false);
   // A tool closes once its purchase lands: a new depot, or a new line.
   const started = sim.snapshot !== null;
   const depots = sim.snapshot?.depots.length ?? 0;
@@ -196,12 +203,13 @@ export function App() {
       depotSiteAt(null);
     }
     // A new line opens in the inspector, so its headways and forecast are one look away.
-    if (lines > counts.current.lines) {
+    if (lines > counts.current.lines && creating.current) {
+      creating.current = false;
       setLineId(null);
-      setPanel("lines");
+      show("lines");
     }
     counts.current = { depots, lines };
-  }, [started, depots, lines, depotSiteAt]);
+  }, [started, depots, lines, depotSiteAt, show]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -231,7 +239,7 @@ export function App() {
       }
       if (event.key === "Escape") {
         choose("none");
-        setPanel("none");
+        setOpen([]);
       } else if (event.key === "Backspace" && toolRef.current === "line")
         setClicks((c) => c.slice(0, -1));
     };
@@ -239,13 +247,119 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [choose, send]);
 
-  // A panel shows only while no tool is in use, so opening one puts the tool down: with a tool still
-  // active, the panel opened unseen and the two blocked each other (the owner's initial playtest: "when
-  // you open 2 tabs, they conflict and you can't use it").
-  const openPanel = (next: Panel) => {
-    if (next !== "none") choose("none");
-    setPanel(next);
-  };
+  // A tool and the panels stay out together, each on the panel layer in a place of its own: they no
+  // longer cover each other (the owner's initial playtest: "when you open 2 tabs, they conflict and you
+  // can't use it, either make it so that the tabs are moveable ... preferably the former").
+
+  // The panel layer's items: the tool's card first, then each open panel in the order it opened.
+  const panelItems: PanelItem[] = [];
+  if (tool === "route" && routing && routingLine)
+    panelItems.push({
+      id: "tool",
+      node: (
+        <RouteEditor
+          sim={sim}
+          line={routingLine}
+          points={routing.points}
+          onPoints={(points) => setRouting({ ...routing, points, saved: null })}
+          onSave={() => {
+            setRouting({ ...routing, saved: routingLine.stopIds.join(",") });
+            send({ type: "set-route", lineId: routing.lineId, points: routing.points.map((p) => p.at) });
+          }}
+          onCancel={() => {
+            const id = routing.lineId;
+            choose("none");
+            setLineId(id);
+            show("lines");
+          }}
+        />
+      ),
+    });
+  if (tool === "line")
+    panelItems.push({
+      id: "tool",
+      node: (
+        <DraftCard
+          sim={sim}
+          clicks={clicks.length}
+          model={draftModel}
+          onModel={setDraftModel}
+          onCreate={() => {
+            creating.current = true;
+            send({ type: "create-line", clicks, model: draftModel });
+          }}
+          onUndo={() => setClicks((c) => c.slice(0, -1))}
+          onCancel={() => choose("none")}
+        />
+      ),
+    });
+  for (const p of open) {
+    if (p === "lines")
+      panelItems.push({
+        id: p,
+        node: (
+          <Inspector
+            sim={sim}
+            lineId={lineId}
+            onLine={setLineId}
+            onEditRoute={startRoute}
+            onFinance={(id) => {
+              setFinanceLine(id);
+              show("finance");
+            }}
+            onClose={() => hide("lines")}
+          />
+        ),
+      });
+    else if (p === "finance")
+      panelItems.push({
+        id: p,
+        node: (
+          <Finance
+            key={financeLine ?? "all"}
+            sim={sim}
+            view={financeLine === null ? "overview" : "lines"}
+            lineId={financeLine}
+            onClose={() => {
+              setFinanceLine(null);
+              hide("finance");
+            }}
+          />
+        ),
+      });
+    else if (p === "saves")
+      panelItems.push({
+        id: p,
+        node: (
+          <Saves
+            sim={sim}
+            onClose={() => hide("saves")}
+            onHome={() => {
+              // Paused first, which saves the game, so Continue picks up exactly here.
+              send({ type: "speed", speed: 0 });
+              setOpen([]);
+              setHomeAt(Date.now());
+            }}
+          />
+        ),
+      });
+    else if (p === "contracts") panelItems.push({ id: p, node: <Contracts sim={sim} onClose={() => hide("contracts")} /> });
+    else if (p === "stop" && stopId !== null)
+      panelItems.push({
+        id: p,
+        node: (
+          <StopCard
+            sim={sim}
+            stopId={stopId}
+            onLine={(id) => {
+              setLineId(id);
+              show("lines");
+            }}
+            onClose={() => hide("stop")}
+          />
+        ),
+      });
+  }
 
   const ready = sim.status === "ready";
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
@@ -276,10 +390,10 @@ export function App() {
             if (sim.snapshot?.company.name) send({ type: "new-game" });
             setHomeAt(null);
           }}
-          onSaves={() => setPanel("saves")}
+          onSaves={() => show("saves")}
         />
-        {panel === "saves" ? (
-          <Saves sim={sim} onClose={() => setPanel("none")} />
+        {open.includes("saves") ? (
+          <Saves sim={sim} onClose={() => hide("saves")} />
         ) : null}
         <Notices sim={sim} />
         <Corner />
@@ -310,102 +424,20 @@ export function App() {
       <TopBar
         sim={sim}
         playSpeed={playSpeed}
-        onContracts={() => {
-          choose("none");
-          setPanel("contracts");
-        }}
+        onContracts={() => show("contracts")}
       />
       {tool === "none" ? <ProbeCard sim={sim} screen={screen} /> : null}
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "stop" ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      {tool === "route" && routing && routingLine ? (
-        <RouteEditor
-          sim={sim}
-          line={routingLine}
-          points={routing.points}
-          onPoints={(points) => setRouting({ ...routing, points, saved: null })}
-          onSave={() => {
-            setRouting({ ...routing, saved: routingLine.stopIds.join(",") });
-            send({ type: "set-route", lineId: routing.lineId, points: routing.points.map((p) => p.at) });
-          }}
-          onCancel={() => {
-            const id = routing.lineId;
-            choose("none");
-            setLineId(id);
-            setPanel("lines");
-          }}
-        />
-      ) : null}
-      {tool === "line" ? (
-        <DraftCard
-          sim={sim}
-          clicks={clicks.length}
-          model={draftModel}
-          onModel={setDraftModel}
-          onCreate={() => send({ type: "create-line", clicks, model: draftModel })}
-          onUndo={() => setClicks((c) => c.slice(0, -1))}
-          onCancel={() => choose("none")}
-        />
-      ) : null}
-      {tool === "none" && panel === "lines" ? (
-        <Inspector
-          sim={sim}
-          lineId={lineId}
-          onLine={setLineId}
-          onEditRoute={startRoute}
-          onFinance={(id) => {
-            setFinanceLine(id);
-            setPanel("finance");
-          }}
-          onClose={() => setPanel("none")}
-        />
-      ) : null}
-      {tool === "none" && panel === "finance" ? (
-        <Finance
-          key={financeLine ?? "all"}
-          sim={sim}
-          view={financeLine === null ? "overview" : "lines"}
-          lineId={financeLine}
-          onClose={() => {
-            setFinanceLine(null);
-            setPanel("none");
-          }}
-        />
-      ) : null}
-      {tool === "none" && panel === "saves" ? (
-        <Saves
-          sim={sim}
-          onClose={() => setPanel("none")}
-          onHome={() => {
-            // Paused first, which saves the game, so Continue picks up exactly here.
-            send({ type: "speed", speed: 0 });
-            setPanel("none");
-            setHomeAt(Date.now());
-          }}
-        />
-      ) : null}
-      {tool === "none" && panel === "contracts" ? (
-        <Contracts sim={sim} onClose={() => setPanel("none")} />
-      ) : null}
-      {tool === "none" && panel === "stop" && stopId !== null ? (
-        <StopCard
-          sim={sim}
-          stopId={stopId}
-          onLine={(id) => {
-            setLineId(id);
-            setPanel("lines");
-          }}
-          onClose={() => setPanel("none")}
-        />
-      ) : null}
+      <Panels items={panelItems} />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}
-          panel={panel}
+          panels={open}
           hasLines={(sim.snapshot?.lines.length ?? 0) > 0}
           onTool={choose}
-          onPanel={openPanel}
+          onPanel={toggle}
         />
       ) : null}
       {ready && sim.snapshot?.company.name ? (
@@ -413,10 +445,10 @@ export function App() {
         <button
           type="button"
           className="chip saves-chip"
-          aria-pressed={panel === "saves"}
+          aria-pressed={open.includes("saves")}
           data-testid="saves-chip"
           data-chrome="rest"
-          onClick={() => openPanel(panel === "saves" ? "none" : "saves")}
+          onClick={() => toggle("saves")}
         >
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M4 4h10l2 2v10H4zM7 4v4h6V4M7 16v-5h6v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />

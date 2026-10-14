@@ -88,6 +88,7 @@ body,
 
 .replaced {
   position: absolute;
+  z-index: 150;
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
@@ -252,7 +253,8 @@ body,
 .dropdown-list {
   position: absolute;
   left: 0;
-  z-index: 20;
+  /* Over every panel on the movable layer (shell/Panels.tsx), however many are raised. */
+  z-index: 200;
   min-width: 100%;
   max-height: 320px;
   overflow-y: auto;
@@ -1042,6 +1044,8 @@ button.chip.checklist,
 
 .day-card {
   position: absolute;
+  /* Over the movable panels: the day's close, and the run's end, wait for an answer. */
+  z-index: 100;
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
@@ -1107,6 +1111,7 @@ button.chip.checklist,
 
 /* The founding card (src/ui/game/Founding.tsx). */
 .founding-card {
+  z-index: 100;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1395,4 +1400,34 @@ button.chip.checklist,
   grid-area: what;
   font-size: 12px;
   color: var(--ui-ink-soft);
+}
+
+/* The movable layer (D25; shell/Panels.tsx): each panel placed by the layer and dragged by its
+   heading, several open at once. */
+.movable {
+  position: absolute;
+}
+
+.movable > .panel {
+  position: relative;
+  top: auto;
+  right: auto;
+  max-height: calc(100vh - 128px);
+}
+
+.movable > .panel.finance {
+  max-height: min(calc(100vh - 128px), 52vh);
+}
+
+.movable .panel h2 {
+  cursor: grab;
+  user-select: none;
+}
+
+.movable.dragging .panel {
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.2);
+}
+
+.movable.dragging .panel h2 {
+  cursor: grabbing;
 }

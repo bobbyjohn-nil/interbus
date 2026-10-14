@@ -114,6 +114,8 @@ test.describe('the copy convention', () => {
     await page.mouse.click(sx, sy);
     await expect(page.getByTestId('stop-card')).toBeVisible();
     await read('stop card');
+    // Panels stay open together (D25): the stop card goes before Saves opens, each read alone.
+    await page.getByTestId('stop-card').getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: 'Saves' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
     await expect(page.getByTestId('slot-1-when')).toBeVisible();
