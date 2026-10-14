@@ -29,21 +29,29 @@ function assertClock(elapsed: number): void {
   if (!Number.isSafeInteger(elapsed) || elapsed < 0) throw new RangeError(`clock must be whole seconds ≥ 0, got ${elapsed}`);
 }
 
+/** The year, quarter and day of the quarter of game day `day` (from 1), as the clock reads them. */
+export function calendarOfDay(day: number): { readonly year: number; readonly quarter: number; readonly dayOfQuarter: number } {
+  if (!Number.isSafeInteger(day) || day < 1) throw new RangeError(`a game day is a whole number from 1, got ${day}`);
+  const dayIndex = day - 1;
+  const yearIndex = Math.floor(dayIndex / DAYS_PER_YEAR);
+  const dayInYear = dayIndex - yearIndex * DAYS_PER_YEAR;
+  const quarterIndex = Math.floor(dayInYear / DAYS_PER_QUARTER);
+  return { year: yearIndex + 1, quarter: quarterIndex + 1, dayOfQuarter: dayInYear - quarterIndex * DAYS_PER_QUARTER + 1 };
+}
+
 /** `elapsed` is whole game-seconds since founding, which happened at 05:00 on day 1. */
 export function toCalendarTime(elapsed: number): CalendarTime {
   assertClock(elapsed);
   const sinceMidnightOfDay1 = START_SECOND_OF_DAY + elapsed;
   const dayIndex = Math.floor(sinceMidnightOfDay1 / SECONDS_PER_DAY);
   const secondOfDay = sinceMidnightOfDay1 - dayIndex * SECONDS_PER_DAY;
-  const yearIndex = Math.floor(dayIndex / DAYS_PER_YEAR);
-  const dayInYear = dayIndex - yearIndex * DAYS_PER_YEAR;
-  const quarterIndex = Math.floor(dayInYear / DAYS_PER_QUARTER);
+  const { year, quarter, dayOfQuarter } = calendarOfDay(dayIndex + 1);
   const hour = Math.floor(secondOfDay / SECONDS_PER_HOUR);
   const minute = Math.floor((secondOfDay - hour * SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
   return {
-    year: yearIndex + 1,
-    quarter: quarterIndex + 1,
-    dayOfQuarter: dayInYear - quarterIndex * DAYS_PER_QUARTER + 1,
+    year,
+    quarter,
+    dayOfQuarter,
     day: dayIndex + 1,
     hour,
     minute,

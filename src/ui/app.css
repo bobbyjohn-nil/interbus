@@ -129,7 +129,7 @@ body,
   gap: 4px;
   min-height: 28px;
   box-sizing: border-box;
-  padding: 3px 10px;
+  padding: 3px 9px;
   border-radius: 8px;
   background: var(--ui-paper);
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
@@ -160,10 +160,140 @@ body,
   cursor: pointer;
 }
 
-.chip.speed button[aria-pressed='true'] {
-  background: var(--ui-ink);
-  color: var(--ui-paper);
+.chip.speed .play {
+  display: inline-grid;
+  place-items: center;
+  color: var(--ui-ink);
+}
+
+/* Pause and play glyphs, drawn in CSS so they follow the theme's ink. */
+.icon-pause,
+.icon-play {
+  display: block;
+  width: 10px;
+  height: 12px;
+}
+
+.icon-pause {
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+  box-sizing: border-box;
+}
+
+.icon-play {
+  width: 0;
+  height: 0;
+  border-left: 10px solid currentColor;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.chip.speed .dropdown-button {
+  gap: 4px;
+  padding: 0 5px;
+  color: var(--ui-ink);
   font-weight: 600;
+}
+
+.chip.speed .play {
+  min-width: 24px;
+  padding: 0;
+}
+
+.chip.date {
+  gap: 5px;
+}
+
+/* The game's own dropdown (src/ui/Dropdown.tsx; D25), in place of the browser's. */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  background: var(--ui-paper);
+  color: var(--ui-ink);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip .dropdown-button {
+  border-color: transparent;
+}
+
+.dropdown-button:hover,
+.dropdown-button[aria-expanded='true'] {
+  border-color: var(--ui-ink-soft);
+}
+
+.dropdown-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.7;
+}
+
+.dropdown-list {
+  position: absolute;
+  left: 0;
+  z-index: 20;
+  min-width: 100%;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 8px;
+  background: var(--ui-paper);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  outline: none;
+}
+
+.dropdown-list.below {
+  top: calc(100% + 4px);
+}
+
+.dropdown-list.above {
+  bottom: calc(100% + 4px);
+}
+
+.dropdown-option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dropdown-option.active {
+  background: color-mix(in srgb, var(--ui-ink) 9%, transparent);
+}
+
+.dropdown-option[aria-selected='true'] .dropdown-label {
+  font-weight: 600;
+}
+
+.dropdown-option[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.dropdown-hint {
+  font-size: 12px;
+  color: var(--ui-ink-soft);
 }
 
 /* The failure floor's countdown (D10), in the refusal's red. */

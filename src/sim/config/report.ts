@@ -18,8 +18,12 @@ export const COVERAGE_EXPONENT = 0.75;
 /** Comfort: this share is the stops' tiers (boardings-weighted, Sign 0 to Transfer Hub 1); the rest, the riders not turned away. */
 export const COMFORT_TIER_SHARE = 0.2;
 
-/** V1's payout and fine, at bars set from the measured spread (DECISIONS, Measured). */
+/**
+ * V1's payout and fine, at bars set from the measured spread (DECISIONS, Measured). They are stated a
+ * day and paid for the quarter's days, so a quarter's card pays what its days earned whatever its
+ * length: $1,600 a point and an $8,000 fine over ten days became $1,280 and $6,400 over eight (D25).
+ */
 export const REPORT_GRANT_THRESHOLD = 55;
-export const REPORT_GRANT_PER_POINT_CENTS = 160_000;
+export const REPORT_GRANT_PER_POINT_PER_DAY_CENTS = 16_000;
 export const REPORT_FINE_THRESHOLD = 35;
-export const REPORT_FINE_CENTS = 800_000;
+export const REPORT_FINE_PER_DAY_CENTS = 80_000;

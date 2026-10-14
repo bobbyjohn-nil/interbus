@@ -19,7 +19,7 @@ import type { CityRef, SimState } from '../state';
 import { check, SAVE_SCHEMA, type SaveData } from './schema';
 
 /** Bump with every schema change, and add the new hash to schema.lock.json (save.test.ts). */
-export const SAVE_FORMAT = 14;
+export const SAVE_FORMAT = 15;
 
 export interface BuildRef {
   readonly sha: string;
@@ -37,8 +37,12 @@ export interface SaveEnvelope {
 /** Keys carry no format number, so an old tab still finds a newer save and refuses it. */
 export const saveKey = (cityId: string) => `interbus.save.${cityId}`;
 export const backupKey = (cityId: string, why: SetAsideWhy) => `interbus.backup.${cityId}.${why}`;
-/** Every backup key's reason, in the order the Saves panel lists them. */
-export const SET_ASIDE: readonly SetAsideWhy[] = ['older', 'newer', 'unreadable', 'other-city'];
+/**
+ * Every backup key's reason, in the order the Saves panel lists them: each older format its own, so
+ * a save set aside by one format change is never written over by the next (DP-06; D25 changed the
+ * format twice in a week), then the rest.
+ */
+export const SET_ASIDE: readonly SetAsideWhy[] = ['older', ...Array.from({ length: SAVE_FORMAT - 1 }, (_, i): SetAsideWhy => `older-${i + 1}`), 'newer', 'unreadable', 'other-city'];
 /** Three slots beside the autosave, which is the live key (the M3 spec, item 8). */
 export const SAVE_SLOTS = [1, 2, 3] as const;
 export const slotKey = (cityId: string, slot: number) => `interbus.slot.${cityId}.${slot}`;
@@ -217,7 +221,7 @@ export function integrityProblem(data: SaveData): string | null {
  */
 export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT): { result: LoadOutcome; effects: StoreEffect[] } {
   if (raw === null) return { result: { outcome: 'none' }, effects: [] };
-  const setAside = (why: 'unreadable' | 'older' | 'other-city'): StoreEffect[] => [
+  const setAside = (why: SetAsideWhy): StoreEffect[] => [
     { op: 'write', key: backupKey(city.id, why), value: raw },
     { op: 'remove', key: saveKey(city.id) },
   ];
@@ -235,7 +239,7 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   if ((format as number) > current) {
     return { result: { outcome: 'newer', format: format as number }, effects: [{ op: 'write', key: backupKey(city.id, 'newer'), value: raw }] };
   }
-  if ((format as number) < current) return { result: { outcome: 'older', format: format as number }, effects: setAside('older') };
+  if ((format as number) < current) return { result: { outcome: 'older', format: format as number }, effects: setAside(`older-${format as number}`) };
 
   const build = (parsed as { build?: unknown }).build;
   const buildProblem = check({ object: { sha: 'string', version: 'string' } }, build, 'build');

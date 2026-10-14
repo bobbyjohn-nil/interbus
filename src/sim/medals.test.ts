@@ -40,12 +40,12 @@ describe('medals at the close', () => {
 
   it('awards bronze at the first quarter’s close graded 55 or more, and never again', () => {
     const world = company();
-    const days = closes(advance(world, 20 * SECONDS_PER_DAY));
-    const tenth = days[9]!;
-    expect(tenth.card!.overall).toBeGreaterThanOrEqual(55);
-    expect(days.map((d) => d.medals.join())).toEqual(days.map((d) => (d.day === 10 ? 'bronze' : '')));
-    expect(days[19]!.card!.overall).toBeGreaterThanOrEqual(55);
-    expect(world.state.medals).toEqual({ bronze: 10, silver: null, gold: null });
+    const days = closes(advance(world, 16 * SECONDS_PER_DAY));
+    const eighth = days[7]!; // a quarter is eight days (D25)
+    expect(eighth.card!.overall).toBeGreaterThanOrEqual(55);
+    expect(days.map((d) => d.medals.join())).toEqual(days.map((d) => (d.day === 8 ? 'bronze' : '')));
+    expect(days[15]!.card!.overall).toBeGreaterThanOrEqual(55);
+    expect(world.state.medals).toEqual({ bronze: 8, silver: null, gold: null });
   });
 
   it('awards silver at the close that passes 25,000 trips, once, and the Goliath is for sale from then on', () => {

@@ -4,15 +4,19 @@
 export const SECONDS_PER_MINUTE = 60;
 export const SECONDS_PER_HOUR = 3_600;
 export const SECONDS_PER_DAY = 86_400;
-/** A quarter is ten game days (PLAN §3), four to a year. */
-export const DAYS_PER_QUARTER = 10;
+/** A quarter is eight game days, four to a year (D25, the owner's initial playtest; ten days until 2026-10-14). */
+export const DAYS_PER_QUARTER = 8;
 export const QUARTERS_PER_YEAR = 4;
 
 /** A new game starts paused at 05:00 on day 1 (D7). */
 export const START_SECOND_OF_DAY = 5 * SECONDS_PER_HOUR;
 
-/** The fixed step: half a game-minute, V2's `TICK_STEP_MIN` 0.5 (AR-09). */
-export const STEP_SECONDS = 30;
+/**
+ * The fixed step: one game second (AR-09). It was half a game minute (V2's `TICK_STEP_MIN` 0.5) until
+ * 1x became real time (D25): at 1x a 30-second step held every bus still for 30 real seconds and then
+ * jumped it about 217 m. Banking, contract checks and closes still happen on hour and day boundaries.
+ */
+export const STEP_SECONDS = 1;
 
 const at = (hours: number, minutes = 0) => hours * SECONDS_PER_HOUR + minutes * SECONDS_PER_MINUTE;
 

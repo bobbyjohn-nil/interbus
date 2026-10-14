@@ -1,5 +1,5 @@
 // simStep(): the only door that advances time (PLAN §6, AR-09). Each call moves the clock one fixed
-// step. At every game-hour boundary each line banks the hour's paid boardings (a change onto it pays
+// step; advance() moves it over the steps that do nothing else at once. At every game-hour boundary each line banks the hour's paid boardings (a change onto it pays
 // nothing: the trip paid its first line, EC-04) as ledger rows, fares and
 // the city's subsidy at that fare (rules/fare.ts), in whole boardings and whole cents, and the hour's costs (running, wages,
 // deadhead; economy/costs.ts), and each depot its upkeep; at 24:00 the day closes, its rows merge
@@ -71,16 +71,19 @@ function bankHour(world: World, hour: number, day: number): void {
   if (world.state.depots.length > 0) post(world.state.ledger, { day, kind: 'upkeep', amountCents: -world.state.depots.length * DEPOT_UPKEEP_PER_HOUR_CENTS });
 }
 
-export function simStep(world: World): SimEvent[] {
+/** What a step between hour boundaries returns: nothing, without a new array each second. */
+const QUIET: readonly SimEvent[] = Object.freeze([]);
+
+export function simStep(world: World): readonly SimEvent[] {
   const state = world.state;
   state.elapsed += STEP_SECONDS;
   const sinceMidnightOfDay1 = START_SECOND_OF_DAY + state.elapsed;
-  if (sinceMidnightOfDay1 % SECONDS_PER_HOUR !== 0) return [];
+  if (sinceMidnightOfDay1 % SECONDS_PER_HOUR !== 0) return QUIET;
   // The hour that just ended, and the day it belongs to.
   const ended = toCalendarTime(state.elapsed - 1);
   bankHour(world, ended.hour, ended.day);
   checkHour(world, ended.hour);
-  if (sinceMidnightOfDay1 % SECONDS_PER_DAY !== 0) return [];
+  if (sinceMidnightOfDay1 % SECONDS_PER_DAY !== 0) return QUIET;
   const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
   if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
   const contracts = closeContracts(world, ended.day);
@@ -109,10 +112,21 @@ export function simStep(world: World): SimEvent[] {
   return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed: retimed || settled, medals, trips }];
 }
 
-/** Whole steps covering `seconds` (a multiple of the step). */
+/**
+ * Whole steps covering `seconds` (a multiple of the step), with what they return. A step short of an
+ * hour boundary only moves the clock, so the clock moves over those at once and simStep runs the step
+ * that reaches each boundary: the same world as stepping one by one (step.test.ts), without 86,400
+ * calls a day since the step became one second (D25; 400 test days took 3.3 s instead of 0.7 s).
+ */
 export function advance(world: World, seconds: number): SimEvent[] {
   if (!Number.isSafeInteger(seconds) || seconds < 0 || seconds % STEP_SECONDS !== 0) throw new RangeError(`advance by whole steps of ${STEP_SECONDS} s, got ${seconds}`);
   const events: SimEvent[] = [];
-  for (let s = 0; s < seconds; s += STEP_SECONDS) events.push(...simStep(world));
+  for (let left = seconds; left > 0; left -= STEP_SECONDS) {
+    const toHour = SECONDS_PER_HOUR - ((START_SECOND_OF_DAY + world.state.elapsed) % SECONDS_PER_HOUR);
+    const quiet = Math.min(left, toHour) - STEP_SECONDS;
+    world.state.elapsed += quiet;
+    left -= quiet;
+    events.push(...simStep(world));
+  }
   return events;
 }

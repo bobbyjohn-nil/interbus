@@ -19,21 +19,22 @@ function game() {
 }
 
 describe('the report card', () => {
-  it('closes quarter 1 on day 10 with its card, and pays it as one of day 10’s rows (76.1 overall, measured: a festival on days 3–4 lifts Money; 75.6 before buses drove one-way streets both ways)', () => {
+  it('closes quarter 1 on day 8 with its card, and pays it as one of day 8’s rows (76.4 overall, measured: a festival on days 3–4 lifts Money; 76.1 on day 10 while a quarter was ten days)', () => {
     const world = game();
-    const events = advance(world, 10 * SECONDS_PER_DAY);
-    expect(events.map((e) => e.card !== null)).toEqual([false, false, false, false, false, false, false, false, false, true]);
-    const card = events[9]!.card!;
-    expect(card).toMatchObject({ quarter: 1, day: 10, reliability: 100, comfort: 80 });
-    expect(card.overall).toBeCloseTo(76.1, 1);
-    expect(card.payoutCents).toBe(Math.round((card.overall - 55) * 160_000));
-    expect(events[9]!.rows.filter((r) => r.kind === 'card')).toEqual([{ day: 10, kind: 'card', amountCents: card.payoutCents }]);
+    const events = advance(world, 8 * SECONDS_PER_DAY);
+    expect(events.map((e) => e.card !== null)).toEqual([false, false, false, false, false, false, false, true]);
+    const card = events[7]!.card!;
+    expect(card).toMatchObject({ quarter: 1, day: 8, reliability: 100, comfort: 80 });
+    expect(card.overall).toBeCloseTo(76.4, 1);
+    // $160 a point a day for the quarter's eight days: $1,280 a point (D25; $1,600 over ten days before).
+    expect(card.payoutCents).toBe(Math.round((card.overall - 55) * 128_000));
+    expect(events[7]!.rows.filter((r) => r.kind === 'card')).toEqual([{ day: 8, kind: 'card', amountCents: card.payoutCents }]);
   });
 
-  it('fines a company that runs nothing $8,000: every grade 0, reliability included', () => {
+  it('fines a company that runs nothing $6,400, $800 a day of the quarter: every grade 0, reliability included', () => {
     const world = gameWithDepot();
-    expect([coverageGrade(world), reliabilityGrade(world), comfortGrade(world), moneyGrade(world, 1, 10)]).toEqual([0, 0, 0, 0]);
-    expect(gradeQuarter(world, 1, 10)).toMatchObject({ overall: 0, payoutCents: -800_000 });
+    expect([coverageGrade(world), reliabilityGrade(world), comfortGrade(world), moneyGrade(world, 1, 8)]).toEqual([0, 0, 0, 0]);
+    expect(gradeQuarter(world, 1, 8)).toMatchObject({ overall: 0, payoutCents: -640_000 });
   });
 
   it('grades a line short of its buses below 100 on reliability', () => {

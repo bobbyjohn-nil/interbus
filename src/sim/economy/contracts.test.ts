@@ -10,7 +10,7 @@ import { addDebugLine } from '../commands/debugLine';
 import { CONTRACT_ASKS, CONTRACT_OFFER_DAYS, CONTRACT_REACH_M, type ContractKind } from '../config/contracts';
 import { toXY } from '../core/geo';
 import { SPARROW } from '../config/fleet';
-import { SECONDS_PER_DAY } from '../config/time';
+import { DAYS_PER_QUARTER, SECONDS_PER_DAY } from '../config/time';
 import { createLine } from '../commands/createLine';
 import { busesNeeded, cycleSeconds } from '../rules/cycle';
 import { advance } from '../step';
@@ -61,16 +61,16 @@ describe('HEADWAY contracts', () => {
     expect(Object.fromEntries(landmarkHeadways(world))).toEqual({ 'Copley Square': 1_200, Longwood: 1_200, Kenmore: null });
   });
 
-  it('pays once, as one Contracts row, on the tenth close in a row met, and offers another in its slot the next day', () => {
+  it('pays once, as one Contracts row, on the eighth close in a row met (a quarter, D25), and offers another in its slot the next day', () => {
     const world = game();
     const c = longwood(world, 1_200);
     expect(acceptContract(world, c.id).ok).toBe(true);
     expect(acceptContract(world, c.id)).toEqual({ ok: false, reason: 'already_held' });
-    const events = advance(world, 10 * SECONDS_PER_DAY);
-    expect(events.map((e) => e.contracts.map((o) => o.outcome))).toEqual([[], [], [], [], [], [], [], [], [], ['paid']]);
-    expect(paid(world)).toEqual([{ day: 10, kind: 'contract', amountCents: 6_000_000 }]);
+    const events = advance(world, 8 * SECONDS_PER_DAY);
+    expect(events.map((e) => e.contracts.map((o) => o.outcome))).toEqual([[], [], [], [], [], [], [], ['paid']]);
+    expect(paid(world)).toEqual([{ day: 8, kind: 'contract', amountCents: 6_000_000 }]);
     expect(world.state.contracts.find((k) => k.id === c.id)).toBeUndefined();
-    expect(world.state.contracts.find((k) => k.landmark === 'Longwood')).toMatchObject({ offeredDay: 11, acceptedDay: null });
+    expect(world.state.contracts.find((k) => k.landmark === 'Longwood')).toMatchObject({ offeredDay: 9, acceptedDay: null });
   });
 
   it('starts the count again after a day with an hour that missed', () => {
@@ -85,18 +85,18 @@ describe('HEADWAY contracts', () => {
     runEvery(world, 1_200, 1_200);
     advance(world, 6 * 3_600);
     expect(c.daysMet).toBe(0);
-    advance(world, 9 * SECONDS_PER_DAY);
+    advance(world, 7 * SECONDS_PER_DAY); // days 6–12: seven met in a row, one short
     expect(paid(world)).toEqual([]);
     advance(world, SECONDS_PER_DAY);
-    expect(paid(world)).toEqual([{ day: 15, kind: 'contract', amountCents: 6_000_000 }]);
+    expect(paid(world)).toEqual([{ day: 13, kind: 'contract', amountCents: 6_000_000 }]);
   });
 
-  it('lapses once the days left in its 20 cannot hold the days still needed, and pays nothing', () => {
+  it('lapses once the days left in its 16 cannot hold the days still needed, and pays nothing', () => {
     const world = game();
     const c = longwood(world, 600); // the debug line every 20 minutes never meets 10
     acceptContract(world, c.id);
     const events = advance(world, 11 * SECONDS_PER_DAY);
-    expect(events.findIndex((e) => e.contracts.some((o) => o.outcome === 'lapsed'))).toBe(10); // day 11: 9 days left, 10 needed
+    expect(events.findIndex((e) => e.contracts.some((o) => o.outcome === 'lapsed'))).toBe(8); // day 9: 7 days left, 8 needed
     expect(paid(world)).toEqual([]);
   });
 
@@ -106,7 +106,7 @@ describe('HEADWAY contracts', () => {
     expect(landmarkHeadways(world).get('Longwood')).toBe(960);
     const c = longwood(world, 900);
     acceptContract(world, c.id);
-    advance(world, 20 * SECONDS_PER_DAY);
+    advance(world, 16 * SECONDS_PER_DAY);
     expect(paid(world)).toEqual([]);
   });
 
@@ -122,7 +122,7 @@ describe('HEADWAY contracts', () => {
     for (let k = 0; k + 6 <= dealt.length; k += 6) expect(dealt.slice(k, k + 6).sort((a, b) => a - b), `offers ${k + 1}–${k + 6}`).toEqual([0, 1, 2, 3, 4, 5]);
   });
 
-  it('withdraws an offer nobody takes after ten days, and deals another into its slot', () => {
+  it('withdraws an offer nobody takes after a quarter, eight days, and deals another into its slot', () => {
     const world = game();
     const before = world.state.contracts.map((c) => c.id);
     rollOffers(world, 1 + CONTRACT_OFFER_DAYS - 1);
@@ -132,12 +132,13 @@ describe('HEADWAY contracts', () => {
     expect(world.state.contracts).toHaveLength(3);
   });
 
-  it('keeps contract income over 10 seeds within 30% of the median (I11)', () => {
+  it('keeps contract income over 10 seeds within 30% of the median (I11)', { timeout: 60_000 }, () => {
     // Each seed's company runs the debug line and a Copley–Kenmore line every 10 minutes all day and
     // takes every offer it meets, for four quarters (testing.ts). Over 100 seeds `npm run bench
     // contracts` measured $900k–$1.02M with both kinds dealt, and every run of ten seeds within 30% of
-    // its median; with HEADWAY alone and the debug line alone, $1.11M–$1.29M (M3).
-    const incomes = Array.from({ length: 10 }, (_, k) => contractIncome(k + 1, 40));
+    // its median; with HEADWAY alone and the debug line alone, $1.11M–$1.29M (M3, ten-day quarters).
+    // One-second steps (D25) make its 32 days about 2.8 million steps, so it has a longer timeout.
+    const incomes = Array.from({ length: 10 }, (_, k) => contractIncome(k + 1, 4 * DAYS_PER_QUARTER));
     const sorted = [...incomes].sort((a, b) => a - b);
     const median = (sorted[4]! + sorted[5]!) / 2;
     for (const income of incomes) expect(Math.abs(income - median) / median, `${incomes}`).toBeLessThanOrEqual(0.3);
@@ -154,17 +155,17 @@ describe('RIDERSHIP contracts (the M4 spec, item 1)', () => {
     expect(figures.Kenmore).toEqual({ headway: null, ridership: null });
   });
 
-  it('pays 150 at Copley after ten closes in a row met, and never pays 400 there', () => {
+  it('pays 150 at Copley after eight closes in a row met, and never pays 400 there', () => {
     const world = game();
     const c = at(world, 'Copley Square', 'ridership', 150);
     acceptContract(world, c.id);
-    advance(world, 10 * SECONDS_PER_DAY);
+    advance(world, 8 * SECONDS_PER_DAY);
     expect(paid(world).map((r) => r.amountCents)).toEqual([6_000_000]);
 
     const other = game();
     const d = at(other, 'Copley Square', 'ridership', 400);
     acceptContract(other, d.id);
-    advance(other, 20 * SECONDS_PER_DAY);
+    advance(other, 16 * SECONDS_PER_DAY);
     expect(paid(other)).toEqual([]);
   });
 

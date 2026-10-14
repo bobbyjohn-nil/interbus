@@ -402,6 +402,32 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-14** (`src/sim/core/calendar.test.ts`, `src/sim/save/save.test.ts`, `src/worker/host.test.ts`, `src/sim/pacing.test.ts`, `e2e/time.spec.ts`): **the time system the owner asked for** (D25: "minutes and days, 8 days to a quarter and 4 quarters to a year with time skip options in the second equals second 1x speed, and building speed from there").
+  - **The calendar:** 8 days to a quarter (10 before) and 4 quarters to a year, so a year is 32 days. The top bar reads "Year 1, Q2 · Day 4 · 08:10", with the day counted within the quarter. The sim still keys everything by the day since founding; the year, quarter and day of the quarter are derived (`rules/calendar.ts`).
+    - The clock shows the exact minute up to 60×, the ten minutes at 600× and the hour above, so the digits change about once a second or slower.
+  - **The ladder** (`rules/speed.ts`): 1× is real time, then 60×, 600×, 1,800× and 5,400×. The old 1, 2 and 3 were 600×, 1,800× and 5,400× under labels that matched neither real time nor each other. Play resumes the speed last played (600× the first time). Space pauses and plays, and 1–5 pick a speed. The `+` and `−` keys stay MapLibre's zoom.
+  - **The step** falls from 30 game seconds to 1. At 1× a 30-second step held every bus still for 30 real seconds and then jumped it about 217 m. The drawn clock also adds the part-step run so far, so at 1× it moves 0.02 game seconds a frame and never back. Banking, contract checks and closes still happen on hour and day boundaries, and no sim result moved: every unit test passed unchanged except those naming days. I11's ten-seed test now takes about 5–6 s (2.8 million steps) and has a 60 s timeout.
+  - **Saves:** the game saves at each game hour and at least every 30 real seconds while time runs, since at 1× a game hour is a real one.
+    - The format goes to 15, and the schema hash now holds the calendar (`calendar:8/4/1/18000`), so any later calendar change forces a format.
+    - A save set aside for an older format keeps its format in its key (`interbus.backup.boston.older-14`), so the next format change never writes over it. Plain `older` keys from before are still listed.
+  - **Contracts** ask for a quarter in a row within two (8 days within 16; 10 within 20 before), and an untaken offer is withdrawn after a quarter. **The report card** pays $160 a point a day and fines $800 a day, for the quarter's days: $1,280 a point and $6,400 over eight days, against $1,600 and $8,000 over ten.
+  - **On the fixture** (the pacing run in the PR checks, at 600× then 1,800×):
+    - profit on day 1 at 5.4 minutes, as before;
+    - the report card and bronze on day 8 at 11.0 minutes (day 10 at 12.6 before);
+    - the second line on day 17 at 18.9 minutes (day 21 at 22.1);
+    - silver on day 23 (24).
+
+    The bands hold. The first card graded 76.4 (76.1 on day 10 before).
+  - **On Inner Boston**, the routes change alone (#92, before this), 200 days on the old calendar: the second line on day 48 at 43.7 minutes (day 51 at 46.1 before). But only five lines by day 200, against seven, carrying 3,620 trips a day against 7,054; no gold; cards 65–69. Shorter rides changed which corridors the scripted player finds worth a line, and this is the tuning's to look at with the new calendar (the nightly re-measures it).
+  - **The panel fix:** opening Lines, Finance or Saves from the dock while a tool was out set the panel, but panels show only with no tool, so it opened unseen and the tool blocked it ("when you open 2 tabs, they conflict and you can't use it"). The dock's panel buttons now put the tool down first (`e2e/time.spec.ts`).
+  - **I13** at 1152×720, late in a game and paused with an undo to offer (the medals e2e): the top bar with the speed menu first took 6.04%. A tighter speed chip and a comma in the date brought it to 5.99% here, but CI's browser measured 6.014% (run 38527061766). Every chip's side padding falls from 10 px to 9 px, about 0.04% of the screen: 5.96% here.
+  - **Tests** (TS-04), each shown failing with the old behaviour put back:
+    - ten-day quarters fail the calendar test;
+    - the old ladder fails "1× is real time" (18,000 game seconds in 30 real seconds);
+    - no part-step on the drawn clock fails the glide test;
+    - no 30-second save fails its test;
+    - one `older` key fails "each older format under its own key";
+    - the calendar left out of the hash fails "notices a calendar change".
 - **2026-10-14** (`npm run bench routes`; `src/sim/world.test.ts`, `src/sim/city/route.test.ts`): **routes without loops in Back Bay and downtown** (D25, the owner's initial playtest: "it makes all these large loops").
   - **Two causes:**
     - **Stops on the highway.** 188 of Inner Boston's 11,687 street nodes touch only motorways or ramps: the Mass Pike under Back Bay and the I-93 tunnel and its ramps downtown. A click near one put the stop on the highway, and its buses drove to the next exit and back. Prudential to Back Bay station came back by 7,976 m for 442 m.

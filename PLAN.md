@@ -80,7 +80,7 @@ A mechanic that needs a second mechanic to explain it is cut ([GD-06](docs/histo
 
 **Minute to minute: six verbs**, each paying off within a game day ([GD-02](docs/history/lessons-ledger.md)): **draw or extend a line**; **share a stop** (within 250 m it joins, [EC-10](docs/history/lessons-ledger.md)); **set a headway** for peak, off-peak and overnight, and the game shows "needs 3 buses, you have 2" with the price ([GD-09](docs/history/lessons-ledger.md)); **set a fare** inside a printed band ([EC-09](docs/history/lessons-ledger.md)); **prune or upgrade a stop** flagged QUIET or LOSS ([UX-13](docs/history/lessons-ledger.md)); **place a depot** on the green tint, knowing dead-heading costs ([EC-13](docs/history/lessons-ledger.md), [UX-06](docs/history/lessons-ledger.md)).
 
-**Session.** A quarter (10 game days) ends with a report card and a **Next quarter** preview ([UX-03](docs/history/lessons-ledger.md)).
+**Session.** A quarter (8 game days, four to a year; D25) ends with a report card and a **Next quarter** preview ([UX-03](docs/history/lessons-ledger.md)).
 
 **The first ten minutes in Boston** (playtest targets; V1 prices, [X-09](docs/history/lessons-ledger.md); head counts and cash illustrative until the bake)
 
@@ -94,12 +94,12 @@ A mechanic that needs a second mechanic to explain it is cut ([GD-06](docs/histo
 | 4:30 | The 2D/3D chip (or `T`) tilts the map: Back Bay rises around the bus; again to flatten. Nothing in the game changes |
 | 5:30 | First daily close, every figure a ledger row ([AR-12](docs/history/lessons-ledger.md)); "QUIET · 3 boardings" |
 | 7:00 | "4/5 Make a profitable day": prune the stop or nudge the fare |
-| 8:00 | "5/5 Take a contract": "Every 15 min at Longwood, 10 days, $120k" |
+| 8:00 | "5/5 Take a contract": "Every 15 min at Longwood, 8 days, $120k" |
 
 No tutorial text: a profitable first line fits the starting cash and the best four-bus line does not ([GD-11](docs/history/lessons-ledger.md)). Inner Boston is roughly 7–10× as dense as V1's Riverton (estimate; [X-08](docs/history/lessons-ledger.md)), so prices stay V1's and `calib.tripScale` scales demand, set on the fixture in week 3 and re-measured on `city-boston-r1` in week 5.
 
 **Goals.**
-- **Contracts, three slots:** HEADWAY near a landmark such as Longwood or Kendall, and RIDERSHIP (150, 400 or 800 boardings a day), held 10 days within 20 ([GD-04](docs/history/lessons-ledger.md)).
+- **Contracts, three slots:** HEADWAY near a landmark such as Longwood or Kendall, and RIDERSHIP (150, 400 or 800 boardings a day), held a quarter (8 days) within two (16; D25) ([GD-04](docs/history/lessons-ledger.md)).
 - **Events**, one at a time, hatched a day ahead: roadworks, festival, snow.
 - **Report card:** Coverage by service ([EC-07](docs/history/lessons-ledger.md)), Reliability against the line's timetable ([K03](docs/history/salvage-matrix.md)), Comfort, Money ([EC-14](docs/history/lessons-ledger.md)).
 - **Medals**, three for Boston; silver unlocks the Goliath. "Bronze unlocks the next city" returns with a second city.

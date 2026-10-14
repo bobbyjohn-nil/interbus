@@ -30,7 +30,7 @@ test.describe('Home', () => {
     // Back to Home pauses and saves; Continue names the game and goes on with it.
     await page.getByRole('button', { name: 'Back to Home' }).click();
     await expect(home).toBeVisible();
-    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Day 1 · $277,200');
+    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Year 1, Q1, Day 1 · $277,200');
     await leaveHome(page, 'continue');
     await expect(panel).toHaveAttribute('data-cash', '27720000');
     await expect(panel).toHaveAttribute('data-speed', '0');
@@ -39,7 +39,7 @@ test.describe('Home', () => {
     await page.getByRole('button', { name: 'Saves' }).click();
     await page.getByRole('button', { name: 'Back to Home' }).click();
     await home.getByRole('button', { name: 'New game' }).click();
-    await expect(home).toContainText('Start over? Back Bay Transit, on day 1, is replaced. Your slots stay.');
+    await expect(home).toContainText('Start over? Back Bay Transit, on Year 1, Q1, Day 1, is replaced. Your slots stay.');
     await home.getByRole('button', { name: 'Keep it' }).click();
     await expect(page.getByTestId('home-continue')).toBeVisible();
 

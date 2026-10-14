@@ -43,13 +43,13 @@ describe('Finance', () => {
     expect([forecast('fares'), forecast('subsidy')]).toEqual([riders * 225, riders * 160]);
   });
 
-  it('starts a new quarter on day 11: its column holds days 11 on, yesterday day 10', () => {
+  it('starts a new quarter on day 9: its column holds days 9 on, yesterday day 8', () => {
     const world = game();
-    world.state.elapsed = 10 * SECONDS_PER_DAY + 3_600; // 06:00 on day 11
-    for (const day of [9, 10, 11]) post(world.state.ledger, { day, kind: 'fares', amountCents: day * 100 });
+    world.state.elapsed = 8 * SECONDS_PER_DAY + 3_600; // 06:00 on day 9
+    for (const day of [7, 8, 9]) post(world.state.ledger, { day, kind: 'fares', amountCents: day * 100 });
     const f = finance(world);
-    expect([f.day, f.quarter, f.quarterFirstDay]).toEqual([11, 2, 11]);
-    expect(f.rows.find((r) => r.kind === 'fares')).toMatchObject({ todayCents: 1_100, yesterdayCents: 1_000, quarterCents: 1_100 });
+    expect([f.day, f.quarter, f.quarterFirstDay]).toEqual([9, 2, 9]);
+    expect(f.rows.find((r) => r.kind === 'fares')).toMatchObject({ todayCents: 900, yesterdayCents: 800, quarterCents: 900 });
     expect(f.rows.find((r) => r.kind === 'founding')!.quarterCents).toBe(0);
   });
 });

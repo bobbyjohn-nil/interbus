@@ -18,9 +18,9 @@ function sim(floor: Snapshot['floor']): Sim {
 
 describe('the failure floor on the page', () => {
   it('counts down the day closes left in a chip', () => {
-    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, sim: sim({ closesLeft: 5, ended: false }) }))).toContain('5 days to get above -$150k');
-    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, sim: sim({ closesLeft: 1, ended: false }) }))).toContain('1 day to get above -$150k');
-    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, sim: sim(null) }))).not.toContain('to get above');
+    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, playSpeed: 3, sim: sim({ closesLeft: 5, ended: false }) }))).toContain('5 days to get above -$150k');
+    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, playSpeed: 3, sim: sim({ closesLeft: 1, ended: false }) }))).toContain('1 day to get above -$150k');
+    expect(renderToStaticMarkup(createElement(TopBar, { onContracts: () => undefined, playSpeed: 3, sim: sim(null) }))).not.toContain('to get above');
   });
 
   it('ends the run with Restart this quarter, and shows nothing before', () => {

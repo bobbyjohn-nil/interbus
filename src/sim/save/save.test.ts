@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { mint, type LineId, type StopId } from '../core/ids';
 import { post } from '../economy/ledger';
 import { newGame, type CityRef, type SimState } from '../state';
-import { aboutSave, backupKey, decode, encode, fromSaveData, SAVE_FORMAT, saveKey, stateHash, toSaveData } from './save';
-import { schemaHash, SAVE_SCHEMA, type Field } from './schema';
+import { aboutSave, backupKey, decode, encode, fromSaveData, SAVE_FORMAT, saveKey, SET_ASIDE, stateHash, toSaveData } from './save';
+import type { SetAsideWhy } from '../types';
+import { CALENDAR, schemaHash, SAVE_SCHEMA, type Field } from './schema';
 import lock from './schema.lock.json';
 
 const CITY: CityRef = { id: 'boston', revision: 'fixture-mini-boston', hash: 'abc123' };
@@ -127,6 +128,11 @@ describe('the schema hash (SC-10)', () => {
     expect(schemaHash({ object: { ...object, clock: { object: { elapsed: 'number' } } } })).not.toBe(base);
     expect(schemaHash({ object: { ...object, clock: { object: { elapsed: { nullable: 'int' } } } } })).not.toBe(base);
   });
+
+  it('notices a calendar change: the same clock falls in another quarter (D25)', () => {
+    expect(CALENDAR).toBe('calendar:8/4/1/18000');
+    expect(schemaHash(SAVE_SCHEMA, 'calendar:10/4/30/18000')).not.toBe(schemaHash());
+  });
 });
 
 describe('I7: create, delete, save and load never reuse an id', () => {
@@ -172,7 +178,7 @@ describe('I7: create, delete, save and load never reuse an id', () => {
 
 describe('refusals (first failure wins; the live key is never overwritten by one)', () => {
   const state = playedGame();
-  const setAside = (why: 'unreadable' | 'older' | 'other-city', text: string) => [
+  const setAside = (why: SetAsideWhy, text: string) => [
     { op: 'write', key: backupKey('boston', why), value: text },
     { op: 'remove', key: saveKey('boston') },
   ];
@@ -195,7 +201,17 @@ describe('refusals (first failure wins; the live key is never overwritten by one
 
   it('sets an older format aside with a fresh start, never migrating it (D12)', () => {
     const text = encode(state, BUILD);
-    expect(decode(text, CITY, SAVE_FORMAT + 1)).toEqual({ result: { outcome: 'older', format: SAVE_FORMAT }, effects: setAside('older', text) });
+    expect(decode(text, CITY, SAVE_FORMAT + 1)).toEqual({ result: { outcome: 'older', format: SAVE_FORMAT }, effects: setAside(`older-${SAVE_FORMAT}`, text) });
+  });
+
+  it('keeps each older format under its own key, so a second format change never writes over the first one’s save (DP-06)', () => {
+    const text = encode(state, BUILD);
+    const [first] = decode(text, CITY, SAVE_FORMAT + 1).effects;
+    const [second] = decode(raw(state, (e) => void (e.format = SAVE_FORMAT + 1)), CITY, SAVE_FORMAT + 2).effects;
+    expect(first).toMatchObject({ op: 'write', key: `interbus.backup.boston.older-${SAVE_FORMAT}` });
+    expect(second).toMatchObject({ op: 'write', key: `interbus.backup.boston.older-${SAVE_FORMAT + 1}` });
+    expect(SET_ASIDE).toContain(`older-${SAVE_FORMAT - 1}`);
+    expect(SET_ASIDE).toContain('older'); // a backup made before keys carried the format is still listed
   });
 
   it('sets aside a file with no format', () => {

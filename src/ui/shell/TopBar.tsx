@@ -1,17 +1,15 @@
 import type { Speed } from '../../sim/types';
 import { CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
 import { MEDAL_IDS } from '../../sim/rules/medal';
+import { calendarOfDay } from '../../sim/rules/calendar';
+import { RUNNING_SPEEDS } from '../../sim/rules/speed';
 import { undoText } from '../copy';
-import { about, clock, MEDAL_NAMES, usd, usdK } from '../format';
+import { Dropdown } from '../Dropdown';
+import { about, clockText, dateText, MEDAL_NAMES, quarterText, SPEED_HINTS, speedText, usd, usdK } from '../format';
 import { CHECKLIST, checklistStep, checklistText } from '../game/checklist';
 import type { Sim } from '../game/useSim';
 
-const SPEEDS: readonly [Speed, string][] = [
-  [0, 'Pause'],
-  [1, '1×'],
-  [2, '2×'],
-  [3, '3×'],
-];
+const SPEED_OPTIONS = RUNNING_SPEEDS.map((speed) => ({ value: speed, label: speedText(speed), hint: SPEED_HINTS[speed] }));
 
 /**
  * The calm shell's chip row (PLAN §8, the M2 spec item 7): labelled chips for the date and clock,
@@ -23,7 +21,7 @@ const SPEEDS: readonly [Speed, string][] = [
  * too, a dot of each one's metal; the Contracts panel names the ladder and the trips left to silver
  * (the M4 spec, item 3), since a chip of its own broke I13 (DECISIONS, Measured).
  */
-export function TopBar({ sim, onContracts }: { sim: Sim; onContracts: () => void }) {
+export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: Exclude<Speed, 0>; onContracts: () => void }) {
   const s = sim.snapshot;
   if (sim.status !== 'ready' || !s) return null;
   const founded = s.company.name !== '';
@@ -34,16 +32,22 @@ export function TopBar({ sim, onContracts }: { sim: Sim; onContracts: () => void
   const medals = MEDAL_IDS.filter((m) => s.medals[m] !== null);
   return (
     <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
-      <span className="chip">
-        <span className="chip-label">Day {s.day}</span> {clock(s.hour, s.minute)}
+      <span className="chip date" title={dateText(s.day)} data-testid="date">
+        <span className="chip-label">{quarterText(s.day)}</span> Day {calendarOfDay(s.day).dayOfQuarter}, {clockText(s.hour, s.minute, s.rate)}
       </span>
       {founded ? (
         <span className="chip speed" role="group" aria-label="Speed">
-          {SPEEDS.map(([speed, label]) => (
-            <button key={speed} type="button" aria-pressed={s.speed === speed} onClick={() => sim.send({ type: 'speed', speed })}>
-              {label}
-            </button>
-          ))}
+          <button
+            type="button"
+            className="play"
+            aria-label={s.speed === 0 ? 'Play' : 'Pause'}
+            title={s.speed === 0 ? 'Play (Space)' : 'Pause (Space)'}
+            data-testid="play"
+            onClick={() => sim.send({ type: 'speed', speed: s.speed === 0 ? playSpeed : 0 })}
+          >
+            <span className={s.speed === 0 ? 'icon-play' : 'icon-pause'} aria-hidden="true" />
+          </button>
+          <Dropdown label="Speed" value={s.speed === 0 ? playSpeed : s.speed} options={SPEED_OPTIONS} repick testId="speed-menu" onChange={(speed) => sim.send({ type: 'speed', speed })} />
         </span>
       ) : null}
       <span className="chip">

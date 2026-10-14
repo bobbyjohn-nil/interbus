@@ -1,5 +1,5 @@
 import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
-import { askText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
+import { askText, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
 /**
@@ -51,7 +51,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             const day = s.medals[m];
             const status =
               day !== null
-                ? `since day ${day}${m === 'silver' ? ' · the Goliath is for sale' : ''}`
+                ? `Since ${dateText(day)}${m === 'silver' ? ' · The Goliath is for sale' : ''}`
                 : m === 'silver'
                   ? `${toSilver.toLocaleString('en-US')} ${toSilver === 1 ? 'trip' : 'trips'} to go · unlocks the Goliath`
                   : null;

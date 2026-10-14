@@ -1,4 +1,4 @@
-import { askText, eventNewsText, medalNewsText, ROW_NAMES, usd } from '../format';
+import { askText, dateText, eventNewsText, medalNewsText, quarterText, ROW_NAMES, usd } from '../format';
 import type { Sim } from './useSim';
 
 /**
@@ -14,11 +14,11 @@ export function DayCard({ sim }: { sim: Sim }) {
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
   return (
-    <section className="day-card" role="dialog" aria-label={`Day ${card.day} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
-      <h2>Day {card.day} closed</h2>
+    <section className="day-card" role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
+      <h2>{dateText(card.day)} closed</h2>
       {card.report ? (
-        <section className="report" aria-label={`Quarter ${card.report.quarter} report card`} data-testid="report-card" data-overall={card.report.overall.toFixed(1)} data-payout={card.report.payoutCents}>
-          <h3>Quarter {card.report.quarter} report card</h3>
+        <section className="report" aria-label={`${quarterText(card.day)} report card`} data-testid="report-card" data-overall={card.report.overall.toFixed(1)} data-payout={card.report.payoutCents}>
+          <h3>{quarterText(card.day)} report card</h3>
           <table>
             <tbody>
               {(

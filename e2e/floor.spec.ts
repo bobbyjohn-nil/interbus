@@ -4,7 +4,7 @@
 // edited to owe $200k at 23:50 with four closes already behind it, so the run ends within seconds.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
-import { city } from './shell';
+import { city, setSpeed } from './shell';
 
 test.describe('the failure floor', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -34,7 +34,7 @@ test.describe('the failure floor', () => {
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');
 
     // Midnight closes the fifth day below: the lender calls in the loan and time stops.
-    await page.getByRole('button', { name: '3×' }).click();
+    await setSpeed(page, '5,400×');
     const failure = page.getByTestId('failure-card');
     await expect(failure).toBeVisible({ timeout: 30_000 });
     await expect(failure).toContainText('The lender has called in the loan');

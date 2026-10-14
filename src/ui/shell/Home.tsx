@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { usd } from '../format';
+import { dateText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
 /**
@@ -22,14 +22,14 @@ export function Home({ sim, onContinue, onNewGame, onSaves }: { sim: Sim; onCont
         <button type="button" className="primary" onClick={onContinue} data-testid="home-continue">
           Continue
           <span className="about">
-            {company} · Day {s.day} · {usd(s.cashCents)}
+            {company} · {dateText(s.day)} · {usd(s.cashCents)}
           </span>
         </button>
       ) : null}
       {asking ? (
         <div className="ask" role="group" aria-label="Start over">
           <p>
-            Start over? {company}, on day {s.day}, is replaced. Your slots stay.
+            Start over? {company}, on {dateText(s.day)}, is replaced. Your slots stay.
           </p>
           <span className="controls">
             <button

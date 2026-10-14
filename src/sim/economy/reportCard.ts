@@ -13,9 +13,9 @@ import {
   COMFORT_TIER_SHARE,
   COVERAGE_EXPONENT,
   COVERAGE_FULL_CALLS,
-  REPORT_FINE_CENTS,
+  REPORT_FINE_PER_DAY_CENTS,
   REPORT_FINE_THRESHOLD,
-  REPORT_GRANT_PER_POINT_CENTS,
+  REPORT_GRANT_PER_POINT_PER_DAY_CENTS,
   REPORT_GRANT_THRESHOLD,
   REPORT_WEIGHTS,
 } from '../config/report';
@@ -123,6 +123,10 @@ export function gradeQuarter(world: World, quarter: number, day: number): Report
   const money = moneyGrade(world, day - DAYS_PER_QUARTER + 1, day);
   const overall = REPORT_WEIGHTS.coverage * coverage + REPORT_WEIGHTS.reliability * reliability + REPORT_WEIGHTS.comfort * comfort + REPORT_WEIGHTS.money * money;
   const payoutCents =
-    overall >= REPORT_GRANT_THRESHOLD ? Math.round((overall - REPORT_GRANT_THRESHOLD) * REPORT_GRANT_PER_POINT_CENTS) : overall < REPORT_FINE_THRESHOLD ? -REPORT_FINE_CENTS : 0;
+    overall >= REPORT_GRANT_THRESHOLD
+      ? Math.round((overall - REPORT_GRANT_THRESHOLD) * REPORT_GRANT_PER_POINT_PER_DAY_CENTS * DAYS_PER_QUARTER)
+      : overall < REPORT_FINE_THRESHOLD
+        ? -REPORT_FINE_PER_DAY_CENTS * DAYS_PER_QUARTER
+        : 0;
   return { quarter, day, coverage, reliability, comfort, money, overall, payoutCents };
 }

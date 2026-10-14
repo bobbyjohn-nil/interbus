@@ -36,10 +36,8 @@ export interface PacingCandidate {
 }
 
 export interface PacingOptions {
-  /** Game seconds a real second at each speed (the worker's SPEEDS). */
-  readonly speeds: Readonly<Record<1 | 2 | 3, number>>;
-  /** The speed each day is played at. */
-  readonly speedOn: (day: number) => 1 | 2 | 3;
+  /** Game seconds a real second each day is played at (rules/speed.ts SPEED_RATES). */
+  readonly rateOn: (day: number) => number;
   /** The player's own time at the tools, in real minutes. */
   readonly player: { readonly newGameToPlay: number; readonly perLine: number; readonly perDepot: number };
   /** Cash kept back when drawing a line. */
@@ -180,7 +178,7 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
   for (let day = toCalendarTime(world.state.elapsed).day; day <= o.maxDays && world.state.medals.gold === null; day++) {
     const seconds = SECONDS_PER_DAY - toCalendarTime(world.state.elapsed).secondOfDay;
     const events = advance(world, seconds);
-    minutes += seconds / o.speeds[o.speedOn(day)] / 60;
+    minutes += seconds / o.rateOn(day) / 60;
     for (const e of events) {
       if (e.kind !== 'day-closed') continue;
       tripsADay = e.trips;

@@ -17,7 +17,7 @@ describe('Home', () => {
   it('offers Continue with the game’s company, day and cash, then New game and Saves', () => {
     const html = render('Back Bay Transit');
     expect(html).toContain('data-testid="home-continue"');
-    expect(html).toContain('Back Bay Transit · Day 12 · $123,456');
+    expect(html).toContain('Back Bay Transit · Year 1, Q2, Day 4 · $123,456'); // day 12 since founding
     expect(html.indexOf('Continue')).toBeLessThan(html.indexOf('New game'));
     expect(html).toContain('>Saves<');
   });

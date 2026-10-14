@@ -28,7 +28,7 @@ describe('the Finance panel', () => {
         row('refund', 0, 0, 0, null),
       ],
     });
-    expect(html).toContain('Q1 from day 1');
+    expect(html).toContain('<th scope="col">Year 1, Q1</th>');
     expect(html).toContain('Founding capital');
     expect(html).not.toContain('Refunds'); // nothing in it
     expect(html).toMatch(/data-kind="founding"[^>]*>.*?<td>—<\/td><\/tr>/);

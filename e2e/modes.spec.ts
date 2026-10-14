@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { replaySession } from '../src/worker/replay';
 import { foundCompany } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 test.describe('the camera and the sim (D2)', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -34,7 +34,7 @@ test.describe('the camera and the sim (D2)', () => {
     await page.getByRole('button', { name: 'Close' }).click();
 
     // Tilted while time runs, flattened again, and a fare changed in between.
-    await page.getByRole('button', { name: '3×' }).click();
+    await setSpeed(page, '5,400×');
     await page.getByTestId('mode-chip').getByRole('button', { name: '3D' }).click();
     await expect(map).toHaveAttribute('data-mode', '3d');
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 30_000 }).toBeGreaterThan(4 * 3_600);

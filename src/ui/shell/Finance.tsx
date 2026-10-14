@@ -1,5 +1,5 @@
 import type { FinanceView } from '../../sim/types';
-import { ROW_NAMES, usd } from '../format';
+import { quarterText, ROW_NAMES, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
 /** Kinds the forecast models from riders rather than knows from the day plan. */
@@ -31,7 +31,7 @@ export function Finance({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             <th scope="col">Today</th>
             <th scope="col">Yesterday</th>
             <th scope="col">
-              Q{f.quarter} from day {f.quarterFirstDay}
+              {quarterText(f.quarterFirstDay)}
             </th>
             <th scope="col">A day’s forecast</th>
           </tr>

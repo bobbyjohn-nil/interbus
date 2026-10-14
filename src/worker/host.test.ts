@@ -51,13 +51,34 @@ describe('the sim host', () => {
 
   it('advances at the chosen speed, never more than a quarter-second of real time per tick', () => {
     const { host, last } = started();
-    host.handle({ type: 'speed', speed: 1 });
+    host.handle({ type: 'speed', speed: 3 });
     for (let t = 0; t <= 1000; t += 50) host.tick(t);
-    expect(last('snapshot')!.snapshot.elapsed).toBe(SPEEDS[1]); // one real second: ten game-minutes
+    expect(last('snapshot')!.snapshot.elapsed).toBe(SPEEDS[3]); // one real second at 600x: ten game-minutes
     host.tick(1000 + 60_000); // a minute in a background tab
-    const leap = (MAX_SLICE_MS / 1000) * SPEEDS[1];
-    expect(last('snapshot')!.snapshot.elapsed - SPEEDS[1]).toBeLessThanOrEqual(leap);
+    const leap = (MAX_SLICE_MS / 1000) * SPEEDS[3];
+    expect(last('snapshot')!.snapshot.elapsed - SPEEDS[3]).toBeLessThanOrEqual(leap);
     expect(last('snapshot')!.snapshot.elapsed % STEP_SECONDS).toBe(0);
+  });
+
+  it('runs 1x in real time, a game second a second, and draws the part-step so buses glide (D25)', () => {
+    const { host, last } = started();
+    host.handle({ type: 'speed', speed: 1 });
+    for (let t = 0; t <= 30_000; t += 50) host.tick(t);
+    expect(last('snapshot')!.snapshot.elapsed).toBe(30); // 30 real seconds at 1x; 18,000 on the old ladder's "1x"
+    host.tick(30_200); // a fifth of a second more: the drawn clock moves, the sim's waits for a whole step
+    const s = last('snapshot')!.snapshot;
+    expect(s.elapsed).toBe(30);
+    expect(s.secondOfDay).toBeCloseTo(5 * 3_600 + 30.2, 6);
+  });
+
+  it('saves at least every 30 real seconds while time runs, though the game hour has not turned (D25)', () => {
+    const { host, saves } = started();
+    host.handle({ type: 'speed', speed: 1 });
+    const before = saves().length;
+    for (let t = 0; t <= 29_000; t += 1_000) host.tick(t);
+    expect(saves().length).toBe(before);
+    host.tick(31_000);
+    expect(saves().length).toBe(before + 1);
   });
 
   it('runs a line from its depot, and the day card at 24:00 adds up and meets the forecast (M1 and M2, headless)', () => {
@@ -77,7 +98,7 @@ describe('the sim host', () => {
     expect(line.pullIn[0]).toEqual(line.route[0]);
     expect(busPositionsAt(plan, prepareGeometry(line), 12 * 3_600, new Float64Array(24))).toBe(2);
     expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead + 30_000);
-    host.handle({ type: 'speed', speed: 3 });
+    host.handle({ type: 'speed', speed: 5 });
     const cards = () => out.filter((m) => m.type === 'day-card');
     for (let t = 0; cards().length < 2; t += 250) host.tick(t);
     for (const { card } of cards() as Extract<FromWorker, { type: 'day-card' }>[]) {
@@ -230,7 +251,7 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     game.host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
     game.host.handle({ type: 'place-depot', at: depotSpot(game.last('ready')!.depotLand as [number, number][][]) });
     game.host.handle({ type: 'create-line', clicks: CLICKS });
-    game.host.handle({ type: 'speed', speed: 3 });
+    game.host.handle({ type: 'speed', speed: 5 });
     let t = 0;
     for (; !game.last('day-card'); t += 250) game.host.tick(t);
     for (const end = t + 1_000; t < end; t += 37) game.host.tick(t); // into day 2, uneven ticks as a real timer's, ending mid-step
@@ -268,7 +289,7 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     expect(was.day).toBe(2);
     expect(comparable(after.last('ready')!.snapshot)).toEqual(comparable(was));
     for (const game of [before, after]) {
-      game.host.handle({ type: 'speed', speed: 2 });
+      game.host.handle({ type: 'speed', speed: 4 });
       for (let t = 0; t <= 5_000; t += 37) game.host.tick(1e6 + t);
     }
     expect(comparable(after.last('snapshot')!.snapshot)).toEqual(comparable(before.last('snapshot')!.snapshot));
@@ -279,13 +300,13 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     const text = played().saves().at(-1)!;
     const older = JSON.stringify({ ...JSON.parse(text), format: 3 });
     const elsewhere = text.replace('"id":"boston"', '"id":"worcester"');
-    for (const [save, outcome] of [[older, 'older'], [elsewhere, 'other-city']] as const) {
+    for (const [save, outcome, key] of [[older, 'older', 'older-3'], [elsewhere, 'other-city', 'other-city']] as const) {
       const game = started(save);
       const store = game.out.findIndex((m) => m.type === 'store');
       expect(game.out[store]).toEqual({
         type: 'store',
         effects: [
-          { op: 'write', key: `interbus.backup.boston.${outcome}`, value: save },
+          { op: 'write', key: `interbus.backup.boston.${key}`, value: save },
           { op: 'remove', key: KEY },
         ],
       });
@@ -362,7 +383,7 @@ describe('undo while paused (I9)', () => {
     const { host, last } = foundedWithSaves();
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     host.handle({ type: 'create-line', clicks: CLICKS });
-    host.handle({ type: 'speed', speed: 3 });
+    host.handle({ type: 'speed', speed: 5 });
     for (let t = 0; t <= 4_000; t += 50) host.tick(t);
     host.handle({ type: 'speed', speed: 0 });
     const paused = last('snapshot')!.snapshot;
@@ -375,7 +396,7 @@ describe('undo while paused (I9)', () => {
 
   it('keeps no command taken while time runs', () => {
     const { host, last } = foundedWithSaves();
-    host.handle({ type: 'speed', speed: 1 });
+    host.handle({ type: 'speed', speed: 3 });
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     host.handle({ type: 'speed', speed: 0 });
     expect(last('snapshot')!.snapshot.undo).toBeNull();
@@ -556,11 +577,11 @@ describe('the failure floor', () => {
   it('ends the run on the fifth close: time stops, and Restart this quarter reopens where the game was loaded', () => {
     const { send, last, owing, host } = founded();
     send({ type: 'import', text: owing(4) });
-    send({ type: 'speed', speed: 3 });
+    send({ type: 'speed', speed: 5 });
     for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 600_000; t += 250) host.tick(t);
     const ended = last('snapshot')!.snapshot;
     expect(ended).toMatchObject({ speed: 0, floor: { closesLeft: 0, ended: true } });
-    send({ type: 'speed', speed: 1 });
+    send({ type: 'speed', speed: 3 });
     expect(last('refused')).toEqual({ type: 'refused', command: 'speed', reason: 'run_ended' });
     send({ type: 'restart-quarter' });
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
@@ -569,10 +590,10 @@ describe('the failure floor', () => {
 
   it('never keeps an ended game as the quarter to restart: not when the run ends on the quarterâ€™s last close, nor when one is loaded', () => {
     const { send, last, owing, host } = founded();
-    // Day 10 at 23:50, the quarter's last close ten minutes off, with four closes below behind it.
-    const lastEvening = 9 * 86_400 + 18 * 3_600 + 50 * 60;
+    // Day 8 at 23:50, the quarter's last close ten minutes off, with four closes below behind it.
+    const lastEvening = 7 * 86_400 + 18 * 3_600 + 50 * 60;
     send({ type: 'import', text: owing(4, lastEvening) });
-    send({ type: 'speed', speed: 3 });
+    send({ type: 'speed', speed: 5 });
     for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 60_000; t += 250) host.tick(t);
     expect(last('day-card')!.card.report).not.toBeNull();
     expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
@@ -602,7 +623,7 @@ describe('HEADWAY contracts (the M3 spec, item 11)', () => {
     const before = saves().at(-1);
     host.handle({ type: 'accept-contract', contractId: longwood.id });
     const taken = last('snapshot')!.snapshot;
-    expect(taken.contracts.find((c) => c.id === longwood.id)).toMatchObject({ held: true, daysMet: 0, daysLeft: 20 });
+    expect(taken.contracts.find((c) => c.id === longwood.id)).toMatchObject({ held: true, daysMet: 0, daysLeft: 16 });
     expect(taken.contractTaken).toBe(true);
     expect(taken.undo).toEqual({ command: 'accept-contract', subject: 'Longwood' });
     host.handle({ type: 'accept-contract', contractId: longwood.id });

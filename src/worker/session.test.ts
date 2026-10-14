@@ -54,7 +54,7 @@ describe('Export session', () => {
     g.send({ type: 'create-line', clicks: CLICKS });
     expect(g.last('snapshot')!.snapshot.lines).toHaveLength(1);
     const line = g.last('snapshot')!.snapshot.lines[0]!;
-    g.send({ type: 'speed', speed: 3 });
+    g.send({ type: 'speed', speed: 5 });
     g.runTo(30 * 3_600); // 11:00 on day 2
     g.send({ type: 'set-fare', lineId: line.id, fareCents: 175 }); // while time runs: not undoable
     g.send({ type: 'speed', speed: 0 });
@@ -64,7 +64,7 @@ describe('Export session', () => {
     g.send({ type: 'undo' });
     const longwood = g.last('snapshot')!.snapshot.contracts.find((c) => c.landmark === 'Longwood')!;
     g.send({ type: 'accept-contract', contractId: longwood.id });
-    g.send({ type: 'speed', speed: 1 });
+    g.send({ type: 'speed', speed: 3 });
     g.runTo(40 * 3_600);
     const live = g.host.stateHash()!;
     const file = exported(g);
@@ -87,8 +87,8 @@ describe('Export session', () => {
     g.send({ type: 'place-depot', at: [ring.reduce((s, p) => s + p[0], 0) / ring.length, ring.reduce((s, p) => s + p[1], 0) / ring.length] });
     g.send({ type: 'create-line', clicks: CLICKS });
     const line = g.last('snapshot')!.snapshot.lines[0]!;
-    g.send({ type: 'speed', speed: 3 });
-    g.runTo(9 * 86_400 + 19 * 3_600); // past day 10's close, where quarter 2 and a new session begin
+    g.send({ type: 'speed', speed: 5 });
+    g.runTo(7 * 86_400 + 19 * 3_600); // past day 8's close, where quarter 2 and a new session begin
     g.send({ type: 'set-fare', lineId: line.id, fareCents: 175 });
     g.send({ type: 'speed', speed: 0 });
     g.send({ type: 'undo' });
@@ -96,7 +96,7 @@ describe('Export session', () => {
     const file = exported(g);
     const session = JSON.parse(file.text) as SessionFile;
     expect(replaySession(baked.text, file.text)).toMatchObject({ ok: true, matches: true });
-    expect(session.speed).toBe(3);
+    expect(session.speed).toBe(5);
     expect(session.commands.map((c) => c.message.type)).toEqual(['set-fare', 'speed', 'undo']);
   });
 
