@@ -385,6 +385,16 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **How to reverse:** any item, by saying so. Each is its own pull request and can be reverted alone. The time change sets older web saves aside, and a revert does not bring them back.
 - **Since amended:** 2026-10-14, the tuning freeze (Measured, below): the ladder's 4 is 2,700× (45 minutes a second, a game day in 32 s), not 1,800×, which with k 1.333 (D7, since tuned) brings the scripted player's second line on Inner Boston into PLAN §3's 15–25 minutes. 1×, 60×, 600× and 5,400× stay. The owner can move the rung back by saying so.
 
+### D26 · Systems that work first; the real values later
+
+- **Decided:** 2026-10-14, by the owner, while the gold measurements ran: "the money is not important right now, right now whats important is that the system work and we can fine tune the real values later".
+- **What it means:**
+  - Work goes to every system working end to end: no feature that fails, no screen that disagrees with the sim, no command that leaves state inconsistent, no undo or save that loses state. [First an audit of the game's twelve systems, each finding confirmed by running it and reproduced independently, then the confirmed bugs fixed in small pull requests, most severe first.]
+  - Values wait: prices, rates, the pacing minutes and the medal bars are tuned later. What is merged stays (#102's Coverage fix, which was a bug; #103's k 1.333 and speed 4 at 2,700×, with their nightly bands), so the game keeps one set of numbers while the systems are fixed.
+  - The gold measurement (a scripted player that builds toward the card, wider candidates and a coverage bench) is parked, not merged; the medal ladder (Open above) keeps its recommendation as the default until the values pass.
+- **Why:** the owner's priority. A value tuned on a system that does not work yet is tuned against a bug, as the Coverage grade was until #102.
+- **How to reverse:** the owner says the values come first again; the gold measurement picks up where it stopped.
+
 ### CL · Versions only on the owner's say
 
 - **Decided:** 2026-10-12, by the owner: "create a changelog that will only make versions with my say."
