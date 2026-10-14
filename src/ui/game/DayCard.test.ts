@@ -65,7 +65,7 @@ describe('the day card when a medal is awarded', () => {
   it('names each medal and what earned it, and says the Goliath is for sale at silver (the M4 spec, item 3)', () => {
     const html = render({ day: 10, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report, contracts: [], events: [], medals: ['bronze', 'silver'] });
     expect(html).toContain('Bronze medal: a quarter graded 55 or better');
-    expect(html).toContain('Silver medal: 25,000 trips carried. The Goliath is for sale');
+    expect(html).toContain('Silver medal: 25,000 trips carried · the Goliath is for sale');
     expect(render({ day: 30, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report, contracts: [], events: [], medals: ['gold'] })).toContain('Gold medal: a quarter graded 75 or better, no grade under 60, on a day of 5,000 trips');
     expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [], medals: [] })).not.toContain('medal');
   });

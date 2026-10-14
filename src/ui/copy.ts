@@ -10,7 +10,7 @@ const metres = (m: number | undefined) => (m === undefined ? '' : ` ${Math.round
 
 export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   // Depots (sim/rules/depot.ts)
-  depot_limit: () => 'Five depots is the most',
+  depot_limit: () => 'You can have at most five depots',
   not_depot_land: () => 'Depots stand on industrial land',
   too_far_from_street: (r) => `No street within${metres(r.limitM)}`,
   too_close_to_depot: (r) => `Another depot is${metres(r.nearestM)} away`,
@@ -24,7 +24,7 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   too_few_stops: () => 'Add a second stop',
   headway_not_whole_seconds: () => 'Headways are whole minutes',
   daytime_headway_too_long: () => 'By day, run at least hourly',
-  overnight_more_often_than_offpeak: () => 'Overnight runs no more often than off-peak',
+  overnight_more_often_than_offpeak: () => 'Overnight can’t run more often than off-peak',
   depot_full: (r) => (r.room ? `Depots have room for ${r.room} more` : 'Your depots are full'),
   insufficient_funds: (r) => `${usd(r.shortCents ?? 0)} short`,
   no_such_line: () => 'That line is gone',
@@ -33,9 +33,9 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   fare_not_a_step: () => 'Fares go up in 25¢ steps',
   same_fare: () => 'The line already charges that',
   // Stop tiers (sim/rules/stopTier.ts)
-  same_tier: () => 'The stop is already this',
+  same_tier: () => 'The stop is already this kind',
   no_such_tier: () => 'No such kind of stop',
-  needs_lines: (r) => `Needs ${r.limit ?? 3} lines calling here`,
+  needs_lines: (r) => `Needs ${r.limit ?? 3} lines stopping here`,
   no_such_stop: () => 'That stop is gone',
   // Route edits (sim/rules/route.ts)
   not_on_line: () => 'The line doesn’t stop here',
@@ -43,29 +43,29 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   no_new_stops: () => 'Click the map beyond the line',
   no_leg_near: (r) => `Click within ${r.limitM ?? 300} m of the line`,
   // Undo (sim/undo.ts)
-  time_has_run: () => 'Time has run since then',
+  time_has_run: () => 'Time has passed since then',
   nothing_to_undo: () => 'Nothing to undo',
   // Saves: slots and files (the M3 spec, item 8)
   empty_slot: () => 'That slot is empty',
   no_such_slot: () => 'No such slot',
-  save_unreadable: () => 'Not a save this game can read',
+  save_unreadable: () => 'A save this game can’t read',
   save_newer: () => 'Saved by a newer build',
   save_older: () => 'Saved by an older build',
   save_other_city: () => 'A save from another city',
-  save_off_street: () => 'Its stops miss this map',
-  save_none: () => 'Not a save this game can read',
+  save_off_street: () => 'Its stops aren’t on this map',
+  save_none: () => 'A save this game can’t read',
   // Contracts (sim/rules/contract.ts)
   no_such_contract: () => 'That contract is gone',
   already_held: () => 'You hold this contract already',
   // The failure floor (sim/rules/credit.ts)
   run_ended: () => 'The lender has called in the loan',
   no_quarter_save: () => 'No save from this quarter’s start',
-  no_session: () => 'Found the company first',
+  no_session: () => 'Name your company first',
   // Founding (sim/rules/company.ts)
   already_founded: () => 'The company is already founded',
   name_empty: () => 'Give the company a name',
-  name_too_long: (r) => `At most ${r.limit ?? 32} letters`,
-  colour_not_offered: () => 'Pick one of these colours',
+  name_too_long: (r) => `At most ${r.limit ?? 32} characters`,
+  colour_not_offered: () => 'Pick one of these colors',
   // The worker
   not_started: () => 'The city is still loading',
 };
@@ -81,7 +81,7 @@ export function loadedText(loaded: { readonly from: 'slot' | 'file' | 'quarter';
   return loaded.from === 'slot' ? 'Slot loaded' : loaded.from === 'file' ? 'Save file loaded' : 'Back to the start of the quarter';
 }
 
-/** What Undo would take back, named (the M3 spec, item 7): "Create Line 2". */
+/** What Undo would take back, named (the M3 spec, item 7): "Create Line 2", "Line 2’s fare". A change is named by what it changed, without "Change", which would widen the chip past I13 (D25's copy pass). */
 const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'place-depot': (s) => `Place ${s}`,
   'create-line': (s) => `Create ${s}`,
@@ -108,5 +108,5 @@ export const LOAD_COPY: Readonly<Record<LoadView, string | null>> = {
   newer: 'Save from a newer build set aside',
   unreadable: 'Unreadable save set aside',
   'other-city': 'Save from another city set aside',
-  'off-street': 'Save’s stops miss the new map: set aside',
+  'off-street': 'Save set aside: stops off the new map',
 };

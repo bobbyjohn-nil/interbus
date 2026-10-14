@@ -15,8 +15,8 @@ export function Home({ sim, onContinue, onNewGame, onSaves }: { sim: Sim; onCont
   if (sim.status !== 'ready' || !s) return null;
   const company = s.company.name;
   return (
-    <section className="home" role="dialog" aria-label="interbus" data-testid="home" data-chrome="panel">
-      <h1>interbus</h1>
+    <section className="home" role="dialog" aria-label="Interbus" data-testid="home" data-chrome="panel">
+      <h1>Interbus</h1>
       <p className="hint">A bus company in Boston</p>
       {company ? (
         <button type="button" className="primary" onClick={onContinue} data-testid="home-continue">
@@ -29,7 +29,7 @@ export function Home({ sim, onContinue, onNewGame, onSaves }: { sim: Sim; onCont
       {asking ? (
         <div className="ask" role="group" aria-label="Start over">
           <p>
-            Start over? {company}, on {dateText(s.day)}, is replaced. Your slots stay.
+            Start over? {company}, on {dateText(s.day)}, will be replaced. Your slots stay.
           </p>
           <span className="controls">
             <button

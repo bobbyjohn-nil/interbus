@@ -39,7 +39,7 @@ test.describe('Home', () => {
     await page.getByRole('button', { name: 'Saves' }).click();
     await page.getByRole('button', { name: 'Back to Home' }).click();
     await home.getByRole('button', { name: 'New game' }).click();
-    await expect(home).toContainText('Start over? Back Bay Transit, on Year 1, Q1, Day 1, is replaced. Your slots stay.');
+    await expect(home).toContainText('Start over? Back Bay Transit, on Year 1, Q1, Day 1, will be replaced. Your slots stay.');
     await home.getByRole('button', { name: 'Keep it' }).click();
     await expect(page.getByTestId('home-continue')).toBeVisible();
 

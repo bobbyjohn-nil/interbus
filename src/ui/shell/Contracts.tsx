@@ -1,5 +1,5 @@
 import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
-import { askText, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
+import { askText, capitalise, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
 /**
@@ -24,7 +24,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
         {s.contracts.map((c) => (
           <li key={c.id} data-testid="contract" data-landmark={c.landmark} data-kind={c.kind} data-held={c.held ? 'yes' : 'no'} data-met={c.met ? 'yes' : 'no'} data-days-met={c.daysMet}>
             <strong>
-              {askText(c.kind, c.ask)[0]!.toUpperCase() + askText(c.kind, c.ask).slice(1)} at {c.landmark}
+              {capitalise(askText(c.kind, c.ask))} at {c.landmark}
             </strong>
             <span>
               {c.daysNeeded} days in a row · {usd(c.rewardCents)}
@@ -51,7 +51,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             const day = s.medals[m];
             const status =
               day !== null
-                ? `Since ${dateText(day)}${m === 'silver' ? ' · The Goliath is for sale' : ''}`
+                ? `Since ${dateText(day)}${m === 'silver' ? ' · the Goliath is for sale' : ''}`
                 : m === 'silver'
                   ? `${toSilver.toLocaleString('en-US')} ${toSilver === 1 ? 'trip' : 'trips'} to go · unlocks the Goliath`
                   : null;

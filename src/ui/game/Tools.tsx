@@ -3,7 +3,7 @@ import { isExpress } from "../../sim/rules/express";
 import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
 import type { BusModelId } from "../../sim/types";
 import { refusalText } from "../copy";
-import { about, busCount, every, km, usdK } from "../format";
+import { about, busCount, every, km, moreBuses, usdK } from "../format";
 import type { Sim } from "./useSim";
 
 export type Tool = "none" | "depot" | "line";
@@ -11,7 +11,7 @@ export type Tool = "none" | "depot" | "line";
 /** Founding headways (sim/config/lines.ts): the draft is priced at these until the headway card changes them. */
 const DRAFT_HEADWAY_SECONDS = 1_200;
 
-/** The depot rule's verdict beside the pointer: "Industrial ✓ · street 120 m ✓ · $150k", or why not (GD-05). */
+/** The depot rule's verdict beside the pointer: "Industrial land ✓ · street 120 m away ✓ · $150k", or why not (GD-05). */
 export function DepotCard({
   sim,
   screen,
@@ -31,7 +31,7 @@ export function DepotCard({
       data-at={verdict.at.join(",")}
     >
       {site.ok
-        ? `Industrial ✓ · street ${site.streetM} m ✓ · ${usdK(site.priceCents)}`
+        ? `Industrial land ✓ · street ${site.streetM} m away ✓ · ${usdK(site.priceCents)}`
         : refusalText(site)}
     </div>
   );
@@ -125,7 +125,7 @@ export function DraftCard({
             {isExpress(draft.routeM, draft.stops.length) ? (
               <span className="express" data-testid="express">
                 {" "}
-                · express
+                · Express
               </span>
             ) : null}
           </p>
@@ -143,12 +143,12 @@ export function DraftCard({
           ) : null}
           {draft.buses > 0 && extend ? (
             <p>
-              {busCount(draft.buses, BUS_MODELS[extend.model].name)} more for
-              its longer round trip · {usdK(draft.busesCents)}
+              {moreBuses(draft.buses, BUS_MODELS[extend.model].name)} for its
+              longer round trip · {usdK(draft.busesCents)}
             </p>
           ) : draft.buses > 0 ? (
             <p>
-              {every(DRAFT_HEADWAY_SECONDS)} needs{" "}
+              Running {every(DRAFT_HEADWAY_SECONDS)} needs{" "}
               {busCount(draft.buses, BUS_MODELS[model].name)} ·{" "}
               {usdK(draft.busesCents)}
             </p>
@@ -176,7 +176,7 @@ export function DraftCard({
           {extend?.insert ? "Insert" : extend ? "Extend" : "Create"}
         </button>
         <button type="button" onClick={onUndo} disabled={!clicks}>
-          Undo stop
+          Remove last stop
         </button>
         <button type="button" onClick={onCancel}>
           Cancel

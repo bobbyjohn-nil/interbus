@@ -40,7 +40,7 @@ export function DayCard({ sim }: { sim: Sim }) {
               </tr>
             </tbody>
           </table>
-          <p>{card.report.payoutCents > 0 ? `The city pays ${usd(card.report.payoutCents)}` : card.report.payoutCents < 0 ? `The city fines ${usd(-card.report.payoutCents)}` : 'No grant and no fine'}</p>
+          <p>{card.report.payoutCents > 0 ? `The city pays ${usd(card.report.payoutCents)}` : card.report.payoutCents < 0 ? `The city fines ${usd(-card.report.payoutCents)}` : 'The city neither pays nor fines'}</p>
         </section>
       ) : null}
       {card.contracts.map((c) => (

@@ -33,7 +33,7 @@ export function Finance({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             <th scope="col">
               {quarterText(f.quarterFirstDay)}
             </th>
-            <th scope="col">A day’s forecast</th>
+            <th scope="col">Forecast for a full day</th>
           </tr>
         </thead>
         <tbody>

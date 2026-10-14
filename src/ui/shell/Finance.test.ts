@@ -29,7 +29,7 @@ describe('the Finance panel', () => {
       ],
     });
     expect(html).toContain('<th scope="col">Year 1, Q1</th>');
-    expect(html).toContain('Founding capital');
+    expect(html).toContain('Starting cash');
     expect(html).not.toContain('Refunds'); // nothing in it
     expect(html).toMatch(/data-kind="founding"[^>]*>.*?<td>—<\/td><\/tr>/);
     expect(html).toContain('≈$1,431'); // the modelled fares forecast
@@ -39,6 +39,6 @@ describe('the Finance panel', () => {
 
   it('shows no yesterday on day 1', () => {
     const html = render({ day: 1, quarter: 1, quarterFirstDay: 1, rows: [row('founding', 42_720_000, 0, 42_720_000, null)] });
-    expect(html).toMatch(/<th scope="row">Founding capital<\/th><td>\$427,200<\/td><td>—<\/td>/);
+    expect(html).toMatch(/<th scope="row">Starting cash<\/th><td>\$427,200<\/td><td>—<\/td>/);
   });
 });

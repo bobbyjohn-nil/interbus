@@ -27,7 +27,12 @@ export function km(metres: number): string {
   return `${(metres / 1_000).toFixed(1)} km`;
 }
 
-/** "every 20 min" from a headway in seconds. */
+/** A phrase that starts a line, with its first letter a capital: "Every 20 min" from every()'s "every 20 min" (D25's copy convention). */
+export function capitalise(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** "every 20 min" from a headway in seconds, to sit mid-sentence; capitalise() it to start a line. */
 export function every(seconds: number): string {
   return `every ${Number.isInteger(seconds / 60) ? seconds / 60 : (seconds / 60).toFixed(1)} min`;
 }
@@ -104,7 +109,7 @@ export function savedWhen(ms: number, nowMs: number = Date.now()): string {
 
 /** The day card's names for ledger rows. */
 export const ROW_NAMES: Readonly<Record<string, string>> = {
-  founding: 'Founding capital',
+  founding: 'Starting cash',
   fares: 'Fares',
   subsidy: 'City subsidy',
   purchase: 'Purchases',
@@ -122,6 +127,11 @@ export const ROW_NAMES: Readonly<Record<string, string>> = {
 /** "2 Sparrows", "1 Metro 40": a count of buses of one model. */
 export function busCount(n: number, model: string): string {
   return `${n} ${n === 1 ? model : `${model}s`}`;
+}
+
+/** "2 more Sparrows", "1 more Metro 40": buses of one model on top of those a line has. */
+export function moreBuses(n: number, model: string): string {
+  return `${n} more ${n === 1 ? model : `${model}s`}`;
 }
 
 /** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */
@@ -146,7 +156,7 @@ export function medalBarText(m: MedalId): string {
 
 /** A medal's notice on the day card: what earned it, and what silver unlocks. */
 export function medalNewsText(m: MedalId): string {
-  return `${MEDAL_NAMES[m]} medal: ${medalBarText(m)}${m === 'silver' ? '. The Goliath is for sale' : ''}`;
+  return `${MEDAL_NAMES[m]} medal: ${medalBarText(m)}${m === 'silver' ? ' · the Goliath is for sale' : ''}`;
 }
 
 /** A round trip on the line card: whole minutes, or minutes and seconds where a few seconds matter. */

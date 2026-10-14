@@ -40,14 +40,14 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
       <h2>
         Stop {stop.id} · {STOP_TIERS[tier].name}
       </h2>
-      {STOP_TIERS[tier].walkBonusMin > 0 ? <p className="hint">Feels {STOP_TIERS[tier].walkBonusMin} min nearer on foot</p> : null}
+      {STOP_TIERS[tier].walkBonusMin > 0 ? <p className="hint">Feels {STOP_TIERS[tier].walkBonusMin} min closer on foot</p> : null}
       <p>
         {about(stop.boardings)} board and {about(stop.alightings)} get off a day
       </p>
       {stop.transfers >= 0.5 ? <p>{about(stop.transfers)} of them change here from another line, on the fare they paid</p> : null}
       <p>Nets ≈{usd(stop.netCents, { cents: true })} a day</p>
-      {stop.quiet ? <p className="flag">QUIET · fewer than {STOP_QUIET_BOARDINGS} boardings a day</p> : null}
-      {stop.loss ? <p className="flag">LOSS · losing more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}
+      {stop.quiet ? <p className="flag">Quiet: fewer than {STOP_QUIET_BOARDINGS} boardings a day</p> : null}
+      {stop.loss ? <p className="flag">Losing money: more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}
       <div className="controls">
         {upTo && up ? (
           <button type="button" disabled={!up.ok} onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: upTo })}>
@@ -56,7 +56,7 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
         ) : null}
         {downTo && down?.ok ? (
           <button type="button" onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: downTo })}>
-            Back to {STOP_TIERS[downTo].name} · {usdK(down.saleCents)} back
+            Make it {/^[AEIOU]/.test(STOP_TIERS[downTo].name) ? 'an' : 'a'} {STOP_TIERS[downTo].name} · {usdK(down.saleCents)} back
           </button>
         ) : null}
       </div>

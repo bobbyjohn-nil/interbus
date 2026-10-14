@@ -19,7 +19,7 @@ const MESSAGES: Record<Exclude<Status, 'loading' | 'ready' | 'replaced'>, string
   empty: 'Boston’s map file loaded but drew nothing.',
   failed: 'The map could not start on this computer.',
   // The GPU ladder's last rungs (gpu.ts): the game itself plays on, so its saves and Export stay a click away.
-  'no-gpu': 'Turn on hardware acceleration to see the map. This browser has none for it; turn it on in its settings and reload. Your game is saved, and Saves and Export still work.',
+  'no-gpu': 'Turn on hardware acceleration to see the map. It is off in this browser: switch it on in the browser’s settings, then reload. Your game is saved, and Saves and Export still work.',
   lost: 'The browser took the map’s graphics away. Reload to bring them back; your game is saved.',
 };
 
@@ -325,7 +325,7 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
       ) : null}
       {fps ? (
         <p className="fps" data-testid="fps">
-          {Math.round(fps.fps)} fps · p95 {Math.round(fps.p95Ms)} ms · zoom {fps.zoom.toFixed(1)} · {Math.round(fps.pitch)}° · {rung === 'low' ? 'Low graphics' : 'full graphics'}
+          {Math.round(fps.fps)} fps · p95 {Math.round(fps.p95Ms)} ms · zoom {fps.zoom.toFixed(1)} · {Math.round(fps.pitch)}° · {rung === 'low' ? 'Low graphics' : 'Full graphics'}
         </p>
       ) : null}
     </div>

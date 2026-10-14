@@ -55,7 +55,7 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
   // The build chip names this exact build (CLAUDE.md "The build chip").
   const chip = page.getByTestId('build-chip');
   await expect(chip).toHaveAttribute('data-sha', built.sha);
-  await expect(chip).toHaveText(`build ${built.sha.slice(0, 7)}`);
+  await expect(chip).toHaveText(`Build ${built.sha.slice(0, 7)}`);
   await expect(page.getByText('© OpenStreetMap contributors')).toBeVisible();
   // Building heights are Overture's where OSM has none (PLAN §5), and its credit sits beside OSM's.
   await expect(page.getByRole('link', { name: 'Overture Maps' })).toBeVisible();

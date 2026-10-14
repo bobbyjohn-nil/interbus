@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { LOAD_COPY, REFUSAL_COPY, refusalText } from './copy';
+import { LOAD_COPY, REFUSAL_COPY, refusalText, undoText } from './copy';
+import { copyProblems } from './copyRules';
+import { eventNewsText, MEDAL_NAMES, medalNewsText, ROW_NAMES, SPEED_HINTS } from './format';
+import { CHECKLIST } from './game/checklist';
 
 // Every code a rule or command can return (sim/rules/depot.ts, line.ts, stop.ts, periods.ts, fare.ts and the
 // commands), so a new code without copy fails here.
@@ -44,5 +47,24 @@ describe('refusal copy (UX-03)', () => {
       expect(text.split(/\s+/).length, `${outcome}: "${text}"`).toBeLessThanOrEqual(8);
       expect(text).toContain('set aside');
     }
+  });
+});
+
+// D25's copy pass: every table of words keeps the convention (copyRules.ts). Shown failing (TS-04) on
+// the tables before the pass: 'At most 32 letters' miscounted a name's spaces, and 'The stop is already
+// this' stopped mid-thought.
+describe('the copy convention in the word tables', () => {
+  it('holds for every refusal, set-aside line, ledger row, checklist step, speed and medal', () => {
+    const refusals = CODES.map((reason) => refusalText({ reason, limitM: 150, nearestM: 80, room: 2, shortCents: 2_380_000, limit: 32 }));
+    const tables = [...refusals, ...Object.values(LOAD_COPY).filter((t): t is string => t !== null), ...Object.values(ROW_NAMES), ...CHECKLIST, ...Object.values(SPEED_HINTS), ...Object.values(MEDAL_NAMES)];
+    for (const kind of ['roadworks', 'festival', 'snow'] as const) for (const news of ['tomorrow', 'over'] as const) tables.push(eventNewsText({ kind, street: 'Huntington Avenue', days: 2, news }));
+    for (const m of ['bronze', 'silver', 'gold'] as const) tables.push(medalNewsText(m));
+    expect(copyProblems(tables)).toEqual([]);
+  });
+
+  it('finishes its sentences, and counts a name in characters', () => {
+    expect(undoText({ command: 'set-fare', subject: 'Line 2' })).toBe('Undo: Line 2’s fare');
+    expect(refusalText({ reason: 'name_too_long', limit: 32 })).toBe('At most 32 characters');
+    expect(refusalText({ reason: 'same_tier' })).toBe('The stop is already this kind');
   });
 });

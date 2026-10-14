@@ -18,6 +18,6 @@ export async function foundCompany(page: Page, name = 'Back Bay Transit'): Promi
   if (await page.getByTestId('home').isVisible()) await leaveHome(page);
   await expect(card).toBeVisible({ timeout: 30_000 });
   await card.getByLabel('Name').fill(name);
-  await card.getByRole('button', { name: 'Found' }).click();
+  await card.getByRole('button', { name: 'Found the company', exact: true }).click();
   await expect(card).toBeHidden();
 }
