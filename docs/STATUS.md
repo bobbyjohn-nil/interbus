@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-14, at `main` 54c4be5, with `main` now protected (D24): in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events, the 2D/3D chip, D2's guard, the slow-laptop run's busy scene, I14's first frame, the heap budget and the frame-rate steps in the playtest protocol. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
+**Updated:** 2026-10-14, at `main` ad5082c, with `main` now protected (D24) and V1's site confirmed for P0: in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events, the 2D/3D chip, D2's guard, the slow-laptop run's busy scene, I14's first frame, the heap budget and the frame-rate steps in the playtest protocol. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 54c4be5 (832b67d's `?fps` readout, which names its camera, and CI in two jobs; then a status update). Deploy preview run 38490044655's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ad5082c (832b67d's `?fps` readout, which names its camera, and CI in two jobs; then D24, `main` protected). Deploy preview run 38503185169's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, the 2D/3D chip or a right-drag (snapping flat below 12°, the buildings cross-fading), four buildings in five at their measured height; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -55,7 +55,7 @@ The running handoff between Claude sessions. Every session reads it right after 
   - "Versions only via /ship" required;
   - merge commits only;
   - a `v*` tag ruleset blocking update and deletion.
-- [ ] Say whether V1's site still loads. If it doesn't, Claude hosts V1 on the preview for P0 (week 1 item 6).
+- [x] Say whether V1's site still loads. It does (the owner, 2026-10-14), so P0 plays V1 there and nothing needs hosting on the preview (PLAN §14 item 6).
 - [ ] **P0, by Fri Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §3, §3.1, §5, §6 and §10 and answer §12; commit `art/LICENSE.md`.
 - [ ] **D20, by Sun Oct 25:** the art's open licence (recommended CC BY 4.0).
