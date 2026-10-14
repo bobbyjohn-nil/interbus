@@ -1,10 +1,10 @@
-# Owner's first look at the preview: 2026-10-14
+# Initial playtest of the preview: 2026-10-14
 
 - Tester: the owner
 - Build: not recorded. The preview served `def4d11` from 05:02 UTC and `655b914` before that.
 - Theme and mode: light, flat and tilted
 - Length: not recorded
-- Not P0, which plays V1 (PLAN §9); P0 is still due Fri Oct 17.
+- The owner's initial playtest of the preview. PLAN §9's P0, playing V1 for a baseline, is still listed for Fri Oct 17.
 
 ## The notes, verbatim
 
@@ -33,7 +33,7 @@
   - minutes and days;
   - 8 days to a quarter and 4 quarters to a year;
   - 1× as real time, with faster speeds building from there.
-- **Pathing:** lines in Back Bay and downtown make large loops.
+- **Pathing:** lines in Back Bay and downtown make large loops "and other things".
 - **Dropdowns:** the browser's default dropdown menus should be custom ones.
 - **Building:**
   - Drawing a line as consecutive stops is the only way to build.
@@ -46,6 +46,11 @@
   - Finances belong in Finance.
   - Route editing should be a button that opens an expanded editor, like Google Maps' trip planner, to reorder, add and remove stops.
 
+## What works
+
+- The map: "the map is looking good", and "I like the map, it is boston".
+- The industrial land, and how it shows where a depot can go.
+
 ## Is it Boston?
 
 Yes: "I like the map, it is boston", and "it definitely looks like Boston" (PLAN §14 item 14's week-2 check).
@@ -53,6 +58,10 @@ Yes: "I like the map, it is boston", and "it definitely looks like Boston" (PLAN
 ## Keep playing (1–5) and why
 
 Not scored.
+
+## What the owner cleared
+
+"fix the errors and the changes I described in the playtest thing, and I grant you permission to move on in the schedule if you run out of things to do." So every point above gets built, and once they are done, work moves on to the schedule's next items without waiting for their calendar weeks.
 
 ## Best moment
 
