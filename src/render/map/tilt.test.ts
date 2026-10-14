@@ -13,6 +13,7 @@ import {
   MAX_PITCH,
   MIN_ZOOM,
   normalBearing,
+  resettle,
   settled,
   TILT_PITCH,
   toggled,
@@ -145,5 +146,27 @@ describe('double-click and hold, and turning in 3D', () => {
     expect(viewKey(press({ key: 'e', metaKey: true }))).toBeNull();
     expect(viewKey(press({ key: 'q', repeat: true }))).toBeNull();
     expect(viewKey(press({ key: 'n', target: { tagName: 'INPUT' } as unknown as EventTarget }))).toBeNull();
+  });
+});
+
+// The systems audit (D26): Q, E, N or a pan inside the 600 ms tilt stopped the ease where it was, and
+// nothing finished it, leaving 3D flat or 2D tilted 50° and turned 45°.
+describe('a mode change cut short', () => {
+  it('finishes a 3D one where it was going, keeping the turn', () => {
+    expect(resettle('3d', 0.027, 15)).toEqual({ pitch: TILT_PITCH });
+    expect(resettle('3d', 3.9, 0, 40)).toEqual({ pitch: 40 });
+    expect(resettle('3d', 3.9, 0, 0)).toEqual({ pitch: 25 }); // never a pitch 3D cannot rest at
+  });
+
+  it('lays a 2D one flat and faces it north', () => {
+    expect(resettle('2d', 50, 45)).toEqual({ pitch: 0, bearing: 0 });
+    expect(resettle('2d', 0, 30)).toEqual({ pitch: 0, bearing: 0 });
+  });
+
+  it('leaves a camera that agrees with its mode alone', () => {
+    expect(resettle('2d', 0, 0)).toBeNull();
+    expect(resettle('2d', 0, -0)).toBeNull();
+    expect(resettle('3d', 25, 135)).toBeNull();
+    expect(resettle('3d', MAX_PITCH, -90)).toBeNull();
   });
 });
