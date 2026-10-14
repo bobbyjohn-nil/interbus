@@ -214,6 +214,13 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     expect(SET_ASIDE).toContain('older'); // a backup made before keys carried the format is still listed
   });
 
+  // Export session's file (worker/host.ts SessionFile) wraps a save with a `format: 1` of its own. Shown
+  // failing (TS-04) with that read as save format 1, and the file refused as "Saved by an older build".
+  it('reads an Export session file as no save, never as one from an older build', () => {
+    const session = JSON.stringify({ kind: 'interbus-session', format: 1, build: BUILD, city: CITY, start: encode(state, BUILD), speed: 0, commands: [], end: { elapsed: 0, hash: '0' } });
+    expect(decode(session, CITY)).toEqual({ result: { outcome: 'unreadable', problem: 'a session file, not a save' }, effects: setAside('unreadable', session) });
+  });
+
   it('sets aside a file with no format', () => {
     expect(decode(raw(state, (e) => void (e.format = 0)), CITY).result).toEqual({ outcome: 'unreadable', problem: 'no format' });
   });

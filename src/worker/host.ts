@@ -391,19 +391,23 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     savedHour = Math.floor(next.state.elapsed / 3_600);
     refreshLines();
   };
-  /** Reads the slots and the set-aside saves, and posts what each slot holds and which set-asides there are. */
+  /** Reads the slots, the set-aside saves and the autosave, and posts what each slot and the autosave hold and which set-asides there are. */
   const listSlots = () =>
     readKeys(
-      [...SAVE_SLOTS.map((n) => slotKey(playing!.ref.id, n)), ...SET_ASIDE.map((why) => backupKey(playing!.ref.id, why))],
+      [...SAVE_SLOTS.map((n) => slotKey(playing!.ref.id, n)), ...SET_ASIDE.map((why) => backupKey(playing!.ref.id, why)), saveKey(playing!.ref.id)],
       (texts) => {
         const slots: SlotView[] = SAVE_SLOTS.map((slot, k) => {
           const text = texts[k] ?? null;
           if (text === null) return { slot, about: null, readable: true };
           const { result } = decode(text, playing!.ref);
-          return result.outcome === 'ok' || result.outcome === 'rebaked' ? { slot, about: aboutSave(result.envelope), readable: true } : { slot, about: null, readable: false };
+          if (result.outcome === 'ok' || result.outcome === 'rebaked') return { slot, about: aboutSave(result.envelope), readable: true };
+          // Named as a set-aside save would be, so a slot from an older build says so (D12).
+          return { slot, about: null, readable: false, why: result.outcome === 'older' ? `older-${result.format}` : result.outcome === 'newer' || result.outcome === 'other-city' ? result.outcome : 'unreadable' };
         });
         const setAside = SET_ASIDE.filter((_, k) => texts[SAVE_SLOTS.length + k] != null);
-        post({ type: 'slots', slots, setAside });
+        const { result: kept } = decode(texts[SAVE_SLOTS.length + SET_ASIDE.length] ?? null, playing!.ref);
+        const autosave = kept.outcome === 'ok' || kept.outcome === 'rebaked' ? aboutSave(kept.envelope) : null;
+        post({ type: 'slots', slots, setAside, autosave });
       },
     );
   /**
@@ -415,6 +419,12 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     const command = from === 'slot' ? 'load-slot' : from === 'file' ? 'import' : 'restart-quarter';
     if (!playing || text === null) return post({ type: 'refused', command, reason: from === 'quarter' ? 'no_quarter_save' : 'empty_slot' });
     const { result } = decode(text, playing.ref);
+    // The quarter's save is whichever game wrote it last, and loading an ended game writes none, so it
+    // may be another company's: Restart reopens it only for the company that wrote it, by name and colour.
+    if (from === 'quarter' && (result.outcome === 'ok' || result.outcome === 'rebaked')) {
+      const [theirs, ours] = [result.envelope.data.company, world!.state.company];
+      if (theirs.name !== ours.name || theirs.colour !== ours.colour) return post({ type: 'refused', command, reason: 'no_quarter_save' });
+    }
     const read = worldFrom(playing.city, playing.ref, result);
     if (!read.ok) return post({ type: 'refused', command, reason: `save_${read.reason.replace('-', '_')}` });
     play(read.world, playing.city, playing.ref);
@@ -591,7 +601,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           beginSession(encode(read.world.state, build));
         } else {
           if (read.reason === 'off-street') {
-            effects.push({ op: 'write', key: backupKey(ref.id, 'other-city'), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
+            effects.push({ op: 'write', key: backupKey(ref.id, 'off-street'), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
             load = 'off-street';
           }
           play(createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed)), city, ref);
@@ -776,6 +786,13 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         readKeys([backupKey(playing!.ref.id, why)], ([text]) => {
           if (text === null || text === undefined) post({ type: 'refused', command: 'export-set-aside', reason: 'no_such_slot' });
           else post({ type: 'export', name: `interbus-${playing!.ref.id}-set-aside-${why}.json`, text });
+        });
+      } else if (message.type === 'export-slot') {
+        if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
+        const slot = message.slot;
+        readKeys([slotKey(playing!.ref.id, slot)], ([text]) => {
+          if (text === null || text === undefined) post({ type: 'refused', command: 'export-slot', reason: 'empty_slot' });
+          else post({ type: 'export', name: `interbus-${playing!.ref.id}-slot-${slot}.json`, text });
         });
       } else if (message.type === 'delete-set-aside') {
         if (!SET_ASIDE.includes(message.why)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });

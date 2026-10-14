@@ -4,6 +4,7 @@ import { STEP_SECONDS } from '../sim/config/time';
 import { foundingCapitalCents } from '../sim/economy/ledger';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
+import { SAVE_FORMAT } from '../sim/save/save';
 import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
 import { createHost, MAX_SLICE_MS, SPEEDS } from './host';
 
@@ -377,6 +378,8 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     expect(resaved.data.city.hash).toBe(CITY.hash);
   });
 
+  // Under a key of its own, which Saves names as its notice does. Shown failing (TS-04) with it kept
+  // under other-city's key, which Saves listed as "A save from another city" (this test pinned that).
   it('sets aside a save from another bake whose stops find no street on this one, and says so', () => {
     const text = played().saves().at(-1)!;
     const save = JSON.parse(text.replace(CITY.hash, 'f'.repeat(64))) as { data: { stops: { lon: number; lat: number }[] } };
@@ -386,7 +389,7 @@ describe('saves through the pageâ€™s store (the M2 spec, item 9; the exit checkâ
     expect(game.out.find((m) => m.type === 'store')).toEqual({
       type: 'store',
       effects: [
-        { op: 'write', key: 'interbus.backup.boston.other-city', value: raw },
+        { op: 'write', key: 'interbus.backup.boston.off-street', value: raw },
         { op: 'remove', key: KEY },
       ],
     });
@@ -569,6 +572,43 @@ describe('save slots, export and import', () => {
     expect(store.get(KEY)).toBe(live);
     expect(last('snapshot')!.snapshot).toMatchObject({ depots: [{}], cashCents: 32_454_800 });
   });
+
+  // Shown failing (TS-04) with the session file's own `format: 1` read as a save's: "Saved by an older build".
+  it('refuses an Export session file as no save, never as one from an older build', () => {
+    const { send, last, store } = withStore();
+    const live = store.get(KEY);
+    send({ type: 'export-session' });
+    send({ type: 'import', text: last('export')!.text });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_unreadable' });
+    expect(store.get(KEY)).toBe(live);
+  });
+
+  // A slot written before a format change is never lost unseen (D12, DP-06). Shown failing (TS-04)
+  // with every slot it cannot load named as unreadable, and no way to hand one over as a file.
+  it('names a slot from an older build as one, and hands it over as a file', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'save-slot', slot: 1 });
+    const older = JSON.stringify({ ...JSON.parse(store.get('interbus.slot.boston.1')!), format: SAVE_FORMAT - 1 });
+    store.set('interbus.slot.boston.1', older);
+    send({ type: 'slots' });
+    expect(last('slots')!.slots[0]).toEqual({ slot: 1, about: null, readable: false, why: `older-${SAVE_FORMAT - 1}` });
+    send({ type: 'export-slot', slot: 1 });
+    expect(last('export')).toEqual({ type: 'export', name: 'interbus-boston-slot-1.json', text: older });
+    send({ type: 'export-slot', slot: 2 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'export-slot', reason: 'empty_slot' });
+    expect(store.get('interbus.slot.boston.1')).toBe(older);
+  });
+
+  // The autosave in the save list (the M5 spec's exit check 2). Shown failing (TS-04) with the list
+  // sent without it, when the panel named only the game's day and time.
+  it('lists the autosave with its company, cash, lines and buses, and when it was saved', () => {
+    const at = Date.UTC(2026, 9, 14, 18, 5);
+    const { send, last } = withStore(() => at);
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'slots' });
+    const cashCents = last('snapshot')!.snapshot.cashCents;
+    expect(last('slots')!.autosave).toEqual({ day: 1, hour: 5, minute: 0, company: 'Back Bay Transit', cashCents, lines: 1, buses: 2, savedAt: at });
+  });
 });
 
 // The failure floor through the worker (the M3 spec, item 10; exit check 4): the countdown in the
@@ -666,6 +706,20 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
     send({ type: 'restart-quarter' });
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: lastEvening, floor: { closesLeft: 1, ended: false } });
+  });
+
+  // The quarter's save is whichever game wrote it last, and loading an ended game writes none. Shown
+  // failing (TS-04) with it read whoever wrote it: Restart brought back the company played before.
+  it('never restarts another companyâ€™s quarter: an ended game loaded from a file has none of its own', () => {
+    const { send, last, owing } = founded();
+    const other = JSON.parse(owing(5)) as { data: { company: { name: string } } };
+    other.data.company.name = 'Beta Transit';
+    send({ type: 'import', text: JSON.stringify(other) });
+    expect(last('snapshot')!.snapshot).toMatchObject({ company: { name: 'Beta Transit' }, floor: { closesLeft: 0, ended: true } });
+    send({ type: 'restart-quarter' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'restart-quarter', reason: 'no_quarter_save' });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'file', load: 'ok' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ company: { name: 'Beta Transit' }, floor: { ended: true } });
   });
 });
 

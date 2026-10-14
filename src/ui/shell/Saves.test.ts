@@ -9,8 +9,8 @@ import type { Sim } from '../game/useSim';
 import { savedWhen } from '../format';
 import { Saves } from './Saves';
 
-function render(slots: readonly SlotView[], setAside: readonly SetAsideWhy[]): string {
-  const sim = { snapshot: { day: 3, hour: 9, minute: 30 } as unknown as Snapshot, slots, setAside, send: () => undefined } as unknown as Sim;
+function render(slots: readonly SlotView[], setAside: readonly SetAsideWhy[], more: Partial<Sim> = {}): string {
+  const sim = { snapshot: { day: 3, hour: 9, minute: 30 } as unknown as Snapshot, slots, setAside, send: () => undefined, ...more } as unknown as Sim;
   return renderToStaticMarkup(createElement(Saves, { sim, onClose: () => undefined }));
 }
 
@@ -40,6 +40,36 @@ describe('the save list', () => {
     expect(html).toContain('A save from an older build, set aside');
     expect(html).toContain('A save from another city, set aside');
     expect(html.match(/>Export</g)).toHaveLength(2);
+  });
+
+  // The exit check's step 2 (the M5 spec). Shown failing (TS-04) with the autosave named only by the game's day and time.
+  it('lists the autosave first, with its company, cash, lines and buses, and when it was saved', () => {
+    const autosave = { day: 12, hour: 7, minute: 5, company: 'Back Bay Transit', cashCents: 12_345_600, lines: 2, buses: 5, savedAt: AT };
+    const html = render([{ slot: 1, about: null, readable: true }], [], { autosave });
+    expect(html).toContain('Autosave · Year 1, Q2, Day 4, 07:05 · Back Bay Transit · $123,456 · 2 lines · 5 buses');
+    expect(html).toContain('data-testid="autosave-when"');
+    expect(html.indexOf('Autosave')).toBeLessThan(html.indexOf('Slot 1'));
+  });
+
+  // A slot written before a format change (D12: never lost unseen). Shown failing (TS-04) with it named
+  // "A save this game can’t read" and no Export.
+  it('names a slot from an older build as one, to export or delete, never to load', () => {
+    const html = render([{ slot: 1, about: null, readable: false, why: 'older-15' }], []);
+    expect(html).toContain('Slot 1 · A save from an older build (format 15)');
+    expect(html.match(/>Export</g)).toHaveLength(1);
+    expect(html).toContain('>Delete<');
+    expect(html).not.toContain('>Load<');
+  });
+
+  // Shown failing (TS-04) with it listed as "A save from another city", the notice having said its stops were off the new map.
+  it('names a save set aside because its stops are off the new map as its notice did', () => {
+    expect(render([], ['off-street'])).toContain('A save with stops off the new map, set aside');
+  });
+
+  // Shown failing (TS-04) with the panel saying the game saves itself as it plays, though nothing was kept.
+  it('says when the browser is keeping no saves, and how to keep this game', () => {
+    const html = render([{ slot: 1, about: null, readable: true }], [], { storeRefused: true });
+    expect(html).toContain('This browser isn’t keeping saves. Export this game to keep it.');
   });
 
   it('writes the time in words a player reads at a glance, with the year only when it is not this one', () => {

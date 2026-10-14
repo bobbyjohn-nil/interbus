@@ -341,11 +341,13 @@ export interface SlotView {
   readonly slot: number;
   readonly about: SaveAbout | null;
   readonly readable: boolean;
+  /** Why the game cannot load the slot, named as a set-aside save is (a save from an older build, say); only on such a slot. */
+  readonly why?: SetAsideWhy;
 }
 
 /** Why a save was set aside under its backup key (D12, DP-06): it is kept until the player exports or deletes it. */
-/** Why a save was set aside. A save from an older build keeps its format in its key (`older-14`), so a later format change never writes over it; plain `older` is a backup made before that. */
-export type SetAsideWhy = 'older' | `older-${number}` | 'newer' | 'unreadable' | 'other-city';
+/** Why a save was set aside. A save from an older build keeps its format in its key (`older-14`), so a later format change never writes over it; plain `older` is a backup made before that. `off-street` is this city's save from another bake whose stops found no street on this one. */
+export type SetAsideWhy = 'older' | `older-${number}` | 'newer' | 'unreadable' | 'other-city' | 'off-street';
 
 /**
  * What became of the save a game started from: none, read, read onto another bake of the map with
@@ -395,6 +397,8 @@ export type ToWorker =
   | { readonly type: 'delete-slot'; readonly slot: number }
   /** Hands over a set-aside save as a file, or deletes it (the page asks first). */
   | { readonly type: 'export-set-aside'; readonly why: SetAsideWhy }
+  /** Hands over what a slot holds as a file, even a save this game cannot load (D12: never lost unseen). */
+  | { readonly type: 'export-slot'; readonly slot: number }
   | { readonly type: 'delete-set-aside'; readonly why: SetAsideWhy }
   /** Home's New game (the M5 spec, item 3): a new, unnamed company in place of this game, its autosave replaced; slots stay. */
   | { readonly type: 'new-game' }
@@ -422,7 +426,8 @@ export type FromWorker =
   | { readonly type: 'store'; readonly effects: readonly StoreEffect[] }
   /** The sim asks for these keys' texts, after every store effect posted before it. */
   | { readonly type: 'read-keys'; readonly id: number; readonly keys: readonly string[] }
-  | { readonly type: 'slots'; readonly slots: readonly SlotView[]; readonly setAside: readonly SetAsideWhy[] }
+  /** The slots, the set-aside saves, and the autosave as kept (null when none is). */
+  | { readonly type: 'slots'; readonly slots: readonly SlotView[]; readonly setAside: readonly SetAsideWhy[]; readonly autosave: SaveAbout | null }
   /** This game as a save file, for the page to hand to the player. */
   | { readonly type: 'export'; readonly name: string; readonly text: string }
   /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */

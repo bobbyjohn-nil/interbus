@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LOAD_COPY, loadedText, refusalText } from '../copy';
+import { LOAD_COPY, loadedText, refusalText, STORE_REFUSED_COPY } from '../copy';
 import type { Sim } from '../game/useSim';
 
 /** How long a notice stays, in milliseconds. */
@@ -7,8 +7,8 @@ const NOTICE_MS = 6_000;
 
 /**
  * Notices in one corner (PLAN §8, UX-05): the last thing the sim refused, in words, for a few
- * seconds; once, when the game starts, a save it set aside (D12); and a slot or a file that became
- * the game.
+ * seconds; once, when the game starts, a save it set aside (D12); once, that the browser keeps no
+ * saves, if it refuses one; and a slot or a file that became the game.
  */
 export function Notices({ sim }: { sim: Sim }) {
   const refusal = sim.refusal;
@@ -26,6 +26,16 @@ export function Notices({ sim }: { sim: Sim }) {
     const timer = window.setTimeout(() => setSetAsideDone(true), NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [setAside]);
+  // Said once the game is on screen, so it is said when someone can see it, and timed only while it
+  // shows: a refusal on screen first holds it back without using up its few seconds.
+  const unsaved = sim.storeRefused && sim.status === 'ready';
+  const [unsavedDone, setUnsavedDone] = useState(false);
+  const unsavedShows = unsaved && !unsavedDone && !(refusal && refusal !== expired);
+  useEffect(() => {
+    if (!unsavedShows) return;
+    const timer = window.setTimeout(() => setUnsavedDone(true), NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [unsavedShows]);
   const loaded = sim.loaded;
   const [loadedDone, setLoadedDone] = useState<typeof loaded>(null);
   useEffect(() => {
@@ -34,7 +44,15 @@ export function Notices({ sim }: { sim: Sim }) {
     return () => window.clearTimeout(timer);
   }, [loaded]);
   const text =
-    refusal && refusal !== expired ? refusalText(refusal) : loaded && loaded !== loadedDone ? loadedText(loaded) : setAside && !setAsideDone ? setAside : null;
+    refusal && refusal !== expired
+      ? refusalText(refusal)
+      : unsaved && !unsavedDone
+        ? STORE_REFUSED_COPY
+        : loaded && loaded !== loadedDone
+          ? loadedText(loaded)
+          : setAside && !setAsideDone
+            ? setAside
+            : null;
   if (!text) return null;
   return (
     <div className="notices" role="status" data-testid="notice" data-chrome="rest">

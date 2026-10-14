@@ -106,6 +106,9 @@ export function undoText(u: { readonly command: string; readonly subject: string
   return `Undo: ${(UNDO_COPY[u.command] ?? ((s: string) => s))(u.subject)}`;
 }
 
+/** Said once when the browser refuses to read or keep a save (blocked site data, a full disk). */
+export const STORE_REFUSED_COPY = 'This browser isn’t keeping saves';
+
 /** A save the game could not start from, in one line (D12): kept under a backup key, never overwritten. */
 export const LOAD_COPY: Readonly<Record<LoadView, string | null>> = {
   none: null,

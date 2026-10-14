@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import { simOf, type City } from '../../cities';
-import type { BusModelId, DayCard, DepotSiteView, StopSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
+import type { BusModelId, DayCard, DepotSiteView, StopSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SaveAbout, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 import { LatestAsk } from './latest';
 
@@ -47,6 +47,12 @@ export interface Sim {
   readonly slots: readonly SlotView[] | null;
   /** Saves set aside by a new build, kept until exported or deleted (the M5 spec, item 4). */
   readonly setAside: readonly SetAsideWhy[] | null;
+  /** The autosave as kept when the slots were last listed, or null when none is. */
+  readonly autosave: SaveAbout | null;
+  /** How many writes the store has kept, so the save list reads its saves again as they change. */
+  readonly stored: number;
+  /** True while the browser refuses to read or keep a save, until a write is kept: nothing saved till then outlives the page. */
+  readonly storeRefused: boolean;
   readonly loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView; readonly at: number } | null;
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
   importSave(): void;
@@ -80,6 +86,9 @@ export function useSim(city: City | undefined): Sim {
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
   const [setAside, setSetAside] = useState<Sim['setAside']>(null);
+  const [autosave, setAutosave] = useState<Sim['autosave']>(null);
+  const [stored, setStored] = useState(0);
+  const [storeRefused, setStoreRefused] = useState(false);
   const [loaded, setLoaded] = useState<Sim['loaded']>(null);
   const probes = useRef(new LatestAsk<ProbeDot>());
   // Only the newest answer counts: an older one arriving late is dropped.
@@ -98,7 +107,10 @@ export function useSim(city: City | undefined): Sim {
     const inStore = (job: (s: SaveStore) => Promise<void>) => {
       queue = queue
         .then(() => job((store ??= createWebSaveStore())))
-        .catch((error: unknown) => errors.report({ severity: 'problem', source: 'save', code: 'store-failed', detail: String(error) }));
+        .catch((error: unknown) => {
+          setStoreRefused(true); // the player is told, once (Notices), and Saves says so
+          errors.report({ severity: 'problem', source: 'save', code: 'store-failed', detail: String(error) });
+        });
     };
     Promise.all([readSimFile(sim.file), startSimWorker()])
       .then(([simText, w]) => {
@@ -125,6 +137,7 @@ export function useSim(city: City | undefined): Sim {
           } else if (m.type === 'slots') {
             setSlots(m.slots);
             setSetAside(m.setAside);
+            setAutosave(m.autosave);
           }
           else if (m.type === 'export') downloadText(m.name, m.text);
           // A new game from Home needs no notice: its founding card says what comes next. Whatever the
@@ -134,7 +147,14 @@ export function useSim(city: City | undefined): Sim {
             setDayCard(null);
             setDraft(null);
           }
-          else if (m.type === 'store') inStore((s) => applyEffects(s, m.effects));
+          // A write kept says the browser keeps saves again: one failure (a full disk) says so only until then.
+          else if (m.type === 'store')
+            inStore((s) =>
+              applyEffects(s, m.effects).then(() => {
+                setStored((n) => n + 1);
+                setStoreRefused(false);
+              }),
+            );
           else if (m.type === 'snapshot') setSnapshot(m.snapshot);
           else if (m.type === 'depot-site') {
             const at = sites.current.get(m.id);
@@ -183,7 +203,8 @@ export function useSim(city: City | undefined): Sim {
   }, [city]);
 
   const send = useCallback((message: ToWorker) => {
-    setRefusal(null);
+    // Listing the saves is no command, so a refusal on screen stays (Saves lists them again at each save).
+    if (message.type !== 'slots') setRefusal(null);
     worker.current?.postMessage(message);
   }, []);
   const probeAt = useCallback((dot: ProbeDot | null) => {
@@ -242,5 +263,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, load, slots, setAside, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, load, slots, setAside, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }
