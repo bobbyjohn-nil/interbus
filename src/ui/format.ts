@@ -8,8 +8,9 @@ import type { Speed } from '../sim/types';
 
 /** "$313,200" for whole-dollar chips; "$1,234.56" with `cents`. */
 export function usd(amountCents: number, options: { cents?: boolean } = {}): string {
-  const sign = amountCents < 0 ? '-' : '';
   const abs = Math.abs(Math.trunc(amountCents));
+  // No "-$0": a few cents out reads $0, as a few cents in does.
+  const sign = amountCents < 0 && (options.cents ? abs : Math.floor(abs / 100)) > 0 ? '-' : '';
   const dollars = Math.floor(abs / 100).toLocaleString('en-US');
   return options.cents ? `${sign}$${dollars}.${String(abs % 100).padStart(2, '0')}` : `${sign}$${dollars}`;
 }

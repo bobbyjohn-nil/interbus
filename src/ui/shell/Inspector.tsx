@@ -1,18 +1,17 @@
-import type { LineView } from "../../sim/types";
 import { LineCard } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
-import { usd } from "../format";
 
 /**
- * The line inspector (the M2 spec, item 7): one line's card, its headways and the day's forecast.
- * The costs are the plan's own, to the cent, so the day card's rows meet them (I6); fares and
- * subsidy are the modelled riders', so they read as "about".
+ * The line inspector (the M2 spec, item 7): one line's card and its headways. Its money and its fare
+ * are in Finance's Lines (D25: "the menu where you see lines should only have information about the
+ * line, no finances"), a button away.
  */
 export function Inspector({
   sim,
   lineId,
   onLine,
   onExtend,
+  onFinance,
   onClose,
 }: {
   sim: Sim;
@@ -20,6 +19,8 @@ export function Inspector({
   onLine: (id: number) => void;
   /** Starts the line tool beyond one end of a line (the M3 spec, item 14). */
   onExtend: (lineId: number, end: "start" | "end" | "insert") => void;
+  /** Opens Finance's Lines on this line. */
+  onFinance: (lineId: number) => void;
   onClose: () => void;
 }) {
   const lines = sim.snapshot?.lines ?? [];
@@ -56,7 +57,7 @@ export function Inspector({
           ))}
         </div>
       ) : null}
-      <LineCard key={line.id} sim={sim} line={line} />
+      <LineCard key={line.id} sim={sim} line={line} onFinance={() => onFinance(line.id)} />
       <div className="controls">
         <button type="button" onClick={() => onExtend(line.id, "start")}>
           Extend from Stop {line.stopIds[0]}
@@ -68,44 +69,6 @@ export function Inspector({
           Insert a stop
         </button>
       </div>
-      <Forecast line={line} />
     </aside>
-  );
-}
-
-function Forecast({ line }: { line: LineView }) {
-  const f = line.forecastCents;
-  const rows: [string, number, boolean][] = [
-    ["Fares and subsidy", line.incomeCents, true],
-    ["Running (per km)", -f.running, false],
-    ["Driver wages", -f.wages, false],
-    ["Deadhead", -f.deadhead, false],
-  ];
-  const net = line.incomeCents - f.running - f.wages - f.deadhead;
-  return (
-    <table
-      className="forecast"
-      data-testid="forecast"
-      data-running={f.running}
-      data-wages={f.wages}
-      data-deadhead={f.deadhead}
-    >
-      <caption>Forecast for a full day</caption>
-      <tbody>
-        {rows.map(([name, cents, modelled]) => (
-          <tr key={name}>
-            <th scope="row">{name}</th>
-            <td>
-              {modelled ? "≈" : ""}
-              {usd(cents, { cents: true })}
-            </td>
-          </tr>
-        ))}
-        <tr className="total">
-          <th scope="row">Line net</th>
-          <td>≈{usd(net, { cents: true })}</td>
-        </tr>
-      </tbody>
-    </table>
   );
 }

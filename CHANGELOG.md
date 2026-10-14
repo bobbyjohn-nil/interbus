@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Draw a line: click the map to place stops (a click near a stop you already have joins it). A card shows the stops, the distance, how many people live within a walk, the buses running every 20 minutes needs and the price; Create buys it all, once you have a depot.
 - Riders pay their fares, the city adds its subsidy, and at midnight a card lists the day's money, adding up to the change in cash.
 - Buses run: each line's Sparrows pull out of the depot before the first departure, drive the line at its headways with a short stop at each stop, and go home after the last trip. Pause, and they stop where they are.
-- Each line has an inspector: click the line on the map or Lines in the dock to see its riders, its buses, its peak, off-peak and overnight headways and a whole day's forecast of fares, running costs, wages and the drive to and from the depot. A headway that needs more buses says how many and what they cost before you buy them.
+- Each line has an inspector: click the line on the map or Lines in the dock to see its riders, its buses, its fare and its peak, off-peak and overnight headways. A headway that needs more buses says how many and what they cost before you buy them.
 - The tools sit in a dock along the bottom of the screen, and the day, the time, the speed, cash and riders a day sit in a row of chips along the top, leaving the city the rest of the screen.
 - When something can't be done, a notice in the bottom-left corner says why for a few seconds.
 - Riders weigh the wait: up to a bus every 12 minutes most of them time their trip to the timetable, but a bus every hour carries few, so a line pays best every 10 to 15 minutes.
@@ -60,10 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Saves, in the dock: three slots to keep a game in beside the one that saves itself as you play, and Export and Import to keep a game as a file. A file the game cannot read is turned away with a note, and the game you are playing stays as it was.
 - A save made on an earlier map of Boston carries on when the map is updated, its stops moved onto the new map's streets. If a stop has no street near it any more, the save is kept aside and a note says so.
 - Undo while paused: the Undo chip (or Ctrl+Z, ⌘Z on a Mac) takes back the last thing you did since you paused, a depot, a line, a headway, a bus model, a fare or a stop, cash and all. Once the clock has run, it says so instead.
-- Finance, in the dock: every kind of money in and out for today, yesterday and this quarter, beside what a whole day is forecast to bring, adding up to the change in cash.
+- Finance, in the dock, in three views. Overview shows your cash, yesterday's and the quarter's running money, and a chart of every day since Day 0: cash as a line, and below it each day's money in and running costs as bars, with a mark on a day you bought or sold something; point at a day for its amounts. Breakdown lists every kind of money in and out for today, yesterday and this quarter, beside what a whole day is forecast to bring, adding up to the change in cash; each group's heading gives its totals and folds it, and Buying and building opens with a click. Lines lists each line's riders, fare and money, and opens a line to show what it earns and spends in a day.
 - Make a stop nicer from its card: a Shelter ($12,000), a Station ($35,000), an Interchange ($90,000, with 3 lines calling) or a Transfer Hub ($200,000, with 5). A nicer stop feels closer on foot, so more people walk to it; stepping it back down returns half of what the step cost.
 - Click a stop to see its day: how many board and get off there, and what it earns. A stop with fewer than 5 boardings a day reads Quiet, and one losing more than $20 a day reads Losing money (Loss on the map), with a ring around it on the map.
-- Set each line's fare, from $1.00 to $5.00, on its card. Riders on short hops mind a dear fare more than riders going far, the city's subsidy shrinks as the fare climbs past $2.25 and is gone at $5.00, and the card names the fares that make the line the most money.
+- Set each line's fare, from $1.00 to $5.00, in Finance under Lines. Riders on short hops mind a dear fare more than riders going far, the city's subsidy shrinks as the fare climbs past $2.25 and is gone at $5.00, and Finance names the fares that make the line the most money.
 - Buses fill up: when more riders want a line than its seats carry, the extra riders are turned away in that half-hour, and the line's card says when it is full ("Full at 17:00") and how many riders a day it turns away. Running more often or with bigger buses carries them.
 - Two more buses: the Metro 40 (70 seats, $260,000) and the Goliath (115 seats, locked until a silver medal). Each line runs one model: pick it on the new-line card, or swap a line's buses on its card, where the old ones sell for half their price. Bigger buses are drawn longer on the map.
 - The game saves itself in this browser as you play, so a reload carries on where you left off. A save from an older build is kept aside, a new game starts, and a note says so.
@@ -80,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The game saves at least every 30 seconds while time runs, as well as every game hour.
 - The count of people within a walk shows only while the pointer is on a dot, instead of wherever it is.
 - Finance says where the money goes, in plain words, under Money in, Rewards, Running costs and Buying and building: buses bought and sold, new stops, stop upgrades and stops sold back, and depots each have a row of their own instead of one Purchases row; "Bus fuel and maintenance" is the cost of every kilometre driven, "To and from the depot" replaces Deadhead, and each row's tooltip says what it covers. The midnight card uses the same names.
+- Finance opens on an overview with a chart of every day since Day 0, the table of every row is under Breakdown with Buying and building folded, and each line's money is under Lines.
+- A line's fare and its day forecast moved from its card to Finance, under Lines. The line card says the fare and links there, and otherwise shows only the line.
 - Your starting cash is on Day 0, before the first day, so day 1's card and Finance's columns show only what day 1 earned and spent.
 - Finance forecasts a day's loan interest while your cash is below zero.
 - Words across the game start with a capital and read as whole sentences: the headway menus say Off and Every 10 min, the new-line card says "Running every 20 min needs 2 Sparrows", the founding card names its colors (Red, Blue and so on) instead of their codes, a stop's flags read Quiet and Losing money instead of QUIET and LOSS, the fare hint reads "Most profit at", and the game's name, the build chip and a few notices are capitalized and reworded.
@@ -92,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An amount of a few cents out reads $0, not -$0.
 - Opening Lines, Finance or Saves from the bottom bar while drawing a line or placing a depot now shows the panel and puts the tool down, instead of leaving the panel hidden behind the tool.
 - A save set aside by a new build keeps a name of its own, so the next new build never writes over it.
 - Bus stops and depots no longer land on the Mass Pike, the I-93 tunnel or their ramps, which sent buses kilometres out of their way to the next exit and back.

@@ -36,6 +36,8 @@ export function App() {
   // One panel at a time on the right: the line tool's draft card, the lines' inspector, or a stop's card.
   const [panel, setPanel] = useState<Panel>("none");
   const [lineId, setLineId] = useState<number | null>(null);
+  // The line Finance opens on, from the line panel's link to its money; null opens the Overview.
+  const [financeLine, setFinanceLine] = useState<number | null>(null);
   const [stopId, setStopId] = useState<number | null>(null);
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
@@ -346,11 +348,24 @@ export function App() {
           lineId={lineId}
           onLine={setLineId}
           onExtend={startExtend}
+          onFinance={(id) => {
+            setFinanceLine(id);
+            setPanel("finance");
+          }}
           onClose={() => setPanel("none")}
         />
       ) : null}
       {tool === "none" && panel === "finance" ? (
-        <Finance sim={sim} onClose={() => setPanel("none")} />
+        <Finance
+          key={financeLine ?? "all"}
+          sim={sim}
+          view={financeLine === null ? "overview" : "lines"}
+          lineId={financeLine}
+          onClose={() => {
+            setFinanceLine(null);
+            setPanel("none");
+          }}
+        />
       ) : null}
       {tool === "none" && panel === "saves" ? (
         <Saves

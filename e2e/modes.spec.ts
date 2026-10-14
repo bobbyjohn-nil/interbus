@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { replaySession } from '../src/worker/replay';
 import { foundCompany } from './found';
-import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { city, onDepotLand, setFare, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 test.describe('the camera and the sim (D2)', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -41,9 +41,7 @@ test.describe('the camera and the sim (D2)', () => {
     await page.keyboard.press('e');
     await expect(map).not.toHaveAttribute('data-bearing', '0', { timeout: 10_000 });
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 30_000 }).toBeGreaterThan(4 * 3_600);
-    await page.getByRole('button', { name: 'Lines' }).click();
-    await page.getByTestId('line-card').getByLabel('Fare').selectOption('200');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await setFare(page, 'Line 1', '$2.00');
     await page.keyboard.press('t');
     await expect(map).toHaveAttribute('data-mode', '2d');
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 30_000 }).toBeGreaterThan(8 * 3_600);

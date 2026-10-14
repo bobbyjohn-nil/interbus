@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { cyclesOf } from '../../sim/rules/cycle';
-import { FARES_CENTS } from '../../sim/rules/fare';
 import { HEADWAY_MINUTES } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
 import { planIsExpress } from '../../sim/rules/express';
@@ -19,25 +18,17 @@ const PERIODS = [
 
 /**
  * A line's card: its riders, its round trip at peak and off-peak and what roadworks or snow add to it (the M4
- * spec, item 2), when its buses fill (K27), its buses and their model, its fare and the
- * band of fares that net the most (the M3 spec, item 4), and three headways (D7). A headway that needs
+ * spec, item 2), when its buses fill (K27), its buses and their model, its fare (set in Finance's
+ * Lines with the band of fares that net the most, D25), and three headways (D7). A headway that needs
  * more buses reads "Needs 3 buses (you have 2) · $95k" and confirming buys them (GD-09); another model
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
  * (sim/rules/line.ts, GD-05).
  */
-export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
+export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
   const [wanted, setWanted] = useState<HeadwaysData | null>(null);
   const [wantedModel, setWantedModel] = useState<BusModelId | null>(null);
   const s = sim.snapshot;
-  // The band is worked out for the open card, again whenever the network changes.
-  const { fareBandFor } = sim;
-  const version = s?.linesVersion;
-  useEffect(() => {
-    fareBandFor(line.id);
-    return () => fareBandFor(null);
-  }, [fareBandFor, line.id, version]);
   if (!s) return null;
-  const band = sim.fareBand?.lineId === line.id ? sim.fareBand.band : null;
   const snow = s.event?.kind === 'snow' && s.event.phase === 'on';
   const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents, medals: s.medals };
   const next = wanted ?? line.headways;
@@ -117,21 +108,15 @@ export function LineCard({ sim, line }: { sim: Sim; line: LineView }) {
           </div>
         </div>
       ) : null}
-      <label className="fare">
-        Fare
-        <select value={String(line.fareCents)} onChange={(e) => sim.send({ type: 'set-fare', lineId: line.id, fareCents: Number(e.target.value) })}>
-          {FARES_CENTS.map((f) => (
-            <option key={f} value={String(f)}>
-              {usd(f, { cents: true })}
-            </option>
-          ))}
-        </select>
-      </label>
-      {band ? (
-        <p className="hint" data-testid="fare-band" data-from={band.fromCents} data-to={band.toCents}>
-          {bandText(band)}
-        </p>
-      ) : null}
+      {/* The fare is a money lever: it is set in Finance's Lines, beside the line's money (D25). */}
+      <p className="fare" data-testid="line-fare" data-fare={line.fareCents}>
+        Fare {usd(line.fareCents, { cents: true })}
+        {onFinance ? (
+          <button type="button" className="link" onClick={onFinance}>
+            Fare and money in Finance
+          </button>
+        ) : null}
+      </p>
       <div className="headways">
         {PERIODS.map(([period, label]) => (
           <label key={period}>

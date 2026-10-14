@@ -8,6 +8,8 @@ describe('number copy', () => {
     expect(usd(-150, { cents: true })).toBe('-$1.50');
     expect(usd(-150)).toBe('-$1');
     expect(usd(5, { cents: true })).toBe('$0.05');
+    // Never "-$0": Finance's today column read -$0 for a few cents of wages.
+    expect([usd(-20), usd(-99), usd(-100), usd(-0.4, { cents: true }), usd(-1, { cents: true })]).toEqual(['$0', '$0', '-$1', '$0.00', '-$0.01']);
   });
   it('rounds modelled counts to two significant figures', () => {
     expect(about(9_137)).toBe('≈9,100');

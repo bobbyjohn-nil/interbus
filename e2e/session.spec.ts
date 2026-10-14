@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { replaySession } from '../src/worker/replay';
 import { foundCompany } from './found';
-import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { city, onDepotLand, setFare, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 test.describe('Export session', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -32,7 +32,7 @@ test.describe('Export session', () => {
     // Time runs for a few game hours, and a fare changes while it does.
     await setSpeed(page, '5,400×');
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 30_000 }).toBeGreaterThan(4 * 3_600);
-    await page.getByTestId('line-card').getByLabel('Fare').selectOption('200');
+    await setFare(page, 'Line 1', '$2.00');
     await expect.poll(async () => Number(await panel.getAttribute('data-elapsed')), { timeout: 30_000 }).toBeGreaterThan(8 * 3_600);
     await page.getByRole('button', { name: 'Pause' }).click();
     await expect(panel).toHaveAttribute('data-speed', '0');

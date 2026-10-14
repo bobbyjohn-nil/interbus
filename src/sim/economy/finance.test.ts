@@ -59,3 +59,49 @@ describe('Finance', () => {
     expect(f.rows.find((r) => r.kind === 'founding')!.quarterCents).toBe(0);
   });
 });
+
+// D25: Finance "would be better with some visuals". The chart's days and each line's money are read
+// from the rows, not kept beside them. Shown failing (TS-04) with capital left out of the walk back to
+// each day's closing cash, with no cap on the days, and with each line's money read from today.
+describe('Finance’s chart and lines', () => {
+  it('gives each day its money in, out and capital, adding up to its change in cash, and its closing cash', () => {
+    const world = game();
+    advance(world, SECONDS_PER_DAY + 6 * 3_600); // to 11:00 on day 2
+    post(world.state.ledger, { day: 2, kind: 'buses', amountCents: -13_000_000 }); // a bus bought on day 2
+    advance(world, 2 * SECONDS_PER_DAY); // to 11:00 on day 4
+    const f = finance(world);
+    expect(f.days.map((d) => d.day)).toEqual([1, 2, 3, 4]);
+    let cash = f.openingCents;
+    for (const d of f.days) {
+      const rows = rowsOfDay(world.state.ledger, d.day).reduce((s, r) => s + r.amountCents, 0);
+      expect(d.inCents + d.outCents + d.capitalCents).toBe(rows);
+      expect(d.inCents).toBeGreaterThanOrEqual(0);
+      expect(d.outCents).toBeLessThanOrEqual(0);
+      cash += rows;
+      expect(d.cashCents).toBe(cash);
+    }
+    expect(f.days.at(-1)!.cashCents).toBe(world.state.ledger.cashCents);
+    expect(f.days.map((d) => d.capitalCents)).toEqual([-15_000_000, -13_000_000, 0, 0]); // the depot on day 1, the bus on day 2
+  });
+
+  it('keeps two quarters of days at most', () => {
+    const world = game();
+    advance(world, 20 * SECONDS_PER_DAY);
+    const f = finance(world);
+    expect(f.days).toHaveLength(16);
+    expect(f.days[0]!.day).toBe(6);
+    expect(f.days.at(-1)!.day).toBe(21);
+  });
+
+  it('gives each line yesterday’s money from the rows that name it', () => {
+    const world = game();
+    advance(world, SECONDS_PER_DAY + 3 * 3_600); // to 08:00 on day 2, its first buses out
+    const f = finance(world);
+    const id = world.state.lines[0]!.id;
+    const ofLine = (day: number, kinds: string[]) => rowsOfDay(world.state.ledger, day).filter((r) => r.lineId === id && kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
+    expect(f.lines).toEqual([{ id, yesterdayInCents: ofLine(1, ['fares', 'subsidy']), yesterdayOutCents: ofLine(1, ['running', 'wages', 'deadhead']) }]);
+    expect(f.lines[0]!.yesterdayInCents).toBeGreaterThan(0);
+    expect(f.lines[0]!.yesterdayOutCents).toBeLessThan(0);
+    expect(ofLine(2, ['fares', 'subsidy'])).not.toBe(f.lines[0]!.yesterdayInCents); // today's differ
+  });
+});

@@ -186,6 +186,10 @@ export interface FinanceView {
   readonly quarterFirstDay: number;
   /** The starting cash, posted on Day 0 (D25). */
   readonly openingCents: number;
+  /** The chart's days, oldest first, up to two quarters; today the last, so far (economy/finance.ts). */
+  readonly days: readonly { readonly day: number; readonly inCents: number; readonly outCents: number; readonly capitalCents: number; readonly cashCents: number }[];
+  /** Each line's own money yesterday: its riders' fares and subsidy in, its running costs out. */
+  readonly lines: readonly { readonly id: number; readonly yesterdayInCents: number; readonly yesterdayOutCents: number }[];
   readonly rows: readonly {
     readonly kind: string;
     readonly todayCents: number;

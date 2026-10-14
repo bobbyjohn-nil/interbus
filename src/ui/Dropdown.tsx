@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface DropdownOption<T> {
   readonly value: T;
@@ -12,7 +13,8 @@ export interface DropdownOption<T> {
  * The game's own dropdown, in place of the browser's (D25: "I don't like the default dropdown menus,
  * there should be custom ones"). A button names the choice; it opens a list the keyboard can work:
  * the arrows move, Home and End jump, Enter or Space picks, Escape and a click elsewhere close it
- * without picking. Escape stops there, so it never also closes the panel the dropdown sits in.
+ * without picking. Escape stops there, so it never also closes the panel the dropdown sits in. The
+ * list is drawn over the page beside its button, so a panel that scrolls never clips it.
  */
 export function Dropdown<T extends string | number>({
   label,
@@ -40,21 +42,30 @@ export function Dropdown<T extends string | number>({
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [at, setAt] = useState<CSSProperties | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const listId = useId();
   const chosen = options.findIndex((o) => o.value === value);
 
+  // Placed beside the button, below or above it, in the viewport's own pixels.
+  useLayoutEffect(() => {
+    if (!open || !button.current) return;
+    const r = button.current.getBoundingClientRect();
+    setAt(placement === 'below' ? { position: 'fixed', left: r.left, top: r.bottom + 4, minWidth: r.width } : { position: 'fixed', left: r.left, bottom: window.innerHeight - r.top + 4, minWidth: r.width });
+  }, [open, placement]);
+
   useEffect(() => {
     if (!open) return;
     const away = (event: PointerEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !list.current?.contains(target)) setOpen(false);
     };
     window.addEventListener('pointerdown', away);
     list.current?.focus();
     return () => window.removeEventListener('pointerdown', away);
-  }, [open]);
+  }, [open, at]);
 
   const enabled = (i: number) => options[i] !== undefined && !options[i]!.disabled;
   const step = (from: number, by: 1 | -1) => {
@@ -115,34 +126,38 @@ export function Dropdown<T extends string | number>({
         <span className="dropdown-value">{children ?? options[chosen]?.label ?? ''}</span>
         <span className="dropdown-caret" aria-hidden="true" />
       </button>
-      {open ? (
-        <ul
-          ref={list}
-          id={listId}
-          className={`dropdown-list ${placement}`}
-          role="listbox"
-          aria-label={label}
-          aria-activedescendant={`${listId}-${active}`}
-          tabIndex={-1}
-          onKeyDown={onListKey}
-        >
-          {options.map((o, i) => (
-            <li
-              key={String(o.value)}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={o.value === value}
-              aria-disabled={o.disabled || undefined}
-              className={`dropdown-option${i === active ? ' active' : ''}`}
-              onPointerEnter={() => enabled(i) && setActive(i)}
-              onClick={() => pick(i)}
+      {open && at
+        ? createPortal(
+            <ul
+              ref={list}
+              id={listId}
+              className={`dropdown-list ${placement}`}
+              style={at}
+              role="listbox"
+              aria-label={label}
+              aria-activedescendant={`${listId}-${active}`}
+              tabIndex={-1}
+              onKeyDown={onListKey}
             >
-              <span className="dropdown-label">{o.label}</span>
-              {o.hint ? <span className="dropdown-hint">{o.hint}</span> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+              {options.map((o, i) => (
+                <li
+                  key={String(o.value)}
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={o.value === value}
+                  aria-disabled={o.disabled || undefined}
+                  className={`dropdown-option${i === active ? ' active' : ''}`}
+                  onPointerEnter={() => enabled(i) && setActive(i)}
+                  onClick={() => pick(i)}
+                >
+                  <span className="dropdown-label">{o.label}</span>
+                  {o.hint ? <span className="dropdown-hint">{o.hint}</span> : null}
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

@@ -6,10 +6,11 @@
 // costs to the cent, each depot's and stop's upkeep, and a day's interest while cash is below zero;
 // capital, contracts and the report card have none (sim/rules/money.ts).
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
+import { DAYS_PER_QUARTER } from '../config/time';
 import { INTEREST_PER_DAY_PPM } from '../config/economy';
 import { toCalendarTime } from '../core/calendar';
 import { subsidyCents } from '../rules/fare';
-import { isOperating } from '../rules/money';
+import { isOperating, ROW_GROUP } from '../rules/money';
 import type { World } from '../world';
 import { forecastDay, stopsUpkeepCents } from './costs';
 import { ROW_KINDS, type RowKind } from './ledger';
@@ -23,6 +24,28 @@ export interface FinanceRow {
   readonly forecastCents: number | null;
 }
 
+/** One day on Finance's chart: what came in, what running cost, what was bought or sold, and the cash at its close (today's so far). */
+export interface FinanceDay {
+  readonly day: number;
+  /** Fares, subsidy, contract rewards and a grant: money in, positive. */
+  readonly inCents: number;
+  /** Running costs, and a fine: money out, negative. */
+  readonly outCents: number;
+  /** Buying and building, less what was sold back: usually negative. */
+  readonly capitalCents: number;
+  readonly cashCents: number;
+}
+
+/** One line's own money yesterday (rows that name it): what its riders paid, and what running it cost. */
+export interface FinanceLine {
+  readonly id: number;
+  readonly yesterdayInCents: number;
+  readonly yesterdayOutCents: number;
+}
+
+/** The chart shows the last two quarters' days at most. */
+export const CHART_DAYS = 2 * DAYS_PER_QUARTER;
+
 export interface Finance {
   readonly day: number;
   readonly quarter: number;
@@ -30,6 +53,10 @@ export interface Finance {
   readonly quarterFirstDay: number;
   /** The starting cash, posted on Day 0 before any column's days. */
   readonly openingCents: number;
+  /** The chart's days, oldest first: up to CHART_DAYS, today the last, so far. */
+  readonly days: readonly FinanceDay[];
+  /** Each line's own money, in the order the lines were made. */
+  readonly lines: readonly FinanceLine[];
   /** One row per kind in ROW_KINDS order, every kind there is. */
   readonly rows: readonly FinanceRow[];
 }
@@ -39,8 +66,12 @@ export function finance(world: World): Finance {
   const t = toCalendarTime(state.elapsed);
   const quarterFirstDay = t.day - t.dayOfQuarter + 1;
   const sums = new Map<RowKind, { today: number; yesterday: number; quarter: number }>(ROW_KINDS.map((k) => [k, { today: 0, yesterday: 0, quarter: 0 }]));
-  // Rows are in day order, so the walk stops at the first row before yesterday and this quarter.
-  const from = Math.min(t.day - 1, quarterFirstDay);
+  const firstChartDay = Math.max(1, t.day - CHART_DAYS + 1);
+  const days = new Map<number, { in: number; out: number; capital: number }>();
+  for (let d = firstChartDay; d <= t.day; d++) days.set(d, { in: 0, out: 0, capital: 0 });
+  const lineSums = new Map<number, { in: number; out: number }>(state.lines.map((l) => [l.id, { in: 0, out: 0 }]));
+  // Rows are in day order, so the walk stops at the first row before yesterday, this quarter and the chart.
+  const from = Math.min(t.day - 1, quarterFirstDay, firstChartDay);
   for (let r = state.ledger.rows.length - 1; r >= 0; r--) {
     const row = state.ledger.rows[r]!;
     if (row.day < from) break;
@@ -48,6 +79,26 @@ export function finance(world: World): Finance {
     if (row.day === t.day) sum.today += row.amountCents;
     if (row.day === t.day - 1) sum.yesterday += row.amountCents;
     if (row.day >= quarterFirstDay) sum.quarter += row.amountCents;
+    const group = ROW_GROUP[row.kind];
+    const day = days.get(row.day);
+    if (day) {
+      if (group === 'capital') day.capital += row.amountCents;
+      else if (group === 'income' || (group === 'reward' && row.amountCents > 0)) day.in += row.amountCents;
+      else if (group === 'running' || group === 'reward') day.out += row.amountCents;
+    }
+    const line = row.day === t.day - 1 && row.lineId !== undefined ? lineSums.get(row.lineId) : undefined;
+    if (line) {
+      if (group === 'income') line.in += row.amountCents;
+      else if (group === 'running') line.out += row.amountCents;
+    }
+  }
+  // Each day's closing cash, back from today's: a day's rows are its change in cash (I1).
+  const chart: FinanceDay[] = [];
+  let cash = state.ledger.cashCents;
+  for (let d = t.day; d >= firstChartDay; d--) {
+    const day = days.get(d)!;
+    chart.unshift({ day: d, inCents: day.in, outCents: day.out, capitalCents: day.capital, cashCents: cash });
+    cash -= day.in + day.out + day.capital;
   }
   const owing = Math.max(0, -state.ledger.cashCents);
   const forecast: Partial<Record<RowKind, number>> = {
@@ -77,6 +128,11 @@ export function finance(world: World): Finance {
     quarter: t.quarter,
     quarterFirstDay,
     openingCents: state.ledger.rows.find((r) => r.kind === 'founding')?.amountCents ?? 0,
+    days: chart,
+    lines: state.lines.map((l) => {
+      const s = lineSums.get(l.id)!;
+      return { id: l.id, yesterdayInCents: s.in, yesterdayOutCents: s.out };
+    }),
     rows: ROW_KINDS.map((kind) => {
       const s = sums.get(kind)!;
       return { kind, todayCents: s.today, yesterdayCents: s.yesterday, quarterCents: s.quarter, forecastCents: isOperating(kind) ? (forecast[kind] ?? 0) : null };

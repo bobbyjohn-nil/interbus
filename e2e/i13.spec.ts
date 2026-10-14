@@ -60,15 +60,26 @@ test.describe('the screen budget (I13)', () => {
       shares.restWithLine = await chromeShare(page);
       // Finance: the depot, the line's stops and its buses are today's purchases, each a row (D25), and
       // on day 1 today's column and the quarter's both come to the cash less the starting cash, on Day 0.
-      await page.getByRole('button', { name: 'Finance' }).click();
+      await page.getByRole('button', { name: 'Finance', exact: true }).click();
       const finance = page.getByTestId('finance');
+      // Its three views (D25), each a panel's budget: the Overview's chart, the Breakdown, each line's money.
+      await expect(finance.getByTestId('finance-chart')).toBeVisible();
+      shares.finance = await chromeShare(page);
+      await finance.getByTestId('finance-lines').click();
+      await expect(finance.getByTestId('line-money-1')).toBeVisible();
+      shares.financeLines = await chromeShare(page);
+      await finance.getByTestId('finance-breakdown').click();
+      // Buying and building starts folded, so a late game's table stays inside the budget; open, its rows.
+      await expect(finance.locator('tr[data-group="capital"]')).toHaveAttribute('data-open', 'no');
+      shares.financeBreakdown = await chromeShare(page);
+      await finance.getByRole('button', { name: 'Buying and building' }).click();
       await expect(finance.locator('tr[data-kind="depots"]')).toHaveAttribute('data-today', String(-15_000_000));
       await expect(finance.locator('tr[data-kind="stops"]')).toHaveAttribute('data-today', String(-1_600_000));
       await expect(finance.locator('tr[data-kind="buses"]')).toHaveAttribute('data-today', String(-19_000_000));
       await expect(finance).toHaveAttribute('data-opening', '42720000');
       await expect(finance).toHaveAttribute('data-today', String(-35_600_000));
       await expect(finance).toHaveAttribute('data-quarter', String(-35_600_000));
-      shares.finance = await chromeShare(page);
+      shares.financeBought = await chromeShare(page);
       await page.getByRole('button', { name: 'Close' }).click();
       // A stop's card, from where the second stop snapped.
       const placed = (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number));
@@ -89,7 +100,7 @@ test.describe('the screen budget (I13)', () => {
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'draft', 'inspector', 'finance', 'stop', 'saves']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'draft', 'inspector', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
 
