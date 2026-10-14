@@ -55,12 +55,13 @@ describe('the line card', () => {
     expect(render({})).not.toContain('Full at');
   });
 
-  it('offers every fare from $1.00 to $5.00 and names the band that nets the most', () => {
+  // D25: "the menu where you see lines should only have information about the line, no finances".
+  // Shown failing (TS-04) on the old card, which held the fare picker and its band.
+  it('reads its fare, set in Finance, with no picker and no band of its own', () => {
     const html = render({ fareCents: 250 }, { netCents: [], bestCents: 175, fromCents: 175, toCents: 200 });
-    expect(html.match(/<option value="\d+"[^>]*>\$\d\.\d\d<\/option>/g)).toHaveLength(17);
-    expect(html).toContain('<option value="250" selected="">$2.50</option>');
-    expect(html).toContain('Most profit at $1.75–$2.00');
-    expect(render({}, { netCents: [], bestCents: 200, fromCents: 200, toCents: 200 })).toContain('Most profit at $2.00<');
+    expect(html).toContain('data-testid="line-fare" data-fare="250">Fare $2.50');
+    expect(html).not.toMatch(/<option value="\d+"[^>]*>\$\d\.\d\d<\/option>/);
+    expect(html).not.toContain('Most profit at');
   });
 
   it('reads its round trip, and what roadworks on its streets add to it today', () => {

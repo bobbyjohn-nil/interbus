@@ -120,16 +120,23 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('notice')).toHaveCount(0);
     await page.getByRole('button', { name: 'Lines' }).click();
     await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
-    // The fare: the card names the fares that net the most (the M3 spec, item 4), and a pick sets it.
-    const lineCard = page.getByTestId('line-card');
+    // The fare, set in Finance beside the line's money (D25): the line card reads it and links there,
+    // and Finance names the fares that net the most (the M3 spec, item 4); a pick sets it.
+    await expect(page.getByTestId('line-fare')).toHaveAttribute('data-fare', '225');
+    await page.getByRole('button', { name: 'Fare and money in Finance' }).click();
+    const finance = page.getByTestId('finance');
+    await expect(finance).toHaveAttribute('data-view', 'lines');
+    await expect(finance.getByTestId('line-money-1')).toHaveAttribute('data-running', String(running));
     await expect(page.getByTestId('fare-band')).toHaveAttribute('data-from', '175', { timeout: 10_000 });
     await expect(page.getByTestId('fare-band')).toContainText('Most profit at $1.75');
-    await lineCard.getByLabel('Fare').selectOption('175');
-    await expect(lineCard.getByLabel('Fare')).toHaveValue('175');
-    // A stop's card: with the inspector closed (it covers the map's right side), a click on
-    // Symphony's stop shows its day and no flag (the M3 spec, item 5).
+    const fare = page.getByRole('button', { name: 'Fare for Line 1' });
+    await fare.click();
+    await page.getByRole('option', { name: '$1.75', exact: true }).click();
+    await expect(fare).toContainText('$1.75');
+    // A stop's card: with Finance closed (it covers the map's right side), a click on Symphony's stop
+    // shows its day and no flag (the M3 spec, item 5).
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('inspector')).toHaveCount(0);
+    await expect(finance).toHaveCount(0);
     // Where Symphony's stop stands: its click snapped to the nearest street.
     const placed = (await map.getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number) as [number, number, number]);
     const [sx, sy] = await toScreen(page, [placed[1]![1], placed[1]![2]]);

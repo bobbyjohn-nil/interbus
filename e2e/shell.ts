@@ -76,3 +76,13 @@ export async function setSpeed(page: Page, label: '1×' | '60×' | '600×' | '1,
   // An option's name is its speed then what it means ("600× 10 minutes a second"): match the speed whole.
   await page.getByRole('option').filter({ has: page.locator('.dropdown-label', { hasText: new RegExp(`^${label}$`) }) }).click();
 }
+
+/** Sets a line's fare where the game keeps it, in Finance's Lines (D25), and closes Finance again. */
+export async function setFare(page: Page, line: string, fare: string): Promise<void> {
+  await page.getByRole('button', { name: 'Finance', exact: true }).click();
+  await page.getByTestId('finance-lines').click();
+  await page.getByRole('button', { name: `Fare for ${line}` }).click();
+  await page.getByRole('option', { name: fare, exact: true }).click();
+  await expect(page.getByRole('button', { name: `Fare for ${line}` })).toContainText(fare);
+  await page.getByTestId('finance').getByRole('button', { name: 'Close' }).click();
+}

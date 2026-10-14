@@ -17,7 +17,8 @@ function screenWords(page: Page): Promise<string[]> {
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     };
-    const app = document.querySelector('main.app')!;
+    // The page, not only the app: a dropdown's list is drawn over it (Dropdown.tsx).
+    const app = document.body;
     const labels = 'h1, h2, h3, h4, button, label, legend, option, th, caption, p, strong, .chip-label, .chip, .dropdown-label, .dropdown-hint, .demand-name, .demand-what, .build-chip, [role="status"], [role="alert"]';
     for (const el of app.querySelectorAll(labels)) {
       if (el.tagName !== 'OPTION' && !visible(el)) continue;
@@ -78,8 +79,13 @@ test.describe('the copy convention', () => {
     await expect(page.getByTestId('inspector')).toBeVisible();
     await read('line panel');
     await page.getByRole('button', { name: 'Close' }).click();
-    await page.getByRole('button', { name: 'Finance' }).click();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await read('finance');
+    await page.getByTestId('finance-breakdown').click();
+    await page.getByRole('button', { name: 'Buying and building' }).click();
+    await read('finance breakdown');
+    await page.getByTestId('finance-lines').click();
+    await read('finance lines');
     await page.getByRole('button', { name: 'Close' }).click();
     const placed = (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number));
     const [sx, sy] = await toScreen(page, [placed[1]![1]!, placed[1]![2]!]);

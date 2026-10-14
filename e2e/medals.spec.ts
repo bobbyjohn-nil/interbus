@@ -6,7 +6,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
-import { chromeShare, city, onDepotLand, setSpeed } from './shell';
+import { chromeShare, city, onDepotLand, setFare, setSpeed } from './shell';
 
 type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; ledger: unknown[] };
 
@@ -106,8 +106,8 @@ test.describe('medals', () => {
     await expect(goliath).not.toContainText('locked');
 
     // At rest, paused with an undo to offer and the notices gone, as I13 measures it: still within 6%.
-    await page.getByRole('combobox', { name: 'Fare' }).selectOption('250');
     await page.getByRole('button', { name: 'Close' }).click();
+    await setFare(page, 'Line 1', '$2.50');
     await expect(page.getByTestId('undo')).toBeVisible();
     await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 10_000 });
     const rest = await chromeShare(page);
