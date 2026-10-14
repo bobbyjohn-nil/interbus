@@ -7,7 +7,7 @@ import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 import { spendParts } from '../economy/ledger';
 import { checkModelChange, type ModelChangeRefusal } from '../rules/line';
-import { fleetContext, recomputeInService, type World } from '../world';
+import { fleetContext, recomputeInService, snowToday, type World } from '../world';
 
 export function setModel(
   world: World,
@@ -18,9 +18,19 @@ export function setModel(
   const service = world.services.get(lineId);
   if (!line || !service) return refuse('no_such_line');
   const plan = service.plan;
+  // On today's round trip, roadworks and snow included, as the line card counts it and the timetable runs it.
   const change = checkModelChange(
     fleetContext(world),
-    { routeM: plan.stopDistM[plan.stopDistM.length - 1]!, stops: plan.stops.length, rush: plan.rush ?? 0, buses: line.buses, model: BUS_MODELS[line.model], headways: line.headways },
+    {
+      routeM: plan.stopDistM[plan.stopDistM.length - 1]!,
+      stops: plan.stops.length,
+      rush: plan.rush ?? 0,
+      worksM: plan.worksM ?? 0,
+      snow: snowToday(world.state),
+      buses: line.buses,
+      model: BUS_MODELS[line.model],
+      headways: line.headways,
+    },
     BUS_MODELS[model],
   );
   if (!change.ok) return change;

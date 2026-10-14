@@ -23,15 +23,14 @@ import { checkPlaceStop } from '../sim/rules/stop';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
-import { DEPOT_UPKEEP_CENTS } from '../sim/config/depots';
 import { FOUNDING_HEADWAYS } from '../sim/config/lines';
 import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/config/time';
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { FESTIVAL_RADIUS_M } from '../sim/config/events';
-import { forecastDay, stopsUpkeepCents } from '../sim/economy/costs';
+import { forecastDay } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
-import { finance } from '../sim/economy/finance';
+import { finance, runningCostsCents, type Finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
 import type { ContractId, LineId, StopId } from '../sim/core/ids';
@@ -51,7 +50,7 @@ import { eventDaysLeft, eventPhase } from '../sim/rules/event';
 import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, FinanceView, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
 import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
 import { SPEED_RATES } from '../sim/rules/speed';
@@ -440,8 +439,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
 
   // Worked out again only when a row is posted, the day turns or the network changes.
   let financeKey = '';
-  let financeView: FinanceView | null = null;
-  const financeNow = (w: World): FinanceView => {
+  let financeView: Finance | null = null;
+  const financeNow = (w: World): Finance => {
     const key = `${w.state.ledger.rows.length}|${w.state.ledger.cashCents}|${toCalendarTime(w.state.elapsed).day}|${linesVersion}`;
     if (key !== financeKey || !financeView) {
       financeKey = key;
@@ -496,6 +495,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   const snapshot = (): Snapshot => {
     const w = world!;
     const t = toCalendarTime(w.state.elapsed);
+    const money = financeNow(w);
     return {
       elapsed: w.state.elapsed,
       day: t.day,
@@ -510,12 +510,12 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
       profitableDays: profitableDays(w.state.ledger, t.day),
-      costsPerDayCents: lines.reduce((sum, l) => sum + l.forecastCents.running + l.forecastCents.wages + l.forecastCents.deadhead, 0) + w.state.depots.length * DEPOT_UPKEEP_CENTS + stopsUpkeepCents(w.state.stops),
+      costsPerDayCents: runningCostsCents(money),
       lines,
       stops,
       linesVersion,
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
-      finance: financeNow(w),
+      finance: money,
       undo: speed === 0 ? nextUndo(undoStack) : null,
       floor:
         belowFloor(w.state.ledger.cashCents) || w.state.closesBelowFloor > 0

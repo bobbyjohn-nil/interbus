@@ -2,6 +2,13 @@ import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, 
 import type { Sim } from './useSim';
 
 /**
+ * A grade as the card shows it: its whole points, never rounded up. The grant, the fine and the
+ * medals compare the unrounded grade against whole-number bars (sim/economy/reportCard.ts,
+ * sim/rules/medal.ts), so a 54.7 shown as 55 sat beside no grant and no bronze.
+ */
+const points = (grade: number) => Math.floor(grade);
+
+/**
  * The daily close (PLAN §3): every figure a ledger row, adding up to the change in cash (I1). A
  * quarter's last day closes with its report card above the rows (the M3 spec, item 9), whose payout
  * or fine is one of them; a contract paid or lapsed at the close says so (item 11), as does a city
@@ -17,7 +24,7 @@ export function DayCard({ sim }: { sim: Sim }) {
     <section className="day-card" role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
       <h2>{dateText(card.day)} closed</h2>
       {card.report ? (
-        <section className="report" aria-label={`${quarterText(card.day)} report card`} data-testid="report-card" data-overall={card.report.overall.toFixed(1)} data-payout={card.report.payoutCents}>
+        <section className="report" aria-label={`${quarterText(card.day)} report card`} data-testid="report-card" data-overall={(Math.floor(card.report.overall * 10) / 10).toFixed(1)} data-payout={card.report.payoutCents}>
           <h3>{quarterText(card.day)} report card</h3>
           <table>
             <tbody>
@@ -31,12 +38,12 @@ export function DayCard({ sim }: { sim: Sim }) {
               ).map(([name, grade]) => (
                 <tr key={name}>
                   <th scope="row">{name}</th>
-                  <td>{Math.round(grade)}</td>
+                  <td>{points(grade)}</td>
                 </tr>
               ))}
               <tr className="total">
                 <th scope="row">Overall</th>
-                <td>{Math.round(card.report.overall)}</td>
+                <td>{points(card.report.overall)}</td>
               </tr>
             </tbody>
           </table>

@@ -100,6 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The report card drops each grade's fraction instead of rounding it to the nearest point, so a grade never shows a bar it missed: a quarter graded 54.7 read "Overall 55" with no grant and no bronze, and now reads 54.
+- When the lender calls in the loan, the midnight card of that last day shows first, every row of it readable, and the lender's card follows when you press Continue, instead of covering it.
+- After you change a line while its buses are out, Finance's Breakdown forecasts Bus fuel and maintenance, Driver wages and To and from the depot for today as the line's own forecast under Lines does, and as the day then banks, instead of costing the whole day on the new timetable until midnight.
+- The Costs/day chip counts a day's loan interest while you owe money, as Finance's running costs do.
+- Edit route no longer says every stop after one it can't take comes down, with money back: it names only the stops you took off the route.
+- On a snow day, or while roadworks are on a line's streets, Buy and swap buys the buses the line card names, at its price, instead of fewer than the line's headways need that day.
 - While you draw a line, a click it can't take (a stop it already calls at, or a spot with no street near) no longer stops every later click from adding a stop: your next click takes its place, and Remove last stop or Backspace takes off the last one the card shows.
 - The new-line card and the cards of Place a stop and Place a depot keep up with the game under them: when your cash changes, a stop goes up or comes down, a day passes or you undo, they say what Create or a click would now do, instead of offering what is then refused.
 - Place a depot's card says how much you are short, beside the depot's price, when it costs more than you can spend (your cash, down to -$150,000), instead of offering a depot the click then refuses.

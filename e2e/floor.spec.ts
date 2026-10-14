@@ -1,7 +1,8 @@
 // The failure floor on the page (the M3 spec, item 10; exit check 4): a game owing more than the
 // credit line's −$150k counts down its day closes in a chip; the fifth ends the run, and Restart this
 // quarter reopens the game where it began (here, where the file was loaded). The game is a save file
-// edited to owe $200k at 23:50 with four closes already behind it, so the run ends within seconds.
+// edited to owe $200k at 23:50 with four closes already behind it, so the run ends within seconds;
+// its closing day's card is read first, then the failure card shows.
 import { expect, test } from '@playwright/test';
 import { foundCompany, STARTING_CENTS } from './found';
 import { city, setSpeed } from './shell';
@@ -33,12 +34,27 @@ test.describe('the failure floor', () => {
     await expect(panel).toHaveAttribute('data-cash', '-20000000');
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');
 
-    // Midnight closes the fifth day below: the lender calls in the loan and time stops.
+    // Midnight closes the fifth day below: the lender calls in the loan and time stops. The closing
+    // day's card comes first, every row of it in sight, and the failure card after Continue: it used
+    // to take the same spot, over the day card's rows.
     await setSpeed(page, '5,400×');
-    const failure = page.getByTestId('failure-card');
-    await expect(failure).toBeVisible({ timeout: 30_000 });
-    await expect(failure).toContainText('The lender has called in the loan');
+    const dayCard = page.getByTestId('day-card');
+    await expect(dayCard).toBeVisible({ timeout: 30_000 });
     await expect(panel).toHaveAttribute('data-speed', '0');
+    // The day card's heading, rows and button that something else is drawn over, at their middles.
+    const hidden = () =>
+      dayCard.evaluate((card) =>
+        [...card.querySelectorAll('h2, tr, button')].filter((el) => {
+          const r = el.getBoundingClientRect();
+          return !card.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+        }).length,
+      );
+    await expect.poll(hidden).toBe(0);
+    const failure = page.getByTestId('failure-card');
+    await expect(failure).toHaveCount(0);
+    await dayCard.getByRole('button', { name: 'Continue' }).click();
+    await expect(failure).toBeVisible();
+    await expect(failure).toContainText('The lender has called in the loan');
 
     await failure.getByRole('button', { name: 'Restart this quarter' }).click();
     await expect(failure).toHaveCount(0);
