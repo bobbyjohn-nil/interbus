@@ -22,6 +22,7 @@ import {
 import { DAYS_PER_QUARTER } from '../config/time';
 import { SpatialGrid, toXY } from '../core/geo';
 import { PERIODS } from '../rules/periods';
+import { dayDepartures } from '../rules/schedule';
 import { runningHeadwayIn } from '../rules/timetable';
 import type { World } from '../world';
 import { isOperating } from '../rules/money';
@@ -46,7 +47,10 @@ const clamp100 = (v: number) => Math.min(100, Math.max(0, v));
 export function coverageGrade(world: World): number {
   const calls = new Map<number, number>();
   for (const line of world.state.lines) {
-    const trips = world.services.get(line.id)?.day.trips.length ?? 0;
+    // One day's departures: the day plan's trips run over three days (yesterday's, today's and
+    // tomorrow's, so buses cross midnight), which counted every line three times over.
+    const service = world.services.get(line.id);
+    const trips = service ? dayDepartures(service.day.inputs.timing).length : 0;
     if (line.buses > 0) for (const id of line.stopIds) calls.set(id, (calls.get(id) ?? 0) + trips);
   }
   const grid = new SpatialGrid<number>(MAX_WALK_M);
