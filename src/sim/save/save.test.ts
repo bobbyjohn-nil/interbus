@@ -272,7 +272,7 @@ describe('refusals (first failure wins; the live key is never overwritten by one
 it('a new game starts at founding with one row and fresh counters', () => {
   const data = toSaveData(newGame(CITY, { name: 'X', colour: '#000000' }, 1));
   expect(data.clock.elapsed).toBe(0);
-  expect(data.ledger).toEqual([{ day: 0, kind: 'founding', amountCents: 42_720_000, lineId: null }]); // Day 0 (D25)
+  expect(data.ledger).toEqual([{ day: 0, kind: 'founding', amountCents: 47_454_800, lineId: null }]); // Day 0 (D25)
   expect(data.nextIds).toEqual({ stop: 1, line: 1, bus: 1, depot: 1, contract: 1 });
   expect([data.medals, data.tripsCarried, data.tripsToday]).toEqual([{ bronze: null, silver: null, gold: null }, 0, 0]);
 });

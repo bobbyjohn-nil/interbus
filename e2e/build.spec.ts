@@ -6,7 +6,7 @@
 // and the line's Edit route reorders by drag and takes a stop off, priced on its card.
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
-import { foundCompany } from './found';
+import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 /** On Huntington Avenue between Symphony and the MFA, more than 250 m from each. */
@@ -55,7 +55,7 @@ test.describe('the Build menu', () => {
     await expect(card).toContainText('A Sign here');
     await expect(card).toContainText('$4k');
     await page.mouse.click(hx, hy);
-    await expect(panel).toHaveAttribute('data-cash', String(42_720_000 - 400_000));
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 400_000));
     const stops = async () => ((await map.getAttribute('data-stops')) ?? '').split(' ').filter(Boolean).map((s) => s.split(/[:,]/).map(Number) as [number, number, number]);
     await expect.poll(async () => (await stops()).length).toBe(1);
     const [lone] = await stops();
@@ -76,7 +76,7 @@ test.describe('the Build menu', () => {
     await expect(stopCard.getByTestId('stop-lone')).toContainText('No line stops here yet');
     await expect(stopCard).toHaveAttribute('data-quiet', 'no');
     await stopCard.getByRole('button', { name: 'Take it down · $2k back' }).click();
-    await expect(panel).toHaveAttribute('data-cash', String(42_720_000 - 200_000));
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 200_000));
     await expect.poll(async () => (await stops()).length).toBe(0);
     await expect(page.getByTestId('undo')).toHaveText(`Undo: Take down Stop ${lone![0]}`);
     await page.getByTestId('undo').click();

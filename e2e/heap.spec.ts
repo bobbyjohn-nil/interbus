@@ -1,8 +1,9 @@
 // PLAN §6's heap budget on real laptops: at most 10% heap growth over 30 minutes of play. The nightly
 // runs it on the shipped build (HEAP_MINUTES=30); the PR checks skip it, since it takes as long as it
-// measures. The slow-laptop run's busy scene (src/sim/scene.ts) plays at 2×, the pacing run's speed
-// after day 1. After a 2-minute warm-up, the page's heap and each worker's (the sim's and MapLibre's),
-// each read after a garbage collection, are set against themselves at the end.
+// measures. The slow-laptop run's busy scene (src/sim/scene.ts) plays at 2,700× (1,800× until the
+// tuning freeze), the pacing run's speed after day 1. After a 2-minute warm-up, the page's heap and
+// each worker's (the sim's and MapLibre's), each read after a garbage collection, are set against
+// themselves at the end.
 import { createHash } from 'node:crypto';
 import { expect, test, type CDPSession } from '@playwright/test';
 import { CORRIDORS } from '../bench/inner';
@@ -34,7 +35,7 @@ function onTarget(browser: CDPSession, sessionId: string): (method: string) => P
     });
 }
 
-test('the busy scene’s heaps grow at most 10% over 30 minutes at 2×', async ({ page, browser }) => {
+test('the busy scene’s heaps grow at most 10% over 30 minutes at 2,700×', async ({ page, browser }) => {
   test.skip(MINUTES <= 0, 'nightly: set HEAP_MINUTES');
   test.setTimeout(WARM_UP_MS + MINUTES * 60_000 + 180_000);
   const simFile = page.waitForResponse((r) => /\/cities\/sim-[^/]+\.json$/.test(new URL(r.url()).pathname));
@@ -52,7 +53,7 @@ test('the busy scene’s heaps grow at most 10% over 30 minutes at 2×', async (
   await (await chooser).setFiles({ name: 'busy.json', mimeType: 'application/json', buffer: Buffer.from(encode(scene.world.state, { sha: 'scene', version: '0.0.0' })) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
   await page.getByRole('button', { name: 'Close' }).click();
-  await setSpeed(page, '1,800×');
+  await setSpeed(page, '2,700×');
 
   // Every heap, by target: the page's through its own session, each worker's through the browser's.
   const pageSession = await page.context().newCDPSession(page);

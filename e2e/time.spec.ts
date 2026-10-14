@@ -17,7 +17,7 @@ test.describe('time and the speed menu', () => {
     // The menu: five speeds, each with what it means, in the game's own dropdown.
     await page.getByTestId('speed-menu').click();
     const options = page.getByRole('listbox', { name: 'Speed' }).getByRole('option');
-    await expect(options.locator('.dropdown-label')).toHaveText(['1×', '60×', '600×', '1,800×', '5,400×']);
+    await expect(options.locator('.dropdown-label')).toHaveText(['1×', '60×', '600×', '2,700×', '5,400×']);
     await expect(options.first()).toContainText('Real time');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('listbox')).toHaveCount(0);

@@ -2,7 +2,7 @@
 // game leads to the founding card; Saves' Back to Home returns to it, where Continue names the game
 // and goes on with it; New game asks before it replaces that game, and the slots stay.
 import { expect, test } from '@playwright/test';
-import { foundCompany, leaveHome } from './found';
+import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 test.describe('Home', () => {
@@ -23,16 +23,16 @@ test.describe('Home', () => {
     await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.click(dx, dy);
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
     await page.getByRole('button', { name: 'Saves' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
 
     // Back to Home pauses and saves; Continue names the game and goes on with it.
     await page.getByRole('button', { name: 'Back to Home' }).click();
     await expect(home).toBeVisible();
-    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Year 1, Q1, Day 1 · $277,200');
+    await expect(page.getByTestId('home-continue')).toContainText('Back Bay Transit · Year 1, Q1, Day 1 · $324,548');
     await leaveHome(page, 'continue');
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
     await expect(panel).toHaveAttribute('data-speed', '0');
 
     // New game asks first; Keep it keeps the game.
@@ -60,6 +60,6 @@ test.describe('Home', () => {
     await page.getByTestId('slot-1').getByRole('button', { name: 'Load' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Replace this game' }).click();
     await expect(home).toBeHidden();
-    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-cash', '27720000');
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
   });
 });

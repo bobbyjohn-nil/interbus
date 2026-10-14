@@ -66,7 +66,7 @@ describe('Create on mini-Boston', () => {
 });
 
 describe('a headway change on mini-Boston (GD-09)', () => {
-  it('buys the second Sparrow every 20 minutes needs, nothing for every 30, a third on credit, and refuses more past the credit line in money', () => {
+  it('buys the second Sparrow every 20 minutes needs, nothing for every 30, a third from cash, a fourth on credit, and refuses more past the credit line in money', () => {
     const world = gameWithDepot();
     const created = createLine(world, CLICKS, THIRTY);
     if (!created.ok) throw new Error(created.reason);
@@ -79,12 +79,15 @@ describe('a headway change on mini-Boston (GD-09)', () => {
     expect(world.services.get(id)!.timing.headways.peak).toBe(1_200);
     expect(setHeadways(world, id, THIRTY)).toEqual({ ok: true, bought: 0, priceCents: 0 });
     expect(world.state.lines[0]!.buses).toBe(2);
-    // $71,200 left after a depot and the starter: every 10 minutes at peak needs a third Sparrow, $23,800 into the credit line (D10).
+    // $118,548 left after a depot and the starter: every 10 minutes at peak needs a third Sparrow, from cash, leaving $23,548.
     expect(setHeadways(world, id, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: true, bought: 1, priceCents: 9_500_000 });
-    expect(world.state.ledger.cashCents).toBe(-2_380_000);
-    // Every 5 minutes needs three more: $285k against the $126,200 the credit line has left.
-    expect(setHeadways(world, id, { peak: 300, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 28_500_000 - 12_620_000 });
-    expect(world.state.ledger.cashCents).toBe(-2_380_000);
+    expect(world.state.ledger.cashCents).toBe(2_354_800);
+    // Every 7½ minutes needs a fourth, $71,452 into the credit line (D10).
+    expect(setHeadways(world, id, { peak: 450, offpeak: 1_200, overnight: null })).toEqual({ ok: true, bought: 1, priceCents: 9_500_000 });
+    expect(world.state.ledger.cashCents).toBe(-7_145_200);
+    // Every 5 minutes needs two more: $190k against the $78,548 the credit line has left.
+    expect(setHeadways(world, id, { peak: 300, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 19_000_000 - 7_854_800 });
+    expect(world.state.ledger.cashCents).toBe(-7_145_200);
     expect(setHeadways(world, id, { peak: 1_800, offpeak: 600, overnight: 300 })).toMatchObject({ ok: false, reason: 'overnight_more_often_than_offpeak' });
     expect(setHeadways(world, 99 as LineId, { peak: 600, offpeak: 600, overnight: null })).toEqual({ ok: false, reason: 'no_such_line' });
   });

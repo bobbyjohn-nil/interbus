@@ -4,7 +4,7 @@
 // Longwood in the editor adds a fifth stop, priced on its card as Save route buys it.
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
-import { foundCompany } from './found';
+import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 test.describe('route edits', () => {
@@ -32,7 +32,7 @@ test.describe('route edits', () => {
     );
     await expect(page.getByTestId('depot-card')).toHaveAttribute('data-ok', 'yes', { timeout: 10_000 });
     await page.mouse.click(dx, dy);
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
 
     await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
@@ -42,7 +42,7 @@ test.describe('route edits', () => {
     const draft = page.getByTestId('draft-card');
     await expect(draft).toHaveAttribute('data-price', '20600000', { timeout: 10_000 });
     await draft.getByRole('button', { name: 'Create' }).click();
-    await expect(panel).toHaveAttribute('data-cash', '7120000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 35_600_000));
     await page.keyboard.press('Escape');
 
     const stops = async () => (await map.getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number) as [number, number, number]);
@@ -56,14 +56,14 @@ test.describe('route edits', () => {
       await expect(card).toBeVisible({ timeout: 1_000 });
     }).toPass({ timeout: 10_000 });
     await card.getByRole('button', { name: 'Remove from Line 1 · $2k back' }).click();
-    await expect(panel).toHaveAttribute('data-cash', '7320000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 35_400_000));
     await expect(card).toHaveCount(0); // the stop is gone, and its card with it
     await expect.poll(async () => (await stops()).length).toBe(3);
 
     const chip = page.getByTestId('undo');
     await expect(chip).toHaveText(`Undo: Remove Stop ${placed[1]![0]} from Line 1`);
     await chip.click();
-    await expect(panel).toHaveAttribute('data-cash', '7120000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 35_600_000));
     await expect.poll(async () => (await stops()).length).toBe(4);
 
     // Edit route (D25): the line's four stops listed, a click beyond Longwood adds a fifth at the end,
@@ -83,7 +83,7 @@ test.describe('route edits', () => {
     const price = Number(await editor.getAttribute('data-price'));
     expect(price).toBeGreaterThanOrEqual(400_000); // the new stop, and a bus if the round trip needs one
     await editor.getByRole('button', { name: 'Save route' }).click();
-    await expect(panel).toHaveAttribute('data-cash', String(7_120_000 - price));
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 35_600_000 - price));
     await expect.poll(async () => (await stops()).length).toBe(5);
     await expect(page.getByTestId('line-card')).toBeVisible(); // the inspector, as after Create
     await expect(editor).toHaveCount(0);
