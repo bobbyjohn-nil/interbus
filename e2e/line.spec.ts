@@ -63,11 +63,14 @@ test.describe('the line tool on the fixture', () => {
     await expect(draft).toContainText('4 stops');
     await expect(draft).toContainText('Running every 20 min needs 2 Sparrows · $190k');
     // Metro 40s on the same draft: the card prices them, and the starter's cash and credit cannot buy them yet.
-    await draft.getByLabel('Buses').selectOption('metro40');
+    // The game's own dropdown (D25): the button names the model, its list picks another.
+    await draft.getByRole('button', { name: 'Buses' }).click();
+    await page.getByRole('option', { name: /^Metro 40 · / }).click();
     await expect(draft).toContainText('Running every 20 min needs 2 Metro 40s · $520k');
     await expect(draft).toHaveAttribute('data-refusal', 'insufficient_funds');
     await expect(draft).toContainText('$108,800 short'); // past the $150k credit line too (D10)
-    await draft.getByLabel('Buses').selectOption('sparrow');
+    await draft.getByRole('button', { name: 'Buses' }).click();
+    await page.getByRole('option', { name: /^Sparrow · / }).click();
     await expect(draft).toHaveAttribute('data-refusal', '');
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByTestId('line-card')).toBeVisible();

@@ -118,7 +118,8 @@ body,
   position: absolute;
   left: 12px;
   top: 12px;
-  right: 12px;
+  /* Clear of the Saves chip at the top right (D25): the chips wrap before they reach it. */
+  right: 104px;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -368,7 +369,8 @@ body,
 /* Undo while paused (I9), the checklist's last step and Contracts: chips that are buttons. */
 .chip.undo,
 button.chip.checklist,
-.chip.contracts {
+.chip.contracts,
+.chip.saves-chip {
   font: inherit;
   border: 0;
   color: var(--ui-ink);
@@ -420,6 +422,27 @@ button.chip.checklist,
 }
 
 /* Build (D25): its three tools in a menu that opens above the dock. */
+/* Saves, at the top right (D25). */
+.chip.saves-chip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.chip.saves-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.chip.saves-chip[aria-pressed='true'] {
+  background: var(--ui-ink);
+  color: var(--ui-paper);
+}
+
 .dock .build {
   position: relative;
   display: flex;
@@ -989,12 +1012,20 @@ button.chip.checklist,
   margin-top: 6px;
 }
 
-.headways label {
+.headways .headway {
   display: contents;
 }
 
-.headways select {
-  font: inherit;
+.headways span {
+  align-self: center;
+}
+
+/* A card's bus model (D25: the game's own dropdown): the word, then the choice. */
+.panel .model {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
 }
 
 .probe-card {

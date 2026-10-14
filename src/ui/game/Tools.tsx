@@ -3,6 +3,7 @@ import { isExpress } from "../../sim/rules/express";
 import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
 import type { BusModelId } from "../../sim/types";
 import { refusalText } from "../copy";
+import { Dropdown } from "../Dropdown";
 import { about, busCount, every, km, usdK } from "../format";
 import type { Sim } from "./useSim";
 
@@ -95,27 +96,24 @@ export function DraftCard({
       data-refusal={refused?.reason ?? ""}
     >
       <h2>{title}</h2>
-      <label className="model">
-          Buses
-          <select
-            value={model}
-            onChange={(e) => onModel(e.target.value as BusModelId)}
-          >
-            {MODEL_IDS.map((id) => {
-              const locked = modelLocked(
-                BUS_MODELS[id],
-                sim.snapshot?.medals ?? NO_MEDALS,
-              );
-              return (
-                <option key={id} value={id} disabled={locked}>
-                  {BUS_MODELS[id].name} · {BUS_MODELS[id].seats} seats ·{" "}
-                  {usdK(BUS_MODELS[id].priceCents)}
-                  {locked ? " · locked" : ""}
-                </option>
-              );
-            })}
-          </select>
-      </label>
+      <div className="model">
+        <span>Buses</span>
+        <Dropdown
+          label="Buses"
+          testId="draft-model"
+          value={model}
+          options={MODEL_IDS.map((id) => {
+            const locked = modelLocked(BUS_MODELS[id], sim.snapshot?.medals ?? NO_MEDALS);
+            return {
+              value: id,
+              label: `${BUS_MODELS[id].name} · ${BUS_MODELS[id].seats} seats · ${usdK(BUS_MODELS[id].priceCents)}${locked ? " · locked" : ""}`,
+              disabled: locked,
+              ...(locked ? { hint: "A silver medal unlocks it" } : {}),
+            };
+          })}
+          onChange={(id: BusModelId) => onModel(id)}
+        />
+      </div>
       {!draft ? (
         <p className="hint">Click the map to place stops, or click a stop to use it.</p>
       ) : (

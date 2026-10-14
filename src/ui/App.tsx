@@ -239,6 +239,14 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [choose, send]);
 
+  // A panel shows only while no tool is in use, so opening one puts the tool down: with a tool still
+  // active, the panel opened unseen and the two blocked each other (the owner's initial playtest: "when
+  // you open 2 tabs, they conflict and you can't use it").
+  const openPanel = (next: Panel) => {
+    if (next !== "none") choose("none");
+    setPanel(next);
+  };
+
   const ready = sim.status === "ready";
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
   if (atHome)
@@ -397,14 +405,24 @@ export function App() {
           panel={panel}
           hasLines={(sim.snapshot?.lines.length ?? 0) > 0}
           onTool={choose}
-          onPanel={(next) => {
-            // A panel shows only while no tool is in use, so opening one puts the tool down: with a tool
-            // still active, the panel opened unseen and the two blocked each other (the owner's
-            // initial playtest: "when you open 2 tabs, they conflict and you can't use it").
-            if (next !== "none") choose("none");
-            setPanel(next);
-          }}
+          onPanel={openPanel}
         />
+      ) : null}
+      {ready && sim.snapshot?.company.name ? (
+        // Saves at the top, out of the dock (D25: "it can be placed at the top or something").
+        <button
+          type="button"
+          className="chip saves-chip"
+          aria-pressed={panel === "saves"}
+          data-testid="saves-chip"
+          data-chrome="rest"
+          onClick={() => openPanel(panel === "saves" ? "none" : "saves")}
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M4 4h10l2 2v10H4zM7 4v4h6V4M7 16v-5h6v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+          </svg>
+          Saves
+        </button>
       ) : null}
       <Notices sim={sim} />
       <FoundingCard sim={sim} />

@@ -41,7 +41,8 @@ const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly
 
 /**
  * The calm shell's dock (PLAN §8: 8 slots or fewer): Build, which opens a menu of its three tools
- * above it (D25), the lines' inspector, Finance and Saves. Picking a tool closes the menu; picking
+ * above it (D25), the lines' inspector and Finance. Saves is at the top (D25: "saves should not be one
+ * of the tabs at the bottom, it can be placed at the top"). Picking a tool closes the menu; picking
  * the tool already out puts it down.
  */
 export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; panel: Panel; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Panel) => void }) {
@@ -102,12 +103,6 @@ export function Dock({ tool, panel, hasLines, onTool, onPanel }: { tool: Tool; p
           <path d="M4 16V9M8 16V5M12 16v-5M16 16V7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
         Finance
-      </button>
-      <button type="button" aria-pressed={panel === 'saves'} onClick={() => onPanel(panel === 'saves' ? 'none' : 'saves')}>
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M4 4h10l2 2v10H4zM7 4v4h6V4M7 16v-5h6v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-        </svg>
-        Saves
       </button>
     </nav>
   );

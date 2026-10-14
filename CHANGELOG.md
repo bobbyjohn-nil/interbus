@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Riders weigh the wait: up to a bus every 12 minutes most of them time their trip to the timetable, but a bus every hour carries few, so a line pays best every 10 to 15 minutes.
 - Money can run out: a lender lets cash go down to -$150,000, charging 0.06% a day on what you owe as an Interest row, and turns away a purchase that would go further. A day that ends below the limit starts a red countdown chip ("5 days to get above -$150k"); five in a row and the lender calls in the loan, but Restart this quarter takes you back to the start of the quarter, or to the save you loaded during it.
 - Every eight days the quarter closes with a report card on the midnight card: Coverage, Reliability, Comfort and Money, each out of 100. A good card earns a grant from the city and a poor one a fine, as one of the day's rows.
-- Saves, in the dock: three slots to keep a game in beside the one that saves itself as you play, and Export and Import to keep a game as a file. A file the game cannot read is turned away with a note, and the game you are playing stays as it was.
+- Saves, at the top right: three slots to keep a game in beside the one that saves itself as you play, and Export and Import to keep a game as a file. A file the game cannot read is turned away with a note, and the game you are playing stays as it was.
 - A save made on an earlier map of Boston carries on when the map is updated, its stops moved onto the new map's streets. If a stop has no street near it any more, the save is kept aside and a note says so.
 - Undo while paused: the Undo chip (or Ctrl+Z, ⌘Z on a Mac) takes back the last thing you did since you paused, a depot, a line, a headway, a bus model, a fare or a stop, cash and all. Once the clock has run, it says so instead.
 - Finance, in the dock, in three views. Overview shows your cash, yesterday's and the quarter's running money, and a chart of every day since Day 0: cash as a line, and below it each day's money in and running costs as bars, with a mark on a day you bought or sold something; point at a day for its amounts. Breakdown lists every kind of money in and out for today, yesterday and this quarter, beside what a whole day is forecast to bring, adding up to the change in cash; each group's heading gives its totals and folds it, and Buying and building opens with a click. Lines lists each line's riders, fare and money, and opens a line to show what it earns and spends in a day.
@@ -83,6 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Finance says where the money goes, in plain words, under Money in, Rewards, Running costs and Buying and building: buses bought and sold, new stops, stop upgrades and stops sold back, and depots each have a row of their own instead of one Purchases row; "Bus fuel and maintenance" is the cost of every kilometre driven, "To and from the depot" replaces Deadhead, and each row's tooltip says what it covers. The midnight card uses the same names.
 - Finance opens on an overview with a chart of every day since Day 0, the table of every row is under Breakdown with Buying and building folded, and each line's money is under Lines.
 - Place a depot and Draw a line moved into Build, in the dock, beside Place a stop.
+- Saves moved out of the dock to a button at the top right.
+- The bus and headway menus on a line's panel and on the new-line card are the game's own, like the speed and fare menus; a locked bus is greyed out and says a silver medal unlocks it.
 - Extending a line from either end and inserting a stop, on a line's panel, are now Edit route, which also reorders the line and takes stops off it.
 - A line's fare and its day forecast moved from its card to Finance, under Lines. The line card says the fare and links there, and otherwise shows only the line.
 - Your starting cash is on Day 0, before the first day, so day 1's card and Finance's columns show only what day 1 earned and spent.
@@ -98,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - An amount of a few cents out reads $0, not -$0.
-- Opening Lines, Finance or Saves from the bottom bar while drawing a line or placing a depot now shows the panel and puts the tool down, instead of leaving the panel hidden behind the tool.
+- Opening Lines, Finance or Saves while drawing a line or placing a depot now shows the panel and puts the tool down, instead of leaving the panel hidden behind the tool.
 - A save set aside by a new build keeps a name of its own, so the next new build never writes over it.
 - Bus stops and depots no longer land on the Mass Pike, the I-93 tunnel or their ramps, which sent buses kilometres out of their way to the next exit and back.
 - Buses run both ways along the streets you choose instead of looping around blocks of one-way streets in Back Bay and downtown. Most short trips there now drive less than a third further than the straight line, and none more than two and a half times it.
