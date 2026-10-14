@@ -4,7 +4,7 @@
 // and Export still work; a context lost mid-game says so with Reload. `?gpu=` forces each rung.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
-import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 
 test.describe('the GPU ladder', () => {
@@ -24,10 +24,10 @@ test.describe('the GPU ladder', () => {
     // A line running at speed: the readout counts the frames drawn, never more than 30 a second (its
     // cap is gpu.test.ts's; this browser's software rendering is slower than the cap).
     await zoomOutOnce(page);
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.click(dx, dy);
-    await page.getByRole('button', { name: 'Draw a line' }).click();
+    await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);
       await page.mouse.click(x, y);

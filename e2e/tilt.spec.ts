@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { foundCompany } from './found';
+import { build } from './shell';
 
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown }[] };
 
@@ -134,7 +135,7 @@ test('with a tool out, a held double-click is clicks, not a tilt', async ({ page
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await foundCompany(page);
-  await page.getByRole('button', { name: 'Draw a line' }).click();
+  await build(page, 'Draw a line');
   const box = (await map.boundingBox())!;
   const [x, y] = [box.width / 2, box.height / 2];
   await doubleDown(page, x, y);

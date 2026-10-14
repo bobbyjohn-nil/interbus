@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
-import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 // The M2 spec's exit check as one game (I15): found, a depot on the green tint, four stops from
 // Copley to Longwood, Create, its buses running, a day whose cost rows land on the card and add up to
@@ -27,7 +27,7 @@ test.describe('the line tool on the fixture', () => {
     await zoomOutOnce(page);
 
     // A depot: the tint shows, the card reads the rule, a click buys it for $150k.
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     await expect(map).toHaveAttribute('data-tint', 'on');
     const spot = onDepotLand();
     const [dx, dy] = await toScreen(page, spot);
@@ -52,7 +52,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('checklist')).toHaveText('2/5 Draw a line');
 
     // The line: four clicks, the card's price, Create.
-    await page.getByRole('button', { name: 'Draw a line' }).click();
+    await build(page, 'Draw a line');
     const draft = page.getByTestId('draft-card');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);

@@ -11,7 +11,7 @@ const CAPS_ALLOWED = new Set(['2D', '3D', 'OSM', 'ODbL', 'Q1', 'Q2', 'Q3', 'Q4']
 export function copyProblem(text: string): string | null {
   const t = text.replace(/\s+/g, ' ').trim();
   if (!t) return null;
-  if (!/^[A-Z0-9$≈+\-−©·(“‘"…✓×]/u.test(t)) return 'starts in lower case';
+  if (!/^[A-Z0-9$≈+\-−©·(“‘"…✓×↑↓]/u.test(t)) return 'starts in lower case';
   const shouting = t.match(/\b[A-Z]{2,}\b/g)?.filter((w) => !CAPS_ALLOWED.has(w));
   if (shouting?.length) return `in capitals: ${shouting.join(', ')}`;
   if (/[A-Za-z]'[A-Za-z]/.test(t)) return 'a straight apostrophe';

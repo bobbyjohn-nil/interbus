@@ -1,12 +1,12 @@
 // I13 (PLAN §8, the M2 spec item 7): the calm shell covers 6% of the screen or less at rest and 26%
 // or less with a panel open, at 1440×900, 1366×768 and 1152×720, in the light theme. Chrome is every
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, the compass
-// and the demand chip, and the one panel (Home, the founding card, the demand menu, the draft card,
-// the inspector, a stop's card, Finance, Saves).
+// and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
+// the draft card, the inspector, the route editor, a stop's card, Finance, Saves).
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
-import { chromeShare, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, chromeShare, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 const SIZES = [
   [1440, 900],
@@ -41,12 +41,16 @@ test.describe('the screen budget (I13)', () => {
       shares.demand = await chromeShare(page);
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('demand-menu')).toHaveCount(0);
+      // The Build menu open (D25): a panel's budget.
+      await page.getByTestId('build').click();
+      await expect(page.getByTestId('build-menu')).toBeVisible();
+      shares.build = await chromeShare(page);
 
-      await page.getByRole('button', { name: 'Place a depot' }).click();
+      await build(page, 'Place a depot');
       const [dx, dy] = await toScreen(page, onDepotLand());
       await page.mouse.click(dx, dy);
       await expect(page.getByTestId('checklist')).toHaveText('2/5 Draw a line');
-      await page.getByRole('button', { name: 'Draw a line' }).click();
+      await build(page, 'Draw a line');
       for (const stop of DEBUG_STOPS) {
         const [x, y] = await toScreen(page, stop.at);
         await page.mouse.click(x, y);
@@ -56,6 +60,12 @@ test.describe('the screen budget (I13)', () => {
       await page.getByRole('button', { name: 'Create' }).click();
       await expect(page.getByTestId('inspector')).toBeVisible();
       shares.inspector = await chromeShare(page);
+      // The route editor (D25), its four stops listed: a panel's budget.
+      await page.getByRole('button', { name: 'Edit route' }).click();
+      await expect(page.getByTestId('route-editor').locator('li')).toHaveCount(4);
+      shares.routeEditor = await chromeShare(page);
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      await expect(page.getByTestId('inspector')).toBeVisible();
       await page.getByRole('button', { name: 'Close' }).click();
       shares.restWithLine = await chromeShare(page);
       // Finance: the depot, the line's stops and its buses are today's purchases, each a row (D25), and
@@ -100,7 +110,7 @@ test.describe('the screen budget (I13)', () => {
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'draft', 'inspector', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
 

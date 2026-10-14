@@ -9,6 +9,8 @@ describe('the copy convention', () => {
     expect(copyProblem('$1.75–$2.00')).toBeNull();
     expect(copyProblem('≈9,000 people within a walk')).toBeNull();
     expect(copyProblem('3/5 Draw a line')).toBeNull();
+    // A button that is only a symbol (D25's route editor): ×, ↑ and ↓ are not words.
+    expect(['×', '↑', '↓'].map(copyProblem)).toEqual([null, null, null]);
     expect(copyProblem('   ')).toBeNull();
   });
 

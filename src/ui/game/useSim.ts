@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, type SaveStore } from '../../platform';
 import { simOf, type City } from '../../cities';
-import type { BusModelId, DayCard, DepotSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
+import type { BusModelId, DayCard, DepotSiteView, StopSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
 import { LatestAsk } from './latest';
 
@@ -31,6 +31,8 @@ export interface Sim {
   readonly probe: (ProbeDot & { readonly within: number }) | null;
   /** The depot rule's verdict where the pointer last was, while placing a depot. */
   readonly depotSite: { readonly at: LngLatPair; readonly site: DepotSiteView } | null;
+  /** Where Place stop would put a stop at the pointer, or why not (D25). */
+  readonly stopSite: { readonly at: LngLatPair; readonly site: StopSiteView } | null;
   /** The fare band of the line last asked about. */
   readonly fareBand: { readonly lineId: number; readonly band: FareBandView | null } | null;
   /** The line rule's draft for the clicks last sent. */
@@ -50,8 +52,10 @@ export interface Sim {
   /** Asks about a demand dot; null clears the card and drops any answer still to come. */
   probeAt(dot: ProbeDot | null): void;
   depotSiteAt(at: LngLatPair | null): void;
+  stopSiteAt(at: LngLatPair | null): void;
   /** Asks for the draft card of these clicks, or of a line extended by them; an empty list clears it. */
-  draftFor(clicks: readonly LngLatPair[], model?: BusModelId, extend?: ExtendData): void;
+  /** A draft's card: a new line's clicks, or with `route`, that line's whole route as the editor has it (D25). */
+  draftFor(clicks: readonly LngLatPair[], model?: BusModelId, extend?: ExtendData, route?: number): void;
   /** Asks for a line's fare band; null forgets it. */
   fareBandFor(lineId: number | null): void;
   closeDayCard(): void;
@@ -66,6 +70,7 @@ export function useSim(city: City | undefined): Sim {
   const [probe, setProbe] = useState<Sim['probe']>(null);
   const [depotLand, setDepotLand] = useState<Sim['depotLand']>(null);
   const [depotSite, setDepotSite] = useState<Sim['depotSite']>(null);
+  const [stopSite, setStopSite] = useState<Sim['stopSite']>(null);
   const [draft, setDraft] = useState<LineDraftView | null>(null);
   const [fareBand, setFareBand] = useState<Sim['fareBand']>(null);
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
@@ -127,6 +132,10 @@ export function useSim(city: City | undefined): Sim {
             const at = sites.current.get(m.id);
             sites.current.delete(m.id);
             if (at && m.id === asked.current.site) setDepotSite({ at, site: m.site });
+          } else if (m.type === 'stop-site') {
+            const at = sites.current.get(m.id);
+            sites.current.delete(m.id);
+            if (at && m.id === asked.current.site) setStopSite({ at, site: m.site });
           } else if (m.type === 'line-draft') {
             if (m.id === asked.current.draft) setDraft(m.draft);
           } else if (m.type === 'fare-band') {
@@ -184,14 +193,24 @@ export function useSim(city: City | undefined): Sim {
     sites.current.set(id, at);
     worker.current?.postMessage({ type: 'depot-site', id, at } satisfies ToWorker);
   }, []);
-  const draftFor = useCallback((clicks: readonly LngLatPair[], model: BusModelId = 'sparrow', extend?: ExtendData) => {
+  const stopSiteAt = useCallback((at: LngLatPair | null) => {
+    if (!at) {
+      asked.current.site = 0;
+      return setStopSite(null);
+    }
+    const id = asked.current.next++;
+    asked.current.site = id;
+    sites.current.set(id, at);
+    worker.current?.postMessage({ type: 'stop-site', id, at } satisfies ToWorker);
+  }, []);
+  const draftFor = useCallback((clicks: readonly LngLatPair[], model: BusModelId = 'sparrow', extend?: ExtendData, route?: number) => {
     if (!clicks.length) {
       asked.current.draft = 0;
       return setDraft(null);
     }
     const id = asked.current.next++;
     asked.current.draft = id;
-    worker.current?.postMessage({ type: 'line-draft', id, clicks, model, ...(extend ? { extend } : {}) } satisfies ToWorker);
+    worker.current?.postMessage({ type: 'line-draft', id, clicks, model, ...(extend ? { extend } : {}), ...(route === undefined ? {} : { route }) } satisfies ToWorker);
   }, []);
   const fareBandFor = useCallback((lineId: number | null) => {
     if (lineId === null) {
@@ -211,5 +230,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, draft, fareBand, refusal, load, slots, setAside, loaded, send, probeAt, depotSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, fareBand, refusal, load, slots, setAside, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }

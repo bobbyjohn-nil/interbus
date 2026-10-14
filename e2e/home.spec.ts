@@ -3,7 +3,7 @@
 // and goes on with it; New game asks before it replaces that game, and the slots stay.
 import { expect, test } from '@playwright/test';
 import { foundCompany, leaveHome } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 test.describe('Home', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -20,7 +20,7 @@ test.describe('Home', () => {
     await foundCompany(page);
     const panel = page.getByTestId('sim-panel');
     await zoomOutOnce(page);
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.click(dx, dy);
     await expect(panel).toHaveAttribute('data-cash', '27720000');

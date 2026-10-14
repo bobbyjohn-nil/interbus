@@ -3,10 +3,11 @@ import { isExpress } from "../../sim/rules/express";
 import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
 import type { BusModelId } from "../../sim/types";
 import { refusalText } from "../copy";
-import { about, busCount, every, km, moreBuses, usdK } from "../format";
+import { about, busCount, every, km, usdK } from "../format";
 import type { Sim } from "./useSim";
 
-export type Tool = "none" | "depot" | "line";
+/** The Build menu's tools (D25): a stop on its own, a line, a depot; and the route editor, opened from a line. */
+export type Tool = "none" | "stop" | "line" | "depot" | "route";
 
 /** Founding headways (sim/config/lines.ts): the draft is priced at these until the headway card changes them. */
 const DRAFT_HEADWAY_SECONDS = 1_200;
@@ -37,19 +38,37 @@ export function DepotCard({
   );
 }
 
+/** Place stop's verdict beside the pointer (D25): "A Sign here · street 20 m away · $4k", or why not, as the command checks it (GD-05). */
+export function StopSiteCard({ sim, screen }: { sim: Sim; screen: [number, number] | null }) {
+  const verdict = sim.stopSite;
+  if (!verdict || !screen) return null;
+  const { site } = verdict;
+  return (
+    <div
+      className="probe-card"
+      style={{ left: screen[0] + 14, top: screen[1] + 14 }}
+      data-testid="stop-site-card"
+      data-ok={site.ok ? "yes" : "no"}
+      data-at={site.ok ? site.at.join(",") : ""}
+    >
+      {site.ok
+        ? `A Sign here · street ${site.streetM} m away · ${usdK(site.priceCents)}`
+        : site.reason === "stop_near" && site.stopId !== undefined
+          ? `Stop ${site.stopId} stands within ${site.limitM ?? 250} m: a line can use it`
+          : refusalText(site)}
+    </div>
+  );
+}
+
 /**
  * The line tool's card (the M2 spec, item 3): the stops so far, km, people within a walk, the model,
- * the buses it needs and the price, then Create. Extending a line (the M3 spec, item 14), it reads
- * the whole line as it would run and what the extension adds: its new stops and the buses its longer
- * round trip needs beyond those it has, at its model; then Extend. Inserting a stop (the M4 spec,
- * item 4), the same for one click on the line, with the metres it adds to its leg, warned when
- * that is over 15% of the leg; then Insert.
+ * the buses it needs and the price, then Create. A line's stops are changed in its route editor
+ * (D25; RouteEditor.tsx), which took over Extend and Insert.
  */
 export function DraftCard({
   sim,
   clicks,
   model,
-  extend = null,
   onModel,
   onCreate,
   onUndo,
@@ -58,12 +77,6 @@ export function DraftCard({
   sim: Sim;
   clicks: number;
   model: BusModelId;
-  /** The line being extended, or having a stop inserted, or null for a new line. */
-  extend?: {
-    readonly name: string;
-    readonly model: BusModelId;
-    readonly insert?: boolean;
-  } | null;
   onModel: (model: BusModelId) => void;
   onCreate: () => void;
   onUndo: () => void;
@@ -71,11 +84,7 @@ export function DraftCard({
 }) {
   const draft = clicks ? sim.draft : null;
   const refused = draft?.refusal ?? null;
-  const title = extend?.insert
-    ? `Insert a stop on ${extend.name}`
-    : extend
-      ? `Extend ${extend.name}`
-      : "New line";
+  const title = "New line";
   return (
     <section
       className="panel tool-card"
@@ -86,8 +95,7 @@ export function DraftCard({
       data-refusal={refused?.reason ?? ""}
     >
       <h2>{title}</h2>
-      {extend ? null : (
-        <label className="model">
+      <label className="model">
           Buses
           <select
             value={model}
@@ -107,16 +115,9 @@ export function DraftCard({
               );
             })}
           </select>
-        </label>
-      )}
+      </label>
       {!draft ? (
-        <p className="hint">
-          {extend?.insert
-            ? "Click the line where the stop goes."
-            : extend
-              ? "Click the map beyond the line to add stops."
-              : "Click the map to place stops."}
-        </p>
+        <p className="hint">Click the map to place stops, or click a stop to use it.</p>
       ) : (
         <>
           <p>
@@ -130,23 +131,7 @@ export function DraftCard({
             ) : null}
           </p>
           <p>{about(draft.people)} people within a walk</p>
-          {draft.detour && draft.detour.addedM > 0 ? (
-            <p
-              className={draft.detour.warn ? "refusal" : undefined}
-              data-testid="detour"
-              data-warn={draft.detour.warn ? "yes" : "no"}
-            >
-              {draft.detour.warn
-                ? `A long detour: ${Math.round(draft.detour.share * 100)}% longer on that leg, +${draft.detour.addedM} m`
-                : `+${draft.detour.addedM} m on that leg`}
-            </p>
-          ) : null}
-          {draft.buses > 0 && extend ? (
-            <p>
-              {moreBuses(draft.buses, BUS_MODELS[extend.model].name)} for its
-              longer round trip · {usdK(draft.busesCents)}
-            </p>
-          ) : draft.buses > 0 ? (
+          {draft.buses > 0 ? (
             <p>
               Running {every(DRAFT_HEADWAY_SECONDS)} needs{" "}
               {busCount(draft.buses, BUS_MODELS[model].name)} ·{" "}
@@ -173,7 +158,7 @@ export function DraftCard({
           onClick={onCreate}
           disabled={!draft || refused !== null}
         >
-          {extend?.insert ? "Insert" : extend ? "Extend" : "Create"}
+          Create
         </button>
         <button type="button" onClick={onUndo} disabled={!clicks}>
           Remove last stop

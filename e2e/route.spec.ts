@@ -1,16 +1,16 @@
-// Route edits on the page (the M3 spec, item 14): a stop's card takes it off a line, and the line's
-// card extends it. Symphony, on the debug line alone, comes down for half its $4k, the line runs on
-// three stops, and the undo chip puts it all back while paused (I9). Then the line grows a fifth stop
-// beyond Longwood, priced on the card as the command buys it.
+// Route edits on the page (the M3 spec, item 14; D25): a stop's card takes it off a line, and the
+// line's route editor grows it. Symphony, on the debug line alone, comes down for half its $4k, the
+// line runs on three stops, and the undo chip puts it all back while paused (I9). Then a click beyond
+// Longwood in the editor adds a fifth stop, priced on its card as Save route buys it.
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 test.describe('route edits', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
-  test('takes Symphony off the line for $2k back and puts it back, then extends the line beyond Longwood', async ({ page }) => {
+  test('takes Symphony off the line for $2k back and puts it back, then adds a stop beyond Longwood in the route editor', async ({ page }) => {
     test.setTimeout(90_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
@@ -21,7 +21,7 @@ test.describe('route edits', () => {
     await foundCompany(page);
     await zoomOutOnce(page);
 
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.evaluate(
       ([moves]) => {
@@ -34,7 +34,7 @@ test.describe('route edits', () => {
     await page.mouse.click(dx, dy);
     await expect(panel).toHaveAttribute('data-cash', '27720000');
 
-    await page.getByRole('button', { name: 'Draw a line' }).click();
+    await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);
       await page.mouse.click(x, y);
@@ -66,22 +66,28 @@ test.describe('route edits', () => {
     await expect(panel).toHaveAttribute('data-cash', '7120000');
     await expect.poll(async () => (await stops()).length).toBe(4);
 
-    // Extend from the Longwood end: one click beyond it, the card's price, then Extend.
+    // Edit route (D25): the line's four stops listed, a click beyond Longwood adds a fifth at the end,
+    // the card prices it, and Save route buys it.
     await page.getByRole('button', { name: 'Lines' }).click();
-    await page.getByRole('button', { name: `Extend from Stop ${placed[3]![0]}` }).click();
+    await page.getByRole('button', { name: 'Edit route' }).click();
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toContainText('Line 1’s route');
+    await expect(editor.locator('li')).toHaveCount(4);
+    await expect(editor.getByRole('button', { name: 'Save route' })).toBeDisabled(); // nothing changed yet
     const [ex, ey] = await toScreen(page, [-71.1085, 42.3395]);
     await page.mouse.click(ex, ey);
-    await expect(draft).toHaveAttribute('data-price', /\d/, { timeout: 10_000 });
-    await expect(draft).toContainText('Extend Line 1');
-    await expect(draft).toContainText('5 stops');
-    await expect(draft).toHaveAttribute('data-refusal', '');
-    const price = Number(await draft.getAttribute('data-price'));
+    await expect(editor.locator('li')).toHaveCount(5);
+    await expect(editor.getByTestId('route-stop-4')).toContainText('New stop');
+    await expect(editor).toContainText('5 stops', { timeout: 10_000 });
+    await expect(editor).toHaveAttribute('data-refusal', '');
+    const price = Number(await editor.getAttribute('data-price'));
     expect(price).toBeGreaterThanOrEqual(400_000); // the new stop, and a bus if the round trip needs one
-    await draft.getByRole('button', { name: 'Extend' }).click();
+    await editor.getByRole('button', { name: 'Save route' }).click();
     await expect(panel).toHaveAttribute('data-cash', String(7_120_000 - price));
     await expect.poll(async () => (await stops()).length).toBe(5);
     await expect(page.getByTestId('line-card')).toBeVisible(); // the inspector, as after Create
-    await expect(chip).toHaveText('Undo: Extend Line 1');
+    await expect(editor).toHaveCount(0);
+    await expect(chip).toHaveText('Undo: Line 1’s route');
     expect(errors).toEqual([]);
   });
 });

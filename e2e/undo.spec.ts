@@ -2,7 +2,7 @@
 // does the same, and once time has run the notice says why it cannot.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
-import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 test.describe('undo while paused', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -14,7 +14,7 @@ test.describe('undo while paused', () => {
     await foundCompany(page);
     await zoomOutOnce(page);
     const placeDepot = async () => {
-      await page.getByRole('button', { name: 'Place a depot' }).click();
+      await build(page, 'Place a depot');
       const [x, y] = await toScreen(page, onDepotLand());
       await page.mouse.click(x, y);
       await expect(panel).toHaveAttribute('data-cash', '27720000');

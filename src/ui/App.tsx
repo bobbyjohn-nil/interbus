@@ -3,14 +3,15 @@ import { CITIES } from "../cities";
 import { MapView, type DotKinds, type HoveredDot, type MapHit } from "../render/map/MapView";
 import { readDotPrefs, writeDotPrefs } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
-import type { BusModelId, ExtendData, LngLatPair, Speed } from "../sim/types";
+import type { BusModelId, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
 import { DayCard } from "./game/DayCard";
 import { FailureCard } from "./game/FailureCard";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
-import { DepotCard, DraftCard, type Tool } from "./game/Tools";
+import { RouteEditor, routeOf, type RoutePoint } from "./game/RouteEditor";
+import { DepotCard, DraftCard, StopSiteCard, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
@@ -29,10 +30,13 @@ export function App() {
   const [tool, setTool] = useState<Tool>("none");
   const [clicks, setClicks] = useState<LngLatPair[]>([]);
   const [draftModel, setDraftModel] = useState<BusModelId>("sparrow");
-  // The line the line tool is extending, if any, and how many stops it had when it started.
-  const [extending, setExtending] = useState<
-    (ExtendData & { readonly stops: number }) | null
-  >(null);
+  // The route editor's line and its stops as edited (D25); `saved` holds the line's stops as they were
+  // when Save route was pressed, so the editor closes once the line's stops change.
+  const [routing, setRouting] = useState<{
+    readonly lineId: number;
+    readonly points: RoutePoint[];
+    readonly saved: string | null;
+  } | null>(null);
   // One panel at a time on the right: the line tool's draft card, the lines' inspector, or a stop's card.
   const [panel, setPanel] = useState<Panel>("none");
   const [lineId, setLineId] = useState<number | null>(null);
@@ -42,7 +46,7 @@ export function App() {
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
   const [homeAt, setHomeAt] = useState<number | null>(0);
-  const { probeAt, depotSiteAt, draftFor, send } = sim;
+  const { probeAt, depotSiteAt, stopSiteAt, draftFor, send } = sim;
   // Play resumes the speed last played at, 600x the first time (D25).
   const [playSpeed, setPlaySpeed] = useState<Exclude<Speed, 0>>(PLAY_SPEED);
   const speedNow = sim.snapshot?.speed ?? 0;
@@ -78,14 +82,16 @@ export function App() {
   useEffect(() => {
     dotsRef.current = sim.dots;
   }, [sim.dots]);
-  const insertingRef = useRef(false);
+  // The stops as the sim sent them: a click on one while editing a route adds that stop exactly.
+  const stopsRef = useRef(sim.snapshot?.stops ?? []);
   useEffect(() => {
-    insertingRef.current = extending?.end === "insert";
-  }, [extending]);
+    stopsRef.current = sim.snapshot?.stops ?? [];
+  }, [sim.snapshot?.stops]);
   const onPointer = useCallback(
     (at: LngLatPair | null, point: [number, number] | null, dot: HoveredDot | null) => {
       setScreen(point);
       if (toolRef.current === "depot") depotSiteAt(at);
+      else if (toolRef.current === "stop") stopSiteAt(at);
       else if (toolRef.current === "none") {
         const exact = dot ? (dot.kind === "home" ? dotsRef.current?.homes : dotsRef.current?.jobs)?.[dot.i] : undefined;
         const key = dot && exact ? `${dot.kind}:${dot.i}` : null;
@@ -94,15 +100,19 @@ export function App() {
         probeAt(dot && exact ? { kind: dot.kind, at: [exact[0], exact[1]], here: exact[2] } : null);
       }
     },
-    [probeAt, depotSiteAt],
+    [probeAt, depotSiteAt, stopSiteAt],
   );
   const onClick = useCallback(
     (at: LngLatPair, hit: MapHit) => {
       if (toolRef.current === "depot") send({ type: "place-depot", at });
-      // Inserting a stop takes one click, the last one made.
-      else if (toolRef.current === "line")
-        setClicks((c) => (insertingRef.current ? [at] : [...c, at]));
-      else if (hit.stopId !== null) {
+      else if (toolRef.current === "stop") send({ type: "place-stop", at });
+      else if (toolRef.current === "line") setClicks((c) => [...c, at]);
+      else if (toolRef.current === "route") {
+        // A click on a stop adds that stop; elsewhere, a new one where the click is, at the end.
+        const stop = hit.stopId === null ? undefined : stopsRef.current.find((s) => s.id === hit.stopId);
+        const point: RoutePoint = stop ? { at: stop.at, stopId: stop.id } : { at, stopId: null };
+        setRouting((r) => (r ? { ...r, points: [...r.points, point] } : r));
+      } else if (hit.stopId !== null) {
         // A click on a stop opens its card; on a line, the line's inspector.
         setStopId(hit.stopId);
         setPanel("stop");
@@ -118,61 +128,55 @@ export function App() {
     (next: Tool) => {
       setTool((now) => (now === next ? "none" : next));
       setClicks([]);
-      setExtending(null);
+      setRouting(null);
       if (next !== "none") setPanel("none");
       hoveredRef.current = null;
       probeAt(null);
       depotSiteAt(null);
+      stopSiteAt(null);
     },
-    [probeAt, depotSiteAt],
+    [probeAt, depotSiteAt, stopSiteAt],
   );
 
-  useEffect(
-    () =>
+  // The draft card: a new line's clicks, or the route editor's whole route (D25).
+  const routePoints = routing?.points;
+  const routeLine = routing?.lineId;
+  useEffect(() => {
+    if (routePoints && routeLine !== undefined)
       draftFor(
-        clicks,
-        draftModel,
-        extending
-          ? { lineId: extending.lineId, end: extending.end }
-          : undefined,
-      ),
-    [clicks, draftModel, extending, draftFor],
-  );
-  const startExtend = useCallback(
-    (id: number, end: "start" | "end" | "insert") => {
-      const stops =
-        sim.snapshot?.lines.find((l) => l.id === id)?.stopIds.length ?? 0;
-      setTool("line");
+        routePoints.map((p) => p.at),
+        "sparrow",
+        undefined,
+        routeLine,
+      );
+    else draftFor(clicks, draftModel);
+  }, [clicks, draftModel, routePoints, routeLine, draftFor]);
+  const startRoute = useCallback(
+    (id: number) => {
+      const line = sim.snapshot?.lines.find((l) => l.id === id);
+      if (!line) return;
+      setTool("route");
       setClicks([]);
       setPanel("none");
-      setExtending({ lineId: id, end, stops });
+      setRouting({ lineId: id, points: routeOf(line), saved: null });
       hoveredRef.current = null;
       probeAt(null);
     },
     [sim.snapshot, probeAt],
   );
-  // An extension that lands closes the tool and shows the line, as a new line does: the line it
-  // extends gains stops.
-  const extendingLine = extending
-    ? (sim.snapshot?.lines.find((l) => l.id === extending.lineId) ?? null)
+  // Save route lands when the line's stops change: the editor closes and the line shows, as a new
+  // line does. A refusal leaves the line as it was and the editor open, its notice saying why.
+  const routingLine = routing
+    ? (sim.snapshot?.lines.find((l) => l.id === routing.lineId) ?? null)
     : null;
-  const extendedStops = extendingLine?.stopIds.length ?? 0;
-  const extendTarget = useRef<{ lineId: number; stops: number } | null>(null);
-  useEffect(() => {
-    extendTarget.current = extending
-      ? { lineId: extending.lineId, stops: extending.stops }
-      : null;
-  }, [extending]);
-  useEffect(() => {
-    const target = extendTarget.current;
-    if (!target || extendedStops <= target.stops) return;
-    extendTarget.current = null;
+  const routingStops = routingLine ? routingLine.stopIds.join(",") : null;
+  // During render, as the play speed follows the game (React's pattern for state that follows a prop).
+  if (routing && routing.saved !== null && routingStops !== null && routingStops !== routing.saved) {
     setTool("none");
-    setClicks([]);
-    setExtending(null);
-    setLineId(target.lineId);
+    setRouting(null);
+    setLineId(routing.lineId);
     setPanel("lines");
-  }, [extendedStops]);
+  }
 
   // A tool closes once its purchase lands: a new depot, or a new line.
   const started = sim.snapshot !== null;
@@ -287,7 +291,7 @@ export function App() {
         depots={sim.snapshot?.depots ?? []}
         tiltGesture={tool === "none"}
         event={sim.snapshot?.event ?? null}
-        draft={tool === "line" && clicks.length ? sim.draft : null}
+        draft={(tool === "line" && clicks.length) || (tool === "route" && routing) ? sim.draft : null}
         clock={
           sim.snapshot
             ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate, day: sim.snapshot.day }
@@ -306,38 +310,32 @@ export function App() {
       {tool === "none" ? <ProbeCard sim={sim} screen={screen} /> : null}
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" ? <DepotCard sim={sim} screen={screen} /> : null}
+      {tool === "stop" ? <StopSiteCard sim={sim} screen={screen} /> : null}
+      {tool === "route" && routing && routingLine ? (
+        <RouteEditor
+          sim={sim}
+          line={routingLine}
+          points={routing.points}
+          onPoints={(points) => setRouting({ ...routing, points, saved: null })}
+          onSave={() => {
+            setRouting({ ...routing, saved: routingLine.stopIds.join(",") });
+            send({ type: "set-route", lineId: routing.lineId, points: routing.points.map((p) => p.at) });
+          }}
+          onCancel={() => {
+            const id = routing.lineId;
+            choose("none");
+            setLineId(id);
+            setPanel("lines");
+          }}
+        />
+      ) : null}
       {tool === "line" ? (
         <DraftCard
           sim={sim}
           clicks={clicks.length}
           model={draftModel}
-          extend={
-            extendingLine && extending
-              ? {
-                  name: extendingLine.name,
-                  model: extendingLine.model,
-                  insert: extending.end === "insert",
-                }
-              : null
-          }
           onModel={setDraftModel}
-          onCreate={() =>
-            extending?.end === "insert"
-              ? clicks[0] &&
-                send({
-                  type: "insert-stop",
-                  lineId: extending.lineId,
-                  at: clicks[0],
-                })
-              : extending
-                ? send({
-                    type: "extend-line",
-                    lineId: extending.lineId,
-                    end: extending.end,
-                    clicks,
-                  })
-                : send({ type: "create-line", clicks, model: draftModel })
-          }
+          onCreate={() => send({ type: "create-line", clicks, model: draftModel })}
           onUndo={() => setClicks((c) => c.slice(0, -1))}
           onCancel={() => choose("none")}
         />
@@ -347,7 +345,7 @@ export function App() {
           sim={sim}
           lineId={lineId}
           onLine={setLineId}
-          onExtend={startExtend}
+          onEditRoute={startRoute}
           onFinance={(id) => {
             setFinanceLine(id);
             setPanel("finance");

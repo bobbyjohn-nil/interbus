@@ -56,6 +56,15 @@ describe('a stop’s card', () => {
     ]);
   });
 
+  it('says a stop placed on its own has no line yet, and takes it down for half its cost (D25)', () => {
+    const html = render({ lineIds: [], boardings: 0, alightings: 0, netCents: -400 });
+    expect(html).toContain('No line stops here yet');
+    expect(html).toContain('<button type="button">Take it down · $2k back</button>');
+    expect(html).not.toContain('board and');
+    expect(html).not.toContain('Nets');
+    expect(render({})).not.toContain('Take it down');
+  });
+
   it('takes the stop off each line on the route rule: half its price back when no other line calls, never below two stops (item 14)', () => {
     expect(render({})).toContain('<button type="button">Remove from Line 1 · $2k back</button>');
     expect(render({ lineIds: [1, 2] })).toContain('<button type="button">Remove from Line 1</button>');
