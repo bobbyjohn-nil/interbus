@@ -2,11 +2,11 @@
 
 The running handoff between Claude sessions. Every session reads it right after `CLAUDE.md`, and every pull request that merges updates it, so a new session or a fresh context window starts from here and loses nothing ([PR-06](history/lessons-ledger.md)). The plan is [PLAN.md](../PLAN.md); decisions are in [DECISIONS.md](DECISIONS.md).
 
-**Updated:** 2026-10-14, at `main` ad5082c, with `main` now protected (D24) and V1's site confirmed for P0: in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events, the 2D/3D chip, D2's guard, the slow-laptop run's busy scene, I14's first frame, the heap budget and the frame-rate steps in the playtest protocol. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
+**Updated:** 2026-10-14, at `main` cc57594, with `main` now protected (D24), V1's site confirmed for P0, and the owner's answers to D20 (rest), D21 and D22 recorded: in M5 everything that needs no one else is in: the spec, the save list, Home, the GPU ladder, the pacing run, I14 with events, the 2D/3D chip, D2's guard, the slow-laptop run's busy scene, I14's first frame, the heap budget and the frame-rate steps in the playtest protocol. What remains waits on the owner (the Nov 8 token pick, P1's notes Nov 16–22, the medal ladder by Nov 22, P2 Dec 12–13) or the artist's first file; see Waiting on the owner.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` ad5082c (832b67d's `?fps` readout, which names its camera, and CI in two jobs; then D24, `main` protected). Deploy preview run 38503185169's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` cc57594 (832b67d's `?fps` readout, which names its camera, and CI in two jobs; then D24, `main` protected, and V1's site confirmed). Deploy preview run 38504024833's live check found that SHA on the build chip and in `version.json`, with the map ready and filling the window and Home up. What it shows:
   - Boston with no transit on the map, flat or tilted with `T`, the 2D/3D chip or a right-drag (snapping flat below 12°, the buildings cross-fading), four buildings in five at their measured height; Low graphics (flat, 30 frames a second) where the map draws in software, a card asking for hardware acceleration where there is none, and `?fps` for the frame rate;
   - all of Inner Boston to play on (Boston, Cambridge, Somerville and Brookline), with the dots of its homes and jobs;
   - "people within a walk" at the pointer;
@@ -57,8 +57,8 @@ The running handoff between Claude sessions. Every session reads it right after 
   - a `v*` tag ruleset blocking update and deletion.
 - [x] Say whether V1's site still loads. It does (the owner, 2026-10-14), so P0 plays V1 there and nothing needs hosting on the preview (PLAN §14 item 6).
 - [ ] **P0, by Fri Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
-- [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §3, §3.1, §5, §6 and §10 and answer §12; commit `art/LICENSE.md`.
-- [ ] **D20, by Sun Oct 25:** the art's open licence (recommended CC BY 4.0).
+- [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §3, §3.1, §5, §6 and §10 and answer §12, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
+- [x] **D20 (rest), D21 and D22** (the owner, 2026-10-14; DECISIONS): the art under CC BY 4.0, credit "Miticept Studios"; the repo private on Sun Mar 14 2027, a week before the store page is public; the Steamworks and Apple accounts yours as an individual trading as Miticept Studios, with no company, and the Mac version sold only on Steam; the artist's PC for the Windows builds; the full release Tue Jun 29 2027. Still open: D20 (preview) and the GitHub plan, by Sun Feb 21 2027.
 - [ ] **Week 2 check:** "Does this look like Boston?" (PLAN §14 item 14).
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare the costs on **day 2's** card: day 1 opens at 05:00, after the first bus left the depot, so its wages and deadhead fall a little short of a whole day's forecast.

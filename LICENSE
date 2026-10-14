@@ -1,13 +1,15 @@
 Copyright (c) 2026 Miticept Studios. All rights reserved.
 
-The source code in this repository is not open source. It is published so it can be read; no
-licence is granted to copy, modify, distribute or use it, except as the law allows (D14, D20 in
-docs/DECISIONS.md).
+The source code in this repository is not open source. While the repository is public it can be
+read, but no licence is granted to copy, modify, distribute or use it, except as the law allows
+(D14, D20 in docs/DECISIONS.md).
 
 Parts of the repository carry their own licences:
 
-- The artist's models and art (art/) are under an open licence named in art/LICENSE.md once it
-  is chosen (D20).
+- The studio's own art (art/models/, art/store/ and the files generated from them in
+  public/models/) is under the Creative Commons Attribution 4.0 International licence
+  (CC BY 4.0), credit "Miticept Studios", named in art/LICENSE.md (D20); art/refs/ and anything
+  listed in art/CREDITS.md keep their own licences.
 - City map data is derived from OpenStreetMap, (c) OpenStreetMap contributors, available under the
   Open Database License (ODbL) 1.0, with building heights from Overture Maps (ODbL) and homes, jobs
   and commutes from the U.S. Census Bureau; the baked city files are published under the ODbL.
