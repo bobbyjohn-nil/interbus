@@ -9,7 +9,20 @@ import { fromSaveData, toSaveData } from './save/save';
 import type { SaveData } from './save/schema';
 import { recompute, type World } from './world';
 
-export type UndoCommand = 'place-depot' | 'create-line' | 'extend-line' | 'insert-stop' | 'set-headways' | 'set-model' | 'set-fare' | 'set-stop-tier' | 'remove-stop' | 'accept-contract';
+export type UndoCommand =
+  | 'place-depot'
+  | 'place-stop'
+  | 'take-down-stop'
+  | 'create-line'
+  | 'extend-line'
+  | 'insert-stop'
+  | 'set-route'
+  | 'set-headways'
+  | 'set-model'
+  | 'set-fare'
+  | 'set-stop-tier'
+  | 'remove-stop'
+  | 'accept-contract';
 
 /** What an undo would take back: the command and what it acted on, such as "Line 2" or "Stop 3". */
 export interface UndoLabel {

@@ -1,9 +1,11 @@
 // Where a click puts a stop (the M2 spec, item 3): joining a stop that already stands within 250 m,
 // as a transfer (EC-10), or else on the nearest street node. One predicate for the cursor card, the
-// draft card and Create (GD-05).
+// draft card and Create (GD-05); and where Place stop may put one on its own (D25).
+import { STOP_COST_CENTS } from '../config/economy';
 import { STOP_JOIN_M, STOP_STREET_REACH_M } from '../config/lines';
 import { distXY, type XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
+import { spendableCents } from './credit';
 
 /** What the predicate reads: the street nodes, and the stops standing (with any a draft has placed). */
 export interface StopSiteContext {
@@ -28,4 +30,24 @@ export function checkStopSite(ctx: StopSiteContext, at: XY): Result<StopPick, St
   const street = ctx.nearestNode(at, STOP_STREET_REACH_M);
   if (!street) return refuse('no_street_near', { limitM: STOP_STREET_REACH_M });
   return ok({ kind: 'new', node: street.node, at: street.at, distM: street.distM });
+}
+
+export type PlaceStopRefusal = 'stop_near' | StopRefusal | 'insufficient_funds';
+
+/**
+ * A stop placed on its own (D25: "options to place individual stops"): a Sign on the street nearest
+ * the click, standing alone until a line calls there. Where the line tool would join a stop already
+ * standing within STOP_JOIN_M, this refuses and names it, so two stops never stand where a line
+ * would see one.
+ */
+export function checkPlaceStop(
+  ctx: StopSiteContext & { readonly cashCents: number },
+  at: XY,
+): Result<{ readonly node: number; readonly at: XY; readonly distM: number; readonly priceCents: number }, PlaceStopRefusal, { limitM?: number; stopId?: number; shortCents?: number }> {
+  const site = checkStopSite(ctx, at);
+  if (!site.ok) return site;
+  if (site.kind === 'join') return refuse('stop_near', { limitM: STOP_JOIN_M, stopId: site.stopId });
+  const short = STOP_COST_CENTS - spendableCents(ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { shortCents: short });
+  return ok({ node: site.node, at: site.at, distM: site.distM, priceCents: STOP_COST_CENTS });
 }

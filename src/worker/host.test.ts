@@ -192,6 +192,36 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -2_380_000, lines: [{ buses: 3 }], floor: null });
   });
 
+  it('places a stop on its own, edits a route through it on the editor’s card and Set route, and takes down only a lone stop (D25)', () => {
+    const { host, last } = started();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    const huntington: [number, number] = [-71.0903, 42.33995]; // between Symphony and the MFA, over 250 m from each
+    host.handle({ type: 'stop-site', id: 5, at: huntington });
+    expect(last('stop-site')).toMatchObject({ id: 5, site: { ok: true, priceCents: 400_000 } });
+    host.handle({ type: 'place-stop', at: huntington });
+    const lone = last('snapshot')!.snapshot.stops[0]!;
+    expect(lone).toMatchObject({ lineIds: [], quiet: false, loss: false });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    const symphony = line.stopIds[1]!;
+    host.handle({ type: 'stop-site', id: 6, at: CLICKS[1]! });
+    expect(last('stop-site')).toMatchObject({ id: 6, site: { ok: false, reason: 'stop_near', limitM: 250, stopId: symphony } });
+    // The editor's card: Symphony swapped for the lone stop, nothing bought, Symphony down for $2k back.
+    const route: [number, number][] = [CLICKS[0]!, lone.at as [number, number], CLICKS[2]!, CLICKS[3]!];
+    host.handle({ type: 'line-draft', id: 7, clicks: route, route: line.id });
+    expect(last('line-draft')!.draft).toMatchObject({ newStops: 0, priceCents: 0, refusal: null, edit: { removed: [symphony], refundCents: 200_000 } });
+    const cash = last('snapshot')!.snapshot.cashCents;
+    host.handle({ type: 'set-route', lineId: line.id, points: route });
+    const after = last('snapshot')!.snapshot;
+    expect(after.lines[0]!.stopIds).toEqual([line.stopIds[0], lone.id, line.stopIds[2], line.stopIds[3]]);
+    expect(after.stops.some((s) => s.id === symphony)).toBe(false);
+    expect(after.cashCents).toBe(cash + 200_000);
+    host.handle({ type: 'take-down-stop', stopId: lone.id });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'take-down-stop', reason: 'stop_in_use', limit: 1 });
+    host.handle({ type: 'line-draft', id: 8, clicks: route, route: line.id });
+    expect(last('line-draft')!.draft.refusal).toEqual({ reason: 'no_change' });
+  });
+
   it('prices a model change on the line card’s rule: the starter cannot yet afford Metro 40s, and the Goliath is locked (the M3 spec, item 2)', () => {
     const { host, last } = started();
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
