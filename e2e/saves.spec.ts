@@ -5,6 +5,7 @@
 // or deleted.
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
+import { usd } from '../src/ui/format';
 import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
@@ -28,7 +29,7 @@ test.describe('saves: slots, export and import', () => {
     const saves = page.getByTestId('saves');
     await expect(page.getByTestId('slot-1')).toContainText('Empty');
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
-    await expect(page.getByTestId('slot-1')).toContainText('Day 1, 05:00 · Back Bay Transit · $324,548 · 0 lines · 0 buses');
+    await expect(page.getByTestId('slot-1')).toContainText(`Day 1, 05:00 · Back Bay Transit · ${usd(STARTING_CENTS - 15_000_000)} · 0 lines · 0 buses`);
     await expect(page.getByTestId('slot-1-when')).toHaveText(/^ · saved \w{3} \d{1,2}, \d\d:\d\d$/);
     const download = page.waitForEvent('download');
     await saves.getByRole('button', { name: 'Export this game' }).click();

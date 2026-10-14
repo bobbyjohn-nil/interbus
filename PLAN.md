@@ -110,7 +110,7 @@ No tutorial text: a profitable first line fits the starting cash and the best fo
 
 **Pacing targets** ([GD-10](docs/history/lessons-ledger.md)), scripted in week 9: first line in 3–5 minutes; profit by 8; second line after 15–25; report card by 20; Boston's top medal in 2–4 hours.
 
-**Call (D7): starting cash is derived:** k × a starter line's cost (a depot, four stops, the buses its daytime headways need), written once at founding as the first ledger row, so a retune never moves a save. k ≈ 1.2 gives V1's $310k ([X-09](docs/history/lessons-ledger.md)); week 9 tunes k within 1.0–1.8, held by I10 ([GD-11](docs/history/lessons-ledger.md)).
+**Call (D7): starting cash is derived:** k × a starter line's cost (a depot, four stops, the buses its daytime headways need), written once at founding as the first ledger row, so a retune never moves a save. k ≈ 1.2 gives V1's $310k ([X-09](docs/history/lessons-ledger.md)); week 9 tunes k within 1.0–1.8, held by I10 ([GD-11](docs/history/lessons-ledger.md)); tuned to 1.333 ($474,548) on 2026-10-14 (DECISIONS, Measured).
 
 ---
 

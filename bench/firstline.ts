@@ -3,10 +3,11 @@
 // either end, each in a new game with a depot on the nearest depot land, at the founding headways,
 // played for a quarter; the debug line beside them for reference, not counted. Prints what each costs
 // beside the founding capital, its second day's net and the first day it closes in profit; exits 1
-// when no first line found without the debug line both fits the starting cash and turns a daily profit
-// within a quarter, or when the cheapest four-bus line costs under 1.15x the starting cash. Its best
-// line's day-2 net is one of Boston's balance bands (the M5 spec, item 2; EC-12), held at $1,500–$3,500
-// (measured $2,523 at the tuning freeze). `npm run bench firstline`; nightly on GitHub's runner too.
+// when the best first line found without the debug line that turns a daily profit within a quarter
+// does not fit the starting cash, or there is none, or when a four-bus line of the starter's shape (a
+// depot, four stops, four Sparrows) costs under 1.15x the starting cash. Its best line's day-2 net is
+// one of Boston's balance bands (the M5 spec, item 2; EC-12), held at $1,500–$3,500 (measured $2,523
+// at the tuning freeze). `npm run bench firstline`; nightly on GitHub's runner too.
 import { createLine } from '../src/sim/commands/createLine';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { placeDepot } from '../src/sim/commands/placeDepot';
@@ -65,13 +66,16 @@ for (const r of rows) {
 }
 const found = rows.filter((r) => r.name !== 'the debug line');
 const fits = found.filter((r) => r.cost <= capital);
-const profitable = fits.filter((r) => r.profitDay !== null);
+// The best profitable line among all of them, then whether it fits, as PLAN §5 words I10: a line
+// that profits best but costs more than the starting cash fails here, not passes over to the next.
+const profitable = found.filter((r) => r.profitDay !== null);
 const best = profitable[0];
 const fourBus = DEPOT_COST_CENTS + STARTER_STOPS * STOP_COST_CENTS + 4 * SPARROW.priceCents;
-console.log(`${fits.length} of ${found.length} fit the founding capital; ${profitable.length} of those turn a day's profit within a quarter; the best: ${best ? `${best.name}, ${usd(best.net)} on day 2` : 'none'}`);
-console.log(`the cheapest four-bus line, ${usd(fourBus)}, costs ${(fourBus / capital).toFixed(4)}× the founding capital (I10: 1.15× or more)`);
+console.log(`${fits.length} of ${found.length} fit the founding capital; ${profitable.length} turn a day's profit within a quarter; the best: ${best ? `${best.name}, ${usd(best.cost)}, ${usd(best.net)} on day 2` : 'none'}`);
+console.log(`a four-bus line of the starter's shape, ${usd(fourBus)}, costs ${(fourBus / capital).toFixed(4)}× the founding capital (I10: 1.15× or more)`);
 const missed: string[] = [];
-if (!best) missed.push('no first line fits the starting cash and profits within a quarter');
+if (!best) missed.push('no first line turns a daily profit within a quarter');
+else if (best.cost > capital) missed.push(`the best profitable first line, ${best.name}, costs ${usd(best.cost)}, more than the starting cash`);
 if (fourBus * 100 < capital * 115) missed.push('the four-bus line costs under 1.15× the starting cash');
 if (best && (best.net < BEST_NET_BAND_CENTS[0] || best.net > BEST_NET_BAND_CENTS[1])) missed.push(`the best first line's day 2 ${usd(best.net)} is outside ${usd(BEST_NET_BAND_CENTS[0])}–${usd(BEST_NET_BAND_CENTS[1])}`);
 if (missed.length > 0) {

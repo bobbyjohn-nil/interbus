@@ -83,7 +83,7 @@ test('the busy scene’s heaps grow at most 10% over 30 minutes at 2,700×', asy
   const end = await heaps();
   const growth = total(end) / total(start) - 1;
   const mb = (b: number) => (b / 1e6).toFixed(1);
-  const report = `${scene.buses} buses on ${city.extent}, game days ${fromDay.toFixed(1)}–${(await dayAt()).toFixed(1)} in ${MINUTES} min at 2×: ${Object.keys(start)
+  const report = `${scene.buses} buses on ${city.extent}, game days ${fromDay.toFixed(1)}–${(await dayAt()).toFixed(1)} in ${MINUTES} min at 2,700×: ${Object.keys(start)
     .map((k) => `${k} ${mb(start[k]!)} → ${mb(end[k] ?? 0)} MB`)
     .join(', ')}; total ${mb(total(start))} → ${mb(total(end))} MB, ${(growth * 100).toFixed(1)}%`;
   console.log(report);

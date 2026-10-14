@@ -31,7 +31,7 @@ The plan's two checks: "Home → founding → a profitable day" (week 10), and "
 | Dec 7–13 | Week 9, 5 sessions: the tuning freeze; pacing; Home; the save list; the GPU ladder; the model viewer (≤1.5). **P2 Dec 12–13** (the owner and the artist) |
 | Dec 14–20 | Week 10, 5 sessions: P2's fixes first; the 2D/3D chip, drag, snap and cross-fade; the light style pass; the slow-laptop run. **The `prototype` tag Sun Dec 20** (D16: not a version), on the commit the owner signs off; **D19 revisited** the same day |
 
-Work starts now, ahead of the calendar. The pacing harness and the shell come first; the tuning waits for P1's notes (Nov 16–22) and freezes on Dec 13.
+Work starts now, ahead of the calendar. The pacing harness and the shell come first; the tuning starts ahead of P1 under D25's clearance, takes P1's notes (Nov 16–22) in, and freezes on Dec 13.
 
 ## Above the cut line
 
@@ -86,7 +86,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 7. **P2's fixes** (Dec 12–13). The notes go in `docs/playtests/`, and their fixes come first in week 10.
 8. **The light style pass** (D8; PLAN §8 rules 1–5). It applies the owner's Nov 8 token pick, keeps the palette and contrast tests green, and puts a side-by-side with V1 in the milestone's notes.
 9. **The slow-laptop run** (PLAN §6 budgets): 2D must hold ≥30 fps on the slowest machine with 200 buses, and 3D at zoom 17, pitch 60 must hold ≥30. Under that, PLAN §10's trigger applies in this order: a 3D zoom floor of 14.5, no extrusion gradient, pitch capped at 50°.
-   - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7). Its heaps grow 1.0% over 30 minutes at 2× (≤10%), checked nightly.
+   - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7). Its heaps grew 1.0% over 30 minutes at 1,800× (≤10%), checked nightly, at 2,700× since the tuning freeze.
 
 10. **The owner's initial playtest** (2026-10-14; DECISIONS D25, which wins over this spec where they differ; [notes](../playtests/2026-10-14-owner-first-look.md)). In order, each a small PR:
     - routes without loops;
@@ -118,7 +118,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 | Days to a second line | 6–10 game days (V1: about 15, unchecked); measured 28–33 on Inner Boston at k 1.333: the founding line nets about $1,100 a day and no contract it can meet comes before day 27, so the speed ladder, not the economy, brings it into PLAN's minutes (DECISIONS, Measured, 2026-10-14) | Item 1, GD-10 |
 | Bronze and silver | bronze in the first quarter; silver about day 23–41 (the fixture: two lines, one line) | M4's medals bench |
 | Gold on Inner Boston | 5,000 trips a day needs about eight lines like the debug line (610 a day on the fixture); within 2–4 hours if the ladder holds | Item 2, §3 |
-| k after tuning | 1.0–1.8 (now 1.333, I10's cap: the cheapest four-bus line costs 1.1506× the starting cash) | I10 |
+| k after tuning | 1.0–1.8 (now 1.333, I10's cap: a four-bus line of the starter's shape costs 1.1506× the starting cash) | I10 |
 | Home and the save list in the menu chunk | within 200 KiB gzip | PLAN §6 |
 | Low graphics | 30 fps cap, 2D only | PLAN §6 |
 | I13 with the compass and the demand chip | ≤6% at rest at 1152×720 late in a game; 0.04% is left today | Item 6 |

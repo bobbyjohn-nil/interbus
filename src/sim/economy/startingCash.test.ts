@@ -1,8 +1,11 @@
 // I10's money clauses after the k tune (PLAN §5 and §6; D7; the M5 spec's tests; GD-11), on the
 // fixture (Inner Boston's are `npm run bench firstline`, nightly): the best profitable first line a
-// player could draw fits the starting cash and turns a daily profit within a quarter; the cheapest
-// four-bus line, and so any four-bus line the sweep finds, costs at least 1.15x it, so the middle game
-// still has to be earned; and k stays in D7's 1.0-1.8. The first line is found without the reference
+// player could draw fits the starting cash and turns a daily profit within a quarter; a four-bus line
+// of the starter's shape (a depot, four stops, four Sparrows), which stands for the sweep's best
+// four-bus line as PLAN §5 words it, costs at least 1.15x it, so the middle game still has to be
+// earned; and k stays in D7's 1.0-1.8. A two- or three-stop line run every few minutes can carry four
+// Sparrows for less ($538,000 to $542,000, 1.134x to 1.142x): holding it too would cap k at 1.314,
+// which put Inner Boston's second line late on a seed 1.333 keeps on time (DECISIONS, Measured). The first line is found without the reference
 // line (the debug line): each of Copley to Kenmore's and Kenmore to Longwood's corridor lines is drawn
 // in a new game with a depot near its first stop, at the founding headways, and played for a quarter.
 // Shown failing (TS-04): at k 1.334 the four-bus line costs 1.1497x the starting cash; and at a fare
@@ -70,7 +73,7 @@ describe('I10, the starting cash against the lines it buys (D7, GD-11)', () => {
     expect(lines.filter((l) => l.profitDay !== null)).toEqual([]);
   });
 
-  it('leaves the cheapest four-bus line (a depot, four stops, four Sparrows: $546,000) at 1.15x the starting cash or more', () => {
+  it('leaves a four-bus line of the starter’s shape (a depot, four stops, four Sparrows: $546,000) at 1.15x the starting cash or more', () => {
     const fourBusCents = DEPOT_COST_CENTS + STARTER_STOPS * STOP_COST_CENTS + 4 * SPARROW.priceCents;
     expect(fourBusCents).toBe(54_600_000);
     expect(fourBusCents * 100).toBeGreaterThanOrEqual(foundingCapitalCents() * 115);

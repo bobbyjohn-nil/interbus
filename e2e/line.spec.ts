@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
+import { usd } from '../src/ui/format';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
@@ -19,7 +20,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     // Home first (the M5 spec, item 3), then step 1: name and colour the company; cash reads the founding capital.
     await leaveHome(page);
-    await expect(page.getByTestId('founding-card')).toContainText('Starting cash: $474,548');
+    await expect(page.getByTestId('founding-card')).toContainText(`Starting cash: ${usd(STARTING_CENTS)}`);
     await foundCompany(page);
     await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS));
     await expect(page.getByTestId('checklist')).toHaveText('1/5 Place a depot');
@@ -68,7 +69,7 @@ test.describe('the line tool on the fixture', () => {
     await page.getByRole('option', { name: /^Metro 40 · / }).click();
     await expect(draft).toContainText('Running every 20 min needs 2 Metro 40s · $520k');
     await expect(draft).toHaveAttribute('data-refusal', 'insufficient_funds');
-    await expect(draft).toContainText('$61,452 short'); // $536k against the $324,548 left and the $150k credit line (D10)
+    await expect(draft).toContainText(`${usd(53_600_000 - (STARTING_CENTS - 15_000_000) - 15_000_000)} short`); // $536k against the cash left and the $150k credit line (D10)
     await draft.getByRole('button', { name: 'Buses' }).click();
     await page.getByRole('option', { name: /^Sparrow · / }).click();
     await expect(draft).toHaveAttribute('data-refusal', '');
