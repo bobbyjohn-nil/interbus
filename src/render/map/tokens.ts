@@ -44,7 +44,7 @@ export interface GameTokens {
   readonly depotLand: string;
   /** A depot on the map. */
   readonly depotMark: string;
-  /** A line still being drawn, before Create. */
+  /** A line still being drawn, before Create, and a stop placed on its own, until a line calls there (D25). */
   readonly draft: string;
   /** The warning colour: a QUIET or LOSS stop's ring and word (the M3 spec, item 5), and a city event's street and words (the M4 spec, item 2). */
   readonly stopFlag: string;

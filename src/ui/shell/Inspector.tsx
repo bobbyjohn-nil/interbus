@@ -3,22 +3,23 @@ import type { Sim } from "../game/useSim";
 
 /**
  * The line inspector (the M2 spec, item 7): one line's card and its headways. Its money and its fare
- * are in Finance's Lines (D25: "the menu where you see lines should only have information about the
- * line, no finances"), a button away.
+ * are in Finance's Lines, and its stops are changed in its route editor (D25: "the menu where you see
+ * lines should only have information about the line, no finances or route editing there"), each a
+ * button away.
  */
 export function Inspector({
   sim,
   lineId,
   onLine,
-  onExtend,
+  onEditRoute,
   onFinance,
   onClose,
 }: {
   sim: Sim;
   lineId: number | null;
   onLine: (id: number) => void;
-  /** Starts the line tool beyond one end of a line (the M3 spec, item 14). */
-  onExtend: (lineId: number, end: "start" | "end" | "insert") => void;
+  /** Opens the line's route editor (D25). */
+  onEditRoute: (lineId: number) => void;
   /** Opens Finance's Lines on this line. */
   onFinance: (lineId: number) => void;
   onClose: () => void;
@@ -59,14 +60,8 @@ export function Inspector({
       ) : null}
       <LineCard key={line.id} sim={sim} line={line} onFinance={() => onFinance(line.id)} />
       <div className="controls">
-        <button type="button" onClick={() => onExtend(line.id, "start")}>
-          Extend from Stop {line.stopIds[0]}
-        </button>
-        <button type="button" onClick={() => onExtend(line.id, "end")}>
-          Extend from Stop {line.stopIds.at(-1)}
-        </button>
-        <button type="button" onClick={() => onExtend(line.id, "insert")}>
-          Insert a stop
+        <button type="button" onClick={() => onEditRoute(line.id)}>
+          Edit route
         </button>
       </div>
     </aside>

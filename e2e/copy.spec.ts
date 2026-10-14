@@ -7,7 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { copyProblems } from '../src/ui/copyRules';
 import { foundCompany, leaveHome } from './found';
-import { city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 /** The words on screen a player reads as labels, and every tooltip and accessible name. */
 function screenWords(page: Page): Promise<string[]> {
@@ -61,14 +61,31 @@ test.describe('the copy convention', () => {
     await read('speed menu');
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await page.getByTestId('build').click();
+    await read('build menu');
+    // A stop placed on its own (D25): the card at the pointer, and the lone stop's card.
+    await build(page, 'Place a stop');
+    const [hx, hy] = await toScreen(page, [-71.0903, 42.33995]);
+    await page.mouse.move(hx - 20, hy);
+    await page.mouse.move(hx, hy, { steps: 3 });
+    await expect(page.getByTestId('stop-site-card')).toHaveAttribute('data-ok', 'yes', { timeout: 10_000 });
+    await read('stop site card');
+    await page.mouse.click(hx, hy);
+    await page.keyboard.press('Escape');
+    await expect(async () => {
+      await page.mouse.click(hx, hy);
+      await expect(page.getByTestId('stop-card')).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await read('lone stop card');
+    await page.getByRole('button', { name: 'Close' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.move(dx - 20, dy);
     await page.mouse.move(dx, dy, { steps: 3 });
     await expect(page.getByTestId('depot-card')).toHaveAttribute('data-ok', 'yes', { timeout: 10_000 });
     await read('depot card');
     await page.mouse.click(dx, dy);
-    await page.getByRole('button', { name: 'Draw a line' }).click();
+    await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);
       await page.mouse.click(x, y);
@@ -78,6 +95,11 @@ test.describe('the copy convention', () => {
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByTestId('inspector')).toBeVisible();
     await read('line panel');
+    await page.getByRole('button', { name: 'Edit route' }).click();
+    await page.getByTestId('route-editor').getByRole('button', { name: /^Remove / }).first().click();
+    await expect(page.getByTestId('route-editor')).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    await read('route editor');
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('button', { name: 'Close' }).click();
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await read('finance');

@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { replaySession } from '../src/worker/replay';
 import { foundCompany } from './found';
-import { city, onDepotLand, setFare, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, setFare, setSpeed, toScreen, zoomOutOnce } from './shell';
 
 test.describe('the camera and the sim (D2)', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -21,10 +21,10 @@ test.describe('the camera and the sim (D2)', () => {
     await expect(map).toHaveAttribute('data-graphics', 'full');
     await foundCompany(page);
     await zoomOutOnce(page);
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.click(dx, dy);
-    await page.getByRole('button', { name: 'Draw a line' }).click();
+    await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);
       await page.mouse.click(x, y);

@@ -86,3 +86,10 @@ export async function setFare(page: Page, line: string, fare: string): Promise<v
   await expect(page.getByRole('button', { name: `Fare for ${line}` })).toContainText(fare);
   await page.getByTestId('finance').getByRole('button', { name: 'Close' }).click();
 }
+
+/** Picks a tool from the dock's Build menu (D25), opening the menu first. */
+export async function build(page: Page, tool: 'Place a stop' | 'Draw a line' | 'Place a depot'): Promise<void> {
+  const menu = page.getByTestId('build-menu');
+  if (!(await menu.isVisible())) await page.getByTestId('build').click();
+  await menu.getByRole('button', { name: tool }).click();
+}

@@ -6,7 +6,7 @@
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 test.describe('saves: slots, export and import', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -18,7 +18,7 @@ test.describe('saves: slots, export and import', () => {
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
     await zoomOutOnce(page);
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.click(dx, dy);
     await expect(panel).toHaveAttribute('data-cash', '27720000');
@@ -38,7 +38,7 @@ test.describe('saves: slots, export and import', () => {
 
     // A line, then slot 1 back: the line is gone and the cash is the slot's.
     await page.getByRole('button', { name: 'Close' }).click();
-    await page.getByRole('button', { name: 'Draw a line' }).click();
+    await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);
       await page.mouse.click(x, y);

@@ -1,7 +1,8 @@
-// Route insert (the M4 spec, item 4; exit check 3): paused with the debug line's buses out, insert a
-// stop between Symphony and the MFA from the line card. The draft card prices it, Insert adds it, no
-// bus on the map moves more than a few metres at the click, and one undo takes it back with every
-// bus where it was. The vehicle layer writes where it draws each bus while paused (TS-07).
+// Route insert (the M4 spec, item 4; exit check 3), now in the route editor (D25): paused with the
+// debug line's buses out, a click on Huntington Avenue adds a stop at the end of the list, two moves up
+// put it between Symphony and the MFA, the editor's card prices it, Save route adds it, no bus on the
+// map moves more than a few metres, and one undo takes it back with every bus where it was. The
+// vehicle layer writes where it draws each bus while paused (TS-07).
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
@@ -62,17 +63,20 @@ test.describe('route insert', () => {
     const before = await settled(page, 0, 4);
     expect(before.at.length).toBe(3);
 
-    // Insert a stop on Huntington Avenue from the line card.
+    // A stop on Huntington Avenue, moved between Symphony and the MFA in the route editor.
     await page.getByRole('button', { name: 'Lines' }).click();
-    await page.getByRole('button', { name: 'Insert a stop' }).click();
-    const draft = page.getByTestId('draft-card');
-    await expect(draft).toContainText('Insert a stop on Line 1');
+    await page.getByRole('button', { name: 'Edit route' }).click();
+    const editor = page.getByTestId('route-editor');
     const [x, y] = await toScreen(page, ON_HUNTINGTON);
     await page.mouse.click(x, y);
-    await expect(draft).toContainText('5 stops', { timeout: 10_000 });
-    await expect(draft).toHaveAttribute('data-refusal', '');
-    await expect(draft).toHaveAttribute('data-price', '400000');
-    await draft.getByRole('button', { name: 'Insert' }).click();
+    await expect(editor.locator('li')).toHaveCount(5);
+    await editor.getByRole('button', { name: 'Move New stop up' }).click();
+    await editor.getByRole('button', { name: 'Move New stop up' }).click();
+    await expect(editor.locator('li .name')).toHaveText(['Stop 1', 'Stop 2', 'New stop', 'Stop 3', 'Stop 4']);
+    await expect(editor).toContainText('5 stops', { timeout: 10_000 });
+    await expect(editor).toHaveAttribute('data-refusal', '');
+    await expect(editor).toHaveAttribute('data-price', '400000');
+    await editor.getByRole('button', { name: 'Save route' }).click();
     const after = await settled(page, before.frames, 5);
     expect(after.at.length).toBe(3);
     expect(largestMove(before.at, after.at)).toBeLessThanOrEqual(5);
@@ -80,7 +84,7 @@ test.describe('route insert', () => {
 
     // One undo takes it back, every bus where it was.
     const chip = page.getByTestId('undo');
-    await expect(chip).toHaveText('Undo: Insert a stop on Line 1');
+    await expect(chip).toHaveText('Undo: Line 1’s route');
     await chip.click();
     const undone = await settled(page, after.frames, 4);
     expect(largestMove(before.at, undone.at)).toBeLessThanOrEqual(5);

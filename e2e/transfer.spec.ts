@@ -5,7 +5,7 @@
 // measured). Shown failing (TS-04) with no changes: the card reads ≈200 boarding and no change.
 import { expect, test } from '@playwright/test';
 import { foundCompany } from './found';
-import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 const COPLEY: [number, number] = [-71.077, 42.3499];
 const KENMORE: [number, number] = [-71.09721, 42.34883];
@@ -25,7 +25,7 @@ test.describe('a change of line', () => {
     await expect(page.getByTestId('sim-panel')).toBeVisible();
     await zoomOutOnce(page);
 
-    await page.getByRole('button', { name: 'Place a depot' }).click();
+    await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.evaluate(
       ([moves]) => {
@@ -40,7 +40,7 @@ test.describe('a change of line', () => {
 
     // Two lines, each Created from its card; the second's first click lands on the first's stop at Kenmore.
     for (const stops of [[COPLEY, KENMORE], [KENMORE, LONGWOOD]]) {
-      await page.getByRole('button', { name: 'Draw a line' }).click();
+      await build(page, 'Draw a line');
       for (const stop of stops) {
         const [x, y] = await toScreen(page, stop);
         await page.mouse.click(x, y);

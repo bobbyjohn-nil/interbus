@@ -1,5 +1,5 @@
 // The game's layers on the map: depot land and depots, demand dots (where people live and work, each
-// kind shown or hidden by the player), the lines with their stops and the stops' QUIET and LOSS flags,
+// kind shown or hidden by the player), the lines with their stops, stops placed on their own, and the stops' QUIET and LOSS flags,
 // the line being drawn, and a city event's street, hatched while pending and solid while on. Contracts
 // draw no rings: the Contracts panel lists every offer (D25). GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
@@ -19,10 +19,10 @@ export const EVENTS = 'events';
 export const DOT_LAYERS = ['dots-homes', 'dots-jobs'] as const;
 /** Each kind of dot's layer. */
 export const DOT_LAYER: Readonly<Record<DotKind, (typeof DOT_LAYERS)[number]>> = { home: 'dots-homes', job: 'dots-jobs' };
-export const LINE_LAYERS = ['lines-route', 'lines-stops'] as const;
+export const LINE_LAYERS = ['lines-route', 'lines-stops', 'stops-lone'] as const;
 export const FLAG_LAYERS = ['stops-flag-ring', 'stops-flag-word'] as const;
 export const TINT_LAYERS = ['depot-land-fill', 'depot-land-edge'] as const;
-export const DRAFT_LAYERS = ['draft-rings', 'draft-route', 'draft-stops'] as const;
+export const DRAFT_LAYERS = ['draft-rings', 'draft-route', 'draft-stops', 'draft-order'] as const;
 export const EVENT_LAYERS = ['event-pending', 'event-on', 'event-label'] as const;
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
@@ -86,6 +86,19 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8],
     },
   });
+  // A stop placed on its own (D25): ringed in the draft's ink, as a line not yet running is, until a line calls there.
+  map.addLayer({
+    id: 'stops-lone',
+    type: 'circle',
+    source: LINES,
+    filter: ['==', ['get', 'kind'], 'lone'],
+    paint: {
+      'circle-color': t.stopFill,
+      'circle-stroke-color': t.draft,
+      'circle-stroke-width': 2,
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8],
+    },
+  });
   // A flagged stop: a ring in the flag's colour around it, and the word above it.
   map.addLayer({
     id: 'stops-flag-ring',
@@ -118,7 +131,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 6, 16, 11],
     },
   });
-  // The draft: each stop's walk ring in the residents' colour, the route dashed, the stops hollow.
+  // The draft: each stop's walk ring in the residents' colour, the route dashed, the stops hollow and numbered.
   map.addLayer({ id: 'draft-rings', type: 'fill', source: DRAFT, filter: ['==', ['get', 'kind'], 'ring'], paint: { 'fill-color': t.homeDot, 'fill-opacity': 0.08, 'fill-outline-color': t.homeDot } });
   map.addLayer({
     id: 'draft-route',
@@ -140,6 +153,15 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-stroke-width': ['case', ['get', 'joins'], 4, 2],
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8],
     },
+  });
+  // Each stop's place in the draft, as the route editor numbers its list (D25).
+  map.addLayer({
+    id: 'draft-order',
+    type: 'symbol',
+    source: DRAFT,
+    filter: ['==', ['get', 'kind'], 'stop'],
+    layout: { 'text-field': ['to-string', ['get', 'n']], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -0.9], 'text-allow-overlap': true },
+    paint: { 'text-color': t.draft, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
   });
 }
 
@@ -174,7 +196,7 @@ export function setDraft(map: MapLibreMap, draft: LineDraftView | null): void {
     ? [
         ...draft.stops.map((s) => ({ type: 'Feature' as const, properties: { kind: 'ring' }, geometry: { type: 'Polygon' as const, coordinates: [ring(s.at, draft.walkM)] } })),
         ...(draft.route.length > 1 ? [{ type: 'Feature' as const, properties: { kind: 'route' }, geometry: { type: 'LineString' as const, coordinates: draft.route.map((p) => [...p]) } }] : []),
-        ...draft.stops.map((s) => ({ type: 'Feature' as const, properties: { kind: 'stop', joins: s.joins !== null }, geometry: { type: 'Point' as const, coordinates: [...s.at] } })),
+        ...draft.stops.map((s, k) => ({ type: 'Feature' as const, properties: { kind: 'stop', joins: s.joins !== null, n: k + 1 }, geometry: { type: 'Point' as const, coordinates: [...s.at] } })),
       ]
     : [];
   (map.getSource(DRAFT) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
@@ -228,6 +250,7 @@ export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: re
       { type: 'Feature' as const, properties: { kind: 'route', colour: line.colour, id: line.id }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
       ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
     ]),
+    ...stops.flatMap((s) => (s.lineIds.length ? [] : [{ type: 'Feature' as const, properties: { kind: 'lone', stop: s.id }, geometry: { type: 'Point' as const, coordinates: [...s.at] } }])),
     ...stops.flatMap((s) => {
       const word = flagWord(s);
       return word ? [{ type: 'Feature' as const, properties: { kind: 'flag', word, stop: s.id }, geometry: { type: 'Point' as const, coordinates: [...s.at] } }] : [];
