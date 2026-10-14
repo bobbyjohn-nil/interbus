@@ -24,7 +24,7 @@ import { SpatialGrid, toXY } from '../core/geo';
 import { PERIODS } from '../rules/periods';
 import { runningHeadwayIn } from '../rules/timetable';
 import type { World } from '../world';
-import type { RowKind } from './ledger';
+import { isOperating } from '../rules/money';
 import { stopDays } from './stops';
 
 export interface ReportCard {
@@ -40,8 +40,7 @@ export interface ReportCard {
   readonly payoutCents: number;
 }
 
-/** Rows that are not the company's running: capital, the cards themselves and contracts' rewards. */
-const NOT_RUNNING: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card', 'contract']);
+
 const clamp100 = (v: number) => Math.min(100, Math.max(0, v));
 
 export function coverageGrade(world: World): number {
@@ -108,7 +107,7 @@ export function moneyGrade(world: World, firstDay: number, lastDay: number): num
   let revenue = 0;
   let net = 0;
   for (const r of world.state.ledger.rows) {
-    if (r.day < firstDay || r.day > lastDay || NOT_RUNNING.has(r.kind)) continue;
+    if (r.day < firstDay || r.day > lastDay || !isOperating(r.kind)) continue;
     net += r.amountCents;
     if (r.kind === 'fares' || r.kind === 'subsidy') revenue += r.amountCents;
   }

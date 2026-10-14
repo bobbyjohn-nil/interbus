@@ -12,9 +12,9 @@
 // medals its card and the trips carried earn (rules/medal.ts), once each, and starts the day's count again.
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } from './config/time';
 import { toCalendarTime } from './core/calendar';
-import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour } from './economy/costs';
+import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour, stopsUpkeepCents } from './economy/costs';
 import { checkHour, closeContracts, rollOffers, type ContractOutcome } from './economy/contracts';
-import { closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
+import { bankedBetween, closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
 import { gradeQuarter, type ReportCard } from './economy/reportCard';
 import { rollEvent } from './events/roll';
 import { DAYS_PER_QUARTER } from './config/time';
@@ -47,7 +47,7 @@ export type SimEvent = {
   readonly trips: number;
 };
 
-/** Posts the hour that just ended: its paid boardings as fare and subsidy rows, its costs, each depot's upkeep. */
+/** Posts the hour that just ended: its paid boardings as fare and subsidy rows, its costs, each depot's upkeep and the stops' (a twenty-fourth of their day's, floored so a day's hours add up to it exactly). */
 function bankHour(world: World, hour: number, day: number): void {
   for (const line of world.state.lines) {
     const demand = world.assignment.lines.get(line.id);
@@ -69,6 +69,9 @@ function bankHour(world: World, hour: number, day: number): void {
     }
   }
   if (world.state.depots.length > 0) post(world.state.ledger, { day, kind: 'upkeep', amountCents: -world.state.depots.length * DEPOT_UPKEEP_PER_HOUR_CENTS });
+  const stopsDay = stopsUpkeepCents(world.state.stops);
+  const stopsHour = bankedBetween(stopsDay, 24, hour, hour + 1);
+  if (stopsHour > 0) post(world.state.ledger, { day, kind: 'stopUpkeep', amountCents: -stopsHour });
 }
 
 /** What a step between hour boundaries returns: nothing, without a new array each second. */

@@ -5,6 +5,8 @@
 // `src/game/sim/demand.worker.ts:313-316`), and the 650 m reach does not grow. The two hub tiers need
 // that many lines calling. The transfer penalty is added to a change onto a line at the stop (EC-10).
 
+import { STOP_COST_CENTS } from './economy';
+
 export const STOP_TIER_IDS = [1, 2, 3, 4, 5] as const;
 export type StopTier = (typeof STOP_TIER_IDS)[number];
 
@@ -26,6 +28,24 @@ export const STOP_TIERS: Readonly<Record<StopTier, StopTierRow>> = {
   4: { tier: 4, name: 'Interchange', upgradeCents: 9_000_000, walkBonusMin: 2.6, minLines: 3, transferPenaltyMin: 3.5 },
   5: { tier: 5, name: 'Transfer Hub', upgradeCents: 20_000_000, walkBonusMin: 3.4, minLines: 5, transferPenaltyMin: 2 },
 };
+
+/**
+ * A stop's upkeep a day, as a share of all it cost to build, its Sign and every step up (D25: "where
+ * the money is going, eg bus maintenance or bus stop upkeep"): 1‰, so a Sign $4, a Shelter $16, a
+ * Station $51, an Interchange $141 and a Transfer Hub $341 a day. A pricey tier then pays its way or
+ * shows as a loss, so no tier is best at its extreme (PLAN §2's pillar 2).
+ */
+export const STOP_UPKEEP_PER_DAY_PERMILLE = 1;
+
+/** What a stop of `tier` cost to build: its Sign and every step up to it. */
+export function stopBuildCents(tier: StopTier): number {
+  return STOP_COST_CENTS + STOP_TIER_IDS.filter((t) => t <= tier).reduce((sum, t) => sum + STOP_TIERS[t].upgradeCents, 0);
+}
+
+/** A stop's upkeep a day, in whole cents. */
+export function stopUpkeepCents(tier: StopTier): number {
+  return Math.round((stopBuildCents(tier) * STOP_UPKEEP_PER_DAY_PERMILLE) / 1000);
+}
 
 /** The fewest minutes a walk bonus leaves a walk at (V1's floor). */
 export const MIN_WALK_MIN = 0.2;

@@ -6,6 +6,7 @@
 // its buses out (rules/transition.ts), each leg and drive bills at the version it ran on.
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
 import { WAGE_CENTS_PER_HOUR, type BusModel } from '../config/fleet';
+import { stopUpkeepCents, type StopTier } from '../config/stops';
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR } from '../config/time';
 import { hourOfPlan, type DayPlan } from '../rules/schedule';
 import { hourOfMerged, type MergedPlan } from '../rules/transition';
@@ -89,3 +90,8 @@ export function forecastDay(line: LineCostInputs, fromHour = 0, day?: number): L
 
 /** A depot's upkeep for one hour: a day's upkeep spread over 24 whole-cent hours. */
 export const DEPOT_UPKEEP_PER_HOUR_CENTS = DEPOT_UPKEEP_CENTS / 24;
+
+/** Every stop's upkeep for a day (config/stops.ts), whole cents; banked by the hour in step.ts. */
+export function stopsUpkeepCents(stops: readonly { readonly tier: StopTier }[]): number {
+  return stops.reduce((sum, s) => sum + stopUpkeepCents(s.tier), 0);
+}

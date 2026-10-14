@@ -121,7 +121,7 @@ No tutorial text: a profitable first line fits the starting cash and the best fo
 Boston end to end, balanced, saved and onboarded, flat and tilted. **No new system after Sun Dec 6** (a system changes the sim's rules or money; UI, copy, art and tunables can still land).
 - **Foundation:** CI, the Pages preview with its build chip; platform module; fixed-step worker sim; `{ok, reason}` commands; cent ledger; async saves with a schema hash ([AR-07](docs/history/lessons-ledger.md), [AR-13](docs/history/lessons-ledger.md), [K01](docs/history/salvage-matrix.md)).
 - **World:** Inner Boston baked offline, about 800 cells at 350 m; the mini-Boston fixture; the detailed map; hourly congestion by road class in the sim ([EC-15](docs/history/lessons-ledger.md), [R10](docs/history/salvage-matrix.md), [AR-04](docs/history/lessons-ledger.md)).
-- **Economy:** uncapped demand; **income from week 3**; per-km, wage, upkeep and deadhead costs; headway per period → buses → purchase; derived starting cash; fare bands; stop tiers and flags; transfers ([K04](docs/history/salvage-matrix.md), [K05](docs/history/salvage-matrix.md), [EC-10](docs/history/lessons-ledger.md)).
+- **Economy:** uncapped demand; **income from week 3**; per-km, wage, depot and stop upkeep (a stop's 1‰ of its build cost a day, D25) and deadhead costs; headway per period → buses → purchase; derived starting cash; fare bands; stop tiers and flags; transfers ([K04](docs/history/salvage-matrix.md), [K05](docs/history/salvage-matrix.md), [EC-10](docs/history/lessons-ledger.md)).
 - **Goals and failure:** report card; HEADWAY and RIDERSHIP contracts; events; medals; credit line, floor, restart.
 - **Player tools:** calm shell; line tool with remove, extend, insert; depot tint; undo; slots, autosave, export; the 2D/3D control; the light theme; express behind I3.
 - **Onboarding:** Home, founding, checklist (week 6), pacing ladder ([UX-07](docs/history/lessons-ledger.md)).
@@ -240,7 +240,7 @@ art/           the artist's deliveries in Git LFS; LICENSE.md, CREDITS.md
 
 | # | Invariant | Kills |
 |---|---|---|
-| I1 | Cash = Σ ledger rows, the first being founding capital; the day card is ledger rows; retuning k between save and load leaves cash unchanged | [K40](docs/history/salvage-matrix.md), [AR-12](docs/history/lessons-ledger.md) |
+| I1 | Cash = Σ ledger rows, the first being the starting cash on Day 0 (D25); the day card is ledger rows; retuning k between save and load leaves cash unchanged | [K40](docs/history/salvage-matrix.md), [AR-12](docs/history/lessons-ledger.md) |
 | I2 | Adding a line, stop or bus never cuts linked trips by >0.1% | [EC-02](docs/history/lessons-ledger.md), [K04](docs/history/salvage-matrix.md) |
 | I3 | Fare and headway have interior optima; express peaks below $5; starving a line earns ≤60% of the optimum; per period, riders boarding a line ≤ trips generated in that period's hours, and none board in a period it does not run | [GD-13](docs/history/lessons-ledger.md), [EC-05](docs/history/lessons-ledger.md), [EC-03](docs/history/lessons-ledger.md), [K28](docs/history/salvage-matrix.md), [K49](docs/history/salvage-matrix.md) |
 | I4 | Splitting a line raises revenue plus subsidy ≤1% | [EC-04](docs/history/lessons-ledger.md), [K05](docs/history/salvage-matrix.md) |

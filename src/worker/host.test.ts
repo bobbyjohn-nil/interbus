@@ -97,7 +97,8 @@ describe('the sim host', () => {
     expect(line.pullOut.at(-1)).toEqual(line.route[0]);
     expect(line.pullIn[0]).toEqual(line.route[0]);
     expect(busPositionsAt(plan, prepareGeometry(line), 12 * 3_600, new Float64Array(24))).toBe(2);
-    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead + 30_000);
+    // Its costs, the depot's $300 and four Signs' $4 each (D25).
+    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead + 30_000 + 1_600);
     host.handle({ type: 'speed', speed: 5 });
     const cards = () => out.filter((m) => m.type === 'day-card');
     for (let t = 0; cards().length < 2; t += 250) host.tick(t);
@@ -179,8 +180,13 @@ describe('the sim host', () => {
     expect(line).toMatchObject({ name: 'Line 1', buses: 2, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
     expect(line.cycle).toBeGreaterThan(1_400); // 1,457 s; over 1,500 until buses drove one-way streets both ways (2026-10-14)
     expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000 - 20_600_000);
-    // Finance (the M3 spec, item 6): the depot and the line are today's purchases.
-    expect(last('snapshot')!.snapshot.finance.rows.find((r) => r.kind === 'purchase')).toMatchObject({ todayCents: -35_600_000, forecastCents: null });
+    // Finance (the M3 spec, item 6; D25): the depot, the line's stops and its buses, each a row of its own kind.
+    const bought = (kind: string) => last('snapshot')!.snapshot.finance.rows.find((r) => r.kind === kind);
+    expect([bought('depots'), bought('stops'), bought('buses')]).toMatchObject([
+      { todayCents: -15_000_000, forecastCents: null },
+      { todayCents: -1_600_000, forecastCents: null },
+      { todayCents: -19_000_000, forecastCents: null },
+    ]);
     // Every 10 minutes at peak needs a third Sparrow: $95k against $71,200, the rest on the credit line (D10).
     host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 600, offpeak: 1_200, overnight: null } });
     expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -2_380_000, lines: [{ buses: 3 }], floor: null });
@@ -556,7 +562,7 @@ describe('the failure floor', () => {
       };
       save.data.clock.elapsed = elapsed;
       save.data.closesBelowFloor = closes;
-      save.data.ledger.push({ day: 1, kind: 'purchase', amountCents: -(42_720_000 + 20_000_000), lineId: null });
+      save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(42_720_000 + 20_000_000), lineId: null });
       return JSON.stringify(save);
     };
     return { send, last, store, owing, host };

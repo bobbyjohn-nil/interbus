@@ -27,7 +27,7 @@ function running(): World {
 }
 
 describe('inserting a stop (the M4 spec, item 4)', () => {
-  it('puts the click into the leg nearest it, as a new stop for one Purchases row, and the line runs through it', () => {
+  it('puts the click into the leg nearest it, as a new stop for a New stops row, and the line runs through it', () => {
     const world = running();
     const line = world.state.lines[0]!;
     const [symphony, mfa] = [line.stopIds[1]!, line.stopIds[2]!];
@@ -38,7 +38,7 @@ describe('inserting a stop (the M4 spec, item 4)', () => {
     expect(line.stopIds).toHaveLength(5);
     expect(line.stopIds.slice(1, 4)).toEqual([symphony, done.ok && done.stopId, mfa]);
     expect(world.state.ledger.cashCents).toBe(cash - STOP_COST_CENTS);
-    expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'purchase', amountCents: -STOP_COST_CENTS });
+    expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'stops', amountCents: -STOP_COST_CENTS });
     expect(world.assignment.lines.get(line.id)!.perDay).not.toBe(before);
   });
 

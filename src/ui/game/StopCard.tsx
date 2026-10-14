@@ -1,6 +1,6 @@
 import { STOP_LOSS_CENTS, STOP_QUIET_BOARDINGS } from '../../sim/rules/stopDay';
 import { checkRemoveStop } from '../../sim/rules/route';
-import { checkStopTier, STOP_TIERS, type StopTier } from '../../sim/rules/stopTier';
+import { checkStopTier, STOP_TIERS, stopUpkeepCents, type StopTier } from '../../sim/rules/stopTier';
 import { refusalText } from '../copy';
 import { about, usd, usdK } from '../format';
 import type { Sim } from './useSim';
@@ -40,7 +40,9 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
       <h2>
         Stop {stop.id} · {STOP_TIERS[tier].name}
       </h2>
-      {STOP_TIERS[tier].walkBonusMin > 0 ? <p className="hint">Feels {STOP_TIERS[tier].walkBonusMin} min closer on foot</p> : null}
+      <p className="hint" data-testid="stop-upkeep">
+        Upkeep {usd(stopUpkeepCents(tier))} a day{STOP_TIERS[tier].walkBonusMin > 0 ? ` · feels ${STOP_TIERS[tier].walkBonusMin} min closer on foot` : ''}
+      </p>
       <p>
         {about(stop.boardings)} board and {about(stop.alightings)} get off a day
       </p>
@@ -50,7 +52,7 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
       {stop.loss ? <p className="flag">Losing money: more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}
       <div className="controls">
         {upTo && up ? (
-          <button type="button" disabled={!up.ok} onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: upTo })}>
+          <button type="button" disabled={!up.ok} title={`Upkeep ${usd(stopUpkeepCents(upTo))} a day`} onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: upTo })}>
             Make it {/^[AEIOU]/.test(STOP_TIERS[upTo].name) ? 'an' : 'a'} {STOP_TIERS[upTo].name} · {usdK(STOP_TIERS[upTo].upgradeCents)}
           </button>
         ) : null}

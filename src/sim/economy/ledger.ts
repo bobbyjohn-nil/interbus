@@ -1,19 +1,24 @@
 // The company's money as ledger rows in whole cents. Ported from V3's cent treasury
 // (`Intralines_City@dc63602:src/game/economy/ledger.ts`, S01) with three changes on the way in:
-// - every movement is a row, and cash is the sum of the rows, the first being "Founding capital"
-//   (I1, AR-12); V3 changed a bare cashCents and kept no rows, so the day card could not add up;
+// - every movement is a row, and cash is the sum of the rows, the first being the starting cash on
+//   Day 0 (I1, AR-12; D25); V3 changed a bare cashCents and kept no rows, so the day card could not add up;
 // - founding capital is derived, k × the starter line (D7), not a fixed $500,000;
 // - amounts are integer cents end to end, and a caller bug (a negative or fractional amount) throws
 //   instead of V3's console.error and a misleading 'insufficient_funds'.
 // Income rows (K40: V3's income was always zero) are posted by the demand step from M1; cost rows
-// (running, wages, deadhead, depot upkeep) from M2, by the hour.
+// (running, wages, deadhead, depot and stop upkeep) from M2, by the hour. A purchase posts one row
+// per thing bought (buses, stops, stop upgrades, depots), so Finance can say where the money went
+// (D25); the kinds and their groups are sim/rules/money.ts.
 import { CREDIT_LIMIT_CENTS, STARTING_CASH_K_PERMILLE } from '../config/economy';
 import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
+import { isOperating, ROW_KINDS, type RowKind } from '../rules/money';
 
-export const ROW_KINDS = ['founding', 'fares', 'subsidy', 'purchase', 'refund', 'sale', 'running', 'wages', 'deadhead', 'upkeep', 'interest', 'contract', 'card'] as const;
-export type RowKind = (typeof ROW_KINDS)[number];
+export { ROW_KINDS, type RowKind };
+
+/** The day the starting cash is posted: Day 0, before the clock's first day (D25: "having the starting days be like day 0"). The clock still opens on Day 1 at 05:00. */
+export const OPENING_DAY = 0;
 
 export interface LedgerRow {
   /** The game day the row belongs to; the day closes at 24:00 (docs/specs/m1-first-dollar.md). */
@@ -39,10 +44,10 @@ export function foundingCapitalCents(kPermille = STARTING_CASH_K_PERMILLE, start
   return Math.floor((starterCents * kPermille) / 1000);
 }
 
-/** A new company's ledger: one row, Founding capital, on day 1. */
+/** A new company's ledger: one row, the starting cash, on Day 0. */
 export function foundLedger(capitalCents = foundingCapitalCents()): Ledger {
   assertCents(capitalCents, 'founding capital');
-  return { rows: [{ day: 1, kind: 'founding', amountCents: capitalCents }], cashCents: capitalCents };
+  return { rows: [{ day: OPENING_DAY, kind: 'founding', amountCents: capitalCents }], cashCents: capitalCents };
 }
 
 /** Appends a row; the only way cash changes. */
@@ -55,36 +60,37 @@ export function post(ledger: Ledger, row: LedgerRow): void {
 
 export type SpendRefusal = 'insufficient_funds';
 
+/** Buying and building, and what selling back fetches. */
+export type CapitalKind = 'buses' | 'busSales' | 'stops' | 'stopUpgrades' | 'stopSales' | 'depots';
+
+/** One part of a purchase: what it is, its signed amount (negative for money out, positive for a sale), and the line it is for, if any. */
+export interface SpendPart {
+  readonly kind: CapitalKind;
+  readonly amountCents: number;
+  readonly lineId?: LineId;
+}
+
 /**
- * A purchase the player chose: refused, with the shortfall, if it would take cash below
- * `floorCents` (the credit line's −$150k, D10). Writes one negative row when it goes through.
+ * A purchase the player chose, in parts (a line's stops and its buses; a model's new buses and the old
+ * ones sold): refused whole, with the shortfall, if together they would take cash below `floorCents`
+ * (the credit line's −$150k, D10). When it goes through, each part with money in it is a row of its own.
  */
-export function spend(
+export function spendParts(
   ledger: Ledger,
-  costCents: number,
+  parts: readonly SpendPart[],
   day: number,
   floorCents = -CREDIT_LIMIT_CENTS,
 ): Result<object, SpendRefusal, { shortCents: number }> {
-  assertCents(costCents, 'cost');
-  if (costCents < 0) throw new RangeError(`a cost is never negative, got ${costCents}`);
-  const shortCents = floorCents - (ledger.cashCents - costCents);
-  if (shortCents > 0) return refuse('insufficient_funds', { shortCents });
-  post(ledger, { day, kind: 'purchase', amountCents: -costCents });
+  for (const p of parts) {
+    assertCents(p.amountCents, p.kind);
+    const sale = p.kind === 'busSales' || p.kind === 'stopSales';
+    if (sale ? p.amountCents < 0 : p.amountCents > 0) throw new RangeError(`${p.kind} has the wrong sign: ${p.amountCents}`);
+  }
+  const total = parts.reduce((s, p) => s + p.amountCents, 0);
+  const shortCents = floorCents - (ledger.cashCents + total);
+  if (total < 0 && shortCents > 0) return refuse('insufficient_funds', { shortCents });
+  for (const p of parts) if (p.amountCents !== 0) post(ledger, { day, kind: p.kind, amountCents: p.amountCents, ...(p.lineId === undefined ? {} : { lineId: p.lineId }) });
   return ok();
-}
-
-/** Money given back as a Refunds row. An undo while paused needs none: it puts back the whole state from before the command (sim/undo.ts, I9). */
-export function refund(ledger: Ledger, amountCents: number, day: number): void {
-  assertCents(amountCents, 'refund');
-  if (amountCents < 0) throw new RangeError(`a refund is never negative, got ${amountCents}`);
-  post(ledger, { day, kind: 'refund', amountCents });
-}
-
-/** What buses or a stop's fittings sold back fetch (a new model, the M3 spec item 2; a lower tier, item 5), as one Sales row. */
-export function sell(ledger: Ledger, amountCents: number, day: number): void {
-  assertCents(amountCents, 'sale');
-  if (amountCents < 0) throw new RangeError(`a sale is never negative, got ${amountCents}`);
-  post(ledger, { day, kind: 'sale', amountCents });
 }
 
 /**
@@ -107,14 +113,11 @@ export function closeDay(ledger: Ledger, day: number): void {
   for (const r of [...merged.values()].sort((a, b) => order(a) - order(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
 }
 
-/** Rows that are not a day's running: capital, a quarter's report card and a contract's reward. */
-const CAPITAL_KINDS: ReadonlySet<RowKind> = new Set(['founding', 'purchase', 'refund', 'sale', 'card', 'contract']);
-
-/** Closed days (before `today`) whose operating rows, everything but capital, sum above zero: the checklist's "a day in profit". */
+/** Closed days (before `today`) whose operating rows, income and running costs (sim/rules/money.ts), sum above zero: the checklist's "a day in profit". */
 export function profitableDays(ledger: Ledger, today: number): number {
   const byDay = new Map<number, number>();
   for (const r of ledger.rows) {
-    if (r.day >= today || CAPITAL_KINDS.has(r.kind)) continue;
+    if (r.day >= today || !isOperating(r.kind)) continue;
     byDay.set(r.day, (byDay.get(r.day) ?? 0) + r.amountCents);
   }
   let n = 0;

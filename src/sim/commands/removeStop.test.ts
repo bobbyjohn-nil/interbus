@@ -18,7 +18,7 @@ function game() {
 }
 
 describe('removing a stop from a line', () => {
-  it('runs the line without Symphony, takes the stop down and refunds $2k as one Refunds row', () => {
+  it('runs the line without Symphony, takes the stop down and refunds $2k as one Stops sold back row', () => {
     const { world, line, symphony } = game();
     const cash = world.state.ledger.cashCents;
     const riders = world.assignment.lines.get(line.id)!.perDay;
@@ -26,7 +26,7 @@ describe('removing a stop from a line', () => {
     expect(line.stopIds).toHaveLength(3);
     expect(world.state.stops.some((s) => s.id === symphony)).toBe(false);
     expect(world.state.ledger.cashCents).toBe(cash + 200_000);
-    expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'refund', amountCents: 200_000 });
+    expect(world.state.ledger.rows.at(-1)).toMatchObject({ kind: 'stopSales', amountCents: 200_000 });
     expect(world.services.get(line.id)!.plan.stops).toHaveLength(3);
     expect(world.assignment.lines.get(line.id)!.perDay).not.toBe(riders);
   });

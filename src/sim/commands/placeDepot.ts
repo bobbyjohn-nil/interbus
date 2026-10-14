@@ -4,7 +4,7 @@ import { toXY, type LngLat } from '../core/geo';
 import { mint, type DepotId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
 import { toCalendarTime } from '../core/calendar';
-import { spend, type SpendRefusal } from '../economy/ledger';
+import { spendParts, type SpendRefusal } from '../economy/ledger';
 import { checkDepotSite, type DepotRefusal } from '../rules/depot';
 import { depotSiteContext, recomputeInService, type World } from '../world';
 
@@ -14,7 +14,7 @@ export function placeDepot(
 ): Result<{ depotId: DepotId; priceCents: number }, DepotRefusal | SpendRefusal, { limitM?: number; nearestM?: number; shortCents?: number }> {
   const site = checkDepotSite(depotSiteContext(world), toXY(world.city.frame, at));
   if (!site.ok) return site;
-  const paid = spend(world.state.ledger, site.priceCents, toCalendarTime(world.state.elapsed).day);
+  const paid = spendParts(world.state.ledger, [{ kind: 'depots', amountCents: -site.priceCents }], toCalendarTime(world.state.elapsed).day);
   if (!paid.ok) return refuse(paid.reason, { shortCents: paid.shortCents });
   const [depotId, next] = mint(world.state.nextIds, 'depot');
   world.state.nextIds = next;

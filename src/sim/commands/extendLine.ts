@@ -1,12 +1,12 @@
 // Extend a line from either end (the M3 spec, item 14): the route rule decides on the whole line,
-// the ledger pays one Purchases row for the new stops and the buses its longer cycle needs, and the
+// the ledger pays New stops and Buses bought rows for the new stops and the buses its longer cycle needs, and the
 // line runs on its new stops from the recompute. The card read the same rule (GD-05, I6).
 import { BUS_MODELS } from '../config/fleet';
 import { toCalendarTime } from '../core/calendar';
 import { toLngLat, toXY, type LngLat } from '../core/geo';
 import { mint, type LineId, type StopId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
-import { spend } from '../economy/ledger';
+import { spendParts } from '../economy/ledger';
 import { checkExtend, type ExtendRefusal, type LineEnd } from '../rules/route';
 import { lineDraftContext, recomputeInService, type World } from '../world';
 
@@ -34,10 +34,15 @@ export function extendLine(
     return refuse(verdict.reason, Object.fromEntries(Object.entries({ at: where, limitM, limitSeconds, room, shortCents }).filter(([, v]) => v !== undefined)));
   }
   const { draft, extraBuses } = verdict;
-  if (draft.priceCents > 0) {
-    const paid = spend(state.ledger, draft.priceCents, toCalendarTime(state.elapsed).day);
-    if (!paid.ok) return refuse('insufficient_funds', { shortCents: paid.shortCents });
-  }
+  const paid = spendParts(
+    state.ledger,
+    [
+      { kind: 'stops', amountCents: -draft.stopsCents },
+      { kind: 'buses', amountCents: -draft.busesCents, lineId },
+    ],
+    toCalendarTime(state.elapsed).day,
+  );
+  if (!paid.ok) return refuse('insufficient_funds', { shortCents: paid.shortCents });
   line.stopIds = draft.stops.map((pick) => {
     if (pick.kind === 'join') return pick.stopId as StopId;
     const [id, next] = mint(state.nextIds, 'stop');

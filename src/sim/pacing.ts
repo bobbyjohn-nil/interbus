@@ -22,6 +22,7 @@ import { distM, distXY, pointInRing, toLngLat, toXY, type LngLat, type XY } from
 import type { LineId } from './core/ids';
 import { fareBand } from './economy/fareBand';
 import { profitableDays, rowsOfDay } from './economy/ledger';
+import { isOperating } from './rules/money';
 import type { Headways } from './rules/periods';
 import { fromSaveData } from './save/save';
 import { advance } from './step';
@@ -107,11 +108,10 @@ export function corridorCandidates(world: World, corridors: readonly (readonly [
   return out;
 }
 
-/** Operating net of a closed day: every row but capital, a card and a contract's reward (the checklist's "a day in profit"). */
+/** Operating net of a closed day: income and running costs (sim/rules/money.ts; the checklist's "a day in profit"). */
 function operatingNet(world: World, day: number): number {
-  const capital = new Set(['founding', 'purchase', 'refund', 'sale', 'card', 'contract']);
   return rowsOfDay(world.state.ledger, day)
-    .filter((r) => !capital.has(r.kind))
+    .filter((r) => isOperating(r.kind))
     .reduce((s, r) => s + r.amountCents, 0);
 }
 

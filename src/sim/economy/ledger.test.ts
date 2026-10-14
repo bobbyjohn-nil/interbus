@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { CREDIT_LIMIT_CENTS } from '../config/economy';
 import { createRng } from '../core/rng';
-import { bankedBetween, foundingCapitalCents, foundLedger, post, profitableDays, refund, rowsOfDay, spend, type Ledger } from './ledger';
+import { bankedBetween, foundingCapitalCents, foundLedger, OPENING_DAY, post, profitableDays, rowsOfDay, spendParts, type Ledger } from './ledger';
 import { starterBuses, starterLineCents } from './starter';
 
 const sum = (l: Ledger) => l.rows.reduce((s, r) => s + r.amountCents, 0);
+/** One purchase of buses, as the commands spend; a stop sold back, as they refund. */
+const spend = (l: Ledger, cents: number, day: number) => spendParts(l, [{ kind: 'buses', amountCents: -cents }], day);
+const refund = (l: Ledger, cents: number, day: number) => spendParts(l, [{ kind: 'stopSales', amountCents: cents }], day);
 
 describe('I1: cash is the sum of the ledger rows', () => {
-  it('founds with one row, Founding capital = k × the starter line (D7)', () => {
+  it('founds with one row, the starting cash = k × the starter line (D7), on Day 0 (D25)', () => {
     // A depot, four stops and the two Sparrows every 20 minutes needs on a 3.5 km line (D7, K07).
     expect(starterBuses()).toBe(2);
     expect(starterLineCents()).toBe(35_600_000);
     expect(foundingCapitalCents()).toBe(42_720_000);
     const ledger = foundLedger();
-    expect(ledger.rows).toEqual([{ day: 1, kind: 'founding', amountCents: 42_720_000 }]);
+    expect(OPENING_DAY).toBe(0);
+    expect(ledger.rows).toEqual([{ day: 0, kind: 'founding', amountCents: 42_720_000 }]);
     expect(ledger.cashCents).toBe(42_720_000);
   });
 
@@ -47,7 +51,7 @@ describe('I1: cash is the sum of the ledger rows', () => {
     post(ledger, { day: 2, kind: 'subsidy', amountCents: 160 });
     spend(ledger, 400_000, 2);
     const card = rowsOfDay(ledger, 2);
-    expect(card.map((r) => r.kind)).toEqual(['fares', 'subsidy', 'purchase']);
+    expect(card.map((r) => r.kind)).toEqual(['fares', 'subsidy', 'buses']);
     expect(card.reduce((s, r) => s + r.amountCents, 0)).toBe(ledger.cashCents - startOfDay2);
   });
 
@@ -82,6 +86,7 @@ describe('purchases', () => {
     expect(() => spend(ledger, -1, 1)).toThrow(RangeError);
     expect(() => spend(ledger, 99.5, 1)).toThrow(RangeError);
     expect(() => refund(ledger, -1, 1)).toThrow(RangeError);
+    expect(() => spendParts(ledger, [{ kind: 'stops', amountCents: 400_000 }], 1)).toThrow(RangeError);
     expect(() => post(ledger, { day: 1, kind: 'fares', amountCents: 0.1 })).toThrow(RangeError);
   });
 });
@@ -115,7 +120,51 @@ describe('profitable days (the checklist)', () => {
     post(ledger, { day: 2, kind: 'fares', amountCents: 10_000 });
     post(ledger, { day: 2, kind: 'wages', amountCents: -40_000 });
     post(ledger, { day: 3, kind: 'fares', amountCents: 90_000 });
-    expect(profitableDays(ledger, 3)).toBe(1); // day 1 only: founding capital is not profit, and day 3 is still open
+    expect(profitableDays(ledger, 3)).toBe(1); // day 1 only: the starting cash is not profit, and day 3 is still open
     expect(profitableDays(ledger, 4)).toBe(2);
+  });
+});
+
+// D25: Finance says where the money went, so a purchase posts a row per thing bought. Shown failing
+// (TS-04) on the old ledger, whose one Purchases row could not tell a line's stops from its buses.
+describe('a purchase in parts', () => {
+  it('posts a row for each part with money in it, each with its line', () => {
+    const ledger = foundLedger();
+    const r = spendParts(
+      ledger,
+      [
+        { kind: 'stops', amountCents: -1_600_000 },
+        { kind: 'buses', amountCents: -19_000_000, lineId: 1 as never },
+        { kind: 'busSales', amountCents: 0 },
+      ],
+      1,
+    );
+    expect(r.ok).toBe(true);
+    expect(ledger.rows.slice(1)).toEqual([
+      { day: 1, kind: 'stops', amountCents: -1_600_000 },
+      { day: 1, kind: 'buses', amountCents: -19_000_000, lineId: 1 },
+    ]);
+    expect(ledger.cashCents).toBe(42_720_000 - 20_600_000);
+  });
+
+  it('is refused whole when the parts together go past the credit line, posting none', () => {
+    const ledger = foundLedger(1_000_000);
+    const r = spendParts(
+      ledger,
+      [
+        { kind: 'stops', amountCents: -1_000_000 },
+        { kind: 'buses', amountCents: -15_000_001 },
+      ],
+      1,
+    );
+    expect(r).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 1 });
+    expect(ledger.rows).toHaveLength(1);
+  });
+
+  it('nets a sale against a purchase, as a new model sells the old buses', () => {
+    const ledger = foundLedger(0);
+    expect(spendParts(ledger, [{ kind: 'busSales', amountCents: 9_500_000 }, { kind: 'buses', amountCents: -24_500_000 }], 1).ok).toBe(true);
+    expect(ledger.cashCents).toBe(-15_000_000);
+    expect(ledger.rows.map((r) => r.kind)).toEqual(['founding', 'busSales', 'buses']);
   });
 });

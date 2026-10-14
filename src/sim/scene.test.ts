@@ -24,7 +24,7 @@ describe('the busy scene, on the fixture', () => {
   it('stands at 08:00 on day 1, its capital untouched but for its depots', () => {
     expect(state.elapsed).toBe(SCENE_AT);
     expect(toCalendarTime(state.elapsed).day).toBe(1);
-    expect(state.ledger.rows.filter((r) => r.kind === 'purchase').length).toBe(scene.depots);
+    expect(state.ledger.rows.filter((r) => r.kind === 'depots').length).toBe(scene.depots);
   });
 
   it('saves to a file that reads back as the same game', () => {

@@ -3,6 +3,7 @@
 import { calendarOfDay } from '../sim/rules/calendar';
 import { BRONZE_OVERALL, GOLD_GRADE_MIN, GOLD_OVERALL, GOLD_TRIPS_PER_DAY, SILVER_TRIPS, type MedalId } from '../sim/rules/medal';
 import { SPEED_RATES } from '../sim/rules/speed';
+import type { RowGroup, RowKind } from '../sim/rules/money';
 import type { Speed } from '../sim/types';
 
 /** "$313,200" for whole-dollar chips; "$1,234.56" with `cents`. */
@@ -107,21 +108,48 @@ export function savedWhen(ms: number, nowMs: number = Date.now()): string {
   return `saved ${(sameYear ? SAVED_THIS_YEAR : SAVED_ANOTHER_YEAR).format(ms)}`;
 }
 
-/** The day card's names for ledger rows. */
-export const ROW_NAMES: Readonly<Record<string, string>> = {
+/** Ledger rows' names on the day card and in Finance, in plain words (D25: "better labeling with more information about where the money is going"). */
+export const ROW_NAMES: Readonly<Record<RowKind, string>> = {
   founding: 'Starting cash',
   fares: 'Fares',
   subsidy: 'City subsidy',
-  purchase: 'Purchases',
-  refund: 'Refunds',
-  sale: 'Sales',
-  running: 'Running (per km)',
+  contract: 'Contract rewards',
+  card: 'City grant or fine',
+  running: 'Bus fuel and maintenance',
   wages: 'Driver wages',
-  deadhead: 'Deadhead',
+  deadhead: 'To and from the depot',
   upkeep: 'Depot upkeep',
-  interest: 'Interest',
-  contract: 'Contracts',
-  card: 'Report card',
+  stopUpkeep: 'Stop upkeep',
+  interest: 'Loan interest',
+  buses: 'Buses bought',
+  busSales: 'Buses sold',
+  stops: 'New stops',
+  stopUpgrades: 'Stop upgrades',
+  stopSales: 'Stops sold back',
+  depots: 'Depots',
+};
+
+/** A row's name, by its kind as the worker sends it. */
+export function rowName(kind: string): string {
+  return (ROW_NAMES as Readonly<Record<string, string | undefined>>)[kind] ?? kind;
+}
+
+/** What a ledger row's name leaves out, as its tooltip. */
+export const ROW_HINTS: Partial<Readonly<Record<RowKind, string>>> = {
+  running: 'Fuel, wear and maintenance for every kilometre a bus drives',
+  deadhead: 'Buses driving out of the depot before their first trip and back after their last',
+  upkeep: 'Each depot’s upkeep, a day',
+  stopUpkeep: 'Each stop’s upkeep, a day: a thousandth of what it cost to build',
+  interest: 'The lender’s interest while cash is below zero',
+  card: 'The quarter’s report card: the city pays a grant or charges a fine',
+};
+
+/** The groups Finance lists rows under, in order (sim/rules/money.ts). */
+export const GROUP_NAMES: Readonly<Record<Exclude<RowGroup, 'opening'>, string>> = {
+  income: 'Money in',
+  reward: 'Rewards',
+  running: 'Running costs',
+  capital: 'Buying and building',
 };
 
 /** "2 Sparrows", "1 Metro 40": a count of buses of one model. */

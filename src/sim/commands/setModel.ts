@@ -1,11 +1,11 @@
-// A line changing model (the M3 spec, item 2): every bus it has is sold at half price, as one Sales
-// row, and the buses its headways need of the new model are bought, as one Purchases row. The rule
-// checks the cash on the net, so the sale lands first.
+// A line changing model (the M3 spec, item 2): every bus it has is sold at half price, as a Buses sold
+// row, and the buses its headways need of the new model are bought, as a Buses bought row (D25). The
+// rule checks the cash on the net, and so does the ledger: the two are one purchase.
 import { BUS_MODELS, type BusModelId } from '../config/fleet';
 import { toCalendarTime } from '../core/calendar';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
-import { sell, spend } from '../economy/ledger';
+import { spendParts } from '../economy/ledger';
 import { checkModelChange, type ModelChangeRefusal } from '../rules/line';
 import { fleetContext, recomputeInService, type World } from '../world';
 
@@ -25,8 +25,14 @@ export function setModel(
   );
   if (!change.ok) return change;
   const day = toCalendarTime(world.state.elapsed).day;
-  if (change.saleCents > 0) sell(world.state.ledger, change.saleCents, day);
-  const paid = spend(world.state.ledger, change.buyCents, day);
+  const paid = spendParts(
+    world.state.ledger,
+    [
+      { kind: 'busSales', amountCents: change.saleCents, lineId },
+      { kind: 'buses', amountCents: -change.buyCents, lineId },
+    ],
+    day,
+  );
   if (!paid.ok) throw new Error(`setModel: the rule passed ${change.buyCents} against ${world.state.ledger.cashCents}`);
   line.model = model;
   line.buses = change.needed;

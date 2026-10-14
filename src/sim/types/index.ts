@@ -184,12 +184,14 @@ export interface FinanceView {
   readonly day: number;
   readonly quarter: number;
   readonly quarterFirstDay: number;
+  /** The starting cash, posted on Day 0 (D25). */
+  readonly openingCents: number;
   readonly rows: readonly {
     readonly kind: string;
     readonly todayCents: number;
     readonly yesterdayCents: number;
     readonly quarterCents: number;
-    /** Null for a capital row, which no day plans. */
+    /** Null for a row no day plans: capital, a contract's reward, the report card, the opening. */
     readonly forecastCents: number | null;
   }[];
 }

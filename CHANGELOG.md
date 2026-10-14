@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The game saves itself in this browser as you play, so a reload carries on where you left off. A save from an older build is kept aside, a new game starts, and a note says so.
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
 - Running a line costs money: $0.90 for each kilometre a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what a whole day will cost.
+- Stops cost upkeep: a thousandth of what a stop cost to build, every day, so a Sign costs $4 a day, a Shelter $16, a Station $51, an Interchange $141 and a Transfer Hub $341. A stop's card says its upkeep and the next tier's, its upkeep counts in what the stop earns, and Costs/day includes it.
 
 ### Changed
 
@@ -78,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The quarter's report card pays $1,280 a point over 55 and fines $6,400 below 35: the same a day as before, over the shorter quarter.
 - The game saves at least every 30 seconds while time runs, as well as every game hour.
 - The count of people within a walk shows only while the pointer is on a dot, instead of wherever it is.
+- Finance says where the money goes, in plain words, under Money in, Rewards, Running costs and Buying and building: buses bought and sold, new stops, stop upgrades and stops sold back, and depots each have a row of their own instead of one Purchases row; "Bus fuel and maintenance" is the cost of every kilometre driven, "To and from the depot" replaces Deadhead, and each row's tooltip says what it covers. The midnight card uses the same names.
+- Your starting cash is on Day 0, before the first day, so day 1's card and Finance's columns show only what day 1 earned and spent.
+- Finance forecasts a day's loan interest while your cash is below zero.
 - Words across the game start with a capital and read as whole sentences: the headway menus say Off and Every 10 min, the new-line card says "Running every 20 min needs 2 Sparrows", the founding card names its colors (Red, Blue and so on) instead of their codes, a stop's flags read Quiet and Losing money instead of QUIET and LOSS, the fare hint reads "Most profit at", and the game's name, the build chip and a few notices are capitalized and reworded.
 - The dock's buttons are a little slimmer, to leave room on screen for the compass and the demand menu.
 - Changing a line while its buses run no longer throws them across the map: a bus already on its way finishes its trip on the route and the times it set out with, and the next departures follow the change as buses come free. That holds for taking a stop off, extending a line, a new headway or bus model, a new depot, and roadworks starting or ending.

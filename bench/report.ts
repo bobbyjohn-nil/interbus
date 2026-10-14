@@ -8,6 +8,7 @@ import { createLine } from '../src/sim/commands/createLine';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { createRng } from '../src/sim/core/rng';
 import { distXY, toLngLat, type XY } from '../src/sim/core/geo';
+import { isOperating } from '../src/sim/rules/money';
 import { advance } from '../src/sim/step';
 import { gameWithDepot } from '../src/sim/testing';
 
@@ -48,7 +49,8 @@ const sorted = rows.map((r) => r.overall).sort((a, b) => a - b);
   addDebugLine(world);
   const card = advance(world, 10 * SECONDS_PER_DAY).find((e) => e.card)!.card!;
   const f = (v: number) => v.toFixed(1).padStart(5);
-  const running = world.state.ledger.rows.filter((r) => !['founding', 'purchase', 'refund', 'sale', 'card'].includes(r.kind)).reduce((sum, r) => sum + r.amountCents, 0);
+  // Income and running costs (sim/rules/money.ts); before D25 this also counted a contract's reward.
+  const running = world.state.ledger.rows.filter((r) => isOperating(r.kind)).reduce((sum, r) => sum + r.amountCents, 0);
   console.log(
     `the debug line: coverage ${f(card.coverage)}, reliability ${f(card.reliability)}, comfort ${f(card.comfort)}, money ${f(card.money)}; overall ${f(card.overall)}, payout $${(card.payoutCents / 100).toFixed(0)} against a quarter's running net of $${(running / 100).toFixed(0)}`,
   );

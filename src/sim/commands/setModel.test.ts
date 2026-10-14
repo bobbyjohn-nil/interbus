@@ -33,10 +33,10 @@ describe('a line changing model (the M3 spec, item 2)', () => {
     const before = world.services.get(lineId)!;
     const result = setModel(world, lineId, 'metro40');
     expect(result).toEqual({ ok: true, bought: 2, buyCents: 52_000_000, saleCents: 9_500_000 });
-    // One Sales row and one Purchases row on day 1; cash moves by the difference, to the cent (I1).
-    expect(rowsOfDay(world.state.ledger, 1).map((r) => [r.kind, r.amountCents]).slice(-2)).toEqual([
-      ['sale', 9_500_000],
-      ['purchase', -52_000_000],
+    // A Buses sold row and a Buses bought row on day 1, each the line's; cash moves by the difference, to the cent (I1).
+    expect(rowsOfDay(world.state.ledger, 1).map((r) => [r.kind, r.amountCents, r.lineId]).slice(-2)).toEqual([
+      ['busSales', 9_500_000, lineId],
+      ['buses', -52_000_000, lineId],
     ]);
     expect(world.state.ledger.cashCents).toBe(100_000_000 - 15_000_000 + 9_500_000 - 52_000_000);
     const after = world.services.get(lineId)!;

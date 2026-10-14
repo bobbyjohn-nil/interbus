@@ -21,14 +21,17 @@ describe('Create on mini-Boston', () => {
     expect(world.state.lines).toEqual([]);
   });
 
-  it('buys four stops and two Sparrows, $206k in one Purchases row, and runs what the card said (I6)', () => {
+  it('buys four stops and two Sparrows, $206k as a New stops row and a Buses bought row for the line (D25), and runs what the card said (I6)', () => {
     const world = gameWithDepot();
     const card = checkLineDraft(lineDraftContext(world), CLICKS.map((c) => toXY(fixtureCity().frame, c)), { peak: 1_200, offpeak: 1_200, overnight: null });
     const before = world.state.ledger.cashCents;
     const created = createLine(world, CLICKS);
     expect(created).toMatchObject({ ok: true, priceCents: 20_600_000 });
     expect(world.state.ledger.cashCents).toBe(before - 20_600_000);
-    expect(world.state.ledger.rows.at(-1)).toEqual({ day: 1, kind: 'purchase', amountCents: -20_600_000 });
+    expect(world.state.ledger.rows.slice(-2)).toEqual([
+      { day: 1, kind: 'stops', amountCents: -1_600_000 },
+      { day: 1, kind: 'buses', amountCents: -19_000_000, lineId: 1 },
+    ]);
     const line = world.state.lines[0]!;
     expect(line).toMatchObject({ name: 'Line 1', buses: 2, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
     expect(world.state.stops).toHaveLength(4);

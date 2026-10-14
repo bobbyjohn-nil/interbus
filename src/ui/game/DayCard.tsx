@@ -1,4 +1,4 @@
-import { askText, dateText, eventNewsText, medalNewsText, quarterText, ROW_NAMES, usd } from '../format';
+import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
 import type { Sim } from './useSim';
 
 /**
@@ -62,7 +62,7 @@ export function DayCard({ sim }: { sim: Sim }) {
         <tbody>
           {[...byKind].map(([kind, cents]) => (
             <tr key={kind} data-kind={kind} data-cents={cents}>
-              <th scope="row">{ROW_NAMES[kind] ?? kind}</th>
+              <th scope="row">{rowName(kind)}</th>
               <td>{usd(cents, { cents: true })}</td>
             </tr>
           ))}

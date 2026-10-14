@@ -241,7 +241,7 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a null stop', (e) => void ((dataOf(e).stops as unknown[])[0] = null), /stops\[0\]: not an object/],
     ['a line naming a missing stop', (e) => void ((dataOf(e).lines as { stopIds: number[] }[])[0]!.stopIds = [1, 99]), /names a missing stop/],
     ['a duplicate stop id', (e) => void ((dataOf(e).stops as { id: number }[])[1]!.id = 1), /duplicate stop id/],
-    ['no Founding capital first', (e) => void (dataOf(e).ledger as unknown[]).shift(), /Founding capital/],
+    ['no starting cash first', (e) => void (dataOf(e).ledger as unknown[]).shift(), /starting cash/],
     ['a field not in the schema', (e) => void (dataOf(e).camera = { zoom: 14 }), /camera: not in the schema/],
     ['a night-only line', (e) => void ((dataOf(e).lines as { headways: { overnight: number } }[])[0]!.headways.overnight = 60), /headway rules/],
     ['a stop of no tier', (e) => void ((dataOf(e).stops as { tier: number }[])[0]!.tier = 7), /a stop of no tier/],
@@ -272,7 +272,7 @@ describe('refusals (first failure wins; the live key is never overwritten by one
 it('a new game starts at founding with one row and fresh counters', () => {
   const data = toSaveData(newGame(CITY, { name: 'X', colour: '#000000' }, 1));
   expect(data.clock.elapsed).toBe(0);
-  expect(data.ledger).toEqual([{ day: 1, kind: 'founding', amountCents: 42_720_000, lineId: null }]);
+  expect(data.ledger).toEqual([{ day: 0, kind: 'founding', amountCents: 42_720_000, lineId: null }]); // Day 0 (D25)
   expect(data.nextIds).toEqual({ stop: 1, line: 1, bus: 1, depot: 1, contract: 1 });
   expect([data.medals, data.tripsCarried, data.tripsToday]).toEqual([{ bronze: null, silver: null, gold: null }, 0, 0]);
 });
