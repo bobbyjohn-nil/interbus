@@ -66,7 +66,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **How to reverse:** Nothing in the game depends on models. Without any model the game uses a code-drawn top-down icon. Cut 3 (no 3D models in v1.0; 3D shows icons over extruded buildings) still uses the artist's models for the 2D icons, and is the owner's call when its trigger fires.
 - **Still open:** the artist's hours and delivery route (D6 below).
 - **Since answered:** 2026-10-12, in the next entry.
-- **Since dated:** D15 (2026-10-12, below) brings the Steam capsule art forward: the capsule set by Thu Dec 10 2026 and library art by Sun Jan 10 2027 ([art/MODELS.md](art/MODELS.md) §10). D18 (below) moves them after v1.0, to Sun Feb 21 (latest Sun Mar 21) and Sun Apr 11 2027, and the depot back to Jan 10 if the buses are done; D20 (below) puts the art under an open licence.
+- **Since dated:** D15 (2026-10-12, below) brings the Steam capsule art forward: the capsule set by Thu Dec 10 2026 and library art by Sun Jan 10 2027 ([art/MODELS.md](art/MODELS.md) §11). D18 (below) moves them after v1.0, to Sun Feb 21 (latest Sun Mar 21) and Sun Apr 11 2027, and the depot back to Jan 10 if the buses are done; D20 (below) puts the art under an open licence.
 
 ### D6 (second part) · Hours untracked; PRs with Git LFS; the owner and the artist are the playtesters
 
@@ -300,7 +300,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **Decided:** 2026-10-14, by the owner: "D21B: the artist." This answers the Open D21 (b) row with the recommendation.
 - **What it means:**
   - The artist's own PC is the demo's Windows machine from the April round trip on: the Steam round trip by Sun Apr 11, the 60-minute soak of the Windows package by Sun May 2, the demo checklist's Steam install that plays to its card, and every demo build after that, fest hotfixes included. Nothing is bought or borrowed. Sun Mar 28 becomes the date it is ready on Steam.
-  - The PC must run Windows 10 or later, 64-bit, on an x64 processor, because the Windows build is an x64 folder (PLAN §6). The artist confirms the OS and version with the answers to [MODELS.md](art/MODELS.md) §12 (by Oct 18). If the PC does not qualify, the fallback (a PC bought or borrowed, in hand by Mar 28) returns as the owner's question.
+  - The PC must run Windows 10 or later, 64-bit, on an x64 processor, because the Windows build is an x64 folder (PLAN §6). The artist confirms the OS and version with the answers to [MODELS.md](art/MODELS.md) §1 (by Oct 18). If the PC does not qualify, the fallback (a PC bought or borrowed, in hand by Mar 28) returns as the owner's question.
   - Builds reach the PC only from Steam's password-protected beta branch, since desktop builds never become CI artifacts (CLAUDE.md). The branch password and any key reach the artist privately, never through the repo.
   - The plan assumes the artist plays each build there and notes its SHA, while the owner plays the same build on the Mac and alone sets builds live (D15). It also assumes the full release's Windows check uses the same PC. The owner can say otherwise.
   - The nightly smoke test of the Windows package on GitHub's `windows-latest` (PLAN §6) stays. It shows the package starts; the artist's PC is where a person plays it.
