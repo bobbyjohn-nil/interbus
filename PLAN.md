@@ -31,7 +31,7 @@
 
 **How.** One Claude session owns `main` and merges its own pull requests on green checks (D23); no agent crew; ≤150-line specs; PR checks within 8 minutes ([PR-04](docs/history/lessons-ledger.md), [PR-08](docs/history/lessons-ledger.md)).
 
-**This week:** Claude gets read access to the three earlier repos; you protect `main` (§14 item 2); the artist commits `art/LICENSE.md` by Oct 18, naming Miticept Studios and the art's licence, CC BY 4.0 (D20); the artist reviews [docs/art/MODELS.md](docs/art/MODELS.md) §3, §3.1, §5, §6 and §10; the V1 baseline (§14).
+**This week:** Claude gets read access to the three earlier repos; you protect `main` (§14 item 2); the artist commits `art/LICENSE.md` by Oct 18, naming Miticept Studios and the art's licence, CC BY 4.0 (D20); the artist reads [docs/art/MODELS.md](docs/art/MODELS.md) §1 and §2 and answers §1's questions; the V1 baseline (§14).
 
 ---
 
@@ -333,13 +333,13 @@ Copy from code, never from the manuals ([X-09](docs/history/lessons-ledger.md), 
 ## 9. How the team works
 
 **Roles** (decided D6).
-- **You: owner and lead player.** You decide scope, look and title; start Claude sessions; play each milestone; review each art delivery (about 30 minutes, five times; [docs/art/MODELS.md](docs/art/MODELS.md) §9). You alone create versions and, **holding the Steamworks and Apple accounts as an individual trading as Miticept Studios (D21 (a))**, approve the store copy Claude drafts, register for the fest, play every demo build on your Mac while the artist plays it on the artist's Windows PC (D21 (b)), set Steam builds live and press Release.
+- **You: owner and lead player.** You decide scope, look and title; start Claude sessions; play each milestone; review each art delivery (about 30 minutes, five times; [docs/art/MODELS.md](docs/art/MODELS.md) §5). You alone create versions and, **holding the Steamworks and Apple accounts as an individual trading as Miticept Studios (D21 (a))**, approve the store copy Claude drafts, register for the fest, play every demo build on your Mac while the artist plays it on the artist's Windows PC (D21 (b)), set Steam builds live and press Release.
 - **The artist (the co-developer): the 3D models the game uses and the Steam store art.** `metro-40`, `sparrow` and `goliath`, then a depot, to [docs/art/MODELS.md](docs/art/MODELS.md), a draft the artist amends by Sun Oct 18; after v1.0, **the capsule set by Sun Feb 21 and library and demo art by Sun Apr 11** (6–12 hours), and from the Steam round trip (by Apr 11) every demo build installed from Steam and played on the artist's own Windows PC (D21 (b)); landmarks later; milestone playtests on a second machine, except M4, so P2 finds the artist fresher ([TS-10](docs/history/lessons-ledger.md)). No delivery falls on a playtest date.
 - **Claude:** code, tests, docs, a one-page summary per milestone, at most five questions a week ([PR-03](docs/history/lessons-ledger.md), [PR-05](docs/history/lessons-ledger.md)).
 
 **How art flows.** The artist opens a PR under `art/models/` with Git LFS (D6); from week 5 CI checks it and renders the icon, and you review it. A failing file never reaches players: the game keeps the latest passing file, else a built-in box bus.
 
-**Ownership (D14; [docs/art/MODELS.md](docs/art/MODELS.md) §11).** Copyright in the game, art included, is held by Miticept Studios, the two of you jointly; `art/LICENSE.md` says so by Oct 18. **The code stays all rights reserved, its source visible while the repo is public; the art goes under an open licence (D20)**, which one by Oct 25 (recommended CC BY 4.0). You both sign D14's short agreement, the art's licence included, by Sun Feb 21, a week before the store page. Not legal advice.
+**Ownership (D14; [docs/art/MODELS.md](docs/art/MODELS.md) §12).** Copyright in the game, art included, is held by Miticept Studios, the two of you jointly; `art/LICENSE.md` says so by Oct 18. **The code stays all rights reserved, its source visible while the repo is public; the art is under CC BY 4.0 with the credit "Miticept Studios" (D20)**, and the repo goes private on Sun Mar 14 2027, a week before the store page is public. You both sign D14's short agreement, the art's licence included, by Sun Feb 21, a week before the store page. Not legal advice.
 
 **Capacity.** You give 2–4 hours a week, plus about 18–31 hours of Steam work from January to June (§11), less the Windows plays, now the artist's (D21 (b)); the artist's are not tracked. **One Claude-week ≈ 2.5 sessions of 2–4 hours**, each ending in one or two merged PRs: 5–6.5 a week to Dec 20, about twice the old pace (unproven estimate), 2–5 in January and half weeks, then about 12–15 for Steam (§10). Velocity is checked Oct 18, Oct 25 and Nov 1 (§10); if lower, the cut list moves.
 
@@ -435,7 +435,7 @@ Weeks run Monday to Sunday; checks use the deployed build.
 | Sun Jan 31 | You | Apple enrolment as an individual, under your legal name (D21 (a)), any time from now (approvals reported from a day to over three weeks, [forum](https://developer.apple.com/forums/thread/813941)) |
 | Sun Feb 7 | You | Steamworks sign-up as a sole proprietor under your legal name, with Miticept Studios only as the store page's developer and publisher (D21 (a)); paperwork, a bank account in the same name, tax (a 2–7 business-day check, so start by Jan 24) and any ID check; Valve asked D15's questions 1–4 and 7 and D21's question 8 (D18), with any public trader details entered only after question 7's answer (if Valve answers only a signed-up account, sign up, ask, then finish); the name check (D5). Any time from now |
 | Sun Feb 14 | You | **US$100 fee**; base app and demo app (check for a second fee). The 30-day wait ends Tue Mar 16, before anything is public |
-| Sun Feb 21 | You, artist | D14 agreement signed, the art's licence included; D20 (preview) answered. The artist: the four store capsules ([MODELS.md](docs/art/MODELS.md) §10.1; latest Sun Mar 21) |
+| Sun Feb 21 | You, artist | D14 agreement signed, the art's licence included; D20 (preview) answered. The artist: the four store capsules ([MODELS.md](docs/art/MODELS.md) §11; latest Sun Mar 21) |
 | Sun Feb 28 | You | Apple approved; Developer ID certificate and Team API key in `desktop-sign` and `desktop-release`. Claude's store copy, tags, requirements, Content Survey (AI use truthful) and ≥5 gameplay screenshots at 1920×1080 approved (latest Sun Mar 21); D19 decided |
 | Mon Mar 1 | You | Store page submitted (review 3–5 business days; latest Mon Mar 29) |
 | Sun Mar 7 | You | A Steam build account limited to this app; a second Steam account and demo keys; the password-protected beta branch |
@@ -500,7 +500,7 @@ Answers go in [docs/DECISIONS.md](docs/DECISIONS.md), with how to reverse each. 
 | 5 | Claude | Bake skeleton: `city.json`, extent, `bake:plan`; fetch, lock, mirror; the mini-Boston fixture (the §5 box) clipped from every input | The fixture committed; Boston's 675,647 exact |
 | 6 | Claude | Make V1 playable for P0 | You open V1's Riverton in one step |
 | 7 | You and the artist | **P0:** 30 minutes of V1 each | `docs/playtests/2026-10-17-p0-v1-baseline.md` |
-| 8 | The artist; you | The artist reads MODELS.md §3, §3.1, §5, §6 and §10 (about a page) and answers §12 (tool, roof stripe, any existing models); `art/LICENSE.md` names Miticept Studios, both of you jointly (D14), and the art's licence, CC BY 4.0 with the credit "Miticept Studios" (D20); the artist's commit records the artist's agreement | Committed by Oct 18 |
+| 8 | The artist; you | The artist reads MODELS.md §1 and §2 (about two pages) and answers §1's questions (tool, Windows version, roof stripe, any existing models); `art/LICENSE.md` names Miticept Studios, both of you jointly (D14), and the art's licence, CC BY 4.0 with the credit "Miticept Studios" (D20); the artist's commit records the artist's agreement | Committed by Oct 18 |
 | 9 | You | M0 check; the velocity check (§10) | Note committed |
 
 **Week 2: Oct 19–25**

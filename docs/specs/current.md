@@ -88,7 +88,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 
 ## Below the cut line (cut in this order if Dec 20 is at risk)
 
-1. **The model viewer** with the Boston-map preview (≤1.5; `docs/art/MODELS.md:167-173`). It is built only once the artist's `metro-40` blockout has landed ([RN-07](../history/lessons-ledger.md)); otherwise it waits for week 13. V3's `.glb` viewer had no map (`Intralines_City@dc63602:studio/viewer/main.ts:1-8`).
+1. **The model viewer** with the Boston-map preview (≤1.5; `docs/art/MODELS.md:80-88`). It is built only once the artist's `metro-40` blockout has landed ([RN-07](../history/lessons-ledger.md)); otherwise it waits for week 13. V3's `.glb` viewer had no map (`Intralines_City@dc63602:studio/viewer/main.ts:1-8`).
 2. **Week 5's carried items:** the three.js proof behind a flag (≤1) and the art check. Both also wait on the first file.
 3. **Drag and snap** (PLAN cut 5): two fixed states, flat and 50°, set by the chip and `T` alone.
 4. **The style pass beyond the token pick.**
