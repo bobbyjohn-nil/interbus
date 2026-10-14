@@ -1241,8 +1241,13 @@ button.chip.checklist,
 }
 
 .home button {
+  font: inherit;
   min-height: 32px;
   text-align: left;
+  border: 1px solid var(--ui-line);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
 }
 
 .home button.primary {

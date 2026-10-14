@@ -211,8 +211,23 @@ export function App() {
     counts.current = { depots, lines };
   }, [started, depots, lines, depotSiteAt, show]);
 
+  // A game loaded from a slot, a file or Restart this quarter takes this one's place: any tool out
+  // goes down with the game it was drawn in, as with a new game.
+  const loadedAt = sim.loaded?.at ?? null;
+  const loadedSeen = useRef(loadedAt);
+  useEffect(() => {
+    if (loadedAt === loadedSeen.current) return;
+    loadedSeen.current = loadedAt;
+    choose("none");
+  }, [loadedAt, choose]);
+
+  const ready = sim.status === "ready";
+  const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Home stands over a paused game: its keys are Home's (Escape closes Saves), not the game's.
+      if (atHome && event.key !== "Escape") return;
       if (
         event.target instanceof HTMLSelectElement ||
         event.target instanceof HTMLInputElement ||
@@ -245,7 +260,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [choose, send]);
+  }, [choose, send, atHome]);
 
   // A tool and the panels stay out together, each on the panel layer in a place of its own: they no
   // longer cover each other (the owner's initial playtest: "when you open 2 tabs, they conflict and you
@@ -335,8 +350,10 @@ export function App() {
             sim={sim}
             onClose={() => hide("saves")}
             onHome={() => {
-              // Paused first, which saves the game, so Continue picks up exactly here.
+              // Paused first, which saves the game, so Continue picks up exactly here; the tool goes
+              // down, so nothing of it waits unseen behind Home.
               send({ type: "speed", speed: 0 });
+              choose("none");
               setOpen([]);
               setHomeAt(Date.now());
             }}
@@ -361,8 +378,6 @@ export function App() {
       });
   }
 
-  const ready = sim.status === "ready";
-  const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
   if (atHome)
     return (
       <main className="app">
@@ -388,6 +403,9 @@ export function App() {
           onContinue={() => setHomeAt(null)}
           onNewGame={() => {
             if (sim.snapshot?.company.name) send({ type: "new-game" });
+            // A new game starts clean: no tool, draft or route editor, and no day card, of the old one.
+            choose("none");
+            sim.closeDayCard();
             setHomeAt(null);
           }}
           onSaves={() => show("saves")}
@@ -395,9 +413,10 @@ export function App() {
         {open.includes("saves") ? (
           <Saves sim={sim} onClose={() => hide("saves")} />
         ) : null}
-        <Notices sim={sim} />
-        <Corner />
-        <ReplacedCard />
+        {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once. */}
+        <Notices key="notices" sim={sim} />
+        <Corner key="corner" />
+        <ReplacedCard key="replaced" />
       </main>
     );
   return (
@@ -456,12 +475,12 @@ export function App() {
           Saves
         </button>
       ) : null}
-      <Notices sim={sim} />
+      <Notices key="notices" sim={sim} />
       <FoundingCard sim={sim} />
       <DayCard sim={sim} />
       <FailureCard sim={sim} />
-      <Corner />
-      <ReplacedCard />
+      <Corner key="corner" />
+      <ReplacedCard key="replaced" />
     </main>
   );
 }

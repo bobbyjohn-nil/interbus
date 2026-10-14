@@ -89,8 +89,10 @@ The owner played the preview and asked for 18 changes ([notes](playtests/2026-10
 ## In progress: systems that work (D26, 2026-10-14)
 
 The owner: "the money is not important right now, right now whats important is that the system work and we can fine tune the real values later." So values wait, and work goes to every system working end to end.
-1. [ ] **The audit:** each of the game's twelve systems (starting, building, route editing, lines, stops, time, money, contracts and events, saves, undo, the shell and panels, the map and 3D) driven in the fixture build and the sim by its own finder, each finding reproduced independently before it counts.
+1. [ ] **The audit:** each of the game's twelve systems (starting, building, route editing, lines, stops, time, money, contracts and events, saves, undo, the shell and panels, the map and 3D) driven in the fixture build and the sim by its own finder, each finding reproduced independently before it counts; run in eight lanes at once, as the owner asked ("run more parallel agents"). Starting and building are done: twelve findings, all twelve reproduced.
 2. [ ] **The fixes,** confirmed findings first by severity, each a small pull request with its test shown failing first (TS-04).
+   - [x] **Starting a game** (this PR, `e2e/start.spec.ts`): Home's keys no longer reach the paused game (Space and 1–5 ran time behind it, Ctrl+Z took back a purchase); a new game or a loaded slot starts with no tool, draft, route editor or day card of the old game; a notice shows once, not again at each switch between Home and the game; Home's buttons in Afacad Flux. Held back: the checklist coming back as "5/5 Take a contract" when a taken contract lapses, which needs a saved flag and so a save format; it waits to share one format with any other finding that needs one.
+   - [ ] **Building:** six findings (a refused click swallowing the line draft's later clicks; stale draft, stop and depot cards; Escape and the press that closes the Build menu also acting on the tool), fixed in a worktree and under review.
 
 ## Done: week 2 (PLAN §14 items 10–13), finished 2026-10-13
 

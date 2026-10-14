@@ -100,6 +100,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keys pressed on Home no longer reach the paused game behind it: Space and 1 to 5 used to run time there, and Ctrl+Z to take back your last purchase.
+- A new game, or a game loaded from Saves, starts clean: the old game's line tool, route editor, draft and day card no longer come with it, so pointing at a dot shows its card again.
+- A notice shows once, instead of again each time you go between Home and the game.
+- Home's buttons are drawn in the game's own font.
 - The report card's Coverage grade counts the buses calling at each stop over one day, not three. A stop with a bus every hour counted almost as well as one with a bus every 15 minutes; it now counts 0.40 of it, and a half-hourly stop 0.68. An opening company's card grades about a point lower.
 - An amount of a few cents out reads $0, not -$0.
 - Opening Lines, Finance or Saves while drawing a line or placing a depot now shows the panel beside the tool's card, instead of hidden behind it.
