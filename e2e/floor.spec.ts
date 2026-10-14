@@ -3,7 +3,7 @@
 // quarter reopens the game where it began (here, where the file was loaded). The game is a save file
 // edited to owe $200k at 23:50 with four closes already behind it, so the run ends within seconds.
 import { expect, test } from '@playwright/test';
-import { foundCompany } from './found';
+import { foundCompany, STARTING_CENTS } from './found';
 import { city, setSpeed } from './shell';
 
 test.describe('the failure floor', () => {
@@ -26,7 +26,7 @@ test.describe('the failure floor', () => {
     };
     save.data.clock.elapsed = 18 * 3_600 + 50 * 60;
     save.data.closesBelowFloor = 4;
-    save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -62_720_000, lineId: null });
+    save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
     const chooser = page.waitForEvent('filechooser');
     await page.getByRole('button', { name: 'Import a save file' }).click();
     await (await chooser).setFiles({ name: 'owing.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });

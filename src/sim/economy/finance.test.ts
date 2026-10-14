@@ -9,7 +9,7 @@ import { advance } from '../step';
 import { gameWithDepot } from '../testing';
 import { forecastDay } from './costs';
 import { finance } from './finance';
-import { post, rowsOfDay } from './ledger';
+import { foundingCapitalCents, post, rowsOfDay } from './ledger';
 
 function game() {
   const world = gameWithDepot();
@@ -26,7 +26,7 @@ describe('Finance', () => {
     const f = finance(world);
     expect([f.day, f.quarter, f.quarterFirstDay]).toEqual([2, 1, 1]);
     // The starting cash sits on Day 0 (D25), before Quarter 1's first day: the column is the cash less it.
-    expect(total(f.rows, 'quarterCents')).toBe(world.state.ledger.cashCents - 42_720_000);
+    expect(total(f.rows, 'quarterCents')).toBe(world.state.ledger.cashCents - foundingCapitalCents());
     expect(total(f.rows, 'yesterdayCents')).toBe(rowsOfDay(world.state.ledger, 1).reduce((s, r) => s + r.amountCents, 0));
     expect(total(f.rows, 'todayCents')).toBe(rowsOfDay(world.state.ledger, 2).reduce((s, r) => s + r.amountCents, 0));
     expect(f.rows.find((r) => r.kind === 'founding')).toMatchObject({ todayCents: 0, yesterdayCents: 0, quarterCents: 0, forecastCents: null });

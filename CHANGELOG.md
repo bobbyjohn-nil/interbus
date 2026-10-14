@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Everything beyond the play area is greyed out behind a dashed edge, so you can see where the board ends.
 - Dots show where people live (purple) and where they work (blue) from Back Bay to Longwood, sized by how many.
 - Point at a dot to see how many it stands for and how many more are within a walk: on a home dot, the people who live there and within a walk of it; on a job dot, the jobs there and within a walk.
-- A new company starts with $427,200: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
+- A new company starts with $474,548: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
 - Found your company first: give it a name and pick its color on the founding card, where your starting cash shows.
 - A checklist chip names the next thing to do: place a depot, draw a line, press play, close a day in profit, take a contract.
 - Place a depot, from Build: the industrial land where one may stand turns green, and a card beside the pointer says whether this spot works and what it costs ($150,000 for the first).
@@ -75,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Time runs in minutes and days on a calendar of 8-day quarters, four to a year. The top bar names the year and quarter, then the day of the quarter and the time ("Year 1, Q2 Day 4, 08:10"), and the day card, Home, Saves and the medals say the date the same way.
-- Speeds are true multiples of real time: 1× runs a game second a second, then 60×, 600×, 1,800× and 5,400×, picked from a speed menu beside Play and Pause. Space pauses and plays again, and the keys 1 to 5 pick a speed. At 1× and 60× the buses glide instead of stopping and jumping.
+- Speeds are true multiples of real time: 1× runs a game second a second, then 60×, 600×, 2,700× and 5,400×, picked from a speed menu beside Play and Pause. Space pauses and plays again, and the keys 1 to 5 pick a speed. At 1× and 60× the buses glide instead of stopping and jumping.
 - Contracts ask for a quarter in a row, 8 days, within two quarters, 16 days, and an offer nobody takes is withdrawn after a quarter.
 - The quarter's report card pays $1,280 a point over 55 and fines $6,400 below 35: the same a day as before, over the shorter quarter.
 - The game saves at least every 30 seconds while time runs, as well as every game hour.

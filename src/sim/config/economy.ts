@@ -49,5 +49,10 @@ export const FAILURE_CLOSES = 5;
 export const STARTER_ROUTE_M = 3_500;
 export const STARTER_STOPS = 4;
 export const STARTER_HEADWAY_SECONDS = 1_200;
-/** k in thousandths, so founding capital is whole cents: 1.2 gives $427,200 (V1 had $310,000). Week 9 tunes it within 1.0–1.8. */
-export const STARTING_CASH_K_PERMILLE = 1_200;
+/**
+ * k in thousandths, so founding capital is whole cents: 1.333 gives $474,548 (V1 had $310,000), tuned at
+ * the tuning freeze from 1.2 ($427,200) to I10's cap, where a four-bus line of the starter's shape,
+ * $546,000, costs 1.1506x it (DECISIONS, Measured, 2026-10-14; startingCash.test.ts). D7 holds it
+ * within 1.0–1.8.
+ */
+export const STARTING_CASH_K_PERMILLE = 1_333;

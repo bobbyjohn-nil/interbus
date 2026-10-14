@@ -5,7 +5,8 @@
 // or deleted.
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
-import { foundCompany } from './found';
+import { usd } from '../src/ui/format';
+import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 test.describe('saves: slots, export and import', () => {
@@ -21,14 +22,14 @@ test.describe('saves: slots, export and import', () => {
     await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.click(dx, dy);
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
 
     // Slot 1 holds the game with its depot; the exported file is the same game.
     await page.getByRole('button', { name: 'Saves' }).click();
     const saves = page.getByTestId('saves');
     await expect(page.getByTestId('slot-1')).toContainText('Empty');
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
-    await expect(page.getByTestId('slot-1')).toContainText('Day 1, 05:00 · Back Bay Transit · $277,200 · 0 lines · 0 buses');
+    await expect(page.getByTestId('slot-1')).toContainText(`Day 1, 05:00 · Back Bay Transit · ${usd(STARTING_CENTS - 15_000_000)} · 0 lines · 0 buses`);
     await expect(page.getByTestId('slot-1-when')).toHaveText(/^ · saved \w{3} \d{1,2}, \d\d:\d\d$/);
     const download = page.waitForEvent('download');
     await saves.getByRole('button', { name: 'Export this game' }).click();
@@ -45,11 +46,11 @@ test.describe('saves: slots, export and import', () => {
     }
     await expect(page.getByTestId('draft-card')).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Create' }).click();
-    await expect(panel).toHaveAttribute('data-cash', '7120000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 35_600_000));
     await page.getByRole('button', { name: 'Saves' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Load' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Replace this game' }).click();
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
     await expect(page.getByTestId('notice')).toContainText('Slot loaded');
 
     // A file the game cannot read: refused in words, the game kept.
@@ -57,14 +58,14 @@ test.describe('saves: slots, export and import', () => {
     await saves.getByRole('button', { name: 'Import a save file' }).click();
     await (await chooser).setFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello": "world"}') });
     await expect(page.getByTestId('notice')).toContainText('A save this game can’t read');
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
 
     // The exported file imports back.
     chooser = page.waitForEvent('filechooser');
     await saves.getByRole('button', { name: 'Import a save file' }).click();
     await (await chooser).setFiles({ name: 'interbus-boston-day-1.json', mimeType: 'application/json', buffer: Buffer.concat(exported as Buffer[]) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-    await expect(panel).toHaveAttribute('data-cash', '27720000');
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
 
     // Slot 1 deleted, after a question (the M5 spec, item 4).
     await page.getByTestId('slot-1').getByRole('button', { name: 'Delete' }).click();

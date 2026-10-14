@@ -31,27 +31,28 @@ The plan's two checks: "Home → founding → a profitable day" (week 10), and "
 | Dec 7–13 | Week 9, 5 sessions: the tuning freeze; pacing; Home; the save list; the GPU ladder; the model viewer (≤1.5). **P2 Dec 12–13** (the owner and the artist) |
 | Dec 14–20 | Week 10, 5 sessions: P2's fixes first; the 2D/3D chip, drag, snap and cross-fade; the light style pass; the slow-laptop run. **The `prototype` tag Sun Dec 20** (D16: not a version), on the commit the owner signs off; **D19 revisited** the same day |
 
-Work starts now, ahead of the calendar. The pacing harness and the shell come first; the tuning waits for P1's notes (Nov 16–22) and freezes on Dec 13.
+Work starts now, ahead of the calendar. The pacing harness and the shell come first; the tuning starts ahead of P1 under D25's clearance, takes P1's notes (Nov 16–22) in, and freezes on Dec 13.
 
 ## Above the cut line
 
 1. **The scripted pacing run** (PLAN §3's targets; [GD-10](../history/lessons-ledger.md), [EC-11](../history/lessons-ledger.md)). No earlier version had one: V1 took about 15 game days to a second bus, and nobody had checked (GD-10). `bench/pacing.ts` is a committed scripted player on Inner Boston.
    - **What the player does:**
-     - founds with the founding recipe and plays its first day at 600×, then 1,800×;
+     - founds with the founding recipe and plays its first day at 600×, then 2,700× (1,800× until the tuning freeze);
      - draws a second line along a sweep corridor once its cash covers that line and its buses;
      - takes the contracts its lines can meet, and nothing else.
-   - **What it reports, in real minutes on the speed ladder** (`SPEED_RATES`, `src/sim/rules/speed.ts`: 1×, 60×, 600×, 1,800× and 5,400× since D25; the pacing run plays at 600× and 1,800×, the old ladder's 1 and 2): first profitable day, second line, the report card, then bronze, silver and gold.
+   - **What it reports, in real minutes on the speed ladder** (`SPEED_RATES`, `src/sim/rules/speed.ts`: 1×, 60×, 600×, 2,700× and 5,400×, where 2,700× was 1,800× from D25 until the tuning freeze; the pacing run plays at 600× and 2,700×): first profitable day, second line, the report card, then bronze, silver and gold.
    - **The targets:** profit by 8 minutes, the second line after 15–25, the report card by 20, the top medal in 2–4 hours.
    - **The first line's 3–5 minutes** is the player's own time at the tools. The e2e founding run times its clicks, and P2 times people.
-   - **Built so** (`src/sim/pacing.ts`; DECISIONS, Measured): it also adds lines past the second (with depots of their own), the fixture version holds bands in the PR checks, and the nightly runs it on Inner Boston. Profit at 5.4 and the report card at 12.6 minutes meet their targets; the second line at 46.1 (day 51) and gold (none in 200 days, coverage the lowest grade) do not, which is the tuning's work.
+   - **Built so** (`src/sim/pacing.ts`; DECISIONS, Measured): it also adds lines past the second (with depots of their own), the fixture version holds its own bands in the PR checks, and the nightly runs it on Inner Boston on seeds 1–3 and fails when PLAN §3's minutes are missed. Since the tuning freeze (item 2): profit at 5.4 minutes, the report card at 9.1 and the second line at 20.8–23.4 meet their targets; gold (none in 300 days, Coverage the lowest grade) does not, which waits for the medal ladder and a scripted player with wider candidates.
 2. **The tuning freeze** (PLAN §3, D7; I10, [GD-11](../history/lessons-ledger.md)). What can be tuned from the pacing run's numbers:
-   - k, within 1.0–1.8; now 1.2, giving $427,200 against the 3.5 km founding recipe;
+   - k, within 1.0–1.8; now 1.333, giving $474,548 against the 3.5 km founding recipe, I10's cap (it was 1.2, $427,200; DECISIONS, Measured);
    - the speed ladder;
    - the medal bars, on the owner's answer or else the recommendation;
    - fare band share, crowding and contract asks.
 
    Each change goes in DECISIONS with its measured reason. Starting cash is written at founding, so a retune never moves a save. After Sun Dec 13 a tunable changes only for a P2 finding.
    - **Boston's balance bands** ([EC-12](../history/lessons-ledger.md)): the founding recipe's day-2 net, the best first line's net, the days to the second line and the quarter's grade under the scripted player. Each is committed as a band, so a later change that moves one fails.
+   - **Built so** (2026-10-14; DECISIONS, Measured): k 1.333 ($474,548, I10's cap) and the ladder's 4 at 2,700×; the bands held nightly on Inner Boston by `bench/pacing.ts` (day-2 net $800–$1,400, the second line on days 18–35, the first card 60–70) and `bench/firstline.ts` (the best first line's day-2 net $1,500–$3,500), with I10 on both cities. The medal bars wait for the owner's answer (Sun Nov 22).
 3. **Home** ([UX-07](../history/lessons-ledger.md); V1's menu, `Intralines@7af45b1:src/ui/Menu.tsx:104-253`, re-implemented per salvage R11). V2 and V3 had none.
    - **What it holds:** the first screen over the paused, flat map ([UX-10](../history/lessons-ledger.md)), with:
      - **Continue**, naming the newest save's company, day and cash;
@@ -85,7 +86,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 7. **P2's fixes** (Dec 12–13). The notes go in `docs/playtests/`, and their fixes come first in week 10.
 8. **The light style pass** (D8; PLAN §8 rules 1–5). It applies the owner's Nov 8 token pick, keeps the palette and contrast tests green, and puts a side-by-side with V1 in the milestone's notes.
 9. **The slow-laptop run** (PLAN §6 budgets): 2D must hold ≥30 fps on the slowest machine with 200 buses, and 3D at zoom 17, pitch 60 must hold ≥30. Under that, PLAN §10's trigger applies in this order: a 3D zoom floor of 14.5, no extrusion gradient, pitch capped at 50°.
-   - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7). Its heaps grow 1.0% over 30 minutes at 2× (≤10%), checked nightly.
+   - **Built so** (DECISIONS, Measured): no company can own 200 buses (five depots of six park 30), so `npm run bench scene` builds a save past that one rule, 209 buses on 29 Inner Boston lines at 08:00, to import through Saves. CI draws every bus in it on both builds, and the layer draws them in one call (≤7). Its heaps grew 1.0% over 30 minutes at 1,800× (≤10%), checked nightly, at 2,700× since the tuning freeze.
 
 10. **The owner's initial playtest** (2026-10-14; DECISIONS D25, which wins over this spec where they differ; [notes](../playtests/2026-10-14-owner-first-look.md)). In order, each a small PR:
     - routes without loops;
@@ -112,12 +113,12 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 | Quantity | Expected | Source |
 |---|---|---|
 | New game to a profitable day, scripted e2e with no thinking time | ≤5 of the 8 minutes: founding, a depot, four stops and day 1 at 600× (2.4 minutes a game day) | Item 1, §3 |
-| A game day at 600×, 1,800× and 5,400× | 144, 48 and 16 s (a day at 1× is a real day; D25) | `SPEED_RATES` |
-| The report card under the scripted player | about 10–12 minutes: day 1 at 600×, days 2–8 at 1,800× (measured on the fixture: 11.0) | Item 1, §3 |
-| Days to a second line | 6–10 game days (V1: about 15, unchecked) | Item 1, GD-10 |
+| A game day at 600×, 2,700× and 5,400× | 144, 32 and 16 s (a day at 1× is a real day; D25) | `SPEED_RATES` |
+| The report card under the scripted player | about 8–10 minutes: day 1 at 600×, days 2–8 at 2,700× (measured on the fixture and Inner Boston: 9.1; 11.0 at 1,800×) | Item 1, §3 |
+| Days to a second line | 6–10 game days (V1: about 15, unchecked); measured 28–33 on Inner Boston at k 1.333: the founding line nets about $1,100 a day and no contract it can meet comes before day 27, so the speed ladder, not the economy, brings it into PLAN's minutes (DECISIONS, Measured, 2026-10-14) | Item 1, GD-10 |
 | Bronze and silver | bronze in the first quarter; silver about day 23–41 (the fixture: two lines, one line) | M4's medals bench |
 | Gold on Inner Boston | 5,000 trips a day needs about eight lines like the debug line (610 a day on the fixture); within 2–4 hours if the ladder holds | Item 2, §3 |
-| k after tuning | 1.0–1.8 (now 1.2) | I10 |
+| k after tuning | 1.0–1.8 (now 1.333, I10's cap: a four-bus line of the starter's shape costs 1.1506× the starting cash) | I10 |
 | Home and the save list in the menu chunk | within 200 KiB gzip | PLAN §6 |
 | Low graphics | 30 fps cap, 2D only | PLAN §6 |
 | I13 with the compass and the demand chip | ≤6% at rest at 1152×720 late in a game; 0.04% is left today | Item 6 |

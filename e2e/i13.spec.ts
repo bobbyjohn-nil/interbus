@@ -5,7 +5,7 @@
 // the draft card, the inspector, the route editor, a stop's card, Finance, Saves).
 import { expect, test } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
-import { foundCompany, leaveHome } from './found';
+import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, chromeShare, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 const SIZES = [
@@ -86,7 +86,7 @@ test.describe('the screen budget (I13)', () => {
       await expect(finance.locator('tr[data-kind="depots"]')).toHaveAttribute('data-today', String(-15_000_000));
       await expect(finance.locator('tr[data-kind="stops"]')).toHaveAttribute('data-today', String(-1_600_000));
       await expect(finance.locator('tr[data-kind="buses"]')).toHaveAttribute('data-today', String(-19_000_000));
-      await expect(finance).toHaveAttribute('data-opening', '42720000');
+      await expect(finance).toHaveAttribute('data-opening', String(STARTING_CENTS));
       await expect(finance).toHaveAttribute('data-today', String(-35_600_000));
       await expect(finance).toHaveAttribute('data-quarter', String(-35_600_000));
       shares.financeBought = await chromeShare(page);

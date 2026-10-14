@@ -1,4 +1,8 @@
 import { expect, type Page } from '@playwright/test';
+import { foundingCapitalCents } from '../src/sim/economy/ledger';
+
+/** A new company's starting cash in cents (k × the founding recipe, D7), so a retune of k pins nothing here. */
+export const STARTING_CENTS = foundingCapitalCents();
 
 /**
  * Home, the first screen (the M5 spec, item 3): New game, or Continue with the game that saves itself

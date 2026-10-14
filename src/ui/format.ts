@@ -93,7 +93,7 @@ export const SPEED_HINTS: Readonly<Record<Exclude<Speed, 0>, string>> = {
   1: 'Real time',
   2: 'A minute a second',
   3: '10 minutes a second',
-  4: 'Half an hour a second',
+  4: '45 minutes a second',
   5: 'An hour and a half a second',
 };
 

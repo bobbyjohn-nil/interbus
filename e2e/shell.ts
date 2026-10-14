@@ -68,10 +68,11 @@ export function chromeShare(page: Page): Promise<number> {
 }
 
 /**
- * Picks a speed from the top bar's speed menu (D25: 1x is real time, then 60x, 600x, 1,800x and
- * 5,400x), which also starts time running. The old ladder's 1, 2 and 3 are 600x, 1,800x and 5,400x.
+ * Picks a speed from the top bar's speed menu (D25: 1x is real time, then 60x, 600x, 2,700x and
+ * 5,400x; 2,700x was 1,800x until the tuning freeze), which also starts time running. The old
+ * ladder's 1 and 3 are 600x and 5,400x; its 2, 1,800x, is now 2,700x.
  */
-export async function setSpeed(page: Page, label: '1×' | '60×' | '600×' | '1,800×' | '5,400×'): Promise<void> {
+export async function setSpeed(page: Page, label: '1×' | '60×' | '600×' | '2,700×' | '5,400×'): Promise<void> {
   await page.getByTestId('speed-menu').click();
   // An option's name is its speed then what it means ("600× 10 minutes a second"): match the speed whole.
   await page.getByRole('option').filter({ has: page.locator('.dropdown-label', { hasText: new RegExp(`^${label}$`) }) }).click();

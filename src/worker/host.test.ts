@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { STEP_SECONDS } from '../sim/config/time';
+import { foundingCapitalCents } from '../sim/economy/ledger';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
 import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
@@ -37,7 +38,7 @@ describe('the sim host', () => {
   it('starts paused at 05:00 on day 1 with the dots of every home and job', () => {
     const { last } = started();
     const ready = last('ready')!;
-    expect(ready.snapshot).toMatchObject({ elapsed: 0, day: 1, hour: 5, minute: 0, speed: 0, cashCents: 42_720_000, lines: [] });
+    expect(ready.snapshot).toMatchObject({ elapsed: 0, day: 1, hour: 5, minute: 0, speed: 0, cashCents: 47_454_800, lines: [] });
     expect(ready.dots.homes.reduce((s, d) => s + d[2], 0)).toBe(105_620);
     expect(ready.dots.jobs.reduce((s, d) => s + d[2], 0)).toBe(186_144);
   });
@@ -152,7 +153,7 @@ describe('the sim host', () => {
     expect(last('depot-site')).toMatchObject({ id: 3, site: { ok: true, priceCents: 15_000_000 } });
     host.handle({ type: 'place-depot', at });
     expect(last('snapshot')!.snapshot.depots).toEqual([{ id: 1, at }]);
-    expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000);
+    expect(last('snapshot')!.snapshot.cashCents).toBe(47_454_800 - 15_000_000);
     expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(30_000); // $300 a day of upkeep
     host.handle({ type: 'create-line', clicks: CLICKS });
     expect(last('snapshot')!.snapshot.lines[0]!.forecastCents.deadhead).toBeGreaterThan(0);
@@ -179,7 +180,7 @@ describe('the sim host', () => {
     const line = last('snapshot')!.snapshot.lines[0]!;
     expect(line).toMatchObject({ name: 'Line 1', buses: 2, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
     expect(line.cycle).toBeGreaterThan(1_400); // 1,457 s; over 1,500 until buses drove one-way streets both ways (2026-10-14)
-    expect(last('snapshot')!.snapshot.cashCents).toBe(42_720_000 - 15_000_000 - 20_600_000);
+    expect(last('snapshot')!.snapshot.cashCents).toBe(47_454_800 - 15_000_000 - 20_600_000);
     // Finance (the M3 spec, item 6; D25): the depot, the line's stops and its buses, each a row of its own kind.
     const bought = (kind: string) => last('snapshot')!.snapshot.finance.rows.find((r) => r.kind === kind);
     expect([bought('depots'), bought('stops'), bought('buses')]).toMatchObject([
@@ -187,9 +188,9 @@ describe('the sim host', () => {
       { todayCents: -1_600_000, forecastCents: null },
       { todayCents: -19_000_000, forecastCents: null },
     ]);
-    // Every 10 minutes at peak needs a third Sparrow: $95k against $71,200, the rest on the credit line (D10).
-    host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 600, offpeak: 1_200, overnight: null } });
-    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -2_380_000, lines: [{ buses: 3 }], floor: null });
+    // Every 7½ minutes at peak needs two more Sparrows: $190k against $118,548, the rest on the credit line (D10).
+    host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 450, offpeak: 1_200, overnight: null } });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -7_145_200, lines: [{ buses: 4 }], floor: null });
   });
 
   it('places a stop on its own, edits a route through it on the editor’s card and Set route, and takes down only a lone stop (D25)', () => {
@@ -229,9 +230,9 @@ describe('the sim host', () => {
     const line = last('snapshot')!.snapshot.lines[0]!;
     host.handle({ type: 'set-model', lineId: line.id, model: 'goliath' });
     expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'model_locked' });
-    // Two Metro 40s are $520k against $95k back for the Sparrows; $71,200 is left after the starter, and $150k of credit (D10).
+    // Two Metro 40s are $520k against $95k back for the Sparrows; $118,548 is left after the starter, and $150k of credit (D10).
     host.handle({ type: 'set-model', lineId: line.id, model: 'metro40' });
-    expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 - 7_120_000 - 15_000_000 });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-model', reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 - 11_854_800 - 15_000_000 });
     expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
   });
 
@@ -412,10 +413,10 @@ describe('undo while paused (I9)', () => {
     expect(last('snapshot')!.snapshot.undo).toEqual({ command: 'create-line', subject: 'Line 1' });
     host.handle({ type: 'undo' });
     expect(saves().at(-1)).toBe(afterDepot);
-    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], cashCents: 42_720_000 - 15_000_000, undo: { command: 'place-depot', subject: 'Depot 1' } });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], cashCents: 47_454_800 - 15_000_000, undo: { command: 'place-depot', subject: 'Depot 1' } });
     host.handle({ type: 'undo' });
     expect(saves().at(-1)).toBe(founded);
-    expect(last('snapshot')!.snapshot).toMatchObject({ depots: [], cashCents: 42_720_000, undo: null });
+    expect(last('snapshot')!.snapshot).toMatchObject({ depots: [], cashCents: 47_454_800, undo: null });
     host.handle({ type: 'undo' });
     expect(last('refused')).toEqual({ type: 'refused', command: 'undo', reason: 'nothing_to_undo' });
   });
@@ -481,7 +482,7 @@ describe('save slots, export and import', () => {
     send({ type: 'save-slot', slot: 1 });
     expect(store.has('interbus.slot.boston.1')).toBe(true);
     expect(last('slots')!.slots).toEqual([
-      { slot: 1, about: { day: 1, hour: 5, minute: 0, company: 'Back Bay Transit', cashCents: 27_720_000, lines: 0, buses: 0, savedAt: null }, readable: true },
+      { slot: 1, about: { day: 1, hour: 5, minute: 0, company: 'Back Bay Transit', cashCents: 32_454_800, lines: 0, buses: 0, savedAt: null }, readable: true },
       { slot: 2, about: null, readable: true },
       { slot: 3, about: null, readable: true },
     ]);
@@ -489,7 +490,7 @@ describe('save slots, export and import', () => {
     expect(last('snapshot')!.snapshot.lines).toHaveLength(1);
     send({ type: 'load-slot', slot: 1 });
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'slot', load: 'ok' });
-    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], cashCents: 27_720_000, speed: 0, undo: null });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], cashCents: 32_454_800, speed: 0, undo: null });
     expect(store.get(KEY)).toBe(store.get('interbus.slot.boston.1'));
     send({ type: 'load-slot', slot: 2 });
     expect(last('refused')).toEqual({ type: 'refused', command: 'load-slot', reason: 'empty_slot' });
@@ -549,7 +550,7 @@ describe('save slots, export and import', () => {
     send({ type: 'create-line', clicks: CLICKS });
     send({ type: 'import', text: file.text });
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'file', load: 'ok' });
-    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], depots: [{}], cashCents: 27_720_000 });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], depots: [{}], cashCents: 32_454_800 });
   });
 
   it('refuses a file it cannot read, or one from a newer build, and keeps the game and its autosave', () => {
@@ -560,7 +561,7 @@ describe('save slots, export and import', () => {
     send({ type: 'import', text: JSON.stringify({ ...JSON.parse(live!), format: 99 }) });
     expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_newer' });
     expect(store.get(KEY)).toBe(live);
-    expect(last('snapshot')!.snapshot).toMatchObject({ depots: [{}], cashCents: 27_720_000 });
+    expect(last('snapshot')!.snapshot).toMatchObject({ depots: [{}], cashCents: 32_454_800 });
   });
 });
 
@@ -592,7 +593,7 @@ describe('the failure floor', () => {
       };
       save.data.clock.elapsed = elapsed;
       save.data.closesBelowFloor = closes;
-      save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(42_720_000 + 20_000_000), lineId: null });
+      save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(foundingCapitalCents() + 20_000_000), lineId: null });
       return JSON.stringify(save);
     };
     return { send, last, store, owing, host };
@@ -612,7 +613,7 @@ describe('the failure floor', () => {
     send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     send({ type: 'restart-quarter' });
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
-    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: 42_720_000, depots: [], company: { name: 'Back Bay Transit' } });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: 47_454_800, depots: [], company: { name: 'Back Bay Transit' } });
   });
 
   it('ends the run on the fifth close: time stops, and Restart this quarter reopens where the game was loaded', () => {

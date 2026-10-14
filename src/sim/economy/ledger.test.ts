@@ -14,11 +14,11 @@ describe('I1: cash is the sum of the ledger rows', () => {
     // A depot, four stops and the two Sparrows every 20 minutes needs on a 3.5 km line (D7, K07).
     expect(starterBuses()).toBe(2);
     expect(starterLineCents()).toBe(35_600_000);
-    expect(foundingCapitalCents()).toBe(42_720_000);
+    expect(foundingCapitalCents()).toBe(47_454_800);
     const ledger = foundLedger();
     expect(OPENING_DAY).toBe(0);
-    expect(ledger.rows).toEqual([{ day: 0, kind: 'founding', amountCents: 42_720_000 }]);
-    expect(ledger.cashCents).toBe(42_720_000);
+    expect(ledger.rows).toEqual([{ day: 0, kind: 'founding', amountCents: 47_454_800 }]);
+    expect(ledger.cashCents).toBe(47_454_800);
   });
 
   it('holds through thousands of random income rows, purchases, refusals and refunds', () => {
@@ -144,7 +144,7 @@ describe('a purchase in parts', () => {
       { day: 1, kind: 'stops', amountCents: -1_600_000 },
       { day: 1, kind: 'buses', amountCents: -19_000_000, lineId: 1 },
     ]);
-    expect(ledger.cashCents).toBe(42_720_000 - 20_600_000);
+    expect(ledger.cashCents).toBe(47_454_800 - 20_600_000);
   });
 
   it('is refused whole when the parts together go past the credit line, posting none', () => {

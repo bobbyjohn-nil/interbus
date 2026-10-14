@@ -2,9 +2,12 @@
 # block). I3's full sweep (the M4 spec, item 5; bench/sweep.ts): every headway the line card offers,
 # every fare, every bus model and every tier a lone line's stops may take, with and without roadworks,
 # on the fixture's debug line and two Inner Boston corridors. Beside it, on GitHub's runner, I14's
-# recompute on Inner Boston, a festival's first day included (bench/recompute.ts), and the scripted
-# pacing run (the M5 spec, item 1; bench/pacing.ts), which reports and never fails. And PLAN §6's heap
-# budget: 30 minutes of the slow-laptop run's busy scene at 2× on the shipped build (e2e/heap.spec.ts).
+# recompute on Inner Boston, a festival's first day included (bench/recompute.ts); I10 on Inner Boston
+# (bench/firstline.ts); and the scripted pacing run (the M5 spec, item 1; bench/pacing.ts) on seeds 1-3
+# (2 and 3 for 80 days, which the held targets need), which fails when profit, the report card or the
+# second line misses PLAN §3's minutes or a balance band moves (EC-12), and only reports gold. And
+# PLAN §6's heap budget: 30 minutes of the slow-laptop run's busy scene at 2,700× on the shipped build
+# (e2e/heap.spec.ts).
 # A failing verdict fails the run; it blocks no merge, and the next session reads it from the run's log.
 name: Nightly
 
@@ -70,8 +73,25 @@ jobs:
 
       - run: npm run bench recompute
 
+      - run: npm run bench firstline
+        if: ${{ !cancelled() }}
+
       - run: npm run bench pacing
         if: ${{ !cancelled() }}
+        env:
+          PACING_SEED: 1
+
+      - run: npm run bench pacing
+        if: ${{ !cancelled() }}
+        env:
+          PACING_SEED: 2
+          PACING_DAYS: 80
+
+      - run: npm run bench pacing
+        if: ${{ !cancelled() }}
+        env:
+          PACING_SEED: 3
+          PACING_DAYS: 80
 
   heap:
     name: PLAN §6's heap budget, 30 minutes of the busy scene
@@ -111,7 +131,7 @@ jobs:
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: 30 minutes of the busy scene at 2×, its heaps within 10%
+      - name: 30 minutes of the busy scene at 2,700×, its heaps within 10%
         run: npx playwright test e2e/heap.spec.ts
         env:
           HEAP_MINUTES: 30

@@ -89,7 +89,7 @@ A mechanic that needs a second mechanic to explain it is cut ([GD-06](docs/histo
 | 0:00 | Name, colour. The board opens paused and flat over Back Bay at zoom 14, every arterial named (local names from z14.5); chip "1/5 Place a depot" ([UX-07](docs/history/lessons-ledger.md)) |
 | 1:00 | Legal land tints green, mostly industrial strips; card "Industrial ✓ · street 40 m ✓ · $150k" |
 | 2:00 | "2/5 Draw a line" along Massachusetts Avenue: a 650 m walk ring, "≈9,000 people within a walk" |
-| 3:00 | Four stops to the Longwood Medical Area. "Every 20 min needs 2 Sparrows · $190k" (the cycle function, 2026-10-13; the M2 spec): founding sets peak and off-peak alike, overnight off; about $71k left at k ≈ 1.2 |
+| 3:00 | Four stops to the Longwood Medical Area. "Every 20 min needs 2 Sparrows · $190k" (the cycle function, 2026-10-13; the M2 spec): founding sets peak and off-peak alike, overnight off; about $118,500 left at k 1.333 |
 | 3:30 | "3/5 Press play" at 05:00 on day 1. The bus pulls out; the 06:30 peak fills it |
 | 4:30 | The compass (or `T`, or a double-click held) tilts the map: Back Bay rises around the bus; again to flatten. Nothing in the game changes |
 | 5:30 | First daily close, every figure a ledger row ([AR-12](docs/history/lessons-ledger.md)); "QUIET · 3 boardings" |
@@ -110,7 +110,7 @@ No tutorial text: a profitable first line fits the starting cash and the best fo
 
 **Pacing targets** ([GD-10](docs/history/lessons-ledger.md)), scripted in week 9: first line in 3–5 minutes; profit by 8; second line after 15–25; report card by 20; Boston's top medal in 2–4 hours.
 
-**Call (D7): starting cash is derived:** k × a starter line's cost (a depot, four stops, the buses its daytime headways need), written once at founding as the first ledger row, so a retune never moves a save. k ≈ 1.2 gives V1's $310k ([X-09](docs/history/lessons-ledger.md)); week 9 tunes k within 1.0–1.8, held by I10 ([GD-11](docs/history/lessons-ledger.md)).
+**Call (D7): starting cash is derived:** k × a starter line's cost (a depot, four stops, the buses its daytime headways need), written once at founding as the first ledger row, so a retune never moves a save. k ≈ 1.2 gives V1's $310k ([X-09](docs/history/lessons-ledger.md)); week 9 tunes k within 1.0–1.8, held by I10 ([GD-11](docs/history/lessons-ledger.md)); tuned to 1.333 ($474,548) on 2026-10-14 (DECISIONS, Measured).
 
 ---
 
