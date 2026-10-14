@@ -53,12 +53,10 @@ export interface MapViewProps {
   readonly clock?: { readonly second: number; readonly rate: number; readonly day: number } | null;
 }
 
-/** Sets the dots and, drawn rather than merely sent (TS-07), counts what the next settled frame shows. */
-function showDots(mounted: MountedMap, dots: Dots, setDrawn: (n: number) => void): () => void {
+/** Sets the dots; the count of what draws follows from the next settled frame (below). */
+function showDots(mounted: MountedMap, dots: Dots): void {
   mounted.setDots(dots);
-  const onIdle = () => setDrawn(mounted.dotsDrawn());
-  mounted.map.once('idle', onIdle);
-  return () => void mounted.map.off('idle', onIdle);
+  mounted.map.triggerRepaint();
 }
 
 const BOTH: DotKinds = { home: true, job: true };
@@ -176,7 +174,10 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
         const now = latest.current;
         mounted.setDotKinds(now.dotKinds);
         mounted.setTiltGesture(now.tiltGesture);
-        if (now.dots) showDots(mounted, now.dots, setDotsDrawn);
+        if (now.dots) showDots(mounted, now.dots);
+        // Drawn rather than merely sent (TS-07): every settled frame counts the dots it shows, so the
+        // count follows the dots, the kinds shown and the tiles as they arrive. Once a settle, never a frame.
+        mounted.map.on('idle', () => setDotsDrawn(mounted.dotsDrawn()));
         mounted.setLines(now.lines, now.stops);
         if (now.depotLand) mounted.setDepotLand(now.depotLand);
         mounted.setDepots(now.depots);
@@ -222,18 +223,15 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
   useEffect(() => {
     const mounted = mountedRef.current;
     if (!mounted || !dots) return;
-    return showDots(mounted, dots, setDotsDrawn);
+    showDots(mounted, dots);
   }, [dots]);
 
-  // Shown or hidden by kind, and counted again once drawn (data-dots follows what shows).
+  // Shown or hidden by kind; the next settled frame counts what shows.
   useEffect(() => {
     const mounted = mountedRef.current;
     if (!mounted) return;
     mounted.setDotKinds(latest.current.dotKinds);
-    const onIdle = () => setDotsDrawn(mounted.dotsDrawn());
-    mounted.map.once('idle', onIdle);
     mounted.map.triggerRepaint();
-    return () => void mounted.map.off('idle', onIdle);
   }, [dotKindsKey]);
 
   useEffect(() => {
