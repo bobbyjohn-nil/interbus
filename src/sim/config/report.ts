@@ -9,8 +9,9 @@ export const REPORT_WEIGHTS = { coverage: 0.25, reliability: 0.25, comfort: 0.25
 
 /**
  * Coverage counts a resident by the best stop within a walk, weighted by its service: (calls a day ÷
- * 64)^0.75, held at 1, so an hourly stop counts 0.35 and a half-hourly one 0.60 (V2's fix for orphan
- * poles, EC-07: `…:Gaming/src/30-sim.js:3884-3918`, `10-core.js:185-190`).
+ * 64)^0.75, held at 1, so a stop called hourly from 05:00 (19 calls) counts 0.40, half-hourly (38)
+ * 0.68, and every 15 minutes (76) in full (V2's fix for orphan poles, EC-07:
+ * `…:Gaming/src/30-sim.js:3884-3918`, `10-core.js:185-190`).
  */
 export const COVERAGE_FULL_CALLS = 64;
 export const COVERAGE_EXPONENT = 0.75;

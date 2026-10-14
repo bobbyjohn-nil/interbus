@@ -1,9 +1,10 @@
 // The report card's bars from a measured spread (the M3 spec, item 9): ten opening companies on the
 // fixture, each with the founding cash, a depot on its depot land and one line of four stops a seeded
 // RNG lays out (each stop 600–1,300 m from the last, on a street node), at the founding headways,
-// run untouched for a quarter and graded at day 10's close. Prints each card, the spread of the
-// overall (min, median and max), and the checklist's debug line for reference. `npm run bench report`.
-import { SECONDS_PER_DAY } from '../src/sim/config/time';
+// run untouched for a quarter and graded at its last day's close (day 8; day 10 before D25). Prints
+// each card, the spread of the overall (min, median and max), and the checklist's debug line for
+// reference. `npm run bench report`.
+import { DAYS_PER_QUARTER, SECONDS_PER_DAY } from '../src/sim/config/time';
 import { createLine } from '../src/sim/commands/createLine';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { createRng } from '../src/sim/core/rng';
@@ -33,9 +34,9 @@ for (let seed = 1; seed <= 10; seed++) {
     made = createLine(world, stops.map((p) => toLngLat(frame, p))).ok;
   }
   if (!made) throw new Error(`seed ${seed}: no line`);
-  const events = advance(world, 10 * SECONDS_PER_DAY);
+  const events = advance(world, DAYS_PER_QUARTER * SECONDS_PER_DAY);
   const card = events.find((e) => e.card)?.card;
-  if (!card) throw new Error(`seed ${seed}: no card on day 10`);
+  if (!card) throw new Error(`seed ${seed}: no card on day ${DAYS_PER_QUARTER}`);
   const riders = [...world.assignment.lines.values()][0]!.perDay;
   const f = (v: number) => v.toFixed(1).padStart(5);
   const line = `seed ${String(seed).padStart(2)}: ${riders.toFixed(0).padStart(4)} riders a day; coverage ${f(card.coverage)}, reliability ${f(card.reliability)}, comfort ${f(card.comfort)}, money ${f(card.money)}; overall ${f(card.overall)}, payout $${(card.payoutCents / 100).toFixed(0)}`;
@@ -47,7 +48,7 @@ const sorted = rows.map((r) => r.overall).sort((a, b) => a - b);
 {
   const world = gameWithDepot(1);
   addDebugLine(world);
-  const card = advance(world, 10 * SECONDS_PER_DAY).find((e) => e.card)!.card!;
+  const card = advance(world, DAYS_PER_QUARTER * SECONDS_PER_DAY).find((e) => e.card)!.card!;
   const f = (v: number) => v.toFixed(1).padStart(5);
   // Income and running costs (sim/rules/money.ts); before D25 this also counted a contract's reward.
   const running = world.state.ledger.rows.filter((r) => isOperating(r.kind)).reduce((sum, r) => sum + r.amountCents, 0);
