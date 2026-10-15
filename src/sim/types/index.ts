@@ -227,7 +227,7 @@ export interface Snapshot {
   readonly rate: number;
   readonly cashCents: number;
   readonly ridersPerDay: number;
-  /** Closed days whose running rows came out ahead (the checklist's "a day in profit"). */
+  /** Closed days whose running rows came out ahead, those older than Finance's two quarters counting once at most (economy/ledger.ts foldDays): the checklist's "a day in profit", which reads only whether there is one. */
   readonly profitableDays: number;
   /** A whole day's running costs as Finance forecasts them, in cents: every line's, every depot's and stop's upkeep, and the interest while owing. */
   readonly costsPerDayCents: number;

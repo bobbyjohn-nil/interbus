@@ -13,9 +13,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { FOUNDING_HEADWAYS } from '../src/sim/config/lines';
-import { rowsOfDay } from '../src/sim/economy/ledger';
 import { corridorCandidates, playScripted } from '../src/sim/pacing';
-import { isOperating } from '../src/sim/rules/money';
 import { newGame } from '../src/sim/state';
 import { createWorld } from '../src/sim/world';
 import { SPEED_RATES } from '../src/sim/rules/speed';
@@ -64,9 +62,10 @@ for (const medal of ['bronze', 'silver']) console.log(`  ${medal.padEnd(11)} ${r
 console.log(`  ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${result.tripsADay} trips on the last day, ${result.carried} carried; cash ${usd(result.cashCents)} (${((performance.now() - t0) / 1000).toFixed(0)} s)`);
 mkdirSync('.cache/bench', { recursive: true });
 writeFileSync('.cache/bench/pacing.json', `${JSON.stringify({ seed, player, later, reserveCents, ...result }, null, 2)}\n`);
-const day2 = rowsOfDay(world.state.ledger, 2).filter((r) => isOperating(r.kind)).reduce((sum, r) => sum + r.amountCents, 0);
+// Read at day 2's close: by the run's end the ledger has folded it (src/sim/economy/ledger.ts DAYS_KEPT).
+const day2 = result.secondDayNetCents;
 const balance = { foundingDay2NetCents: day2, secondLineDay: result.at.secondLine?.day ?? null, firstCard: result.cards[0]?.overall ?? null };
-console.log(`  balance     founding recipe day 2 ${usd(day2)}; second line on day ${balance.secondLineDay ?? '-'}; first card ${balance.firstCard?.toFixed(1) ?? '-'}`);
+console.log(`  balance     founding recipe day 2 ${day2 === null ? '-' : usd(day2)}; second line on day ${balance.secondLineDay ?? '-'}; first card ${balance.firstCard?.toFixed(1) ?? '-'}`);
 const missed: string[] = HELD.filter((name) => {
   const m = result.at[name];
   return !m || m.minutes < TARGETS[name][0] || m.minutes > TARGETS[name][1];

@@ -9,19 +9,23 @@
 import { describe, expect, it } from 'vitest';
 import { DEBUG_STOPS } from './commands/debugLine';
 import { FOUNDING_HEADWAYS } from './config/lines';
+import { rowsOfDay } from './economy/ledger';
 import { corridorCandidates, playScripted } from './pacing';
+import { isOperating } from './rules/money';
 import { SPEED_RATES } from './rules/speed';
 import { COPLEY, fixtureGame, KENMORE } from './testing';
+import type { World } from './world';
 
 
 describe('the scripted pacing run, on the fixture', () => {
-  const world = fixtureGame(7);
-  const result = playScripted(world, { name: 'the debug line', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, corridorCandidates(world, [['Copley to Kenmore', COPLEY, KENMORE]]), {
-    rateOn: (day) => SPEED_RATES[day === 1 ? 3 : 4],
-    player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 },
-    reserveCents: 0,
-    maxDays: 40,
-  });
+  const play = (world: World, maxDays: number) =>
+    playScripted(world, { name: 'the debug line', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, corridorCandidates(world, [['Copley to Kenmore', COPLEY, KENMORE]]), {
+      rateOn: (day) => SPEED_RATES[day === 1 ? 3 : 4],
+      player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 },
+      reserveCents: 0,
+      maxDays,
+    });
+  const result = play(fixtureGame(7), 40);
 
   it('profits on day 1, within PLAN §3’s 8 minutes, and grades its first quarter by 20', () => {
     expect(result.at.profit).toEqual({ day: 1, minutes: 5.4 });
@@ -35,6 +39,19 @@ describe('the scripted pacing run, on the fixture', () => {
     expect(result.at.secondLine!.day).toBeLessThanOrEqual(13);
     expect(result.at.secondLine!.minutes).toBeGreaterThanOrEqual(10);
     expect(result.at.secondLine!.minutes).toBeLessThanOrEqual(14);
+  });
+
+  // The nightly's founding-recipe band (bench/pacing.ts) read day 2's rows at the end of its run, and
+  // the ledger now folds a closed day once Finance's two quarters pass it (economy/ledger.ts DAYS_KEPT),
+  // so the run reads them at day 2's close: what the same run, stopped after day 2 before any fold,
+  // sums. Shown failing (TS-04) on 001fc4a, whose result had no such figure, and with the bench's read
+  // put back (day 2's rows at the run's end, folded by then): $0 against $1,206.31.
+  it('reads day 2’s running net at its close, as the day’s rows sum before any fold', () => {
+    const short = fixtureGame(7);
+    play(short, 2);
+    const day2 = rowsOfDay(short.state.ledger, 2).filter((r) => isOperating(r.kind));
+    expect(day2.length).toBeGreaterThan(0);
+    expect(result.secondDayNetCents).toBe(day2.reduce((s, r) => s + r.amountCents, 0));
   });
 
   it('carries 25,000 trips for silver within the first four quarters (measured: day 22; day 23 at k 1.2)', () => {
