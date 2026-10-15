@@ -9,12 +9,13 @@ import { Notices } from './Notices';
 
 /** Notices over `more`, with a button on screen that opens Saves unless `savesButton` is false. */
 const render = (more: Partial<Sim>, savesOpen = false, savesButton = true) =>
-  renderToStaticMarkup(createElement(Notices, { sim: { status: 'ready', refusal: null, load: 'none', loaded: null, storeRefused: false, unbacked: null, backup: null, ...more } as unknown as Sim, savesButton, savesOpen }));
+  renderToStaticMarkup(createElement(Notices, { sim: { status: 'ready', refusal: null, load: 'none', loaded: null, storeRefused: false, storeRefusals: 0, unbacked: null, backup: null, ...more } as unknown as Sim, savesButton, savesOpen }));
 
 describe('notices', () => {
+  // Any save refused says so, a slot's Save here too, though only the game's own hold Saves' line (storeRefused).
   it('says the browser is keeping no saves once the game is ready', () => {
-    expect(render({ storeRefused: true })).toContain('This browser isn’t keeping saves');
-    expect(render({ storeRefused: true, status: 'loading' })).toBe('');
+    expect(render({ storeRefusals: 1 })).toContain('This browser isn’t keeping saves');
+    expect(render({ storeRefusals: 1, storeRefused: true, status: 'loading' })).toBe('');
     expect(render({})).toBe('');
   });
 
@@ -55,7 +56,7 @@ describe('notices', () => {
   // the held notice alone, even beside a refusal of another write. Shown failing (TS-04) with "This
   // browser isn’t keeping saves" said for it.
   it('says a save could not be set aside, not that the browser keeps no saves, while it holds', () => {
-    const html = render({ load: 'older', backup: 'not-kept', unbacked: 'older-15', storeRefused: true });
+    const html = render({ load: 'older', backup: 'not-kept', unbacked: 'older-15', storeRefused: true, storeRefusals: 1 });
     expect(html).toContain('Not autosaving: see Saves');
     expect(html).not.toContain('This browser isn’t keeping saves');
   });

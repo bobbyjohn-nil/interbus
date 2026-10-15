@@ -644,8 +644,13 @@ describe('undo while paused (I9)', () => {
 // written before the import is read, as V1 did (`Intralines@7af45b1:src/game/store.ts:1883-1901`):
 // a file the game cannot read then costs the player their autosave.
 describe('save slots, export and import', () => {
-  /** A host with a page's store: its store effects carried out and its read-keys answered, in order. */
-  function withStore(now?: () => number) {
+  /**
+   * A host with a page's store: its store effects carried out and its read-keys answered, in order. While `room.full`, the store
+   * refuses a write (any, or only one under the key it names) and the rest of its job, as a full disk does (platform's
+   * applyEffects), and the page tells the sim the keys it refused; a key removed makes room. The page (useSim) tells only the
+   * keys of the game's own saves (`owed`); here every key refused is told, so the host is shown to owe only its own.
+   */
+  function withStore(now?: () => number, room: { full: boolean | string } = { full: false }) {
     const store = new Map<string, string>();
     const out: FromWorker[] = [];
     const host = createHost((m) => out.push(m), now);
@@ -653,12 +658,24 @@ describe('save slots, export and import', () => {
     const pump = () => {
       while (seen < out.length) {
         const m = out[seen++]!;
-        if (m.type === 'store') for (const e of m.effects) void (e.op === 'write' ? store.set(e.key, e.value) : store.delete(e.key));
-        else if (m.type === 'read-keys') host.handle({ type: 'key-texts', id: m.id, texts: m.keys.map((k) => store.get(k) ?? null) });
+        if (m.type === 'store') {
+          for (const [i, e] of m.effects.entries()) {
+            if (e.op === 'write' && (room.full === true || room.full === e.key)) {
+              host.handle({ type: 'store-refused', keys: m.effects.slice(i).flatMap((f) => (f.op === 'write' ? [f.key] : [])) });
+              break;
+            }
+            if (e.op === 'write') store.set(e.key, e.value);
+            else if (store.delete(e.key)) room.full = false;
+          }
+        } else if (m.type === 'read-keys') host.handle({ type: 'key-texts', id: m.id, texts: m.keys.map((k) => store.get(k) ?? null) });
       }
     };
     const send = (m: ToWorker) => {
       host.handle(m);
+      pump();
+    };
+    const tick = (nowMs: number) => {
+      host.tick(nowMs);
       pump();
     };
     send({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
@@ -666,7 +683,9 @@ describe('save slots, export and import', () => {
     const last = <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined;
     send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
     send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
-    return { send, last, store };
+    /** The keys the host has written since `from` messages, in order. */
+    const writes = (from: number) => out.slice(from).flatMap((m) => (m.type === 'store' ? m.effects : [])).flatMap((e) => (e.op === 'write' ? [e.key] : []));
+    return { send, tick, last, store, out, writes };
   }
 
   it('saves into a slot, lists what each slot holds, and loads it back over the game and its autosave', () => {
@@ -702,6 +721,110 @@ describe('save slots, export and import', () => {
     expect(last('slots')!.slots[1]).toEqual({ slot: 2, about: null, readable: true });
     send({ type: 'delete-slot', slot: 7 });
     expect(last('refused')).toEqual({ type: 'refused', command: 'delete-slot', reason: 'no_such_slot' });
+  });
+
+  // "This browser isn’t keeping saves", and the player deletes a slot, or a save set aside by a new build, to make room: the
+  // autosave the full store refused is written at once, so a reload keeps the game. Shown failing (TS-04) on 5f4bce3, where
+  // nothing saved after the delete: the live key kept the game from before the refusal until the next command, pause or game
+  // hour, and a reload lost the depot; and, for the save set aside, with delete-set-aside's `writeOwed();` taken out. The
+  // delete writes the autosave alone: shown failing with any refusal owing both saves, where it wrote the quarter's start too.
+  it('writes the autosave a full store refused as soon as a delete makes room, depot and all', () => {
+    const room = { full: false };
+    let at = 0; // each save stamped apart, so one written again shows
+    const { send, last, store, out, writes } = withStore(() => ++at, room);
+    const depots = () => (JSON.parse(store.get(KEY)!) as { data: { depots: unknown[] } }).data.depots.length;
+    send({ type: 'save-slot', slot: 1 });
+    room.full = true;
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][], 1) });
+    expect(last('snapshot')!.snapshot.depots).toHaveLength(2);
+    expect(depots()).toBe(1); // refused
+    const from = out.length;
+    send({ type: 'delete-slot', slot: 1 });
+    expect(store.has('interbus.slot.boston.1')).toBe(false);
+    expect(depots()).toBe(2);
+    expect(writes(from)).toEqual([KEY]); // the autosave alone: the quarter's start was not refused
+    expect(last('slots')!.autosave).toMatchObject({ company: 'Back Bay Transit', cashCents: last('snapshot')!.snapshot.cashCents });
+    // The same with a save set aside by a new build (stored as the set-aside test below stores one), deleted to make room.
+    store.set('interbus.backup.boston.older', '{"format":1}');
+    send({ type: 'slots' });
+    expect(last('slots')!.setAside).toEqual(['older']);
+    room.full = true;
+    send({ type: 'undo' }); // the depot again
+    expect(last('snapshot')!.snapshot.depots).toHaveLength(1);
+    expect(depots()).toBe(2); // refused
+    send({ type: 'delete-set-aside', why: 'older' });
+    expect(store.has('interbus.backup.boston.older')).toBe(false);
+    expect(depots()).toBe(1);
+    expect(last('slots')!.autosave).toMatchObject({ company: 'Back Bay Transit', cashCents: last('snapshot')!.snapshot.cashCents });
+    // Owed only after a refusal: a delete with nothing owed writes nothing.
+    const kept = store.get(KEY);
+    send({ type: 'save-slot', slot: 2 });
+    send({ type: 'delete-slot', slot: 2 });
+    expect(store.get(KEY)).toBe(kept);
+  });
+
+  // The quarter's start the full store refused at a quarter's close is owed, as is the autosave it refused after, and the delete
+  // writes both, the quarter's start from memory, so after a reload Restart this quarter goes back to this quarter's start. Shown
+  // failing (TS-04) on 5f4bce3, where the delete wrote neither, and with only the autosave owed: the quarter key kept the start
+  // of the quarter before (here, where a file was loaded on its last evening) though the autosave was written.
+  it('writes the quarter’s start a full store refused at the close once a delete makes room, with the autosave', () => {
+    const room = { full: false };
+    const { send, tick, last, store } = withStore(undefined, room);
+    const elapsedIn = (key: string) => (JSON.parse(store.get(key)!) as { data: { clock: { elapsed: number } } }).data.clock.elapsed;
+    send({ type: 'save-slot', slot: 1 });
+    // This game as a file, at 23:50 on day 8, the quarter's last close ten minutes off: loaded, it is the quarter's start.
+    send({ type: 'export' });
+    const file = JSON.parse(last('export')!.text) as { data: { clock: { elapsed: number } } };
+    const lastEvening = 7 * 86_400 + 18 * 3_600 + 50 * 60;
+    file.data.clock.elapsed = lastEvening;
+    send({ type: 'import', text: JSON.stringify(file) });
+    expect(elapsedIn('interbus.quarter.boston')).toBe(lastEvening);
+    room.full = true;
+    send({ type: 'speed', speed: 5 });
+    for (let t = 0; !last('day-card')?.card.report && t < 60_000; t += 250) tick(t);
+    send({ type: 'speed', speed: 0 });
+    const midnight = 7 * 86_400 + 19 * 3_600; // day 8's close, where quarter 2 begins
+    expect(last('snapshot')!.snapshot.elapsed).toBeGreaterThanOrEqual(midnight);
+    expect(elapsedIn('interbus.quarter.boston')).toBe(lastEvening); // refused
+    send({ type: 'delete-slot', slot: 1 });
+    expect(elapsedIn(KEY)).toBe(last('snapshot')!.snapshot.elapsed);
+    expect(elapsedIn('interbus.quarter.boston')).toBe(midnight);
+  });
+
+  // Owed by key. A slot's Save here refused owes nothing: the slot stays as it was until the player saves or deletes it. At a
+  // quarter's close the store may refuse the quarter's start alone (over the last one it needs a quarter's growth of room) and
+  // keep the autosave a moment later (an hour's): the delete then writes the quarter's start, and not the autosave again.
+  // Shown failing (TS-04) on 5f4bce3, where the delete after the close wrote nothing, and with any refusal owing both saves,
+  // where after the slot's refusal the delete wrote the autosave and the quarter's start.
+  it('owes only the saves under the keys the store refused: nothing for a slot, the quarter’s start alone at a close', () => {
+    const room: { full: boolean | string } = { full: false };
+    const { send, tick, last, store, out, writes } = withStore(undefined, room);
+    const elapsedIn = (key: string) => (JSON.parse(store.get(key)!) as { data: { clock: { elapsed: number } } }).data.clock.elapsed;
+    send({ type: 'save-slot', slot: 3 });
+    room.full = 'interbus.slot.boston.2';
+    send({ type: 'save-slot', slot: 2 });
+    expect(store.has('interbus.slot.boston.2')).toBe(false); // refused
+    let from = out.length;
+    send({ type: 'delete-slot', slot: 3 });
+    expect(writes(from)).toEqual([]);
+    send({ type: 'save-slot', slot: 1 });
+    // This game as a file at 23:50 on day 8, loaded, as the test before: the quarter's start, ten minutes before its close.
+    send({ type: 'export' });
+    const file = JSON.parse(last('export')!.text) as { data: { clock: { elapsed: number } } };
+    const lastEvening = 7 * 86_400 + 18 * 3_600 + 50 * 60;
+    file.data.clock.elapsed = lastEvening;
+    send({ type: 'import', text: JSON.stringify(file) });
+    room.full = 'interbus.quarter.boston';
+    send({ type: 'speed', speed: 5 });
+    for (let t = 0; !last('day-card')?.card.report && t < 60_000; t += 250) tick(t);
+    send({ type: 'speed', speed: 0 });
+    const midnight = 7 * 86_400 + 19 * 3_600;
+    expect(elapsedIn('interbus.quarter.boston')).toBe(lastEvening); // refused
+    expect(elapsedIn(KEY)).toBe(last('snapshot')!.snapshot.elapsed); // kept
+    from = out.length;
+    send({ type: 'delete-slot', slot: 1 });
+    expect(writes(from)).toEqual(['interbus.quarter.boston']);
+    expect(elapsedIn('interbus.quarter.boston')).toBe(midnight);
   });
 
   it('lists a save set aside by a new build, hands it over as a file, and deletes it', () => {

@@ -36,8 +36,9 @@ export function Notices({ sim, savesButton, savesOpen = false }: { sim: Sim; sav
   if (savesOpen && sim.unbacked && !savesSeen) setSavesSeen(true);
   const heldShows = Boolean(sim.unbacked) && sim.status === 'ready' && savesButton && !savesSeen && !(refusal && refusal !== expired);
   // Said once the game is on screen, so it is said when someone can see it, and timed only while it
-  // shows: a refusal on screen first holds it back without using up its few seconds.
-  const unsaved = sim.storeRefused && sim.status === 'ready';
+  // shows: a refusal on screen first holds it back without using up its few seconds. Any refused save
+  // says it, a slot's Save here too, though Saves' own line waits only on the game's (useSim).
+  const unsaved = sim.storeRefusals > 0 && sim.status === 'ready';
   const [unsavedDone, setUnsavedDone] = useState(false);
   const unsavedShows = unsaved && !unsavedDone && !(refusal && refusal !== expired) && !heldShows;
   useEffect(() => {

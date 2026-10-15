@@ -393,6 +393,8 @@ export type ToWorker =
   | { readonly type: 'undo' }
   /** The page's answer to read-keys: each key's text, in order, or null. */
   | { readonly type: 'key-texts'; readonly id: number; readonly texts: readonly (string | null)[] }
+  /** The page's store refused the game's own saves it was given (`owed`; a full disk, blocked site data), under these keys: the sim owes the autosave if its key is one, and the quarter's start it holds if that key is, and writes them after the next delete in Saves. */
+  | { readonly type: 'store-refused'; readonly keys: readonly string[] }
   /** Saves (the M3 spec, item 8): list the slots, save into one, load one, load a file's text, or hand over this game as a file. */
   | { readonly type: 'slots' }
   | { readonly type: 'save-slot'; readonly slot: number }
@@ -433,8 +435,13 @@ export type FromWorker =
     }
   /** The sim asks for the save under its key before it starts. */
   | { readonly type: 'read-save'; readonly key: string }
-  /** Saves and set-asides for the page to carry out, in order. A failure of the start's set-aside (`setAside`) is said by 'unbacked', not as a browser keeping no saves. */
-  | { readonly type: 'store'; readonly effects: readonly StoreEffect[]; readonly setAside?: true }
+  /**
+   * Saves and set-asides for the page to carry out, in order. A failure of the start's set-aside (`setAside`) is said by
+   * 'unbacked', not as a browser keeping no saves. `owed` marks the game's own saves, the autosave and the quarter's start:
+   * one refused, the sim owes it ('store-refused') and Saves says the browser isn't keeping saves until it is kept. A Save
+   * here refused is said once, its slot's row showing it did not land.
+   */
+  | { readonly type: 'store'; readonly effects: readonly StoreEffect[]; readonly setAside?: true; readonly owed?: true }
   /** The sim asks for these keys' texts, after every store effect posted before it. */
   | { readonly type: 'read-keys'; readonly id: number; readonly keys: readonly string[] }
   /** The slots, the set-aside saves, and the autosave as kept (null when none is). */

@@ -280,6 +280,12 @@ export function App() {
 
   const ready = sim.status === "ready";
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
+  // A game that stopped working (its worker failed and was stopped) shows nothing of itself to press, nor of a tool out: no
+  // panel (Saves opened from Home too), no tool's card, tint or draft, no day card and no lender's card, as it shows no dock
+  // and no Saves chip. Their buttons would send to a worker that is gone, or close a card over a game that no longer runs,
+  // so the card that says it stopped, with Reload, is all that is left. A notice has no button, and "Not autosaving: see
+  // Saves" waits for a game that is ready.
+  const stopped = sim.status === "failed";
 
   // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space.
   const focus = useRef(focusSource());
@@ -524,11 +530,11 @@ export function App() {
         stops={sim.snapshot?.stops ?? []}
         linesVersion={sim.snapshot?.linesVersion ?? 0}
         depotLand={sim.depotLand}
-        tint={tool === "depot"}
+        tint={tool === "depot" && !stopped}
         depots={sim.snapshot?.depots ?? []}
         tiltGesture={tool === "none"}
         event={sim.snapshot?.event ?? null}
-        draft={(tool === "line" && clicks.length) || (tool === "route" && routing) ? sim.draft : null}
+        draft={!stopped && ((tool === "line" && clicks.length) || (tool === "route" && routing)) ? sim.draft : null}
         clock={
           sim.snapshot
             ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate, day: sim.snapshot.day }
@@ -541,11 +547,11 @@ export function App() {
         playSpeed={playSpeed}
         onContracts={() => show("contracts")}
       />
-      {tool === "none" ? <ProbeCard sim={sim} screen={screen} /> : null}
+      {tool === "none" && !stopped ? <ProbeCard sim={sim} screen={screen} /> : null}
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
-      {tool === "depot" ? <DepotCard sim={sim} screen={screen} /> : null}
-      {tool === "stop" ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      <Panels key="panels" items={panelItems} front={front} />
+      {tool === "depot" && !stopped ? <DepotCard sim={sim} screen={screen} /> : null}
+      {tool === "stop" && !stopped ? <StopSiteCard sim={sim} screen={screen} /> : null}
+      <Panels key="panels" items={stopped ? [] : panelItems} front={front} />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}
@@ -573,8 +579,8 @@ export function App() {
       ) : null}
       <Notices key="notices" sim={sim} savesButton={Boolean(ready && sim.snapshot?.company.name)} savesOpen={open.includes("saves")} />
       <FoundingCard sim={sim} />
-      <DayCard sim={sim} />
-      <FailureCard sim={sim} />
+      {stopped ? null : <DayCard sim={sim} />}
+      {stopped ? null : <FailureCard sim={sim} />}
       <Corner key="corner" />
       <ReplacedCard key="replaced" failed={sim.status === "failed" ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} />
     </main>
