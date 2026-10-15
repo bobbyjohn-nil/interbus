@@ -43,6 +43,10 @@ export interface Sim {
   readonly refusal: ({ readonly command: string } & RefusalView) | null;
   /** How many Save routes the sim has refused, counted apart from `refusal`, which the next command clears, so the route editor knows its own. */
   readonly routeRefusals: number;
+  /** How many Creates the sim has refused, counted as Save route's are, so a Create on its way knows its answer. */
+  readonly createRefusals: number;
+  /** How many undos the page has sent: an undo while a Create is on its way lets Create go (game/Tools.tsx, createWaits). */
+  readonly undos: number;
   /** What became of the save this game started from. */
   readonly load: LoadView | null;
   /** The save slots, once asked for (Saves panel), and the last slot or file that became the game. */
@@ -86,6 +90,8 @@ export function useSim(city: City | undefined): Sim {
   const [fareBand, setFareBand] = useState<Sim['fareBand']>(null);
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
   const [routeRefusals, setRouteRefusals] = useState(0);
+  const [createRefusals, setCreateRefusals] = useState(0);
+  const [undos, setUndos] = useState(0);
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
   const [setAside, setSetAside] = useState<Sim['setAside']>(null);
@@ -196,6 +202,7 @@ export function useSim(city: City | undefined): Sim {
           } else if (m.type === 'refused') {
             setRefusal({ ...m, command: m.command });
             if (m.command === 'set-route') setRouteRefusals((n) => n + 1);
+            if (m.command === 'create-line') setCreateRefusals((n) => n + 1);
             errors.report({ severity: 'note', source: 'sim', code: `refused-${m.command}`, detail: m.reason });
           }
         };
@@ -216,6 +223,7 @@ export function useSim(city: City | undefined): Sim {
   const send = useCallback((message: ToWorker) => {
     // Listing the saves is no command, so a refusal on screen stays (Saves lists them again at each save).
     if (message.type !== 'slots') setRefusal(null);
+    if (message.type === 'undo') setUndos((n) => n + 1);
     worker.current?.postMessage(message);
   }, []);
   const probeAt = useCallback((dot: ProbeDot | null) => {
@@ -274,5 +282,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, load, slots, setAside, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }

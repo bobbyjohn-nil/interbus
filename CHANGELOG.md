@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Clicking the same button several times in quick succession counts as one press, so a double-click never does a thing twice. To take back several things with the Undo chip, pause between clicks, or press Ctrl+Z (⌘Z) each time.
 - Saves lists the autosave as it lists a slot, with its day, company, cash, lines and buses, and when it was saved, in place of the line that said the game saves itself.
 - Save here over a slot that already holds a save asks first, so it is never replaced by accident.
 - Time runs in minutes and days on a calendar of 8-day quarters, four to a year. The top bar names the year and quarter, then the day of the quarter and the time ("Year 1, Q2 Day 4, 08:10"), and the day card, Home, Saves and the medals say the date the same way.
@@ -102,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A double-click on a button does what the button says once, and its second click goes nowhere: a double-click on Create no longer buys a second line on the same stops; one on a Build menu item no longer also places a stop, adds the line's first stop or tries to buy a depot where the menu stood; one on Remove from Line 1 in a stop's card no longer takes the stop off the next line listed too; one on a step up or down no longer steps twice or takes the stop down; one on a card's × with a tool out no longer tries to place a stop under it; one on the Undo chip takes back one thing, not two; and one on Export this game downloads one file. Found the company and Take it no longer answer a double-click with "The company is already founded" or "You hold this contract already". Create stays grayed out from your press until the line is built, Create is refused or you undo, so pressing it again meanwhile buys nothing more.
+- A stop's card closes when the stop comes down or you undo placing it. Before, after an undo, it opened again by itself on the next stop you placed, which takes the old stop's number.
 - A new game, or a game loaded from Saves or Restart this quarter, starts clean: the old game's line tool, route editor, draft, day card, stop card, Lines panel and load notice ("Slot loaded", "Save file loaded", "Back to the start of the quarter") no longer come with it, so pointing at a dot shows its card again, no card shows a stop or line you never clicked in this game, and the new-line card starts on the Sparrow instead of a Goliath that game hasn't unlocked.
 - If Boston couldn't be loaded when the game opens, after a dropped connection or a server error, a card now says so with Reload, instead of leaving only the map with no Home and no way to go on. If the game stops working while you play, it stops for good and the card says so, with Reload, instead of the dock and Saves vanishing without a word.
 - A panel you dragged opens again where you left it after Back to Home and Continue, as it does the rest of the time.
