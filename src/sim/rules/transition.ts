@@ -6,10 +6,13 @@
 // and its times, and the departures from the change on are the new version's, each taken by the bus
 // free longest at the first stop, or by one from the depot that can reach it in time, never more
 // than the line owns (a departure no bus can make is not run). A bus whose next version starts from
-// another first stop, or is another model, goes home after its trip instead. The plan hands over to
-// the line's own day plan at the first departure where both have the same buses doing the same
-// things, so nothing moves at the handover either; with no service overnight that is the next
-// morning's first departure at the latest.
+// another first stop, or is another model, goes home after its trip instead, and stays so through any
+// change made before it is home: it carries on only if every change since its trip kept both. A change
+// made with none of the line's buses out is merged the same way, and a line just drawn changes from a
+// version that ran no bus, so their buses pull out of the depot for the departures they can reach, as
+// each morning's do, rather than appear on the line. The plan hands over to the line's own day plan at
+// the first departure where both have the same buses doing the same things, so nothing moves at the
+// handover either; with no service overnight that is the next morning's first departure at the latest.
 //
 // Times are seconds from the midnight of the frame's day, as in a day plan; the frame is the day of
 // the latest change, and a plan holds departures from the day before it to the day after.
@@ -33,6 +36,10 @@ export interface MergedPlan {
   readonly versions: readonly PlanInputs[];
   /** versions[k] took the departures before breaks[k]. */
   readonly breaks: readonly number[];
+  /** Whether a bus of versions[k] is the line's model now, every change since having kept it, so one home serves the line. */
+  readonly sameModel: readonly boolean[];
+  /** And starts from its first stop now, every change since having kept that too, so one finishing a trip of versions[k] carries on. */
+  readonly carriesOn: readonly boolean[];
   /** Every departure run, in order. */
   readonly trips: readonly number[];
   /** Each bus's stint; one still out at the handover never heads home here (its lastArrival is Infinity), since the day plan carries it on. */
@@ -69,17 +76,24 @@ export function planInEffect(current: PlanInputs, earlier: readonly Earlier[]): 
 }
 
 function asMerged(plan: DayPlan): MergedPlan {
-  return { versions: [plan.inputs], breaks: [], trips: plan.trips, stints: plan.stints, handover: Infinity };
+  return { versions: [plan.inputs], breaks: [], sameModel: [true], carriesOn: [true], trips: plan.trips, stints: plan.stints, handover: Infinity };
 }
 
 /** `was` changed at `e.until` to `after`, whose own day plan is `own`. */
 function merge(was: MergedPlan, after: PlanInputs, e: Earlier, own: DayPlan): MergedPlan {
   const at = e.until;
-  // Past its own handover, the line was running its day plan.
-  const before = at >= was.handover ? asMerged(dayPlan(was.versions[was.versions.length - 1]!)) : was;
-  const m: Pick<MergedPlan, 'versions' | 'breaks'> = { versions: [...before.versions, after], breaks: [...before.breaks, at] };
+  // Past its own handover `was` does what its day plan does, and before it what ran: on the day a line
+  // is drawn, nothing before the draw (world.ts recomputeInService keeps that version through the day).
+  // A bus whose trip ran on a version before the last carries on only if no change since moved its first stop or swapped its model.
+  const m: Pick<MergedPlan, 'versions' | 'breaks' | 'sameModel' | 'carriesOn'> = {
+    versions: [...was.versions, after],
+    breaks: [...was.breaks, at],
+    sameModel: [...was.sameModel.map((same) => same && e.sameModel), true],
+    carriesOn: [...was.carriesOn.map((on) => on && e.sameModel && e.sameStart), true],
+  };
   const inputsOf = (t: number) => inputsAt(m, t);
-  const carriesOn = e.sameModel && e.sameStart;
+  /** The version a bus's last trip ran on, or the one it left the depot on with none. */
+  const versionOf = (trips: readonly number[], leaveDepot: number) => versionAt(m, trips[trips.length - 1] ?? leaveDepot);
   /** A bus heading home: never before the change, so one waiting at the first stop sets off from there now. */
   const homeFrom = (bus: OpenBus): Stint => {
     const done = closeStint(bus, inputsOf);
@@ -88,12 +102,12 @@ function merge(was: MergedPlan, after: PlanInputs, e: Earlier, own: DayPlan): Me
 
   // Done before the change, as it was; out at the change, finishing what it began; not yet out, gone.
   const stints: Stint[] = [];
-  const trips = before.trips.filter((t) => t < at);
+  const trips = was.trips.filter((t) => t < at);
   const open: OpenBus[] = [];
   /** When each of the line's buses is in its depot, free to pull out: kept in order. */
   const home: number[] = [];
   const toDepot = (t: number) => home.splice(sortedIndex(home, t), 0, t);
-  for (const s of before.stints) {
+  for (const s of was.stints) {
     if (s.arriveDepot <= at) {
       stints.push(s);
       continue;
@@ -102,19 +116,20 @@ function merge(was: MergedPlan, after: PlanInputs, e: Earlier, own: DayPlan): Me
     if (at >= s.lastArrival) {
       // On its way home already.
       stints.push(s);
-      if (e.sameModel) toDepot(s.arriveDepot);
+      if (m.sameModel[versionOf(s.trips, s.leaveDepot)]) toDepot(s.arriveDepot);
       continue;
     }
     const kept = s.trips.filter((t) => t < at);
     const last = kept[kept.length - 1];
     const bus: OpenBus = { leaveDepot: s.leaveDepot, trips: kept, free: last === undefined ? s.leaveDepot + inputsOf(s.leaveDepot).pullOutS : last + tripTimes(inputsOf(last), last).cycle };
-    if (carriesOn) {
+    const v = versionOf(kept, s.leaveDepot);
+    if (m.carriesOn[v]) {
       open.push(bus);
       continue;
     }
     const done = homeFrom(bus);
     stints.push(done);
-    if (e.sameModel) toDepot(done.arriveDepot);
+    if (m.sameModel[v]) toDepot(done.arriveDepot);
   }
   // The rest of the fleet is in the depot now; a model swap's buses are all new ones.
   const inDepot = Math.max(0, after.timing.buses - open.length - (e.sameModel ? home.length : 0));

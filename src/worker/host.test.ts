@@ -110,20 +110,30 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(costs.running + costs.wages + costs.deadhead + 30_000 + 1_600);
     host.handle({ type: 'speed', speed: 5 });
     const cards = () => out.filter((m) => m.type === 'day-card');
-    for (let t = 0; cards().length < 2; t += 250) host.tick(t);
+    let t = 0;
+    for (; cards().length < 1; t += 250) host.tick(t);
+    // Day 2 is a whole day: its forecast is what Finance shows once day 1 has closed.
+    host.handle({ type: 'speed', speed: 0 });
+    const day2 = last('snapshot')!.snapshot.finance.lines[0]!.forecastCents;
+    expect(last('snapshot')!.snapshot.day).toBe(2);
+    host.handle({ type: 'speed', speed: 5 });
+    for (; cards().length < 2; t += 250) host.tick(t);
     for (const { card } of cards() as Extract<FromWorker, { type: 'day-card' }>[]) {
       expect(card.rows.some((r) => r.kind === 'fares' && r.amountCents > 0)).toBe(true);
       expect(card.rows.reduce((s, r) => s + r.amountCents, 0)).toBe(card.cashAfterCents - card.cashBeforeCents);
     }
-    // Day 2 is a whole day: every cost row is the forecast, to the cent (I6). Day 1 opened at 05:00,
-    // after the first bus had left the depot.
-    const card = last('day-card')!.card;
-    expect(card.day).toBe(2);
-    const sum = (...kinds: string[]) => card.rows.filter((r) => kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
-    expect(sum('running')).toBe(-costs.running);
-    expect(sum('wages')).toBe(-costs.wages);
-    expect(sum('deadhead')).toBe(-costs.deadhead);
-    expect(sum('upkeep')).toBe(-30_000);
+    // Every cost row is the forecast, to the cent (I6): day 2's, and day 1's as Finance forecast it at
+    // Create, the line drawn at 05:00 with its buses pulling out of the depot for the departures they
+    // could reach. Shown failing (TS-04) on 5f4bce3, where day 1 missed it by a drive out: its first bus
+    // had left the depot before 05:00, so day 1 banked $10.32 of drives against $13.76 forecast.
+    const [first, card] = (cards() as Extract<FromWorker, { type: 'day-card' }>[]).map((m) => m.card);
+    expect([first!.day, card!.day]).toEqual([1, 2]);
+    const sum = (c: typeof card, ...kinds: string[]) => c!.rows.filter((r) => kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
+    expect(['running', 'wages', 'deadhead'].map((k) => sum(first, k))).toEqual([-costs.running, -costs.wages, -costs.deadhead]);
+    expect(sum(card, 'running')).toBe(-day2.running);
+    expect(sum(card, 'wages')).toBe(-day2.wages);
+    expect(sum(card, 'deadhead')).toBe(-day2.deadhead);
+    expect(sum(card, 'upkeep')).toBe(-30_000);
     // The debug line nets about $1,400 a day: both closed days were in profit (the checklist's step 4).
     expect(last('snapshot')!.snapshot.profitableDays).toBe(2);
   });

@@ -23,7 +23,6 @@ function line(buses = 2): LineView {
     fareCents: 225,
     turnedAwayPerDay: 0,
     fullAtMinute: null,
-    incomeCents: 0,
     headways: { peak: 1_200, offpeak: 1_200, overnight: null },
     cycle: 1_539,
     cycles: { peak: 1_539, offpeak: 1_539, overnight: 1_539 },

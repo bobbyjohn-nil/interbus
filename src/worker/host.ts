@@ -36,7 +36,6 @@ import type { ContractId, LineId, StopId } from '../sim/core/ids';
 import { jobsWithinWalk, peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
-import { subsidyCents } from '../sim/rules/fare';
 import { checkLineDraft, type LineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
 import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, SET_ASIDE, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
@@ -136,7 +135,9 @@ function driveOf(world: World, from: number | null, to: number | null): LngLatPa
 
 function lineViews(world: World): LineView[] {
   const { city, state } = world;
-  return state.lines.map((line) => {
+  const kept = routedRuns.get(world);
+  const routed = new Map<string, RoutedRun>();
+  const views = state.lines.map((line): LineView => {
     const stops = line.stopIds.map((id) => state.stops.find((s) => s.id === id)!).map((s) => [s.lon, s.lat] as [number, number]);
     const service = world.services.get(line.id);
     const xy = stops.map((p) => toXY(city.frame, p));
@@ -156,13 +157,12 @@ function lineViews(world: World): LineView[] {
       pullOut: driveOf(world, depotNode, first),
       pullIn: driveOf(world, first, depotNode),
       plan: service ? service.day.inputs : { timing: { cycle: 0, headways: line.headways, buses: 0 }, oneWayS: 0, pullOutS: 0, pullInS: 0 },
-      settling: service?.settling ? settlingView(world, service.settling, line.earlier ?? []) : null,
+      settling: service?.settling ? settlingView(world, service.settling, line.earlier ?? [], kept, routed) : null,
       ridersPerDay: demand?.perDay ?? 0,
       fareCents: line.fareCents,
       turnedAwayPerDay: demand?.shedPerDay ?? 0,
       // Each slot is a half-hour.
       fullAtMinute: demand && demand.fullSlot !== null ? demand.fullSlot * 30 : null,
-      incomeCents: Math.floor(demand?.paidPerDay ?? 0) * (line.fareCents + subsidyCents(line.fareCents)),
       headways: line.headways,
       cycle: service?.timing.cycle ?? 0,
       cycles: service?.timing.cycles ?? { peak: 0, offpeak: 0, overnight: 0 },
@@ -172,24 +172,45 @@ function lineViews(world: World): LineView[] {
       model: line.model,
     };
   });
+  routedRuns.set(world, routed);
+  return views;
 }
 
+/** A version's streets, stops and depot drives, as settlingView routes them. */
+type RoutedRun = Pick<SettlingView['earlier'][number], 'route' | 'stopAt' | 'stopDistM' | 'pullOut' | 'pullIn'>;
+
+/**
+ * Each kept version's streets by its stops and depot, carried from one refresh of the line views to
+ * the next only while a line still keeps a version on them. A line changed through the day it was
+ * drawn keeps every version since (world.ts recomputeInService), most on the same streets; routing
+ * each afresh at every refresh made each change on Inner Boston about 5 ms slower than the last, past
+ * I14's 150 ms by the 24th (`npm run bench jumps`).
+ */
+const routedRuns = new WeakMap<World, Map<string, RoutedRun>>();
+
 /** A settling line's earlier versions with their streets and depot drives, for the vehicle layer (the M4 spec, item 4). */
-function settlingView(world: World, settling: Settling, runs: readonly EarlierRun[]): SettlingView {
+function settlingView(world: World, settling: Settling, runs: readonly EarlierRun[], kept: ReadonlyMap<string, RoutedRun> | undefined, routed: Map<string, RoutedRun>): SettlingView {
   return {
     frameDay: settling.frameDay,
     earlier: settling.earlier.map((e, k) => {
       const run = runs[k]!;
-      const xy = run.stops.map((p) => toXY(world.city.frame, [p.lon, p.lat]));
-      const { route, stopAt } = routeOf(world, xy);
-      const stopDistM = [0];
-      for (let i = 1; i < xy.length; i++) stopDistM.push(stopDistM[i - 1]! + (legBetween(world, xy[i - 1]!, xy[i]!)?.m ?? 0));
-      const first = xy.length ? nearestNode(world, xy[0]!) : null;
-      const at = run.depot ? toXY(world.city.frame, [run.depot.lon, run.depot.lat]) : null;
-      const depot = at ? (world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at)) : null;
-      return { plan: e.inputs, until: e.until, sameModel: e.sameModel, sameStart: e.sameStart, route, stopAt, stopDistM, pullOut: driveOf(world, depot, first), pullIn: driveOf(world, first, depot) };
+      const key = JSON.stringify([run.stops.map((p) => [p.lon, p.lat]), run.depot && [run.depot.lon, run.depot.lat]]);
+      const streets = routed.get(key) ?? kept?.get(key) ?? routeRun(world, run);
+      routed.set(key, streets);
+      return { plan: e.inputs, until: e.until, sameModel: e.sameModel, sameStart: e.sameStart, ...streets };
     }),
   };
+}
+
+function routeRun(world: World, run: EarlierRun): RoutedRun {
+  const xy = run.stops.map((p) => toXY(world.city.frame, [p.lon, p.lat]));
+  const { route, stopAt } = routeOf(world, xy);
+  const stopDistM = [0];
+  for (let i = 1; i < xy.length; i++) stopDistM.push(stopDistM[i - 1]! + (legBetween(world, xy[i - 1]!, xy[i]!)?.m ?? 0));
+  const first = xy.length ? nearestNode(world, xy[0]!) : null;
+  const at = run.depot ? toXY(world.city.frame, [run.depot.lon, run.depot.lat]) : null;
+  const depot = at ? (world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at)) : null;
+  return { route, stopAt, stopDistM, pullOut: driveOf(world, depot, first), pullIn: driveOf(world, first, depot) };
 }
 
 /** The city event pending or on (the M4 spec, item 2) for its marker, or null. */

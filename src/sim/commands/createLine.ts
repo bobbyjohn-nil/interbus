@@ -1,6 +1,7 @@
 // Create (the M2 spec, item 3): the line rule decides, the ledger pays a New stops row for the new
-// stops and a Buses bought row for the buses the founding headway needs (D25), and the line runs from the next hour. The card
-// read the same rule, so Create buys exactly what the card said (GD-05, I6).
+// stops and a Buses bought row for the buses the founding headway needs (D25), and its buses pull out
+// of the depot for the departures they can reach (world.ts recomputeInService). The card read the same
+// rule, so Create buys exactly what the card said (GD-05, I6).
 import { REFERENCE_FARE_CENTS } from '../config/economy';
 import { BUS_MODELS, type BusModelId } from '../config/fleet';
 import { FOUNDING_HEADWAYS, LINE_COLOURS } from '../config/lines';
@@ -11,7 +12,7 @@ import { ok, refuse, type Result } from '../core/result';
 import { spendParts } from '../economy/ledger';
 import { checkLineDraft, type LineRefusal } from '../rules/line';
 import type { Headways } from '../rules/periods';
-import { lineDraftContext, recompute, type World } from '../world';
+import { lineDraftContext, recomputeInService, type World } from '../world';
 
 export function createLine(
   world: World,
@@ -60,6 +61,6 @@ export function createLine(
     model,
     buses: draft.buses,
   });
-  recompute(world);
+  recomputeInService(world);
   return ok({ lineId, priceCents: draft.priceCents });
 }

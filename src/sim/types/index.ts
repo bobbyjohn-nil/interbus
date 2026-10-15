@@ -118,10 +118,8 @@ export interface LineView {
   readonly pullIn: readonly LngLatPair[];
   /** The day plan's inputs (sim/rules/schedule.ts): the page builds the same plan the costs bill, for the vehicle layer. */
   readonly plan: PlanInputsData;
-  /** While it settles after a change made with its buses out, its earlier versions, so trips under way finish as they began (sim/rules/transition.ts); null otherwise. */
+  /** While it settles after a change made in service, its earlier versions, so trips under way finish as they began; a line just drawn settles from a version that ran no bus, so its buses pull out of the depot (sim/rules/transition.ts). Null otherwise. */
   readonly settling: SettlingView | null;
-  /** A day's fares and subsidy at the modelled riders, in cents: whole paid boardings, so about what the rows bank. Its costs are in FinanceView.lines. */
-  readonly incomeCents: number;
 }
 
 /** A changed line's earlier versions, oldest first, in the frame of the day of its latest change: the page builds the same merged plan the costs bill. */
@@ -194,13 +192,16 @@ export interface FinanceView {
   /** The chart's days, oldest first, up to two quarters; today the last, so far (economy/finance.ts). */
   readonly days: readonly { readonly day: number; readonly inCents: number; readonly outCents: number; readonly capitalCents: number; readonly cashCents: number }[];
   /**
-   * Each line's own money yesterday, its riders' fares and subsidy in and its running costs out; and a whole day's costs on
-   * today's timetable, positive, worked out with the forecast column they add up to: what the day's rows for it will be (I6).
+   * Each line's own money yesterday, its riders' fares and subsidy in and its running costs out; and a day's costs on
+   * today's timetable (on the day it was drawn, from its first drive out), positive, worked out with the forecast column
+   * they add up to: what the day's rows for it will be (I6). Its fares and subsidy in that column, in whole paid boardings,
+   * so about what the rows bank: on the day it was drawn, from the hour it was drawn, the whole of that clock hour.
    */
   readonly lines: readonly {
     readonly id: number;
     readonly yesterdayInCents: number;
     readonly yesterdayOutCents: number;
+    readonly incomeCents: number;
     readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
   }[];
   readonly rows: readonly {
@@ -229,7 +230,7 @@ export interface Snapshot {
   readonly ridersPerDay: number;
   /** Closed days whose running rows came out ahead, those older than Finance's two quarters counting once at most (economy/ledger.ts foldDays): the checklist's "a day in profit", which reads only whether there is one. */
   readonly profitableDays: number;
-  /** A whole day's running costs as Finance forecasts them, in cents: every line's, every depot's and stop's upkeep, and the interest while owing. */
+  /** A day's running costs as Finance forecasts them, in cents (a line drawn today from its first drive out): every line's, every depot's and stop's upkeep, and the interest while owing. */
   readonly costsPerDayCents: number;
   readonly lines: readonly LineView[];
   /** Every stop standing, with its day; changes with `lines`. */

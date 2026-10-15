@@ -2,8 +2,8 @@
 // km, drivers for every bus out of the depot, the deadhead from the depot and back, and each depot's
 // upkeep. Everything is whole cents counted from the line's day plan (rules/schedule.ts), the same
 // movements the vehicle layer draws, so the forecast is the sum the hourly rows add up to, to the
-// cent, and a bus is billed for what it does (I1, I6). While a line settles after a change made with
-// its buses out (rules/transition.ts), each leg and drive bills at the version it ran on.
+// cent, and a bus is billed for what it does (I1, I6). While a line settles after a change made in
+// service or after it is drawn (rules/transition.ts), each leg and drive bills at the version it ran on.
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
 import { WAGE_CENTS_PER_HOUR, type BusModel } from '../config/fleet';
 import { stopUpkeepCents, type StopTier } from '../config/stops';

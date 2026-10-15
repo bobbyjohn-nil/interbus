@@ -107,11 +107,13 @@ export function simStep(world: World): readonly SimEvent[] {
   const endedEvent = last && last.endDay === ended.day ? last : null;
   const retimed = last !== null && (last.startDay === ended.day + 1 || endedEvent !== null);
   const rolled = rollEvent(world, ended.day + 1);
-  // Lines settled onto their own day plans let go of their earlier versions; an event starting or
-  // ending (roadworks or snow slow the buses, a festival draws riders) times every line and assigns the
-  // riders again, a trip under way finishing as it began (the M4 spec, item 4).
-  const settled = settle(world);
+  // An event starting or ending (roadworks or snow slow the buses, a festival draws riders) times every
+  // line and assigns the riders again, a trip under way finishing as it began (the M4 spec, item 4);
+  // then lines settled onto their own day plans let go of their earlier versions. Settling first would
+  // time the lines it lets go by the new day's event before the change is compared, so a line with
+  // buses out would take the new timing at once.
   if (retimed) recomputeInService(world);
+  const settled = settle(world);
   return [{ kind: 'day-closed', day: ended.day, rows, cashBeforeCents: cashAfterCents - rows.reduce((s, r) => s + r.amountCents, 0), cashAfterCents, card, contracts, rolled, ended: endedEvent, retimed: retimed || settled, medals, trips }];
 }
 

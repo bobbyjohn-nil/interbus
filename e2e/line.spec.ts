@@ -97,9 +97,9 @@ test.describe('the line tool on the fixture', () => {
     for (const name of ['Fares', 'Bus fuel and maintenance', 'Driver wages', 'To and from the depot', 'Depot upkeep', 'Stop upkeep']) await expect(card).toContainText(name);
     expect(await card.getAttribute('data-total')).toBe(await card.getAttribute('data-change'));
     const cents = async (kind: string) => Number(await card.locator(`tr[data-kind="${kind}"]`).getAttribute('data-cents'));
-    // Day 1 opens at 05:00: every run of the line is on it, so its running cost is the forecast to the
-    // cent; the depot's upkeep is 19 hours of 24. (A whole day's wages and deadhead meet the forecast in
-    // the host and sim tests: day 1 starts after the first bus left the depot.)
+    // Day 1 opens at 05:00 with the line just drawn: every run of the line is on it, so its running cost
+    // is the forecast to the cent; the depot's upkeep is 19 hours of 24. (Its wages and deadhead meet the
+    // forecast in the host and sim tests.)
     expect(await cents('running')).toBe(-running);
     expect(await cents('upkeep')).toBe(-19 * 1_250);
     // Four Signs at $4 a day: 19 hours of 24, each hour a twenty-fourth floored (D25).
@@ -110,7 +110,8 @@ test.describe('the line tool on the fixture', () => {
     // Reload and compare: paused, the game is saved where it stands, and a reload carries on from it.
     await page.getByRole('button', { name: 'Pause' }).click();
     await expect(panel).toHaveAttribute('data-speed', '0');
-    const kept = { cash: await panel.getAttribute('data-cash'), elapsed: await panel.getAttribute('data-elapsed') };
+    // Today's forecast too: day 2 runs the whole day, day 1 only the departures a bus could reach from 05:00.
+    const kept = { cash: await panel.getAttribute('data-cash'), elapsed: await panel.getAttribute('data-elapsed'), running: await page.getByTestId('line-card').getAttribute('data-running') };
     expect(Number(kept.elapsed)).toBeGreaterThan(19 * 3_600);
     await page.reload();
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
@@ -123,7 +124,7 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('checklist')).toHaveText('5/5 Take a contract');
     await expect(page.getByTestId('notice')).toHaveCount(0);
     await page.getByRole('button', { name: 'Lines' }).click();
-    await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
+    await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', kept.running!);
     // The headway menus keep only a pick made since the line last changed (the second audit round): the line's own headways
     // picked back are no change, and an undo drops a pick made before it. Shown failing (TS-04) on 2a00661: the change card
     // stayed up after Peak 20 was picked back, and (that check cut) after the undo Peak still read every 15 minutes.
@@ -146,14 +147,14 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('headway-peak')).toContainText('Every 20 min');
     await expect(page.getByTestId('headway-offpeak')).toContainText('Every 20 min');
     await expect(change).toHaveCount(0);
-    await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
+    await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', kept.running!);
     // The fare, set in Finance beside the line's money (D25): the line card reads it and links there,
     // and Finance names the fares that net the most (the M3 spec, item 4); a pick sets it.
     await expect(page.getByTestId('line-fare')).toHaveAttribute('data-fare', '225');
     await page.getByRole('button', { name: 'Fare and money in Finance' }).click();
     const finance = page.getByTestId('finance');
     await expect(finance).toHaveAttribute('data-view', 'lines');
-    await expect(finance.getByTestId('line-money-1')).toHaveAttribute('data-running', String(running));
+    await expect(finance.getByTestId('line-money-1')).toHaveAttribute('data-running', kept.running!);
     await expect(page.getByTestId('fare-band')).toHaveAttribute('data-from', '175', { timeout: 10_000 });
     await expect(page.getByTestId('fare-band')).toContainText('Most profit at $1.75');
     const fare = page.getByRole('button', { name: 'Fare for Line 1' });

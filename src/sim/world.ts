@@ -20,7 +20,7 @@ import { festivalOn, snowOn, worksOn } from './rules/event';
 import type { FleetContext, Leg, LineDraftContext } from './rules/line';
 import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
-import { busesOutAt, planInEffect, type Earlier, type PlanInEffect } from './rules/transition';
+import { planInEffect, type Earlier, type PlanInEffect } from './rules/transition';
 import type { EarlierRun, Line, SimState } from './state';
 import { classRush } from './traffic/congestion';
 
@@ -30,7 +30,7 @@ export interface LineService {
   readonly timing: Timing;
   /** Every departure and every bus's stint: what the costs bill and the vehicles draw (I6). */
   readonly day: DayPlan;
-  /** Its day plan, and while it settles after a change made with its buses out, the merged plan before the handover (rules/transition.ts). */
+  /** Its day plan, and while it settles after a change made in service or after it was drawn, the merged plan before the handover (rules/transition.ts). */
   readonly effect: PlanInEffect;
   /** Its earlier versions as the merged plan reads them, in the frame of the latest change's day; null once settled. */
   readonly settling: Settling | null;
@@ -337,9 +337,11 @@ export function recompute(world: World): void {
 
 /**
  * The network changed while it runs, by a command or roadworks starting or ending (the M4 spec,
- * item 4; I6): a line whose plan changed with any of its buses out keeps the version it ran on, so
- * every trip under way finishes on the route and the times it began with. Undo, a load and a
- * rebased save recompute plainly: they put a game back as it was.
+ * item 4; I6): a line whose plan changed keeps the version it ran on, so every trip under way
+ * finishes on the route and the times it began with, and the new version's departures go to buses
+ * there are, or to ones that pull out of the depot in time. A line just drawn changes from one with
+ * no bus, so its buses pull out for its departures too, rather than appear on its streets. Undo, a
+ * load and a rebased save recompute plainly: they put a game back as it was.
  */
 export function recomputeInService(world: World): void {
   const before = world.services;
@@ -348,13 +350,21 @@ export function recomputeInService(world: World): void {
   for (const line of world.state.lines) {
     const was = before.get(line.id);
     const now = after.get(line.id);
-    if (!was || !now || sameRun(was, now)) continue;
-    const second = frameSecond(was.settling, at);
-    // Settled already, it needs nothing earlier; with no bus out now, nothing carries on at all.
-    const settled = !was.effect.merged || second >= was.effect.merged.handover;
-    line.earlier = busesOutAt(was.effect, second) > 0 ? [...(settled ? [] : (line.earlier ?? [])), runOf(world, was, at)] : [];
+    if (!now || (was && sameRun(was, now))) continue;
+    // Settled already, it needs nothing earlier; but through the day it was drawn it keeps every version
+    // since, so its plan before the draw stays empty and that day's costs and fares count from then.
+    const drawn = drawnAt(line);
+    const today = drawn !== null && toCalendarTime(drawn).day === toCalendarTime(at).day;
+    const settled = !today && (!was?.effect.merged || frameSecond(was.settling, at) >= was.effect.merged.handover);
+    line.earlier = [...(settled ? [] : (line.earlier ?? [])), was ? runOf(world, was, at) : runOf(world, now, at, 0)];
   }
   recompute(world);
+}
+
+/** The game second a line was drawn, while it keeps the version before it, which ran no bus (recomputeInService); null otherwise. */
+export function drawnAt(line: Pick<Line, 'earlier'>): number | null {
+  const first = line.earlier?.[0];
+  return first && first.plan.buses === 0 ? first.until : null;
 }
 
 /** Whether two services run the same: the same plan, the same stops, depot and model. */
@@ -367,8 +377,8 @@ function sameRun(a: LineService, b: LineService): boolean {
   );
 }
 
-/** The version a service ran on until game second `at`, as the line keeps it. */
-function runOf(world: Pick<World, 'city' | 'state'>, s: LineService, at: number): EarlierRun {
+/** The version a service ran on until game second `at`, as the line keeps it; with `buses` 0, one that ran no bus. */
+function runOf(world: Pick<World, 'city' | 'state'>, s: LineService, at: number, buses = s.day.inputs.timing.buses): EarlierRun {
   const depot = world.state.depots.find((d) => d.id === s.depotId);
   const { timing, oneWayS, pullOutS, pullInS } = s.day.inputs;
   return {
@@ -382,7 +392,7 @@ function runOf(world: Pick<World, 'city' | 'state'>, s: LineService, at: number)
     routeM: s.costs.routeM,
     pullOutM: s.costs.pullOutM,
     pullInM: s.costs.pullInM,
-    plan: { cycle: timing.cycle, cycles: timing.cycles ?? { peak: timing.cycle, offpeak: timing.cycle, overnight: timing.cycle }, headways: { ...timing.headways }, buses: timing.buses, oneWayS, pullOutS, pullInS },
+    plan: { cycle: timing.cycle, cycles: timing.cycles ?? { peak: timing.cycle, offpeak: timing.cycle, overnight: timing.cycle }, headways: { ...timing.headways }, buses, oneWayS, pullOutS, pullInS },
   };
 }
 
