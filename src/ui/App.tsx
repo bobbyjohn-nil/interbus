@@ -510,7 +510,7 @@ export function App() {
         {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once
             and a panel dragged opens where it was dragged to again after Continue. */}
         <Panels key="panels" items={[]} front={front} />
-        <Notices key="notices" sim={sim} />
+        <Notices key="notices" sim={sim} savesButton savesOpen={open.includes("saves")} />
         <Corner key="corner" />
         <ReplacedCard key="replaced" />
       </main>
@@ -571,7 +571,7 @@ export function App() {
           Saves
         </button>
       ) : null}
-      <Notices key="notices" sim={sim} />
+      <Notices key="notices" sim={sim} savesButton={Boolean(ready && sim.snapshot?.company.name)} savesOpen={open.includes("saves")} />
       <FoundingCard sim={sim} />
       <DayCard sim={sim} />
       <FailureCard sim={sim} />

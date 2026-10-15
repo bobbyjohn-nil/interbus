@@ -164,6 +164,7 @@ test.describe('the GPU ladder', () => {
       if (!(await page.getByTestId('saves').isVisible())) await page.getByRole('button', { name: 'Saves' }).click();
       const chooser = page.waitForEvent('filechooser');
       await page.getByRole('button', { name: 'Import a save file' }).click();
+      await page.getByRole('button', { name: 'Replace this game' }).click();
       await (await chooser).setFiles({ name: 'restore.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
       await expect(page.getByTestId('notice')).toContainText('Save file loaded');
       await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();

@@ -10,7 +10,7 @@ import { savedWhen } from '../format';
 import { Saves } from './Saves';
 
 function render(slots: readonly SlotView[], setAside: readonly SetAsideWhy[], more: Partial<Sim> = {}): string {
-  const sim = { snapshot: { day: 3, hour: 9, minute: 30 } as unknown as Snapshot, slots, setAside, send: () => undefined, ...more } as unknown as Sim;
+  const sim = { snapshot: { day: 3, hour: 9, minute: 30, company: { name: 'Back Bay Transit' } } as unknown as Snapshot, slots, setAside, send: () => undefined, ...more } as unknown as Sim;
   return renderToStaticMarkup(createElement(Saves, { sim, onClose: () => undefined }));
 }
 
@@ -70,6 +70,26 @@ describe('the save list', () => {
   it('says when the browser is keeping no saves, and how to keep this game', () => {
     const html = render([{ slot: 1, about: null, readable: true }], [], { storeRefused: true });
     expect(html).toContain('This browser isn’t keeping saves. Export this game to keep it.');
+  });
+
+  // A save the start could not set aside (a full disk refused its backup) holds the autosave's place, the
+  // live key, and the game saves nothing over it meanwhile: the autosave's row says so, with Export and
+  // Delete, so the panel grows by those buttons only (I13). Shown failing (TS-04) with no row for it and
+  // no word that this game isn't saving.
+  it('names a save the game could not set aside in the autosave’s row, which says this game isn’t saving itself, with Export and Delete', () => {
+    const html = render([{ slot: 1, about: null, readable: true }], ['other-city'], { unbacked: 'older-15' });
+    expect(html).toMatch(/data-testid="autosave"[^>]*><span>Autosave · A save from an older build \(format 15\), not set aside · this game isn’t saving itself<\/span><span class="controls"><button type="button">Export<\/button><button type="button">Delete<\/button><\/span><\/li>/);
+    expect(html).toContain('A save from another city, set aside');
+    expect(html.match(/>Export</g)).toHaveLength(2);
+    expect(html.match(/>Delete</g)).toHaveLength(2);
+    expect(html).not.toContain('class="hint"');
+    expect(html).not.toContain('This game saves itself as it plays');
+  });
+
+  // The way out, in that row's tooltip. Shown failing (TS-04) with the row saying this game isn't saving
+  // itself and nothing saying what ends that.
+  it('says in that row’s tooltip how to keep the save and how this game saves itself again', () => {
+    expect(render([], [], { unbacked: 'older-15' })).toContain('data-testid="autosave" title="Export the old save to keep it, and Save here to keep this game meanwhile. Once the old save is deleted here, this game saves itself again."');
   });
 
   it('writes the time in words a player reads at a glance, with the year only when it is not this one', () => {

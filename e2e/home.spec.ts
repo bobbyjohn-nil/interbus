@@ -56,11 +56,13 @@ test.describe('Home', () => {
     await expect(home).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('home-continue')).toHaveCount(0);
 
-    // Slot 1 loaded from Home's Saves goes straight into that game.
+    // Slot 1 loaded from Home's Saves goes straight into that game, with no question: no company is
+    // founded, so there is no game to lose. Shown failing (TS-04) with "Replace this game" asked (this
+    // test pinned it).
     await home.getByRole('button', { name: 'Saves' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Load' }).click();
-    await page.getByTestId('slot-1').getByRole('button', { name: 'Replace this game' }).click();
     await expect(home).toBeHidden();
+    await expect(page.getByTestId('notice')).toContainText('Slot loaded');
     await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
   });
 });

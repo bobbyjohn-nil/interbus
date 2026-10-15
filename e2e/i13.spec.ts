@@ -3,10 +3,12 @@
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, the compass
 // and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
 // the draft card, the inspector, the route editor, a stop's card, Finance, Saves).
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
+import { SAVE_FORMAT } from '../src/sim/save/save';
+import { UNBACKED_COPY } from '../src/ui/copy';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, chromeShare, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, chromeShare, city, fillStorage, onDepotLand, toScreen, zoomOutOnce } from './shell';
 
 const SIZES = [
   [1440, 900],
@@ -15,6 +17,20 @@ const SIZES = [
 ] as const;
 const REST = 0.06;
 const PANEL = 0.26;
+
+/** Saves, open with slot 1 full, measured with Slot 1's Load question open (savesLoad), then Import's (savesImport): each in place of its row's other buttons. */
+async function savesAsking(page: Page, shares: Record<string, number>): Promise<void> {
+  const saves = page.getByTestId('saves');
+  const slot = saves.getByTestId('slot-1');
+  await slot.getByRole('button', { name: 'Load' }).click();
+  await expect(slot.getByRole('button')).toHaveText(['Replace this game', 'Keep playing']);
+  shares.savesLoad = await chromeShare(page);
+  await slot.getByRole('button', { name: 'Keep playing' }).click();
+  await saves.getByRole('button', { name: 'Import a save file' }).click();
+  await expect(saves.locator(':scope > .controls').first().getByRole('button')).toHaveText(['Replace this game', 'Keep playing']);
+  shares.savesImport = await chromeShare(page);
+  await saves.getByRole('button', { name: 'Keep playing' }).click();
+}
 
 test.describe('the screen budget (I13)', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -107,14 +123,69 @@ test.describe('the screen budget (I13)', () => {
       }
       await expect(page.getByTestId('set-aside-older')).toBeVisible();
       shares.saves = await chromeShare(page);
+      // With a question open, Load's in a slot's row and Import's below the slots, each in place of its row's other buttons.
+      await savesAsking(page, shares);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
+
+  // A save the start could not set aside (a disk too full for its backup): its notice is untimed, at-rest
+  // chrome until Saves opens, so Home, the shell at rest and at rest with a line are measured beside it;
+  // then Saves with that save in the autosave's row, with its buttons, every slot full and a set-aside
+  // save, at rest and with Load's question or Import's open: the save list at its tallest. At 1152×720
+  // only, the tightest size. Shown failing (TS-04) with the notice "A save couldn’t be set aside: see
+  // Saves" (6.05% at rest with a line), with Export this game beside Import's question, which wrapped it
+  // to a second row (Saves 26.005%), and with Save here beside Load's question, which wrapped its slot's
+  // row (26.01%).
+  test('at 1152×720: ≤6% at rest and ≤26% in Saves with a save not set aside', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.addInitScript(fillStorage, JSON.stringify({ format: SAVE_FORMAT - 1, data: {}, pad: 'p'.repeat(300_000) }));
+    await page.addInitScript(() => localStorage.setItem('interbus.backup.boston.older', '{"format":1}'));
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    const notice = page.getByTestId('notice');
+    await expect(notice).toHaveText(UNBACKED_COPY, { timeout: 30_000 });
+    const shares: Record<string, number> = { home: await chromeShare(page) };
+    await foundCompany(page);
+    await zoomOutOnce(page);
+    await expect(notice).toHaveText(UNBACKED_COPY);
+    shares.rest = await chromeShare(page);
+    await build(page, 'Place a depot');
+    const [dx, dy] = await toScreen(page, onDepotLand());
+    await page.mouse.click(dx, dy);
+    await expect(page.getByTestId('checklist')).toHaveText('2/5 Draw a line');
+    await build(page, 'Draw a line');
+    for (const stop of DEBUG_STOPS) {
+      const [x, y] = await toScreen(page, stop.at);
+      await page.mouse.click(x, y);
+    }
+    await expect(page.getByTestId('draft-card')).toHaveAttribute('data-price', '20600000', { timeout: 10_000 });
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByTestId('inspector')).toBeVisible();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(notice).toHaveText(UNBACKED_COPY);
+    shares.restWithLine = await chromeShare(page);
+    await page.getByRole('button', { name: 'Saves' }).click();
+    for (const n of [1, 2, 3]) {
+      await page.getByTestId(`slot-${n}`).getByRole('button', { name: 'Save here' }).click();
+      await expect(page.getByTestId(`slot-${n}-when`)).toBeVisible();
+    }
+    await expect(page.getByTestId('autosave')).toContainText('not set aside');
+    await expect(page.getByTestId('set-aside-older')).toBeVisible();
+    shares.saves = await chromeShare(page);
+    await savesAsking(page, shares);
+    const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
+    test.info().annotations.push({ type: 'chrome % with a save not set aside', description: JSON.stringify(rounded) });
+    expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
+    expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
+    for (const panel of ['home', 'saves', 'savesLoad', 'savesImport']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+  });
 
   test('the measure bites: a 400 × 200 chrome panel more breaks the at-rest budget', async ({ page }) => {
     await page.setViewportSize({ width: 1152, height: 720 });

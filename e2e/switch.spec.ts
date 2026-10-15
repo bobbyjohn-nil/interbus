@@ -28,10 +28,11 @@ async function exported(page: Page, edit: (d: Record<string, unknown>) => void):
   return JSON.stringify(save);
 }
 
-/** Imports `text` from the open Saves panel and waits for it to become the game. */
+/** Imports `text` from the open Saves panel over the founded company and waits for it to become the game. */
 async function imported(page: Page, text: string) {
   const chooser = page.waitForEvent('filechooser');
   await page.getByTestId('saves').getByRole('button', { name: 'Import a save file' }).click();
+  await page.getByTestId('saves').getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'game.json', mimeType: 'application/json', buffer: Buffer.from(text) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
 }

@@ -53,11 +53,15 @@ export interface Sim {
   readonly slots: readonly SlotView[] | null;
   /** Saves set aside by a new build, kept until exported or deleted (the M5 spec, item 4). */
   readonly setAside: readonly SetAsideWhy[] | null;
+  /** A save the start could not set aside (a full disk): it stays under the live key, and the game saves nothing over it until the player deletes it. */
+  readonly unbacked: SetAsideWhy | null;
+  /** The backup of the save the start set aside: checked until it reads back, then kept or not (and still not once the player deletes that save); null when the start set nothing aside. */
+  readonly backup: 'checking' | 'kept' | 'not-kept' | null;
   /** The autosave as kept when the slots were last listed, or null when none is. */
   readonly autosave: SaveAbout | null;
   /** How many writes the store has kept, so the save list reads its saves again as they change. */
   readonly stored: number;
-  /** True while the browser refuses to read or keep a save, until a write is kept: nothing saved till then outlives the page. */
+  /** True while the browser refuses to read or keep a save, until a write is kept: nothing saved till then outlives the page. A start's set-aside refused is `unbacked` instead. */
   readonly storeRefused: boolean;
   readonly loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView; readonly at: number } | null;
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
@@ -95,6 +99,8 @@ export function useSim(city: City | undefined): Sim {
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
   const [setAside, setSetAside] = useState<Sim['setAside']>(null);
+  const [unbacked, setUnbacked] = useState<Sim['unbacked']>(null);
+  const [backup, setBackup] = useState<Sim['backup']>(null);
   const [autosave, setAutosave] = useState<Sim['autosave']>(null);
   const [stored, setStored] = useState(0);
   const [storeRefused, setStoreRefused] = useState(false);
@@ -113,11 +119,12 @@ export function useSim(city: City | undefined): Sim {
     // Saves run one after another: a set-aside's backup is written before anything replaces the key.
     let store: SaveStore | null = null;
     let queue = Promise.resolve();
-    const inStore = (job: (s: SaveStore) => Promise<void>) => {
+    // The start's set-aside is `quiet`: if its backup is refused, the sim finds it missing and says so ('unbacked').
+    const inStore = (job: (s: SaveStore) => Promise<void>, quiet = false) => {
       queue = queue
         .then(() => job((store ??= createWebSaveStore())))
         .catch((error: unknown) => {
-          setStoreRefused(true); // the player is told, once (Notices), and Saves says so
+          if (!quiet) setStoreRefused(true); // the player is told, once (Notices), and Saves says so
           errors.report({ severity: 'problem', source: 'save', code: 'store-failed', detail: String(error) });
         });
     };
@@ -143,6 +150,7 @@ export function useSim(city: City | undefined): Sim {
             setDepotLand(m.depotLand);
             setSnapshot(m.snapshot);
             setLoad(m.load);
+            setBackup(m.checking ? 'checking' : null);
             setStatus('ready');
           } else if (m.type === 'read-save') {
             // No store (storage blocked) reads as no save: the game starts fresh and keeps playing.
@@ -160,6 +168,10 @@ export function useSim(city: City | undefined): Sim {
             setAutosave(m.autosave);
           }
           else if (m.type === 'export') downloadText(m.name, m.text);
+          else if (m.type === 'unbacked') {
+            setUnbacked(m.why);
+            setBackup((b) => (b === 'checking' ? (m.why ? 'not-kept' : 'kept') : b));
+          }
           // A new game from Home needs no notice, and takes down one still showing for the game before:
           // its founding card says what comes next. Whatever the game was, its day card and draft go with it.
           else if (m.type === 'loaded') {
@@ -169,11 +181,13 @@ export function useSim(city: City | undefined): Sim {
           }
           // A write kept says the browser keeps saves again: one failure (a full disk) says so only until then.
           else if (m.type === 'store')
-            inStore((s) =>
-              applyEffects(s, m.effects).then(() => {
-                setStored((n) => n + 1);
-                setStoreRefused(false);
-              }),
+            inStore(
+              (s) =>
+                applyEffects(s, m.effects).then(() => {
+                  setStored((n) => n + 1);
+                  setStoreRefused(false);
+                }),
+              m.setAside,
             );
           else if (m.type === 'snapshot') setSnapshot(m.snapshot);
           else if (m.type === 'depot-site') {
@@ -282,5 +296,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }

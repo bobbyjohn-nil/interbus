@@ -406,6 +406,9 @@ export type ToWorker =
   /** Hands over what a slot holds as a file, even a save this game cannot load (D12: never lost unseen). */
   | { readonly type: 'export-slot'; readonly slot: number }
   | { readonly type: 'delete-set-aside'; readonly why: SetAsideWhy }
+  /** The save the start could not set aside, still under the live key: hand it over as a file, or let the game save over it (the page asks first). */
+  | { readonly type: 'export-unbacked' }
+  | { readonly type: 'delete-unbacked' }
   /** Home's New game (the M5 spec, item 3): a new, unnamed company in place of this game, its autosave replaced; slots stay. */
   | { readonly type: 'new-game' }
   /** Reopens the save written as this quarter began (the failure floor's Restart this quarter). */
@@ -425,17 +428,25 @@ export type FromWorker =
       readonly depotLand: readonly (readonly LngLatPair[])[];
       readonly snapshot: Snapshot;
       readonly load: LoadView;
+      /** The save `load` names is being set aside: its backup has yet to read back, and 'unbacked' says whether it did. */
+      readonly checking?: true;
     }
   /** The sim asks for the save under its key before it starts. */
   | { readonly type: 'read-save'; readonly key: string }
-  /** Saves and set-asides for the page to carry out, in order. */
-  | { readonly type: 'store'; readonly effects: readonly StoreEffect[] }
+  /** Saves and set-asides for the page to carry out, in order. A failure of the start's set-aside (`setAside`) is said by 'unbacked', not as a browser keeping no saves. */
+  | { readonly type: 'store'; readonly effects: readonly StoreEffect[]; readonly setAside?: true }
   /** The sim asks for these keys' texts, after every store effect posted before it. */
   | { readonly type: 'read-keys'; readonly id: number; readonly keys: readonly string[] }
   /** The slots, the set-aside saves, and the autosave as kept (null when none is). */
   | { readonly type: 'slots'; readonly slots: readonly SlotView[]; readonly setAside: readonly SetAsideWhy[]; readonly autosave: SaveAbout | null }
   /** This game as a save file, for the page to hand to the player. */
   | { readonly type: 'export'; readonly name: string; readonly text: string }
+  /**
+   * Whether the start's set-aside save was kept, once its backup reads back: null when it was; why
+   * it was refused when it was not, when it stays under the live key and the game saves nothing over
+   * it; null again once the player deletes it, after the slots listed with the save owed meanwhile.
+   */
+  | { readonly type: 'unbacked'; readonly why: SetAsideWhy | null }
   /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */
   | { readonly type: 'loaded'; readonly from: 'slot' | 'file' | 'quarter' | 'new'; readonly load: LoadView }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }

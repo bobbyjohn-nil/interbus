@@ -49,7 +49,7 @@ import { eventDaysLeft, eventPhase } from '../sim/rules/event';
 import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/state';
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
-import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
+import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
 import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
 import { SPEED_RATES } from '../sim/rules/speed';
@@ -318,6 +318,13 @@ function depotLandOf(city: City): LngLatPair[][] {
   return city.depotLand.map((ring) => ring.map((p) => [...toLngLat(city.frame, p)] as LngLatPair));
 }
 
+/** Why a save this game cannot play is refused, as its backup key and Saves name it (D12): another bake's only when its stops miss this one's streets. */
+function refusedAs(result: LoadOutcome): SetAsideWhy {
+  if (result.outcome === 'older') return `older-${result.format}`;
+  if (result.outcome === 'rebaked') return 'off-street';
+  return result.outcome === 'newer' || result.outcome === 'other-city' ? result.outcome : 'unreadable';
+}
+
 /**
  * `now` is the page's clock in milliseconds since 1970, which stamps each save's time for the Saves
  * panel (the M5 spec, item 4); without it saves carry no time. It never reaches the sim.
@@ -347,14 +354,29 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   let session: { start: string; speed: Speed; commands: { at: number; message: ToWorker }[] } | null = null;
   const beginSession = (start: string) => void (session = { start, speed, commands: [] });
   const stamp = () => now?.();
+  // The quarter's save as this page last wrote it, so Restart this quarter reopens it for the life of
+  // the page though the browser keeps nothing (storage refused, or too full for it); the store's copy
+  // is read only after a reload.
+  let quarter: string | null = null;
   const saveQuarter = () => {
-    const text = encode(world!.state, build, stamp());
-    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: text }] });
-    beginSession(text);
+    quarter = encode(world!.state, build, stamp());
+    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: quarter }] });
+    beginSession(quarter);
   };
+  // A save set aside at the start whose backup did not read back (a full disk refused it): the live
+  // key holds its only copy, so the game writes nothing over it (D12, DP-06), and a save due meanwhile
+  // waits, owed. Nothing tries the backup again after the start's one read-back: only the player's
+  // Delete in Saves, or a later page load that sets it aside afresh, ends the hold.
+  let unbacked: { why: SetAsideWhy; text: string } | null = null;
+  let saveOwed = false;
   const save = () => {
     savedHour = Math.floor(world!.state.elapsed / 3_600);
-    post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }] });
+    saveOwed = unbacked !== null;
+    if (!saveOwed) post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }] });
+  };
+  const release = () => {
+    unbacked = null;
+    if (saveOwed) save();
   };
   let speed: Speed = 0;
   let lastMs: number | null = null;
@@ -389,8 +411,20 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     savedHour = Math.floor(next.state.elapsed / 3_600);
     refreshLines();
   };
-  /** Reads the slots, the set-aside saves and the autosave, and posts what each slot and the autosave hold and which set-asides there are. */
-  const listSlots = () =>
+  // Whether a slot's save from another bake finds this bake's streets, as loading it must (worldFrom),
+  // by its text: each answer builds a world, and Saves lists the slots every 2 s while the game saves.
+  const rebases = new Map<string, boolean>();
+  const playsHere = (text: string, result: LoadOutcome): boolean => {
+    let ok = rebases.get(text);
+    if (ok === undefined) {
+      ok = worldFrom(playing!.city, playing!.ref, result).ok;
+      if (rebases.size >= SAVE_SLOTS.length) rebases.clear();
+      rebases.set(text, ok);
+    }
+    return ok;
+  };
+  /** Reads the slots, the set-aside saves and the autosave, and posts what each slot and the autosave hold and which set-asides there are; then `then`. */
+  const listSlots = (then?: () => void) =>
     readKeys(
       [...SAVE_SLOTS.map((n) => slotKey(playing!.ref.id, n)), ...SET_ASIDE.map((why) => backupKey(playing!.ref.id, why)), saveKey(playing!.ref.id)],
       (texts) => {
@@ -398,14 +432,16 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           const text = texts[k] ?? null;
           if (text === null) return { slot, about: null, readable: true };
           const { result } = decode(text, playing!.ref);
-          if (result.outcome === 'ok' || result.outcome === 'rebaked') return { slot, about: aboutSave(result.envelope), readable: true };
-          // Named as a set-aside save would be, so a slot from an older build says so (D12).
-          return { slot, about: null, readable: false, why: result.outcome === 'older' ? `older-${result.format}` : result.outcome === 'newer' || result.outcome === 'other-city' ? result.outcome : 'unreadable' };
+          if (result.outcome === 'ok' || (result.outcome === 'rebaked' && playsHere(text, result))) return { slot, about: aboutSave(result.envelope), readable: true };
+          // Named as a set-aside save would be, so a slot from an older build, or one whose stops are off the new map, says so (D12).
+          return { slot, about: null, readable: false, why: refusedAs(result) };
         });
         const setAside = SET_ASIDE.filter((_, k) => texts[SAVE_SLOTS.length + k] != null);
         const { result: kept } = decode(texts[SAVE_SLOTS.length + SET_ASIDE.length] ?? null, playing!.ref);
-        const autosave = kept.outcome === 'ok' || kept.outcome === 'rebaked' ? aboutSave(kept.envelope) : null;
+        // The live key holds no autosave while it keeps a save not set aside.
+        const autosave = !unbacked && (kept.outcome === 'ok' || kept.outcome === 'rebaked') ? aboutSave(kept.envelope) : null;
         post({ type: 'slots', slots, setAside, autosave });
+        then?.();
       },
     );
   /**
@@ -605,10 +641,22 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           }
           play(createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed)), city, ref);
         }
-        if (effects.length) post({ type: 'store', effects });
+        if (effects.length) post({ type: 'store', effects, setAside: true });
+        // A save set aside is written over only once its backup reads back. Either way the page is told,
+        // so it says the save was set aside only once it was, and otherwise Saves offers it to export or delete.
+        const backup = effects.find((e): e is Extract<typeof e, { op: 'write' }> => e.op === 'write');
+        if (backup) {
+          const held = { why: refusedAs(result), text: backup.value };
+          unbacked = held;
+          readKeys([backup.key], ([kept]) => {
+            if (unbacked !== held) return;
+            post({ type: 'unbacked', why: kept === held.text ? null : held.why });
+            if (kept === held.text) release();
+          });
+        }
         // The rebased game is saved at once, under this bake's name.
         if (load === 'rebaked') save();
-        post({ type: 'ready', dots: dotsOf(city), depotLand: depotLandOf(city), snapshot: snapshot(), load });
+        post({ type: 'ready', dots: dotsOf(city), depotLand: depotLandOf(city), snapshot: snapshot(), load, ...(backup ? { checking: true as const } : {}) });
         return;
       }
       if (message.type === 'key-texts') {
@@ -793,6 +841,19 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           if (text === null || text === undefined) post({ type: 'refused', command: 'export-slot', reason: 'empty_slot' });
           else post({ type: 'export', name: `interbus-${playing!.ref.id}-slot-${slot}.json`, text });
         });
+      } else if (message.type === 'export-unbacked') {
+        // Nothing held any more (a press after Delete it, before the row goes): nothing to hand over, and
+        // no slot to name in a refusal.
+        if (!unbacked) return;
+        post({ type: 'export', name: `interbus-${playing!.ref.id}-not-set-aside-${unbacked.why}.json`, text: unbacked.text });
+      } else if (message.type === 'delete-unbacked') {
+        if (!unbacked) return; // as for Export: already let go
+        // The player lets it go (the page asks first): it leaves the live key, and the game saves there
+        // again. The page hears so once the list names the save owed meanwhile, so the autosave's row
+        // never reads Empty between the two.
+        post({ type: 'store', effects: [{ op: 'remove', key }] });
+        release();
+        listSlots(() => post({ type: 'unbacked', why: null }));
       } else if (message.type === 'delete-set-aside') {
         if (!SET_ASIDE.includes(message.why)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
         post({ type: 'store', effects: [{ op: 'remove', key: backupKey(playing!.ref.id, message.why) }] });
@@ -810,7 +871,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         post({ type: 'loaded', from: 'new', load: 'none' });
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'restart-quarter') {
-        readKeys([quarterKey(playing!.ref.id)], ([text]) => loadText(text ?? null, 'quarter'));
+        if (quarter !== null) loadText(quarter, 'quarter');
+        else readKeys([quarterKey(playing!.ref.id)], ([text]) => loadText(text ?? null, 'quarter'));
       } else if (message.type === 'import') {
         loadText(message.text, 'file');
       } else if (message.type === 'export-session') {

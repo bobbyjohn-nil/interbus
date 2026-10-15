@@ -30,6 +30,7 @@ test.describe('the failure floor', () => {
     save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
     const chooser = page.waitForEvent('filechooser');
     await page.getByRole('button', { name: 'Import a save file' }).click();
+    await page.getByRole('button', { name: 'Replace this game' }).click();
     await (await chooser).setFiles({ name: 'owing.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
     await expect(panel).toHaveAttribute('data-cash', '-20000000');
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');

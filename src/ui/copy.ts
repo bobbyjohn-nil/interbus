@@ -118,6 +118,15 @@ export function failedText(failed: GameFailure, city: string): string {
   return failed === 'start' ? `${city} couldn’t be loaded` : 'The game stopped working';
 }
 
+/** Said, until the player opens Saves, when a save could not be set aside (a full disk), so the game keeps it where it is and saves nothing over it: what that means for the player, and where to look. Untimed chrome at rest, so short: I13. */
+export const UNBACKED_COPY = 'Not autosaving: see Saves';
+
+/** That save's row in Saves, after its name there ("A save from an older build (format 15)"), beside Export and Delete. */
+export const unbackedRowText = (name: string): string => `${name}, not set aside · this game isn’t saving itself`;
+
+/** That row's tooltip: the way out. */
+export const UNBACKED_ROW_TITLE = 'Export the old save to keep it, and Save here to keep this game meanwhile. Once the old save is deleted here, this game saves itself again.';
+
 /** A save the game could not start from, in one line (D12): kept under a backup key, never overwritten. */
 export const LOAD_COPY: Readonly<Record<LoadView, string | null>> = {
   none: null,

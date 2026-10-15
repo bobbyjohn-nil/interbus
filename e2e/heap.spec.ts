@@ -50,6 +50,7 @@ test('the busy scene’s heaps grow at most 10% over 30 minutes at 2,700×', asy
   await page.getByRole('button', { name: 'Saves' }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import a save file' }).click();
+  await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'busy.json', mimeType: 'application/json', buffer: Buffer.from(encode(scene.world.state, { sha: 'scene', version: '0.0.0' })) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
   await page.getByRole('button', { name: 'Close' }).click();
