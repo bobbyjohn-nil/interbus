@@ -1049,12 +1049,24 @@ button.chip.checklist,
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
+  /* Inside the window and above the dock, as the panels are (D26): 100% less the 60 px above, the
+     72 px left at the window's bottom (Panels.tsx's BOTTOM) and the card's 24 px of padding. What does
+     not fit (a busy quarter's close at 1152×720) scrolls inside the card, and its button stays in view
+     below. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 156px);
   min-width: 260px;
   padding: 12px 16px;
   border-radius: 10px;
   background: var(--ui-paper);
   box-shadow: 0 2px 12px rgb(0 0 0 / 0.15);
   font-size: 14px;
+}
+
+.day-card-scroll {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .day-card h2 {
@@ -1100,6 +1112,8 @@ button.chip.checklist,
 }
 
 .day-card button {
+  align-self: flex-start;
+  flex-shrink: 0;
   font: inherit;
   min-height: 24px;
   padding: 3px 10px;

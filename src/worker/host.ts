@@ -488,11 +488,12 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     return contractsView;
   };
 
-  // Worked out again only when the event or the day changes.
+  // Worked out again only when the event, the day or the network changes: snow's words sit amid the
+  // stops, which a stop built or a game loaded on the same snowy day moves.
   let eventKey = '';
   let eventShown: EventView | null = null;
   const eventNow = (w: World, day: number): EventView | null => {
-    const key = `${JSON.stringify(w.state.event)}|${day}`;
+    const key = `${linesVersion}|${JSON.stringify(w.state.event)}|${day}`;
     if (key !== eventKey) {
       eventKey = key;
       eventShown = eventView(w, w.state.event, day);

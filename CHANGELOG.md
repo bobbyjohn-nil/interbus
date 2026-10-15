@@ -102,6 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A busy midnight card, such as the one that closes a quarter with its report card, a contract paid, a medal and a day of buying and selling, now fits in the window above the dock: what does not fit scrolls inside the card, and Continue stays in view. In a 1152×720 window it used to run off the bottom with Continue out of reach, and cover the dock's buttons until the next midnight.
+- The snow's words on the map ("Snow tomorrow", then the days left) sit in the middle of your stops: after you load or import another game on the same snowy day they no longer sit where the last game's stops were, and they move as you build or take down stops.
 - The line card's headway and bus menus keep only what you picked since the line last changed: a pick you didn't run is dropped when Undo changes the line, or when you load a slot or a save file or Restart this quarter. Run it, Buy and run and Buy and swap no longer put back a headway you just undid, or bring a pick from the game you left into the one you loaded.
 - Picking every headway on a line's card back to what the line runs is no change: the card no longer offers Run it, and Undo no longer names a change that changed nothing.
 - After a change late in the evening to a line that runs overnight, Finance's Lines shows the line's costs for that next day as the Breakdown does, and as the day then banks, instead of the evening before's figures all day.
