@@ -5,7 +5,7 @@ import { STOP_COST_CENTS } from '../config/economy';
 import { STOP_JOIN_M, STOP_STREET_REACH_M } from '../config/lines';
 import { distXY, type XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
-import { spendableCents } from './credit';
+import { shortfallCents } from './credit';
 
 /** What the predicate reads: the street nodes, and the stops standing (with any a draft has placed). */
 export interface StopSiteContext {
@@ -47,7 +47,7 @@ export function checkPlaceStop(
   const site = checkStopSite(ctx, at);
   if (!site.ok) return site;
   if (site.kind === 'join') return refuse('stop_near', { limitM: STOP_JOIN_M, stopId: site.stopId });
-  const short = STOP_COST_CENTS - spendableCents(ctx.cashCents);
+  const short = shortfallCents(STOP_COST_CENTS, ctx.cashCents);
   if (short > 0) return refuse('insufficient_funds', { shortCents: short });
   return ok({ node: site.node, at: site.at, distM: site.distM, priceCents: STOP_COST_CENTS });
 }

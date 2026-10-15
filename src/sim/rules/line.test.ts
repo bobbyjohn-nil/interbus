@@ -95,6 +95,13 @@ describe('a headway change (GD-09)', () => {
     expect(checkHeadwayChange({ ...fleet, cashCents: -10_000_000 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 4_500_000 });
     expect(checkHeadwayChange({ ...fleet, busesOwned: 6 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'depot_full', room: 0 });
   });
+  // Below the floor (D10) a change that buys no bus is no purchase: it goes through, as the ledger's spendParts lets it, and a
+  // bus is still refused. Shown failing (TS-04) with the price of nothing compared against the credit line: "$49,000 short".
+  it('runs a line less often below the floor, buying nothing, and still refuses a bus there', () => {
+    const below = { ...fleet, cashCents: -19_900_000 };
+    expect(checkHeadwayChange(below, line, { peak: 1_800, offpeak: 1_800, overnight: null })).toEqual({ ok: true, needed: 1, extra: 0, priceCents: 0 });
+    expect(checkHeadwayChange(below, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 9_500_000 + 4_900_000 });
+  });
 });
 
 describe('a model change (the M3 spec, item 2)', () => {
@@ -111,6 +118,13 @@ describe('a model change (the M3 spec, item 2)', () => {
     expect(checkModelChange({ ...fleet, cashCents: 25_000_000 }, line, METRO_40)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 2_500_000 });
     const tenMinutes = { ...line, headways: { peak: 600, offpeak: 1_200, overnight: null } };
     expect(checkModelChange({ ...fleet, busesOwned: DEPOT_CAPACITY }, tenMinutes, METRO_40)).toEqual({ ok: false, reason: 'depot_full', room: 2 });
+  });
+  // A swap that sells more than it buys gives money back, so it goes through below the floor (D10), as the ledger's spendParts
+  // lets it. Shown failing (TS-04) with the net, $70k back, compared against the credit line: "$30,000 short".
+  it('swaps Metro 40s for Sparrows below the floor, $70k back, and still refuses a swap that costs money there', () => {
+    const below = { ...fleet, cashCents: -25_000_000 };
+    expect(checkModelChange(below, { ...line, model: METRO_40 }, SPARROW)).toEqual({ ok: true, needed: 2, buyCents: 19_000_000, saleCents: 26_000_000 });
+    expect(checkModelChange(below, line, METRO_40)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 + 10_000_000 });
   });
   it('sells Goliaths once the company holds silver, and not on bronze alone (the M4 spec, item 3)', () => {
     const rich = { ...fleet, cashCents: 200_000_000 };

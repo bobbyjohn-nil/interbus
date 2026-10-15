@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { toXY, type LngLat } from '../core/geo';
 import type { LineId } from '../core/ids';
+import { post } from '../economy/ledger';
 import { checkLineDraft } from '../rules/line';
 import { fixtureCity, fixtureGame, gameWithDepot } from '../testing';
 import { lineDraftContext } from '../world';
@@ -90,5 +91,18 @@ describe('a headway change on mini-Boston (GD-09)', () => {
     expect(world.state.ledger.cashCents).toBe(-7_145_200);
     expect(setHeadways(world, id, { peak: 1_800, offpeak: 600, overnight: 300 })).toMatchObject({ ok: false, reason: 'overnight_more_often_than_offpeak' });
     expect(setHeadways(world, 99 as LineId, { peak: 600, offpeak: 600, overnight: null })).toEqual({ ok: false, reason: 'no_such_line' });
+  });
+
+  // Below the floor (D10) headways that buy no bus are no purchase: the line runs less often, as the ledger's spendParts lets it, and
+  // a bus is still refused. Shown failing (TS-04) with the price of nothing compared against the credit line: "$49,000 short".
+  it('runs a line less often below the floor, buying nothing, and still refuses a bus there', () => {
+    const world = gameWithDepot();
+    const created = createLine(world, CLICKS);
+    if (!created.ok) throw new Error(created.reason);
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 19_900_000) });
+    expect(setHeadways(world, created.lineId, THIRTY)).toEqual({ ok: true, bought: 0, priceCents: 0 });
+    expect(world.state.lines[0]).toMatchObject({ buses: 2, headways: THIRTY });
+    expect(world.state.ledger.cashCents).toBe(-19_900_000);
+    expect(setHeadways(world, created.lineId, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 9_500_000 + 4_900_000 });
   });
 });

@@ -5,11 +5,13 @@ import { STOP_COST_CENTS } from '../config/economy';
 import { SPARROW } from '../config/fleet';
 import type { LngLat } from '../core/geo';
 import type { LineId } from '../core/ids';
+import { post } from '../economy/ledger';
 import { toSaveData } from '../save/save';
 import { gameWithDepot } from '../testing';
 import { before, newUndo, remember, undo } from '../undo';
 import { addDebugLine } from './debugLine';
 import { extendLine } from './extendLine';
+import { placeStop } from './placeStop';
 
 const BEYOND_LONGWOOD: LngLat = [-71.1085, 42.3395];
 const BEYOND_COPLEY: LngLat = [-71.0725, 42.3515];
@@ -59,6 +61,18 @@ describe('extending a line', () => {
     expect(extendLine(world, 99 as LineId, 'end', [BEYOND_LONGWOOD])).toEqual({ ok: false, reason: 'no_such_line' });
     world.state.ledger.cashCents = -14_900_000; // $1k of the $150k credit line left
     expect(extendLine(world, line.id, 'end', [BEYOND_LONGWOOD])).toMatchObject({ ok: false, reason: 'insufficient_funds' });
+  });
+
+  // Below the floor (D10) an extension to a stop placed on its own buys nothing, so it is no purchase and goes through, as the
+  // ledger's spendParts lets it. Shown failing (TS-04) with the price of nothing compared against the credit line.
+  it('extends to a stop standing on its own below the floor, buying nothing', () => {
+    const { world, line } = game();
+    const placed = placeStop(world, BEYOND_LONGWOOD);
+    if (!placed.ok) throw new Error(placed.reason);
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 19_900_000) });
+    expect(extendLine(world, line.id, 'end', [BEYOND_LONGWOOD])).toEqual({ ok: true, priceCents: 0, extraBuses: 0 });
+    expect(line.stopIds.at(-1)).toBe(placed.stopId);
+    expect(world.state.ledger.cashCents).toBe(-19_900_000);
   });
 
   it('is taken back whole by an undo while paused (I9)', () => {

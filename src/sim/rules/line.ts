@@ -14,7 +14,7 @@ import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
 import { busesNeeded, cycleSeconds, cyclesOf, slowedM, type Cycles } from './cycle';
 import { checkHeadways, type HeadwayRefusal, type Headways } from './periods';
-import { spendableCents } from './credit';
+import { shortfallCents } from './credit';
 import { checkStopSite, type StopPick, type StopSiteContext } from './stop';
 import { modelLocked, type Medals } from './medal';
 
@@ -126,7 +126,8 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   if (!headwaysOk.ok) return refuse(headwaysOk.reason, { draft, ...(headwaysOk.limitSeconds === undefined ? {} : { limitSeconds: headwaysOk.limitSeconds }) });
   const room = depotRoom(ctx);
   if (buses > room) return refuse('depot_full', { draft, room });
-  if (draft.priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { draft, shortCents: draft.priceCents - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(draft.priceCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { draft, shortCents: short });
   return ok({ draft });
 }
 
@@ -145,7 +146,8 @@ export function checkHeadwayChange(
   const room = depotRoom(ctx);
   if (extra > room) return refuse('depot_full', { room });
   const priceCents = extra * line.model.priceCents;
-  if (priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { shortCents: priceCents - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(priceCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { shortCents: short });
   return ok({ needed, extra, priceCents });
 }
 
@@ -169,6 +171,7 @@ export function checkModelChange(
   const buyCents = needed * to.priceCents;
   const saleCents = Math.floor((line.buses * line.model.priceCents * RESALE_PERMILLE) / 1000);
   const netCents = buyCents - saleCents;
-  if (netCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { shortCents: netCents - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(netCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { shortCents: short });
   return ok({ needed, buyCents, saleCents });
 }
