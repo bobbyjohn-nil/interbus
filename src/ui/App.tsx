@@ -10,7 +10,7 @@ import { FailureCard } from "./game/FailureCard";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
-import { RouteEditor, routeOf, type RoutePoint } from "./game/RouteEditor";
+import { followed, pressSave, RouteEditor, routeOf, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { DepotCard, DraftCard, draftShows, StopSiteCard, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { ReplacedCard } from "./ReplacedCard";
@@ -31,13 +31,8 @@ export function App() {
   const [tool, setTool] = useState<Tool>("none");
   const [clicks, setClicks] = useState<LngLatPair[]>([]);
   const [draftModel, setDraftModel] = useState<BusModelId>("sparrow");
-  // The route editor's line and its stops as edited (D25); `saved` holds the line's stops as they were
-  // when Save route was pressed, so the editor closes once the line's stops change.
-  const [routing, setRouting] = useState<{
-    readonly lineId: number;
-    readonly points: RoutePoint[];
-    readonly saved: string | null;
-  } | null>(null);
+  // The route editor (D25): its line, its stops as edited, what it last followed and a save on its way (Routing, game/RouteEditor.tsx).
+  const [routing, setRouting] = useState<Routing | null>(null);
   // The panels open, in the order they opened (D25: several at once, each movable; shell/Panels.tsx),
   // and the one shown last: showing a panel already open brings it to the front.
   const [open, setOpen] = useState<readonly Exclude<Panel, "none">[]>([]);
@@ -49,8 +44,11 @@ export function App() {
   const hide = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => o.filter((x) => x !== p)), []);
   const toggle = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p])), []);
   const [lineId, setLineId] = useState<number | null>(null);
-  // The line Finance opens on, from the line panel's link to its money; null opens the Overview.
+  // The line Finance opens on, from the line panel's link to its money; null opens the Overview. Each
+  // press of the link opens Finance afresh on that line, and Finance closed any way opens next on the Overview.
   const [financeLine, setFinanceLine] = useState<number | null>(null);
+  const [financeAsks, setFinanceAsks] = useState(0);
+  if (financeLine !== null && !open.includes("finance")) setFinanceLine(null);
   const [stopId, setStopId] = useState<number | null>(null);
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
@@ -190,7 +188,7 @@ export function App() {
       setClicks([]);
       // The editor stands in for the line's panel while it is open; Save route and Cancel bring it back.
       hide("lines");
-      setRouting({ lineId: id, points: routeOf(line), saved: null });
+      setRouting({ lineId: id, points: routeOf(line), base: line.stopIds, saved: null });
       hoveredRef.current = null;
       probeAt(null);
     },
@@ -203,11 +201,20 @@ export function App() {
     : null;
   const routingStops = routingLine ? routingLine.stopIds.join(",") : null;
   // During render, as the play speed follows the game (React's pattern for state that follows a prop).
-  if (routing && routing.saved !== null && routingStops !== null && routingStops !== routing.saved) {
+  if (routing && !routingLine) {
+    // Its line gone under it (an undo): the editor and its tool go down together, as Cancel puts them down.
+    setTool("none");
+    setRouting(null);
+  } else if (routing && routing.saved !== null && routingStops !== routing.saved.stops) {
     setTool("none");
     setRouting(null);
     setLineId(routing.lineId);
     show("lines");
+  } else if (routing && routingLine && game) {
+    // The list follows the line as the game changes it under the editor, and a save that did not land
+    // can be pressed again.
+    const next = followed(routing, routingLine, game, sim.routeRefusals);
+    if (next !== routing) setRouting(next);
   }
 
   // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
@@ -217,6 +224,7 @@ export function App() {
   const started = sim.snapshot !== null;
   const depots = sim.snapshot?.depots.length ?? 0;
   const lines = sim.snapshot?.lines.length ?? 0;
+  const newest = sim.snapshot?.lines.at(-1)?.id ?? null;
   // Counted from the game as it starts, so a reloaded game's lines are not new ones.
   const counts = useRef<{ depots: number; lines: number } | null>(null);
   useEffect(() => {
@@ -230,14 +238,15 @@ export function App() {
       setClicks([]);
       depotSiteAt(null);
     }
-    // A new line opens in the inspector, so its headways and forecast are one look away.
+    // A new line opens in the inspector, so its headways and forecast are one look away: the newest,
+    // as the game keeps its lines in the order they were made.
     if (lines > counts.current.lines && creating.current) {
       creating.current = false;
-      setLineId(null);
+      setLineId(newest);
       show("lines");
     }
     counts.current = { depots, lines };
-  }, [started, depots, lines, depotSiteAt, show]);
+  }, [started, depots, lines, newest, depotSiteAt, show]);
 
   // A game loaded from a slot, a file or Restart this quarter takes this one's place: any tool out
   // goes down with the game it was drawn in, as with a new game.
@@ -303,9 +312,13 @@ export function App() {
           sim={sim}
           line={routingLine}
           points={routing.points}
+          saving={routing.saved !== null}
           onPoints={(points) => setRouting({ ...routing, points, saved: null })}
           onSave={() => {
-            setRouting({ ...routing, saved: routingLine.stopIds.join(",") });
+            // One press, one command: a second before the first lands (a double-click) sends nothing.
+            const next = pressSave(routing, routingLine, sim.routeRefusals);
+            if (!next) return;
+            setRouting(next);
             send({ type: "set-route", lineId: routing.lineId, points: routing.points.map((p) => p.at) });
           }}
           onCancel={() => {
@@ -347,6 +360,7 @@ export function App() {
             onEditRoute={startRoute}
             onFinance={(id) => {
               setFinanceLine(id);
+              setFinanceAsks((n) => n + 1);
               show("finance");
             }}
             onClose={() => hide("lines")}
@@ -358,7 +372,7 @@ export function App() {
         id: p,
         node: (
           <Finance
-            key={financeLine ?? "all"}
+            key={financeAsks}
             sim={sim}
             view={financeLine === null ? "overview" : "lines"}
             lineId={financeLine}

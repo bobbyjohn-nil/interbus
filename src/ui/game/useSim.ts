@@ -41,6 +41,8 @@ export interface Sim {
   readonly draftOf: readonly LngLatPair[] | null;
   /** The last command the sim refused, until the next command. */
   readonly refusal: ({ readonly command: string } & RefusalView) | null;
+  /** How many Save routes the sim has refused, counted apart from `refusal`, which the next command clears, so the route editor knows its own. */
+  readonly routeRefusals: number;
   /** What became of the save this game started from. */
   readonly load: LoadView | null;
   /** The save slots, once asked for (Saves panel), and the last slot or file that became the game. */
@@ -83,6 +85,7 @@ export function useSim(city: City | undefined): Sim {
   const [draftOf, setDraftOf] = useState<Sim['draftOf']>(null);
   const [fareBand, setFareBand] = useState<Sim['fareBand']>(null);
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
+  const [routeRefusals, setRouteRefusals] = useState(0);
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
   const [setAside, setSetAside] = useState<Sim['setAside']>(null);
@@ -181,6 +184,7 @@ export function useSim(city: City | undefined): Sim {
             setStatus('failed');
           } else if (m.type === 'refused') {
             setRefusal({ ...m, command: m.command });
+            if (m.command === 'set-route') setRouteRefusals((n) => n + 1);
             errors.report({ severity: 'note', source: 'sim', code: `refused-${m.command}`, detail: m.reason });
           }
         };
@@ -263,5 +267,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, load, slots, setAside, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, load, slots, setAside, autosave, stored, storeRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }
