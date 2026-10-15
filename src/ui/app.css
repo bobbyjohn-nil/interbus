@@ -391,6 +391,22 @@ button.chip.checklist,
   cursor: pointer;
 }
 
+/* The Undo chip takes the room the chip row has left, up to its whole label: it ends in an ellipsis only
+   when the row is full, its full words in its title and its name (TopBar.tsx), and the row wraps only
+   when not even 6em of it fits. "Undo: Take the Kenmore contract" beside the countdown and the Contracts
+   chip wrapped the row at 1152×720 (I13); a fixed width cut it at every size. */
+.chip.undo {
+  flex: 1 1 0;
+  min-width: 6em;
+  max-width: max-content;
+}
+
+.chip.undo .chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* On the menus' layer, which its Build menu cannot leave (its transform holds its children's layers). */
 .dock {
   position: absolute;
@@ -630,11 +646,16 @@ button.chip.checklist,
   opacity: 0.5;
 }
 
+/* The Lines panel's first row is its heading (Inspector.tsx), which clears the ×; its tabs, under it, take the full width. */
+.inspector > h2 {
+  padding-right: 24px;
+}
+
 .panel .tabs {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  margin: 0 24px 8px 0;
+  margin: 0 0 8px;
 }
 
 .panel .tabs button[aria-selected='true'] {
@@ -1239,7 +1260,7 @@ button.chip.checklist,
 }
 
 /* An express line (the M4 spec, below the cut): a small word beside its name. */
-.line-card h2 .express {
+.inspector > h2 .express {
   margin-left: 8px;
   padding: 1px 6px;
   border-radius: 4px;

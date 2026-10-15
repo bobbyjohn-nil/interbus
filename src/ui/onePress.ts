@@ -10,9 +10,11 @@
 // dropdown's option or a menu's item, but nothing on the map's canvas) arms it, and the clicks after it
 // in that run (detail 2 and up) and their dblclick are dropped. The next click that starts a run of its
 // own, or a key's click (detail 0), disarms it, and arms it again if it is on a control. A double-click
-// that starts on the map keeps its second click, which the map takes as one with a tool out and which
-// zooms or tilts with none (loadMap.ts). No control in the game asks for a double-click. The press-away
-// rule's twin (pressAway.ts).
+// that starts on the map keeps its second click while it lands on the map, which takes it as one with a
+// tool out and zooms or tilts with none (loadMap.ts). One that lands off the map is dropped, and the rest
+// of its run with it (the systems audit's third round): the first click opened a stop's card or the Lines panel under
+// the pointer, and the second would press whatever button came there (Take it down, Make it a Shelter).
+// No control in the game asks for a double-click. The press-away rule's twin (pressAway.ts).
 
 const CONTROLS = 'button, a, [role="option"], [role="menuitem"]';
 const CANVAS = '.maplibregl-canvas-container';
@@ -32,17 +34,21 @@ export function onControl(target: unknown): boolean {
 
 /** Puts the rule on `page` (the window), once; returns what takes it off again. */
 export function onePress(page: EventTarget = window): () => void {
-  let armed = false;
+  // What the rest of the run of clicks under way does: goes on ('keep'), goes on while it lands on the
+  // map's canvas ('map', a run that started there), or is dropped ('drop', a run that started on a
+  // control, or left the map).
+  let rest: 'keep' | 'map' | 'drop' = 'keep';
   const heard = (event: Event) => {
     // A click the page makes itself from a press (Export's download link, Import's file picker) is no
     // press of the player's: it neither ends the watch nor is dropped.
     if (!event.isTrusted) return;
     const detail = (event as MouseEvent).detail;
     if (event.type === 'click' && detail <= 1) {
-      armed = detail === 1 && onControl(event.target);
+      rest = detail !== 1 ? 'keep' : onControl(event.target) ? 'drop' : onCanvas(event.target) ? 'map' : 'keep';
       return;
     }
-    if (!armed) return;
+    if (rest === 'keep' || (rest === 'map' && onCanvas(event.target))) return;
+    rest = 'drop';
     event.stopPropagation();
     event.preventDefault();
   };

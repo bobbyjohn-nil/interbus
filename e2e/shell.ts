@@ -129,18 +129,20 @@ export async function pointAt(page: Page, at: [number, number]): Promise<readonl
   return [x, y] as const;
 }
 
+/** A save file's game, as withDebugLine's `edit` changes it. */
+export type SaveData = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; ledger: unknown[] };
+
 /**
  * This game exported, edited to day 2 at 09:00 with a depot, the debug line's four stops every 20
  * minutes and day 1 in profit (so the checklist's last step, Take a contract, opens Contracts), and
- * imported back: a line on the map without drawing it.
+ * imported back: a line on the map without drawing it. `edit` changes it further before the import.
  */
-export async function withDebugLine(page: Page): Promise<void> {
-  type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; ledger: unknown[] };
+export async function withDebugLine(page: Page, edit?: (data: SaveData) => void): Promise<void> {
   await page.getByRole('button', { name: 'Saves' }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export this game' }).click();
   const exported = (await (await (await download).createReadStream()).toArray()) as Buffer[];
-  const save = JSON.parse(Buffer.concat(exported).toString()) as { data: Data };
+  const save = JSON.parse(Buffer.concat(exported).toString()) as { data: SaveData };
   const d = save.data;
   const [lon, lat] = onDepotLand();
   d.depots = [{ id: 1, lon, lat }];
@@ -149,6 +151,7 @@ export async function withDebugLine(page: Page): Promise<void> {
   d.nextIds = { ...d.nextIds, depot: 2, stop: 5, line: 2 };
   d.ledger.push({ day: 1, kind: 'fares', amountCents: 100_000, lineId: 1 });
   d.clock.elapsed = 86_400 + 4 * 3_600;
+  edit?.(d);
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import a save file' }).click();
   await page.getByRole('button', { name: 'Replace this game' }).click();

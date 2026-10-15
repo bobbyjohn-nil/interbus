@@ -9,7 +9,7 @@ import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { UNBACKED_COPY } from '../src/ui/copy';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, chromeShare, city, fillStorage, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, zoomOutOnce } from './shell';
+import { build, chromeShare, city, fillStorage, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce } from './shell';
 
 const SIZES = [
   [1440, 900],
@@ -18,6 +18,9 @@ const SIZES = [
 ] as const;
 const REST = 0.06;
 const PANEL = 0.26;
+
+/** Whether the Undo chip shows its whole label, not cut short with an ellipsis (app.css). */
+const undoWhole = (page: Page) => page.getByTestId('undo').locator('.chip-text').evaluate((el) => el.scrollWidth <= el.clientWidth);
 
 /** Saves, open with slot 1 full, measured with Slot 1's Load question open (savesLoad), then Import's (savesImport): each in place of its row's other buttons. */
 async function savesAsking(page: Page, shares: Record<string, number>): Promise<void> {
@@ -93,6 +96,8 @@ test.describe('the screen budget (I13)', () => {
       await expect(page.getByTestId('inspector')).toBeVisible();
       await page.getByRole('button', { name: 'Close' }).click();
       shares.restWithLine = await chromeShare(page);
+      await expect(page.getByTestId('undo')).toHaveText('Undo: Create Line 1');
+      expect(await undoWhole(page), 'the Undo chip whole').toBe(true);
       // Finance: the depot, the line's stops and its buses are today's purchases, each a row (D25), and
       // on day 1 today's column and the quarter's both come to the cash less the starting cash, on Day 0.
       await page.getByRole('button', { name: 'Finance', exact: true }).click();
@@ -213,13 +218,14 @@ test.describe('the screen budget (I13)', () => {
   });
 
   // A save the start could not set aside (a disk too full for its backup): its notice is untimed, at-rest
-  // chrome until Saves opens, so Home, the shell at rest and at rest with a line are measured beside it;
-  // then Saves with that save in the autosave's row, with its buttons, every slot full and a set-aside
-  // save, at rest and with Load's question or Import's open: the save list at its tallest. At 1152×720
-  // only, the tightest size. Shown failing (TS-04) with the notice "A save couldn’t be set aside: see
-  // Saves" (6.05% at rest with a line), with Export this game beside Import's question, which wrapped it
-  // to a second row (Saves 26.005%), and with Save here beside Load's question, which wrapped its slot's
-  // row (26.01%).
+  // chrome until Saves opens, so Home, the shell at rest and at rest with a line are measured beside it,
+  // and then with a stop taken off the line, its undo whole; then Saves with that save in the autosave's
+  // row, with its buttons, every slot full and a set-aside save, at rest and with Load's question or
+  // Import's open: the save list at its tallest. At 1152×720 only, the tightest size. Shown failing
+  // (TS-04) with the notice "A save couldn’t be set aside: see Saves" (6.05% at rest with a line), with
+  // Export this game beside Import's question, which wrapped it to a second row (Saves 26.005%), with
+  // Save here beside Load's question, which wrapped its slot's row (26.01%), and on 5f4bce3 with that
+  // undo named "Undo: Remove Stop 2 from Line 1", 203 px wide (6.05%, the systems audit's third round).
   test('at 1152×720: ≤6% at rest and ≤26% in Saves with a save not set aside', async ({ page }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1152, height: 720 });
@@ -249,6 +255,21 @@ test.describe('the screen budget (I13)', () => {
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(notice).toHaveText(UNBACKED_COPY);
     shares.restWithLine = await chromeShare(page);
+    // Its second stop taken off the line, which takes it down: its card closes, and the undo chip names it.
+    const placed = (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number));
+    const [sx, sy] = await toScreen(page, [placed[1]![1]!, placed[1]![2]!]);
+    const card = page.getByTestId('stop-card');
+    await expect(async () => {
+      await page.mouse.click(sx, sy);
+      await expect(card).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await card.getByRole('button', { name: /^Remove from Line 1/ }).click();
+    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId('undo')).toHaveText(`Undo: Take Stop ${placed[1]![0]} off Line 1`);
+    await page.getByTestId('date').hover();
+    await expect(notice).toHaveText(UNBACKED_COPY);
+    shares.restRemoved = await chromeShare(page);
+    expect(await undoWhole(page), 'the Undo chip whole').toBe(true);
     await page.getByRole('button', { name: 'Saves' }).click();
     for (const n of [1, 2, 3]) {
       await page.getByTestId(`slot-${n}`).getByRole('button', { name: 'Save here' }).click();
@@ -262,7 +283,71 @@ test.describe('the screen budget (I13)', () => {
     test.info().annotations.push({ type: 'chrome % with a save not set aside', description: JSON.stringify(rounded) });
     expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
     expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
+    expect(shares.restRemoved, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
     for (const panel of ['home', 'saves', 'savesLoad', 'savesImport']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+  });
+
+  // The failure floor's countdown (D10) with a long undo and the Contracts chip, at 1152×720, the tightest
+  // size: below the floor, the player pauses to take a contract. The chips stay on one row, the undo taking
+  // the room the others leave, cut short there and named in full in its title and to a screen reader;
+  // with the fixture's numbers, then Inner Boston's (a 7-digit Cash, five-digit Riders/day and a wider
+  // Costs/day, set in the chips' text: the fixture's riders stay far short of five digits, and an import
+  // would clear the undo). At 1440×900 the same undo is whole. Shown failing (TS-04) on 5f4bce3, where
+  // the row wrapped to two, 1036 px wide and 62 px tall, and the shell took 10.2%.
+  test('at 1152×720: ≤6% at rest in the countdown, with a long undo and the Contracts chip on one row', async ({ page }) => {
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // Owing $1m more on day 2, a close below the floor behind it, and a bronze medal on the Contracts chip.
+    await withDebugLine(page, (d) => {
+      d.ledger.push({ day: 2, kind: 'buses', amountCents: -100_000_000, lineId: null });
+      d.closesBelowFloor = 1;
+      d.medals = { bronze: 1, silver: null, gold: null };
+    });
+    await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
+    await page.getByTestId('checklist').click();
+    const offer = page.getByTestId('contract').first();
+    await offer.getByRole('button', { name: 'Take it' }).click();
+    await expect(offer).toHaveAttribute('data-held', 'yes');
+    await page.getByTestId('contracts').getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('contracts-chip')).toContainText('1 held');
+    const undo = page.getByTestId('undo');
+    await expect(undo).toHaveText(/^Undo: Take the .+ contract$/);
+    // At rest: the import's notice gone, and the pointer on the date, where no card opens.
+    await page.getByTestId('date').hover();
+    await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 10_000 });
+    const top = page.getByTestId('sim-panel');
+    const measured: string[] = [];
+    for (const numbers of ['fixture', 'Inner Boston']) {
+      if (numbers === 'Inner Boston') {
+        await top.evaluate((bar) => {
+          const set = (label: string, text: string) => {
+            const chip = [...bar.querySelectorAll('.chip')].find((c) => c.querySelector('.chip-label')?.textContent === label)!;
+            chip.lastChild!.textContent = text;
+          };
+          set('Cash', '-$1,524,452');
+          set('Riders/day', '≈12,000');
+          set('Costs/day', '$24,560');
+        });
+        await expect(top).toContainText('≈12,000');
+      }
+      const share = await chromeShare(page);
+      const bar = (await top.boundingBox())!;
+      measured.push(`${numbers}: ${Math.round(share * 10_000) / 100}% (top bar ${Math.round(bar.width)}×${Math.round(bar.height)}, undo ${Math.round((await undo.boundingBox())!.width)} px)`);
+      expect(share, measured.at(-1)).toBeLessThanOrEqual(REST);
+      expect(bar.height, `one row of chips: ${measured.at(-1)}`).toBeLessThanOrEqual(28);
+      // The row is full: the undo is cut short, its full words in its title and its name.
+      expect(await undoWhole(page)).toBe(false);
+    }
+    test.info().annotations.push({ type: 'chrome % in the countdown', description: measured.join('; ') });
+    const words = (await undo.textContent())!;
+    await expect(undo).toHaveAttribute('title', words);
+    await expect(page.getByRole('button', { name: words, exact: true })).toBeVisible();
+    // Wider, the row has room: the same undo is whole.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(() => undoWhole(page)).toBe(true);
+    expect((await top.boundingBox())!.height).toBeLessThanOrEqual(28);
   });
 
   test('the measure bites: a 400 × 200 chrome panel more breaks the at-rest budget', async ({ page }) => {

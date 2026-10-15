@@ -19,7 +19,10 @@ const SPEED_OPTIONS = RUNNING_SPEEDS.map((speed) => ({ value: speed, label: spee
  * step opens Contracts, and once the checklist is done its place is the Contracts chip (the M3 spec,
  * items 11 and 12), so contracts add nothing to the shell at rest (I13). The medals held show there
  * too, a dot of each one's metal; the Contracts panel names the ladder and the trips left to silver
- * (the M4 spec, item 3), since a chip of its own broke I13 (DECISIONS, Measured).
+ * (the M4 spec, item 3), since a chip of its own broke I13 (DECISIONS, Measured). The undo takes the
+ * room the row has left: whole where there is room, cut short with an ellipsis only when the row is full,
+ * and named in full in its title and to a screen reader, so the countdown, the undo and the Contracts chip
+ * keep to one row at 1152×720 (the systems audit's third round; app.css).
  */
 export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: Exclude<Speed, 0>; onContracts: () => void }) {
   const s = sim.snapshot;
@@ -30,6 +33,7 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const toContracts = checklistStep(progress) === CHECKLIST.indexOf('Take a contract');
   const held = s.contracts.filter((c) => c.held).length;
   const medals = MEDAL_IDS.filter((m) => s.medals[m] !== null);
+  const undo = s.undo ? undoText(s.undo) : null;
   return (
     <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
       <span className="chip date" title={dateText(s.day)} data-testid="date">
@@ -66,9 +70,9 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
           {s.floor.closesLeft} {s.floor.closesLeft === 1 ? 'day' : 'days'} to get above {usdK(-CREDIT_LIMIT_CENTS)}
         </span>
       ) : null}
-      {s.undo ? (
-        <button type="button" className="chip undo" data-testid="undo" onClick={() => sim.send({ type: 'undo' })}>
-          {undoText(s.undo)}
+      {undo ? (
+        <button type="button" className="chip undo" data-testid="undo" title={undo} onClick={() => sim.send({ type: 'undo' })}>
+          <span className="chip-text">{undo}</span>
         </button>
       ) : null}
       {founded && checklist && !toContracts ? (

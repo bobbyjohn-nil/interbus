@@ -1,11 +1,12 @@
-import { LineCard } from "../game/LineCard";
+import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 
 /**
  * The line inspector (the M2 spec, item 7): one line's card and its headways. Its money and its fare
  * are in Finance's Lines, and its stops are changed in its route editor (D25: "the menu where you see
  * lines should only have information about the line, no finances or route editing there"), each a
- * button away.
+ * button away. The line's heading comes first and its tabs under it, so the heading the panel is dragged by
+ * stays at its top however many lines there are (the systems audit's third round: ten lines' tabs put it 138 px down).
  */
 export function Inspector({
   sim,
@@ -42,6 +43,7 @@ export function Inspector({
       >
         ×
       </button>
+      <LineHeading line={line} />
       {lines.length > 1 ? (
         <div className="tabs" role="tablist">
           {lines.map((l) => (

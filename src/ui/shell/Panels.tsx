@@ -23,7 +23,7 @@ const BOTTOM = 72;
 const MIN_ROOM = 160;
 /** How far each panel steps down when no row has room. */
 const ROW_STEP = 28;
-/** How much of a dragged panel stays on screen, so it can always be dragged back. */
+/** How much of a dragged panel's width stays on screen, and so of its heading, which spans it: enough to drag it back by. */
 const KEEP = 48;
 
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP;
@@ -36,19 +36,24 @@ const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w + GAP && b.x < a.x + a.w 
 export const roomBelow = (y: number, height: number) => Math.max(MIN_ROOM, height - BOTTOM - y);
 
 /**
- * A panel `w` wide at `at`, moved as little as keeps KEEP pixels of it, its heading among them, on a window `width` by
- * `height`: a drag's rule, and a dragged panel's when the window changes size. Its heading stays above the dock, which draws
- * over the panels (app.css's layers), so it can always be dragged back.
+ * A panel `w` wide at `at`, moved as little as keeps KEEP pixels of its width on a window `width` by `height`, and its top
+ * MIN_ROOM or more above the dock, which draws over the panels (app.css's layers): a drag's rule, and a dragged panel's when
+ * the window changes size. As short as roomBelow makes it there, the panel ends above the dock and the map's credit, whole,
+ * its heading (its first row) in reach (the systems audit's third round: with its top at 600 px of 720 it ran 40 px off the window).
  */
-const inReach = (at: { x: number; y: number }, w: number, width: number, height: number) => ({
+export const inReach = (at: { x: number; y: number }, w: number, width: number, height: number) => ({
   x: Math.round(Math.min(width - KEEP, Math.max(KEEP - w, at.x))),
-  y: Math.round(Math.min(height - BOTTOM - KEEP, Math.max(0, at.y))),
+  y: Math.round(Math.max(0, Math.min(height - BOTTOM - MIN_ROOM, at.y))),
 });
 
-/** A panel `w` by `h` that opened at `at` in a free place, moved as little as keeps it whole on a window `width` by `height` that changed size: inside the window's edges, its top MIN_ROOM or more above the dock. */
-export const keptWhole = (at: { x: number; y: number }, w: number, h: number, width: number, height: number) => ({
+/**
+ * A panel `w` wide that opened at `at` in a free place, moved as little as keeps it whole on a window `width` by `height` that
+ * changed size: inside the window's edges, its top MIN_ROOM or more above the dock however short it is, as a dragged one's
+ * (inReach), so it can grow to MIN_ROOM without covering the dock and a drag does not jump it up.
+ */
+export const keptWhole = (at: { x: number; y: number }, w: number, width: number, height: number) => ({
   x: Math.round(Math.max(GAP, Math.min(width - GAP - w, at.x))),
-  y: Math.round(Math.max(TOP, Math.min(height - BOTTOM - Math.min(h, MIN_ROOM), at.y))),
+  y: Math.round(Math.max(TOP, Math.min(height - BOTTOM - MIN_ROOM, at.y))),
 });
 
 /**
@@ -56,11 +61,13 @@ export const keptWhole = (at: { x: number; y: number }, w: number, h: number, wi
  * `width` by `height`: the rightmost spot of the highest row with room, scanning right to left past
  * each panel in the way. Rows start under the chips and just below each panel, and a row has room
  * for a panel that fits beside the others down to the dock, or at least MIN_ROOM of it (roomBelow:
- * the rest scrolls inside it). With room in none, it opens at the top right, a step down for each
- * panel open, as far as leaves it MIN_ROOM above the dock.
+ * the rest scrolls inside it). No row starts lower than MIN_ROOM above the dock, however short the
+ * panel, so it can grow to MIN_ROOM without covering the dock and a drag does not jump it up (inReach).
+ * With room in none, it opens at the top right, a step down for each panel open, as far as leaves it
+ * MIN_ROOM above the dock.
  */
 export function freePlace(w: number, h: number, taken: readonly Rect[], width: number, height: number): { x: number; y: number } {
-  const rows = [...new Set([TOP, ...taken.map((t) => t.y + t.h + GAP)])].filter((y) => y + Math.min(h, MIN_ROOM) <= height - BOTTOM).sort((a, b) => a - b);
+  const rows = [...new Set([TOP, ...taken.map((t) => t.y + t.h + GAP)])].filter((y) => y + MIN_ROOM <= height - BOTTOM).sort((a, b) => a - b);
   for (const y of rows) {
     let x = width - GAP - w;
     for (let tries = 0; x >= GAP && tries <= taken.length; tries++) {
@@ -70,7 +77,7 @@ export function freePlace(w: number, h: number, taken: readonly Rect[], width: n
       x = Math.min(...inTheWay.map((t) => t.x)) - GAP - w;
     }
   }
-  return { x: Math.max(GAP, width - GAP - w), y: Math.max(TOP, Math.min(TOP + taken.length * ROW_STEP, height - BOTTOM - Math.min(h, MIN_ROOM))) };
+  return { x: Math.max(GAP, width - GAP - w), y: Math.max(TOP, Math.min(TOP + taken.length * ROW_STEP, height - BOTTOM - MIN_ROOM)) };
 }
 
 /** Puts a panel's box at `at`, no taller than roomBelow allows there (app.css reads --room). */
@@ -139,7 +146,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
       for (const [id, box] of boxes.current) {
         const r = box.getBoundingClientRect();
         const [width, height] = [window.innerWidth, window.innerHeight];
-        put(box, dragged.current.has(id) ? inReach({ x: r.left, y: r.top }, r.width, width, height) : keptWhole({ x: r.left, y: r.top }, r.width, r.height, width, height));
+        put(box, dragged.current.has(id) ? inReach({ x: r.left, y: r.top }, r.width, width, height) : keptWhole({ x: r.left, y: r.top }, r.width, width, height));
       }
     };
     window.addEventListener("resize", resize);

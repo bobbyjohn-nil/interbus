@@ -9,11 +9,12 @@ import { BUS_MODELS } from '../../sim/rules/line';
 import { cyclesOf } from '../../sim/rules/cycle';
 import { NO_MEDALS } from '../../sim/rules/medal';
 import type { EventView, FareBandView, HeadwaysData, LineView, Snapshot } from '../../sim/types';
-import { headwayChange, heldModel, heldPick, LineCard, pickHeadway } from './LineCard';
+import { headwayChange, heldModel, heldPick, LineCard, LineHeading, pickHeadway } from './LineCard';
 import type { Sim } from './useSim';
 
-function render(change: Partial<LineView>, band: FareBandView | null = null, event: Partial<EventView> | null = null): string {
-  const line: LineView = {
+/** Line 1 as the snapshot shows it, with `change`. */
+function lineView(change: Partial<LineView>): LineView {
+  return {
     id: 1,
     name: 'Line 1',
     colour: '#c0392b',
@@ -40,6 +41,10 @@ function render(change: Partial<LineView>, band: FareBandView | null = null, eve
     model: 'sparrow',
     ...change,
   };
+}
+
+function render(change: Partial<LineView>, band: FareBandView | null = null, event: Partial<EventView> | null = null): string {
+  const line = lineView(change);
   const snapshot = { depots: [], lines: [line], cashCents: 0, event, medals: { bronze: null, silver: null, gold: null }, finance: { lines: [] } } as unknown as Snapshot;
   const sim = { snapshot, fareBand: band ? { lineId: 1, band } : null, fareBandFor: () => undefined } as unknown as Sim;
   return renderToStaticMarkup(createElement(LineCard, { sim, line }));
@@ -80,8 +85,10 @@ describe('the line card', () => {
   });
 
   it('says Express beside the name of a line of 5 km or more with its stops 1.2 km apart, and nothing beside a local one', () => {
-    expect(render({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_800, 3_600, 5_300] })).toContain('data-testid="express"');
-    expect(render({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_339, 2_425, 3_535] })).not.toContain('Express');
+    // The heading the Lines panel draws above its tabs (Inspector.tsx).
+    const heading = (change: Partial<LineView>) => renderToStaticMarkup(createElement(LineHeading, { line: lineView(change) }));
+    expect(heading({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_800, 3_600, 5_300] })).toContain('data-testid="express"');
+    expect(heading({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_339, 2_425, 3_535] })).not.toContain('Express');
   });
 });
 

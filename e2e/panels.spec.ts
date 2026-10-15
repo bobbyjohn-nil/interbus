@@ -10,6 +10,7 @@
 // of sight and cut off one that opened in a free place.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
+import { LINE_COLOURS } from '../src/sim/config/lines';
 import { foundCompany } from './found';
 import { build, city, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
@@ -91,14 +92,19 @@ test.describe('movable panels', () => {
     await expect(saves).toHaveCount(0);
   });
 
-  test('open inside the window on a crowded screen, clear of the dock and the map’s credit, the stop card’s Close in reach, the newest in front', async ({ page }) => {
+  test('open inside the window on a crowded screen, clear of the dock and the map’s credit, the stop card’s Close in reach, the newest in front; dragged as low as they go, stay whole above the dock, their heading under a press', async ({ page }) => {
     test.setTimeout(90_000);
     await page.setViewportSize({ width: 1152, height: 720 }); // I13's tightest size
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
     await zoomOutOnce(page);
-    await withDebugLine(page);
+    // Ten lines: the debug line, and nine more from Copley to Symphony.
+    await withDebugLine(page, (d) => {
+      const [first] = d.lines as Record<string, unknown>[];
+      d.lines = [first, ...Array.from({ length: 9 }, (_, k) => ({ ...first, id: k + 2, name: `Line ${k + 2}`, colour: LINE_COLOURS[(k + 1) % LINE_COLOURS.length], stopIds: [1, 2] }))];
+      d.nextIds = { ...d.nextIds, line: 11 };
+    });
     // Three panels across the top and a stop's card, then Lines pressed and Contracts opened from the
     // checklist: no row has room for all 510 px of it.
     await page.getByRole('button', { name: 'Lines', exact: true }).click();
@@ -138,6 +144,31 @@ test.describe('movable panels', () => {
     expect(await onTop(close)).toBe(true);
     await close.click();
     await expect(stop).toHaveCount(0);
+
+    // Dragged as low as it goes (the systems audit's third round), a panel stays whole above the dock and the map's
+    // credit, its heading under a press: Lines, its heading above its rows of ten tabs, by its heading
+    // 700 px down over the dock, and back up; then Saves, 900 px down, its last button in reach. Shown
+    // failing (TS-04) on 5f4bce3, where Lines ended at 760 px of the 720 px window, its heading at 738.
+    await page.keyboard.press('Escape');
+    const floor = Math.min(720 - 72, (await page.getByTestId('dock').boundingBox())!.y);
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await expect(lines.getByRole('tab')).toHaveCount(10);
+    await dragBy(page, lines, 'Line 1', -500, 700);
+    const low = (await lines.boundingBox())!;
+    expect(low.y + low.height, 'Lines above the dock').toBeLessThanOrEqual(floor);
+    expect(await onTop(lines.getByRole('heading', { name: 'Line 1' })), 'its heading under a press').toBe(true);
+    await dragBy(page, lines, 'Line 1', 0, -300);
+    expect((await lines.boundingBox())!.y).toBe(low.y - 300);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Saves' }).click();
+    const saves = page.getByTestId('saves');
+    await expect(saves.getByTestId('slot-3')).toBeVisible();
+    await dragBy(page, saves, 'Saves', -700, 900);
+    const box = (await saves.boundingBox())!;
+    expect(box.y + box.height, 'Saves above the dock').toBeLessThanOrEqual(floor);
+    expect(await onTop(saves.getByRole('heading', { name: 'Saves' })), 'its heading under a press').toBe(true);
+    await saves.evaluate((el) => void (el.scrollTop = el.scrollHeight));
+    expect(await onTop(saves.getByRole('button', { name: 'Back to Home' })), 'Back to Home under a press').toBe(true);
   });
 
   test('keep panels in reach when the window narrows: a dragged one’s heading, open or opened again, and one in a free place whole', async ({ page }) => {
