@@ -49,13 +49,16 @@ const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly
 export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; panels: readonly Panel[]; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Exclude<Panel, 'none'>) => void }) {
   const [open, setOpen] = useState(false);
   const build = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   // Escape or a press anywhere else closes the menu, as the game's dropdowns do, and does nothing else:
-  // Escape is heard first, on its way down, and stops there, so the tool and the panels stay out.
+  // Escape is heard first, on its way down, and stops there, so the tool and the panels stay out, and
+  // the focus on a tool goes back to Build. The focus leaving it for another control closes it too (below).
   useEffect(() => {
     if (!open) return;
     const key = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.stopPropagation();
+      if (build.current?.contains(document.activeElement)) button.current?.focus();
       setOpen(false);
     };
     const away = closeOnPressAway((target) => Boolean(build.current?.contains(target)), () => setOpen(false));
@@ -69,7 +72,22 @@ export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; 
   const building = tool !== 'none' && tool !== 'route';
   return (
     <nav className="dock" aria-label="Tools" data-testid="dock" data-chrome="rest">
-      <div className="build" ref={build}>
+      {/* The menu comes after Build in the page, so Tab goes from Build through its tools in order, and
+          the focus leaving for another control (Tab past the last, Shift+Tab from Build) closes it, as
+          Tab closes a dropdown's list. */}
+      <div
+        className="build"
+        ref={build}
+        onBlur={(event) => {
+          if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        }}
+      >
+        <button ref={button} type="button" aria-pressed={open || building} aria-expanded={open} data-testid="build" onClick={() => setOpen((o) => !o)}>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+          Build
+        </button>
         {open ? (
           <div className="build-menu" role="group" aria-label="Build" data-testid="build-menu" data-chrome="panel">
             {BUILD.map((b) => (
@@ -91,12 +109,6 @@ export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; 
             ))}
           </div>
         ) : null}
-        <button type="button" aria-pressed={open || building} aria-expanded={open} data-testid="build" onClick={() => setOpen((o) => !o)}>
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          Build
-        </button>
       </div>
       <button type="button" aria-pressed={panels.includes('lines')} disabled={!hasLines} onClick={() => onPanel('lines')}>
         <svg viewBox="0 0 20 20" aria-hidden="true">

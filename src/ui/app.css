@@ -24,6 +24,16 @@
   --ui-paper: #f6f3ee;
   --ui-line: #cfc8ba;
   --void: #d6d2c9;
+  /* The page's layers, bottom up, over the map, the chips and the notices: the movable panels, raised
+     among themselves inside a layer of their own (shell/Panels.tsx), so however many are raised they
+     stay under the next; the menus (the dock with Build's, the demand menu, every dropdown's list) and
+     the cards beside the pointer, so a press on a menu's item never lands on a panel under it (the
+     systems audit, D26); the cards that wait for an answer (the founding card, the day's close and the
+     run's end); and the replaced build's card. */
+  --layer-panels: 10;
+  --layer-menus: 20;
+  --layer-cards: 100;
+  --layer-replaced: 150;
   font-family: 'Afacad Flux', system-ui, sans-serif;
   color: var(--ui-ink);
   background: var(--void);
@@ -62,6 +72,8 @@ body,
   position: absolute;
   right: 6px;
   bottom: 6px;
+  /* Over the menus and the cards beside the pointer: the map's credit and the build chip stay in view. */
+  z-index: calc(var(--layer-menus) + 1);
   display: flex;
   gap: 6px;
   align-items: center;
@@ -88,7 +100,7 @@ body,
 
 .replaced {
   position: absolute;
-  z-index: 150;
+  z-index: var(--layer-replaced);
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
@@ -253,8 +265,8 @@ body,
 .dropdown-list {
   position: absolute;
   left: 0;
-  /* Over every panel on the movable layer (shell/Panels.tsx), however many are raised. */
-  z-index: 200;
+  /* Over every panel, however many are raised (the menus' layer). */
+  z-index: var(--layer-menus);
   min-width: 100%;
   max-height: 320px;
   overflow-y: auto;
@@ -379,8 +391,10 @@ button.chip.checklist,
   cursor: pointer;
 }
 
+/* On the menus' layer, which its Build menu cannot leave (its transform holds its children's layers). */
 .dock {
   position: absolute;
+  z-index: var(--layer-menus);
   left: 50%;
   bottom: 12px;
   transform: translateX(-50%);
@@ -1030,8 +1044,10 @@ button.chip.checklist,
   margin: 4px 0;
 }
 
+/* A card beside the pointer (a dot's, Place a stop's, Place a depot's), over the panels. */
 .probe-card {
   position: absolute;
+  z-index: var(--layer-menus);
   display: grid;
   pointer-events: none;
   padding: 3px 8px;
@@ -1044,8 +1060,8 @@ button.chip.checklist,
 
 .day-card {
   position: absolute;
-  /* Over the movable panels: the day's close, and the run's end, wait for an answer. */
-  z-index: 100;
+  /* Over the movable panels and the menus: the day's close, and the run's end, wait for an answer. */
+  z-index: var(--layer-cards);
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
@@ -1125,7 +1141,7 @@ button.chip.checklist,
 
 /* The founding card (src/ui/game/Founding.tsx). */
 .founding-card {
-  z-index: 100;
+  z-index: var(--layer-cards);
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1339,9 +1355,10 @@ button.chip.checklist,
   fill: var(--ui-line);
 }
 
-/* The demand menu (D25): a chip beside the compass, and its menu above it. */
+/* The demand menu (D25): a chip beside the compass, and its menu above it, on the menus' layer. */
 .demand {
   position: absolute;
+  z-index: var(--layer-menus);
   right: 36px;
   bottom: 30px;
 }
@@ -1423,9 +1440,19 @@ button.chip.checklist,
 
 /* The movable layer (D25; shell/Panels.tsx): each panel placed by the layer and dragged by its
    heading, several open at once. --room is the height down to the dock from where the layer put it
-   (roomBelow), so a panel that grows scrolls inside it instead of running over the dock. */
+   (roomBelow), so a panel that grows scrolls inside it instead of running over the dock. The layer
+   covers the window, its panels raised among themselves inside it, and lets presses through to the map
+   where no panel is. */
+.panel-layer {
+  position: absolute;
+  z-index: var(--layer-panels);
+  inset: 0;
+  pointer-events: none;
+}
+
 .movable {
   position: absolute;
+  pointer-events: auto;
 }
 
 .movable > .panel {
