@@ -28,7 +28,6 @@ import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/confi
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { FESTIVAL_RADIUS_M } from '../sim/config/events';
-import { forecastDay } from '../sim/economy/costs';
 import { fareBand } from '../sim/economy/fareBand';
 import { finance, runningCostsCents, type Finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
@@ -171,7 +170,6 @@ function lineViews(world: World): LineView[] {
       worksM: service?.plan.worksM ?? 0,
       buses: line.buses,
       model: line.model,
-      forecastCents: service ? forecastDay(service.costs, 0, toCalendarTime(state.elapsed).day) : { running: 0, wages: 0, deadhead: 0 },
     };
   });
 }

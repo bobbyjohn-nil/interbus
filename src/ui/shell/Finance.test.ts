@@ -90,8 +90,8 @@ describe('Finance’s views', () => {
   });
 
   it('lists each line’s money and its fare in Lines, the fare a custom dropdown', () => {
-    const line = { id: 1, name: 'Line 1', colour: '#c0392b', ridersPerDay: 610, fareCents: 225, incomeCents: 233_000, forecastCents: { running: 34_000, wages: 97_000, deadhead: 1_400 } };
-    const html = render({ ...base, lines: [{ id: 1, yesterdayInCents: 230_000, yesterdayOutCents: -130_000 }] }, 'lines', [line]);
+    const line = { id: 1, name: 'Line 1', colour: '#c0392b', ridersPerDay: 610, fareCents: 225, incomeCents: 233_000 };
+    const html = render({ ...base, lines: [{ id: 1, yesterdayInCents: 230_000, yesterdayOutCents: -130_000, forecastCents: { running: 34_000, wages: 97_000, deadhead: 1_400 } }] }, 'lines', [line]);
     expect(html).toContain('data-testid="line-money-1" data-line="1" data-running="34000" data-net="100600"');
     expect(html).toContain('aria-label="Fare for Line 1"');
     expect(html).not.toContain('<select');

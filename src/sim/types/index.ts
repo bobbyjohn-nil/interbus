@@ -120,10 +120,8 @@ export interface LineView {
   readonly plan: PlanInputsData;
   /** While it settles after a change made with its buses out, its earlier versions, so trips under way finish as they began (sim/rules/transition.ts); null otherwise. */
   readonly settling: SettlingView | null;
-  /** A day's fares and subsidy at the modelled riders, in cents: whole paid boardings, so about what the rows bank. */
+  /** A day's fares and subsidy at the modelled riders, in cents: whole paid boardings, so about what the rows bank. Its costs are in FinanceView.lines. */
   readonly incomeCents: number;
-  /** A whole day's costs on today's timetable, in cents: what the day's rows for this line will be (I6). */
-  readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
 }
 
 /** A changed line's earlier versions, oldest first, in the frame of the day of its latest change: the page builds the same merged plan the costs bill. */
@@ -195,8 +193,16 @@ export interface FinanceView {
   readonly openingCents: number;
   /** The chart's days, oldest first, up to two quarters; today the last, so far (economy/finance.ts). */
   readonly days: readonly { readonly day: number; readonly inCents: number; readonly outCents: number; readonly capitalCents: number; readonly cashCents: number }[];
-  /** Each line's own money yesterday: its riders' fares and subsidy in, its running costs out. */
-  readonly lines: readonly { readonly id: number; readonly yesterdayInCents: number; readonly yesterdayOutCents: number }[];
+  /**
+   * Each line's own money yesterday, its riders' fares and subsidy in and its running costs out; and a whole day's costs on
+   * today's timetable, positive, worked out with the forecast column they add up to: what the day's rows for it will be (I6).
+   */
+  readonly lines: readonly {
+    readonly id: number;
+    readonly yesterdayInCents: number;
+    readonly yesterdayOutCents: number;
+    readonly forecastCents: { readonly running: number; readonly wages: number; readonly deadhead: number };
+  }[];
   readonly rows: readonly {
     readonly kind: string;
     readonly todayCents: number;

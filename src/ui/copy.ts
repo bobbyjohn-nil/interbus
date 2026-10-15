@@ -25,6 +25,7 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   headway_not_whole_seconds: () => 'Headways are whole minutes',
   daytime_headway_too_long: () => 'By day, run at least hourly',
   overnight_more_often_than_offpeak: () => 'Overnight can’t run more often than off-peak',
+  same_headways: () => 'The line already runs this often',
   depot_full: (r) => (r.room ? `Depots have room for ${r.room} more` : 'Your depots are full'),
   insufficient_funds: (r) => `${usd(r.shortCents ?? 0)} short`,
   no_such_line: () => 'That line is gone',
