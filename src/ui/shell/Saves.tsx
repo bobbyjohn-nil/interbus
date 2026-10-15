@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { STORE_REFUSED_COPY } from '../copy';
+import { STORE_REFUSED_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
 import { clock, dateText, savedWhen, usd } from '../format';
 import type { SaveAbout, SetAsideWhy } from '../../sim/types';
 import type { Sim } from '../game/useSim';
@@ -35,12 +35,13 @@ function When({ about, testId }: { about: SaveAbout | null; testId: string }) {
 /**
  * Saves (the M3 spec, item 8; the M5 spec, item 4): the autosave, which is this game as it plays,
  * three slots, and a save file out and in. The autosave and each slot name their game (day, company,
- * cash, lines and buses) and when it was saved. Loading a slot or a file replaces this game, and
- * saving over a slot or deleting one loses what it held, so each asks first; the sim reads the save
- * before anything changes and refuses one it cannot play, keeping this game and its autosave. A slot
- * this game cannot load says why and can be exported, and a save set aside by a new build is listed
- * until the player exports or deletes it, so none is lost unseen (D12). Export session hands over
- * this session for a bug report (the M3 spec, item 12).
+ * cash, lines and buses) and when it was saved. Loading a slot or a file replaces this game once a
+ * company is founded, and saving over a slot or deleting one loses what it held, so each asks first,
+ * one question at a time; the sim reads the save before anything changes and refuses one it cannot
+ * play, keeping this game and its autosave. A slot this game cannot load says why and can be
+ * exported, and a save set aside by a new build is listed until the player exports or deletes it, so
+ * none is lost unseen (D12); so is one the game could not set aside, which it saves nothing over
+ * meanwhile. Export session hands over this session for a bug report (the M3 spec, item 12).
  */
 export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void; onHome?: () => void }) {
   const { send } = sim;
@@ -58,10 +59,55 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
     return () => window.clearTimeout(timer);
   }, [send, sim.stored]);
   const [confirm, setConfirm] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | SetAsideWhy | null>(null);
+  const [deleting, setDeleting] = useState<number | SetAsideWhy | 'unbacked' | null>(null);
   const [replacing, setReplacing] = useState<number | null>(null);
+  // Import a save file asks as Load does, before the file is picked.
+  const [importing, setImporting] = useState(false);
+  // One question at a time: opening one closes any other.
+  const closeQuestions = () => {
+    setConfirm(null);
+    setDeleting(null);
+    setReplacing(null);
+    setImporting(false);
+  };
   if (!sim.snapshot) return null;
   const autosave = sim.autosave;
+  /** Export and Delete, which asks first, for a save set aside or the one the start could not set aside. */
+  const keepOrDelete = (id: SetAsideWhy | 'unbacked', why: SetAsideWhy) => (
+    <span className="controls">
+      <button type="button" onClick={() => send(id === 'unbacked' ? { type: 'export-unbacked' } : { type: 'export-set-aside', why })}>
+        Export
+      </button>
+      {deleting === id ? (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setDeleting(null);
+              send(id === 'unbacked' ? { type: 'delete-unbacked' } : { type: 'delete-set-aside', why });
+            }}
+          >
+            Delete it
+          </button>
+          <button type="button" onClick={() => setDeleting(null)}>
+            Keep it
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            closeQuestions();
+            setDeleting(id);
+          }}
+        >
+          Delete
+        </button>
+      )}
+    </span>
+  );
+  // A game to lose: before a company is founded, Load and Import ask nothing.
+  const founded = sim.snapshot.company.name !== '';
   return (
     <aside className="panel saves" aria-label="Saves" data-testid="saves" data-chrome="panel">
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
@@ -74,12 +120,14 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
         </p>
       ) : null}
       <ul className="slots">
-        {sim.slots ? (
-          <li data-testid="autosave" title={sim.storeRefused ? undefined : 'This game saves itself as it plays'}>
+        {/* A save the start could not set aside holds the autosave's place, the live key, so its row says so: the panel grows by its buttons only (I13). */}
+        {sim.slots || sim.unbacked ? (
+          <li data-testid="autosave" title={sim.unbacked ? UNBACKED_ROW_TITLE : sim.storeRefused ? undefined : 'This game saves itself as it plays'}>
             <span>
-              Autosave · {autosave ? aboutText(autosave) : 'Empty'}
-              <When about={autosave} testId="autosave-when" />
+              Autosave · {sim.unbacked ? unbackedRowText(setAsideName(sim.unbacked)) : autosave ? aboutText(autosave) : 'Empty'}
+              <When about={sim.unbacked ? null : autosave} testId="autosave-when" />
             </span>
+            {sim.unbacked ? keepOrDelete('unbacked', sim.unbacked) : null}
           </li>
         ) : null}
         {(sim.slots ?? []).map(({ slot, about, readable, why }) => (
@@ -88,6 +136,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
               Slot {slot} · {about ? aboutText(about) : readable ? 'Empty' : setAsideName(why ?? 'unreadable')}
               <When about={about} testId={`slot-${slot}-when`} />
             </span>
+            {/* One rule for a row's question, as for Import's: while it is open the row's other buttons hide, so the row never wraps (I13); only Export stays beside Replace. */}
             <span className="controls">
               {replacing === slot ? (
                 <>
@@ -104,14 +153,13 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                     Keep it
                   </button>
                 </>
-              ) : (
+              ) : confirm === slot || deleting === slot ? null : (
                 <button
                   type="button"
                   onClick={() => {
                     // A slot that holds a save, even one this game cannot load, is replaced only after a question.
                     if (!about && readable) return send({ type: 'save-slot', slot });
-                    setConfirm(null);
-                    setDeleting(null);
+                    closeQuestions();
                     setReplacing(slot);
                   }}
                 >
@@ -125,7 +173,13 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                 </button>
               ) : null}
               {(about || !readable) && deleting !== slot && confirm !== slot && replacing !== slot ? (
-                <button type="button" onClick={() => setDeleting(slot)}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeQuestions();
+                    setDeleting(slot);
+                  }}
+                >
                   Delete
                 </button>
               ) : null}
@@ -146,7 +200,14 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                 </>
               ) : null}
               {about && confirm !== slot && deleting !== slot && replacing !== slot ? (
-                <button type="button" onClick={() => setConfirm(slot)}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeQuestions();
+                    if (!founded) return send({ type: 'load-slot', slot });
+                    setConfirm(slot);
+                  }}
+                >
                   Load
                 </button>
               ) : null}
@@ -172,41 +233,44 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
         {(sim.setAside ?? []).map((why) => (
           <li key={why} data-testid={`set-aside-${why}`} className="set-aside">
             <span>{setAsideName(why)}, set aside</span>
-            <span className="controls">
-              <button type="button" onClick={() => send({ type: 'export-set-aside', why })}>
-                Export
-              </button>
-              {deleting === why ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDeleting(null);
-                      send({ type: 'delete-set-aside', why });
-                    }}
-                  >
-                    Delete it
-                  </button>
-                  <button type="button" onClick={() => setDeleting(null)}>
-                    Keep it
-                  </button>
-                </>
-              ) : (
-                <button type="button" onClick={() => setDeleting(why)}>
-                  Delete
-                </button>
-              )}
-            </span>
+            {keepOrDelete(why, why)}
           </li>
         ))}
       </ul>
       <div className="controls">
-        <button type="button" onClick={() => send({ type: 'export' })}>
-          Export this game
-        </button>
-        <button type="button" onClick={sim.importSave}>
-          Import a save file
-        </button>
+        {/* Import's question stands alone in its row, as Load's does in a slot's, so the row never wraps and Saves stays within I13's 26%. */}
+        {importing ? null : (
+          <button type="button" onClick={() => send({ type: 'export' })}>
+            Export this game
+          </button>
+        )}
+        {importing ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setImporting(false);
+                sim.importSave();
+              }}
+            >
+              Replace this game
+            </button>
+            <button type="button" onClick={() => setImporting(false)}>
+              Keep playing
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              closeQuestions();
+              if (!founded) return sim.importSave();
+              setImporting(true);
+            }}
+          >
+            Import a save file
+          </button>
+        )}
       </div>
       <div className="controls">
         <button type="button" title="For bug reports: everything since this quarter began, with every command, so it can be replayed" onClick={() => send({ type: 'export-session' })}>

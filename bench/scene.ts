@@ -1,9 +1,9 @@
 // The busy scene for the slow-laptop run (the M5 spec, item 9; src/sim/scene.ts): a company on the
 // preview's Inner Boston with SCENE_BUSES buses (200 by default, PLAN §6) on the road at 08:00 on day
-// 1, written as a save file to import through Saves → Import a save file:
-// .cache/bench/interbus-boston-<n>-buses.json. It reads the city file the preview ships (`npm run
-// cities`), so the save loads there as it is. `npm run bench scene`; the nightly uploads it as the
-// busy-scene artifact.
+// 1, written as a save file to import through Saves → Import a save file (then Replace this game, if a
+// company is in play): .cache/bench/interbus-boston-<n>-buses.json. It reads the city file the preview
+// ships (`npm run cities`), so the save loads there as it is. `npm run bench scene`; the nightly
+// uploads it as the busy-scene artifact.
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

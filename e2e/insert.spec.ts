@@ -57,6 +57,7 @@ test.describe('route insert', () => {
     d.clock.elapsed = 86_400 + 3 * 3_600;
     const chooser = page.waitForEvent('filechooser');
     await page.getByRole('button', { name: 'Import a save file' }).click();
+    await page.getByRole('button', { name: 'Replace this game' }).click();
     await (await chooser).setFiles({ name: 'insert.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
     await page.getByRole('button', { name: 'Close' }).click();

@@ -32,6 +32,24 @@ export async function projector(page: Page): Promise<{ project: (at: readonly [n
   };
 }
 
+/**
+ * An init script for page.addInitScript: `live` under the live key, then localStorage filled to its
+ * quota with other data under the preview's origin and about 100k characters freed, fewer than a
+ * backup of a larger `live` needs. Once a tab, so a reload finds what the game left.
+ */
+export function fillStorage(live: string): void {
+  if (sessionStorage.getItem('seeded')) return;
+  sessionStorage.setItem('seeded', 'yes');
+  localStorage.setItem('interbus.save.boston', live);
+  const chunk = 'f'.repeat(100_000);
+  let n = 0;
+  try {
+    for (; n < 1_000; n++) localStorage.setItem(`another.app.${n}`, chunk);
+  } catch {
+    localStorage.removeItem(`another.app.${n - 1}`);
+  }
+}
+
 /** A point inside the sim file's largest parcel of depot land, as the sim tests place a depot; or inside the next largest, with `parcel` 1 and up. */
 export function onDepotLand(parcel = 0): [number, number] {
   const loaded = loadCity(readFileSync(`public/cities/${city.sim!.file}`, 'utf8'));
@@ -131,6 +149,7 @@ export async function withDebugLine(page: Page): Promise<void> {
   d.clock.elapsed = 86_400 + 4 * 3_600;
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import a save file' }).click();
+  await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'line.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
   await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();

@@ -404,9 +404,11 @@ describe('saves through the page’s store (the M2 spec, item 9; the exit check�
           { op: 'write', key: `interbus.backup.boston.${key}`, value: save },
           { op: 'remove', key: KEY },
         ],
+        setAside: true,
       });
       expect(store).toBeLessThan(game.out.findIndex((m) => m.type === 'ready')); // kept before anything replaces it
-      expect(game.last('ready')).toMatchObject({ load: outcome, snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
+      // Said to be set aside once its backup reads back ('unbacked', below).
+      expect(game.last('ready')).toMatchObject({ load: outcome, checking: true, snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
     }
   });
 
@@ -438,8 +440,111 @@ describe('saves through the page’s store (the M2 spec, item 9; the exit check�
         { op: 'write', key: 'interbus.backup.boston.off-street', value: raw },
         { op: 'remove', key: KEY },
       ],
+      setAside: true,
     });
-    expect(game.last('ready')).toMatchObject({ load: 'off-street', snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
+    expect(game.last('ready')).toMatchObject({ load: 'off-street', checking: true, snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
+  });
+});
+
+// D12 and DP-06: a save the game cannot play is kept under a backup key before anything replaces it.
+// When the backup is refused (a disk too full for it), the live key holds its only copy.
+describe('a save the start could not set aside', () => {
+  /** A host started from `live` on a page store that refuses every write to a backup key, as a full disk refuses a large one (`keeps` lets them through); the effects after a refused one are not carried out (platform's applyEffects). */
+  function full(live: string, keeps = false) {
+    const store = new Map<string, string>([[KEY, live]]);
+    const out: FromWorker[] = [];
+    const host = createHost((m) => out.push(m));
+    let seen = 0;
+    const send = (m: ToWorker) => {
+      host.handle(m);
+      while (seen < out.length) {
+        const n = out[seen++]!;
+        if (n.type === 'store') {
+          for (const e of n.effects) {
+            if (!keeps && e.op === 'write' && e.key.startsWith('interbus.backup.')) break;
+            void (e.op === 'write' ? store.set(e.key, e.value) : store.delete(e.key));
+          }
+        } else if (n.type === 'read-keys') host.handle({ type: 'key-texts', id: n.id, texts: n.keys.map((k) => store.get(k) ?? null) });
+      }
+    };
+    send({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
+    send({ type: 'save-text', text: live });
+    const last = <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }> | undefined;
+    return { send, last, store, out };
+  }
+  const older = JSON.stringify({ format: SAVE_FORMAT - 1, build: BUILD, data: { company: { name: 'Old Line Co' } } });
+  const newer = JSON.stringify({ format: SAVE_FORMAT + 1, build: BUILD, data: { company: { name: 'Old Line Co' } } });
+  // A save of this game with a line, then the same from another city, and from another bake with a stop
+  // off its streets (as 'sets aside a save from another bake whose stops find no street' builds it).
+  const lined = (() => {
+    const game = started();
+    game.host.handle({ type: 'found', name: 'Old Line Co', colour: '#2471a3' });
+    game.host.handle({ type: 'place-depot', at: depotSpot(game.last('ready')!.depotLand as [number, number][][]) });
+    game.host.handle({ type: 'create-line', clicks: CLICKS });
+    return game.saves().at(-1)!;
+  })();
+  const elsewhere = lined.replace('"id":"boston"', '"id":"worcester"');
+  const offStreet = (() => {
+    const save = JSON.parse(lined.replace(CITY.hash, 'f'.repeat(64))) as { data: { stops: { lon: number; lat: number }[] } };
+    Object.assign(save.data.stops[0]!, { lon: -71.0, lat: 42.0 }); // far beyond the map's streets
+    return JSON.stringify(save);
+  })();
+  const kinds = [[older, `older-${SAVE_FORMAT - 1}`], [newer, 'newer'], ['not a save', 'unreadable'], [elsewhere, 'other-city'], [offStreet, 'off-street']] as const;
+
+  // Shown failing (TS-04) with the founding save written over it, as the start went on as if the backup
+  // had landed: the older build's save was then gone for good, with no row in Saves. Once it is deleted,
+  // Export and Delete pressed again (before its row goes) do nothing: shown failing with each refused as
+  // 'no_such_slot', which names a slot the player never touched (this test pinned that for Export).
+  it('writes nothing over it, says so, hands it over as a file, and saves again once the player deletes it, after which its buttons do nothing', () => {
+    for (const [live, why] of kinds) {
+      const { send, last, store, out } = full(live);
+      expect(last('ready')).toMatchObject({ checking: true });
+      send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+      send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+      send({ type: 'speed', speed: 0 });
+      expect(store.get(KEY)).toBe(live);
+      expect(last('unbacked')).toEqual({ type: 'unbacked', why });
+      expect(store.has('interbus.quarter.boston')).toBe(true); // every other save is kept as before
+      send({ type: 'slots' });
+      expect(last('slots')).toMatchObject({ setAside: [], autosave: null });
+      send({ type: 'export-unbacked' });
+      expect(last('export')).toEqual({ type: 'export', name: `interbus-boston-not-set-aside-${why}.json`, text: live });
+      send({ type: 'delete-unbacked' });
+      expect(last('unbacked')).toEqual({ type: 'unbacked', why: null });
+      // The save owed is made at once: the game as it stands, depot and all.
+      expect(JSON.parse(store.get(KEY)!)).toMatchObject({ format: SAVE_FORMAT, data: { company: { name: 'Back Bay Transit' }, depots: [{}] } });
+      const from = out.length;
+      send({ type: 'export-unbacked' });
+      send({ type: 'delete-unbacked' });
+      expect(out.slice(from)).toEqual([]);
+      expect(JSON.parse(store.get(KEY)!)).toMatchObject({ data: { company: { name: 'Back Bay Transit' } } });
+    }
+  });
+
+  // The page hears the hold has ended only after the slots are listed again with the save owed
+  // meanwhile, so the autosave's row goes from naming the held save to naming this game, never to
+  // Empty. Shown failing (TS-04) with no listing after the delete: the row read "Autosave · Empty"
+  // until Saves next listed the slots, up to 2 s later.
+  it('lists the slots, the save owed in the autosave’s row, before saying the hold has ended', () => {
+    const { send, last, out } = full(older);
+    send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    const from = out.length;
+    send({ type: 'delete-unbacked' });
+    const after = out.slice(from);
+    const ended = after.findIndex((m) => m.type === 'unbacked');
+    expect(after[ended]).toEqual({ type: 'unbacked', why: null });
+    expect(after.slice(0, ended).filter((m) => m.type === 'slots')).toMatchObject([{ autosave: { company: 'Back Bay Transit' } }]);
+    expect(last('slots')!.autosave).toMatchObject({ company: 'Back Bay Transit' });
+  });
+
+  it('saves over it as before once its backup reads back, and says it was kept', () => {
+    for (const [live, why] of kinds) {
+      const { send, last, store } = full(live, true);
+      expect(store.get(`interbus.backup.boston.${why}`)).toBe(live);
+      expect(last('unbacked')).toEqual({ type: 'unbacked', why: null });
+      send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+      expect(JSON.parse(store.get(KEY)!).data.company.name).toBe('Back Bay Transit');
+    }
   });
 });
 
@@ -659,6 +764,28 @@ describe('save slots, export and import', () => {
     expect(store.get('interbus.slot.boston.1')).toBe(older);
   });
 
+  // D26's Rows: a slot this game cannot load says why and never loads. Shown failing (TS-04) with a slot
+  // from another bake listed to load whether or not its stops find this bake's streets: Load was then
+  // refused ("Its stops aren’t on this map"), and the row had no Export.
+  it('names a slot from another bake whose stops are off the new map as one, never to load', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'save-slot', slot: 1 });
+    const rebaked = store.get('interbus.slot.boston.1')!.replace(CITY.hash, 'f'.repeat(64));
+    const off = JSON.parse(rebaked) as { data: { stops: { lon: number; lat: number }[] } };
+    Object.assign(off.data.stops[0]!, { lon: -71.0, lat: 42.0 }); // far beyond the map's streets
+    store.set('interbus.slot.boston.1', JSON.stringify(off));
+    store.set('interbus.slot.boston.2', rebaked); // another bake, its stops still on the streets
+    send({ type: 'slots' });
+    const [one, two] = last('slots')!.slots;
+    expect(one).toEqual({ slot: 1, about: null, readable: false, why: 'off-street' });
+    expect(two).toMatchObject({ slot: 2, about: { company: 'Back Bay Transit', lines: 1 }, readable: true });
+    send({ type: 'export-slot', slot: 1 });
+    expect(last('export')).toEqual({ type: 'export', name: 'interbus-boston-slot-1.json', text: JSON.stringify(off) });
+    send({ type: 'load-slot', slot: 2 });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'slot', load: 'rebaked' });
+  });
+
   // The autosave in the save list (the M5 spec's exit check 2). Shown failing (TS-04) with the list
   // sent without it, when the panel named only the game's day and time.
   it('lists the autosave with its company, cash, lines and buses, and when it was saved', () => {
@@ -675,7 +802,8 @@ describe('save slots, export and import', () => {
 // snapshot, time stopped once the run ends, and Restart this quarter from the save written as the
 // quarter began: at founding for quarter 1, at a quarter's close, or when a slot or file was loaded.
 describe('the failure floor', () => {
-  function founded() {
+  /** With `refuses`, the page's store keeps nothing and reads nothing, as a browser that refuses storage. */
+  function founded(refuses = false) {
     const store = new Map<string, string>();
     const out: FromWorker[] = [];
     const host = createHost((m) => out.push(m));
@@ -684,7 +812,7 @@ describe('the failure floor', () => {
       host.handle(m);
       while (seen < out.length) {
         const n = out[seen++]!;
-        if (n.type === 'store') for (const e of n.effects) void (e.op === 'write' ? store.set(e.key, e.value) : store.delete(e.key));
+        if (n.type === 'store') for (const e of refuses ? [] : n.effects) void (e.op === 'write' ? store.set(e.key, e.value) : store.delete(e.key));
         else if (n.type === 'read-keys') host.handle({ type: 'key-texts', id: n.id, texts: n.keys.map((k) => store.get(k) ?? null) });
       }
     };
@@ -734,6 +862,31 @@ describe('the failure floor', () => {
     send({ type: 'restart-quarter' });
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: 47_454_800, depots: [], company: { name: 'Back Bay Transit' } });
+  });
+
+  // D10's way back with storage refused (the slots stay empty there, by design: DECISIONS, "A browser
+  // that keeps no saves"). Shown failing (TS-04) with Restart reading the quarter's save only from the
+  // store: it was refused ("No save from this quarter’s start"), and a failing company could not go on.
+  it('restarts the quarter for the life of the page when the browser keeps no saves', () => {
+    const { send, last, store, host } = founded(true);
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'restart-quarter' });
+    expect(last('refused')).toBeUndefined();
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: 47_454_800, depots: [], company: { name: 'Back Bay Transit' } });
+    // A failing game imported, then run to its end: Restart reopens it where it was loaded.
+    send({ type: 'export' });
+    const save = JSON.parse(last('export')!.text) as { data: { closesBelowFloor: number; ledger: { day: number; kind: string; amountCents: number; lineId: null }[] } };
+    save.data.closesBelowFloor = 4;
+    save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(foundingCapitalCents() + 20_000_000), lineId: null });
+    send({ type: 'import', text: JSON.stringify(save) });
+    send({ type: 'speed', speed: 5 });
+    for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 600_000; t += 250) host.tick(t);
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
+    send({ type: 'restart-quarter' });
+    expect(last('refused')).toBeUndefined();
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: -20_000_000, floor: { closesLeft: 1, ended: false } });
+    expect(store.size).toBe(0);
   });
 
   it('ends the run on the fifth close: time stops, and Restart this quarter reopens where the game was loaded', () => {

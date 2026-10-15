@@ -59,6 +59,7 @@ test.describe('the day card', () => {
     d.clock.elapsed = 7 * 86_400 + 18 * 3_600 + 50 * 60; // day 8, 23:50
     const chooser = page.waitForEvent('filechooser');
     await page.getByRole('button', { name: 'Import a save file' }).click();
+    await page.getByRole('button', { name: 'Replace this game' }).click();
     await (await chooser).setFiles({ name: 'busy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
     await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();

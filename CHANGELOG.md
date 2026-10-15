@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Before you have founded a company there is no game to lose, so Load in Saves opens the slot's game straight away.
 - Clicking the same button several times in quick succession counts as one press, so a double-click never does a thing twice. To take back several things with the Undo chip, pause between clicks, or press Ctrl+Z (⌘Z) each time.
 - Saves lists the autosave as it lists a slot, with its day, company, cash, lines and buses, and when it was saved, in place of the line that said the game saves itself.
 - Save here over a slot that already holds a save asks first, so it is never replaced by accident.
@@ -103,6 +104,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- When your browser has no room left to set aside a save from an older build (or another save the game can't play), the game no longer writes your new company over it, losing it for good. Until you open Saves, a notice says "Not autosaving: see Saves"; there, the autosave's row names the old save and says this game isn't saving itself, with Export and Delete. Your new game saves itself again once you delete the old save.
+- If your browser won't keep site data, Restart this quarter now takes you back to the start of the quarter for as long as the page stays open, instead of saying there is no save from this quarter's start.
+- Import a save file now asks first once you have founded a company, as Load does (Replace this game or Keep playing), in the game and on Home, before a file replaces your company, its autosave and the save Restart this quarter goes back to. Saves keeps one question open at a time, and a slot asking whether to load or delete its save no longer shows Save here beside the question.
+- A slot saved on an earlier map whose stops are off the new one now says so in Saves, with Export and Delete, instead of offering Load and then refusing it.
 - The Build menu, the demand menu and the cards beside the pointer (a dot's, Place a stop's and Place a depot's) show in front of your panels, instead of behind them, and a click on a menu's item works that item: it used to land on whatever the panel had there, so a click on Homes or Place a stop where Finance lay over the menu pressed Finance instead. A panel dragged down stops with its heading above the dock, which stays in front of it, and the map's credit and the build chip stay in front of the cards.
 - With the Build menu, the demand menu or a dropdown open, one click on the compass, or on Reload when the browser has taken the map's graphics away, closes the menu and works that button, instead of only closing the menu.
 - Tab or Shift+Tab with a dropdown's list open closes the list and moves on to the control after or before the dropdown, as the browser's own lists do, instead of jumping to the map or the credits in the corner.
