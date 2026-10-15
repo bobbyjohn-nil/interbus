@@ -31,12 +31,31 @@ test.describe('time and the speed menu', () => {
     expect(after - start).toBeGreaterThanOrEqual(1);
     expect(after - start).toBeLessThan(10); // the old "1x" ran 600 game seconds a second
 
-    // Space pauses, and plays again at the speed it was at.
-    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    // Space pauses, and plays again at the speed it was at, straight after a speed picked with the
+    // mouse: the speed button keeps the focus, but not Space, which would open its menu instead.
     await page.keyboard.press('Space');
     await expect(panel).toHaveAttribute('data-speed', '0');
     await page.keyboard.press('Space');
     await expect(panel).toHaveAttribute('data-speed', '1');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    // So after any button pressed with the mouse: Finance stays open, and the game pauses.
+    const finance = page.getByTestId('finance');
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await expect(finance).toBeVisible();
+    await page.keyboard.press('Space');
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    await expect(finance).toBeVisible();
+    await finance.getByRole('button', { name: 'Close' }).click();
+    // A button reached with Tab keeps Space, so the keyboard can still press it: Tab from Play to the
+    // speed menu, and Space opens it.
+    await page.getByTestId('play').click();
+    await expect(panel).toHaveAttribute('data-speed', '1');
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('speed-menu')).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(page.getByRole('listbox', { name: 'Speed' })).toBeVisible();
+    await expect(panel).toHaveAttribute('data-speed', '1');
+    await page.keyboard.press('Escape');
     await page.keyboard.press('5');
     await expect(panel).toHaveAttribute('data-speed', '5');
     await page.getByRole('button', { name: 'Pause' }).click();

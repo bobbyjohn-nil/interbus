@@ -102,6 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Space pauses and plays after you click a button with the mouse, such as Finance, the Undo chip or a speed picked from the speed menu: it no longer opens the speed menu again, closes Finance or takes back one more thing. An open menu still takes Space, and Space still presses a button you reach with the keyboard.
+- Ctrl+Shift+Z (⌘⇧Z on a Mac), the usual redo, no longer takes back the last thing you did as Ctrl+Z does; there is no redo, so it does nothing.
 - The route editor follows the line as it stands: a stop taken off the line while the editor is open, from the stop's card or with Undo, leaves the editor's list, and an Undo that puts a stop back on the line puts it back in the list too, so Save route never builds or takes down a stop you didn't ask for.
 - When Undo takes away a line whose route editor is open, the editor closes and clicks on the map work as usual again, instead of adding numbered stops to a route no card shows.
 - A double-click on Save route no longer shows "The route is as it was" after the route is saved.

@@ -13,6 +13,7 @@ import { StopCard } from "./game/StopCard";
 import { followed, pressSave, RouteEditor, routeOf, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { DepotCard, DraftCard, draftShows, StopSiteCard, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
+import { focusSource } from "./focusSource";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
 import { Panels, type PanelFront, type PanelItem } from "./shell/Panels";
@@ -261,6 +262,26 @@ export function App() {
   const ready = sim.status === "ready";
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
 
+  // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space.
+  const focus = useRef(focusSource());
+  useEffect(() => {
+    const f = focus.current;
+    const input = (event: PointerEvent | KeyboardEvent) => f.input(event);
+    const arrived = (event: FocusEvent) => f.arrived(event.target);
+    // The window's own blur (an element's does not bubble to this listener): the focus is handed back on return.
+    const left = (event: FocusEvent) => void (event.target === window && f.left(document.activeElement));
+    window.addEventListener("pointerdown", input, true);
+    window.addEventListener("keydown", input, true);
+    window.addEventListener("focusin", arrived, true);
+    window.addEventListener("blur", left);
+    return () => {
+      window.removeEventListener("pointerdown", input, true);
+      window.removeEventListener("keydown", input, true);
+      window.removeEventListener("focusin", arrived, true);
+      window.removeEventListener("blur", left);
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // Home stands over a paused game: its keys are Home's (Escape closes Saves), not the game's.
@@ -271,9 +292,12 @@ export function App() {
         event.target instanceof HTMLTextAreaElement
       )
         return;
-      // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A focused button keeps Space.
+      // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A button the keyboard reached
+      // keeps Space, so Space still presses it; one pressed with the mouse does not, or Space pressed it
+      // again (opening the speed menu, closing Finance, taking back one more command).
       const { now, play, founded } = speedRef.current;
-      if (founded && event.key === " " && !(event.target instanceof HTMLButtonElement)) {
+      const keeps = event.target instanceof HTMLButtonElement && focus.current.byKey;
+      if (founded && event.key === " " && !keeps) {
         event.preventDefault();
         send({ type: "speed", speed: now === 0 ? play : 0 });
         return;
@@ -283,8 +307,9 @@ export function App() {
         send({ type: "speed", speed: pick });
         return;
       }
-      // Ctrl+Z or ⌘Z takes back the newest command taken while paused (I9).
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      // Ctrl+Z or ⌘Z takes back the newest command taken while paused (I9); with Shift, the usual
+      // redo, it does nothing, since there is no redo.
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
         event.preventDefault();
         send({ type: "undo" });
         return;
