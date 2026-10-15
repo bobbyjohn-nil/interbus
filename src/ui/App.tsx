@@ -5,6 +5,7 @@ import { readDotPrefs, writeDotPrefs } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
 import type { BusModelId, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
+import { failedText } from "./copy";
 import { DayCard } from "./game/DayCard";
 import { FailureCard } from "./game/FailureCard";
 import { FoundingCard } from "./game/Founding";
@@ -217,9 +218,12 @@ export function App() {
     const next = followed(routing, routingLine, game, sim.routeRefusals);
     if (next !== routing) setRouting(next);
   }
+  // Lines with no line left to show (an undo took back the only one) closes, as Escape closes it, so
+  // the dock shows it neither open nor pressed.
+  if (game && !game.lines.length && open.includes("lines")) setOpen((o) => o.filter((p) => p !== "lines"));
 
   // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
-  // that arrives with a loaded save leaves the panels as they are).
+  // that arrives with a loaded save opens no panel).
   const creating = useRef(false);
   // A tool closes once its purchase lands: a new depot, or a new line.
   const started = sim.snapshot !== null;
@@ -250,13 +254,17 @@ export function App() {
   }, [started, depots, lines, newest, depotSiteAt, show]);
 
   // A game loaded from a slot, a file or Restart this quarter takes this one's place: any tool out
-  // goes down with the game it was drawn in, as with a new game.
+  // goes down with the game it was drawn in, as with a new game, and so do the cards of its stops and
+  // lines, which would show the loaded game's of the same id; the new-line card starts on the Sparrow,
+  // never on a bus the loaded game has locked.
   const loadedAt = sim.loaded?.at ?? null;
   const loadedSeen = useRef(loadedAt);
   useEffect(() => {
     if (loadedAt === loadedSeen.current) return;
     loadedSeen.current = loadedAt;
     choose("none");
+    setOpen((o) => o.filter((p) => p !== "stop" && p !== "lines"));
+    setDraftModel("sparrow");
   }, [loadedAt, choose]);
 
   const ready = sim.status === "ready";
@@ -469,8 +477,10 @@ export function App() {
           onContinue={() => setHomeAt(null)}
           onNewGame={() => {
             if (sim.snapshot?.company.name) send({ type: "new-game" });
-            // A new game starts clean: no tool, draft or route editor, and no day card, of the old one.
+            // A new game starts clean: no tool, draft or route editor, and no day card, of the old one,
+            // and its new-line card on the Sparrow, never on a bus the old game had unlocked.
             choose("none");
+            setDraftModel("sparrow");
             sim.closeDayCard();
             setHomeAt(null);
           }}
@@ -479,7 +489,9 @@ export function App() {
         {open.includes("saves") ? (
           <Saves sim={sim} onClose={() => hide("saves")} />
         ) : null}
-        {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once. */}
+        {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once
+            and a panel dragged opens where it was dragged to again after Continue. */}
+        <Panels key="panels" items={[]} front={front} />
         <Notices key="notices" sim={sim} />
         <Corner key="corner" />
         <ReplacedCard key="replaced" />
@@ -515,7 +527,7 @@ export function App() {
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "stop" ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      <Panels items={panelItems} front={front} />
+      <Panels key="panels" items={panelItems} front={front} />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}
@@ -546,7 +558,7 @@ export function App() {
       <DayCard sim={sim} />
       <FailureCard sim={sim} />
       <Corner key="corner" />
-      <ReplacedCard key="replaced" />
+      <ReplacedCard key="replaced" failed={sim.status === "failed" ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} />
     </main>
   );
 }
