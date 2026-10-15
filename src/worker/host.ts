@@ -822,7 +822,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'remove-stop') {
-        const subject = `Stop ${message.stopId} from ${world.state.lines.find((l) => l.id === message.lineId)?.name ?? 'its line'}`;
+        const subject = `Stop ${message.stopId} off ${world.state.lines.find((l) => l.id === message.lineId)?.name ?? 'its line'}`;
         const result = command({ command: 'remove-stop', subject }, () => removeStop(world!, message.lineId as LineId, message.stopId as StopId));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {

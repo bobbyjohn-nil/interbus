@@ -99,7 +99,7 @@ test.describe('route edits', () => {
     // The undo chip, the editor still open: Symphony is back on the line and in the list, and the card,
     // asked again for four stops, has nothing to save.
     const chip = page.getByTestId('undo');
-    await expect(chip).toHaveText(`Undo: Remove Stop ${placed[1]![0]} from Line 1`);
+    await expect(chip).toHaveText(`Undo: Take Stop ${placed[1]![0]} off Line 1`);
     await chip.click();
     await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 35_600_000));
     await expect.poll(async () => (await stops()).length).toBe(4);

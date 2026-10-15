@@ -99,7 +99,9 @@ const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'set-model': (s) => `${s}’s buses`,
   'set-fare': (s) => `${s}’s fare`,
   'set-stop-tier': (s) => `${s}’s kind`,
-  'remove-stop': (s) => `Remove ${s}`,
+  // "Take Stop 2 off Line 1" (host.ts names the stop and the line): "Remove Stop 2 from Line 1", about 30 px wider, took the
+  // shell at rest past 6% at 1152×720 beside the held save's notice (the systems audit's third round).
+  'remove-stop': (s) => `Take ${s}`,
   'accept-contract': (s) => `Take the ${s} contract`,
 };
 

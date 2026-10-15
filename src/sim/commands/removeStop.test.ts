@@ -56,7 +56,7 @@ describe('removing a stop from a line', () => {
     const { world, line, symphony } = game();
     const stack = newUndo();
     const was = toSaveData(world.state);
-    remember(stack, { command: 'remove-stop', subject: `Stop ${symphony} from ${line.name}` }, before(world));
+    remember(stack, { command: 'remove-stop', subject: `Stop ${symphony} off ${line.name}` }, before(world));
     removeStop(world, line.id, symphony);
     expect(undo(world, stack)).toMatchObject({ ok: true, undone: { command: 'remove-stop' } });
     expect(toSaveData(world.state)).toEqual(was);

@@ -2,6 +2,8 @@
 // starts on a control is one press, its later clicks and its dblclick dropped wherever they land, and the
 // next click that starts a run of its own ends the watch. The browser shows what it fixes
 // (e2e/presses.spec.ts); this pins the rule itself. Shown failing (TS-04) on 2a00661, which has no such rule.
+// A double-click that starts on the map keeps its later clicks only while they land on the map (the
+// systems audit's third round): shown failing on 5f4bce3, which let the second click press a stop card's Take it down.
 import { describe, expect, it } from 'vitest';
 import { onControl, onePress } from './onePress';
 
@@ -52,6 +54,17 @@ describe('one press, one command', () => {
     onePress(page);
     expect([page.click('canvas', 1), page.click('canvas', 2), page.click('canvas', 2, 'dblclick')]).toEqual([true, true, true]);
     expect([page.click('text', 1), page.click('button', 2)]).toEqual([true, true]);
+  });
+
+  it('drops the rest of a double-click that starts on the map once a click lands off it, on a card or a button that opened under the pointer', () => {
+    const page = new Page();
+    onePress(page);
+    // The first click opened a stop's card under the pointer: the second click and the dblclick land on Take it down.
+    expect([page.click('canvas', 1), page.click('button', 2), page.click('button', 2, 'dblclick')]).toEqual([true, false, false]);
+    // Off the map on a card's text, then back on the map: the run left the map, and the rest of it goes nowhere.
+    expect([page.click('canvas', 1), page.click('text', 2), page.click('canvas', 3), page.click('canvas', 3, 'dblclick')]).toEqual([true, false, false, false]);
+    // The next run on the map is the map's again.
+    expect([page.click('canvas', 1), page.click('canvas', 2), page.click('canvas', 2, 'dblclick')]).toEqual([true, true, true]);
   });
 
   it('ends the watch at the next click that starts a run of its own, or a key’s click, so no later click is lost', () => {

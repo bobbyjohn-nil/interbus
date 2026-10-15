@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Undo names taking a stop off a line as "Undo: Take Stop 2 off Line 1", shorter than before, so it fits beside the other chips.
 - Before you have founded a company there is no game to lose, so Load in Saves opens the slot's game straight away.
 - Clicking the same button several times in quick succession counts as one press, so a double-click never does a thing twice. To take back several things with the Undo chip, pause between clicks, or press Ctrl+Z (⌘Z) each time.
 - Saves lists the autosave as it lists a slot, with its day, company, cash, lines and buses, and when it was saved, in place of the line that said the game saves itself.
@@ -104,6 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A double-click on a stop opens its card and presses nothing on it: when the card opened under the pointer, the second click used to land on Take it down or Make it a Shelter. A double-click on a line no longer presses whatever comes under the pointer in the Lines panel either, and a double-click that lands on the map still zooms in.
+- The Undo chip no longer wraps the chips along the top onto a second row under your panels. It shows the whole of what it takes back wherever the row has room, and on a small window, such as below -$150,000 with the countdown and the Contracts chip beside it, it ends in "…"; pointing at it shows the whole text.
 - Finance's chart names each day as the top bar and the midnight card do. From the second quarter its axis carries the quarter (Q1 Day 1, Q2 Day 1) where it counted days since you founded the company (Day 1, Day 9), and pointing at a bar or a dot reads Year 1, Q2, Day 1. Your starting cash stays on Day 0, before the first quarter, and a label that would run into another is left out.
 - Saves stays within about two-thirds of the window's height however many saves from older builds it lists, and scrolls inside that height, as Finance does, instead of reaching down to the dock and covering over a quarter of a small window. Tab still reaches every button, scrolling it into view.
 - On Home, Saves is no taller than a little under half the window and scrolls inside that height. Home's card keeps its width: Start over's question and a long company name wrap instead of widening it. So the two together leave most of the map in view, where in a 1152×720 window they covered a third of the screen, and nearly two-fifths with Start over's question open.
@@ -142,8 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing Q, E or N while the map tilts into 3D, or dragging or zooming it while it tilts or flattens, no longer leaves 3D lying flat, or the flat map tilted or turned: 3D always ends tilted at least 25°, and 2D always ends flat and facing north.
 - Loading a save or importing a save file no longer sometimes draws its depots, or its festival or roadworks, where the last game's stood until you reloaded the page.
 - While the browser has taken the map's graphics away, anything you do on the map, such as pressing T, showing or hiding homes or jobs, or picking Place a depot, no longer blanks the whole game: the card with Reload stays and the rest of the game keeps working. When the graphics come back, the buses are drawn again without a reload, and the map takes the view you picked meanwhile.
-- A panel opened with others already on screen opens inside the window, above the dock and the map credits, instead of hanging off the bottom with its last buttons out of reach: what does not fit, or grows later, scrolls inside the panel, and a panel you have not dragged stays whole when the window gets smaller.
-- A panel you drag low on the screen gets shorter and scrolls, so it stops above the dock and the map credits instead of running off the bottom.
+- A panel opened with others already on screen opens inside the window, above the dock and the map credits, instead of hanging off the bottom with its last buttons out of reach: what does not fit, or grows later, scrolls inside the panel, and a panel you have not dragged stays whole when the window gets smaller. A short panel opens only where it has room to grow without covering the dock, at the top right otherwise.
+- A panel you drag low on the screen gets shorter and scrolls, so however low you drag it, it stops whole above the dock and the map credits, its last buttons in reach, instead of running off the bottom. The Lines panel shows the line's name above the line tabs, so with many lines you can still drag it back up by its heading.
 - A panel you dragged near the window's edge comes back within reach when the window gets smaller, whether it is open or you open it again, instead of staying out of sight.
 - A panel you open comes up in front, instead of behind a panel you pressed earlier, and so does a panel already open that you ask for again, such as from the Contracts chip, the checklist's Take a contract, Fare and money in Finance, or a click on a line or a stop.
 - A dropdown opens upward where there is more room above it than below, its list opens at your current choice, and the arrow keys, Home and End keep the highlighted choice in view.

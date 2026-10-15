@@ -144,7 +144,7 @@ test.describe('one press, one command', () => {
     expect(refused).toEqual([]);
   });
 
-  test('Found the company, a Build menu item, the Undo chip and Export work once on a double-click; a stop’s card closes with its stop', async ({ page }) => {
+  test('Found the company, a Build menu item, the Undo chip and Export work once on a double-click; a stop’s card closes with its stop; a double-click on a stop presses nothing on its card', async ({ page }) => {
     const refused = refusals(page);
     const panel = page.getByTestId('sim-panel');
     const map = page.getByTestId('map');
@@ -223,6 +223,38 @@ test.describe('one press, one command', () => {
     await doubleClick(page, page.getByRole('button', { name: 'Export this game' }));
     await page.waitForTimeout(1_000);
     expect(downloads).toHaveLength(1);
+
+    // A double-click on a stop whose card opens under the pointer (the systems audit's third round): its first click
+    // opens the card, and its second, landing on the card's Take it down, presses nothing (onePress.ts).
+    // Shown failing (TS-04) on 5f4bce3, where the stop came down for $2k back. The card is dragged by its
+    // heading until Take it down sits over the stop, and opens there again, as a panel opens where it was
+    // dragged to (at the top right, the map's bounds keep Longwood from coming under it).
+    await page.keyboard.press('Escape');
+    await openStop(page, 1);
+    const [x, y] = await toScreen(page, (await map.getAttribute('data-stops'))!.split(':')[1]!.split(',').map(Number) as [number, number]);
+    const takeDown = (await card.getByRole('button', { name: 'Take it down · $2k back' }).boundingBox())!;
+    const heading = (await card.locator('h2').boundingBox())!;
+    await page.mouse.move(heading.x + 10, heading.y + heading.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(heading.x + 10 + x - takeDown.x - takeDown.width / 2, heading.y + heading.height / 2 + y - takeDown.y - takeDown.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await card.getByRole('button', { name: 'Close' }).click();
+    await expect(card).toHaveCount(0);
+    const before = await cash(page);
+    await page.mouse.move(x, y);
+    await page.mouse.down({ clickCount: 1 });
+    await page.mouse.up({ clickCount: 1 });
+    await expect(card).toBeVisible();
+    expect(await page.evaluate(([px, py]) => document.elementFromPoint(px!, py!)?.closest('button')?.textContent, [x, y]), 'Take it down under the pointer').toBe('Take it down · $2k back');
+    await page.waitForTimeout(150);
+    await page.mouse.down({ clickCount: 2 });
+    await page.mouse.up({ clickCount: 2 });
+    await page.waitForTimeout(500);
+    expect(await stopIds(page)).toEqual([1]);
+    expect(await cash(page)).toBe(before);
+    await expect(card.locator('h2')).toContainText('Stop 1 ·');
+    await expect(undo).toHaveText('Undo: Place Stop 1');
+    expect(refused).toEqual([]);
   });
 
   // The systems audit's second round: a double-click on a Home button that closes Home sent its second
@@ -335,9 +367,9 @@ test.describe('one press, one command', () => {
     await openStop(page, 2);
     before = await cash(page);
     await doubleClick(page, card.getByRole('button', { name: 'Remove from Line 1', exact: true }));
-    await expect(page.getByTestId('undo')).toHaveText('Undo: Remove Stop 2 from Line 1');
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Take Stop 2 off Line 1');
     await page.waitForTimeout(500);
-    await expect(page.getByTestId('undo')).toHaveText('Undo: Remove Stop 2 from Line 1');
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Take Stop 2 off Line 1');
     expect(await cash(page)).toBe(before);
     expect(await stopIds(page)).toContain(2);
     await expect(card.getByRole('button', { name: 'Remove from Line 2 · $2k back' })).toBeVisible();
@@ -347,7 +379,7 @@ test.describe('one press, one command', () => {
     // once, for $2k back, and its card with it; no second remove refused as "That stop is gone".
     before = await cash(page);
     await card.getByRole('button', { name: 'Remove from Line 2 · $2k back' }).dblclick();
-    await expect(page.getByTestId('undo')).toHaveText('Undo: Remove Stop 2 from Line 2');
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Take Stop 2 off Line 2');
     await expect(card).toHaveCount(0);
     await page.waitForTimeout(500);
     expect(await cash(page)).toBe(before + 200_000);

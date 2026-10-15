@@ -61,12 +61,29 @@ export function headwayChange(fleet: FleetContext, line: Pick<LineView, 'cycle' 
 }
 
 /**
+ * A line's heading: its colour, its name and, for an express, the word. The Lines panel draws it above its line tabs, so
+ * the heading it is dragged by (D25) is its first line, as on every panel, however many lines there are (Inspector.tsx).
+ */
+export function LineHeading({ line }: { line: LineView }) {
+  return (
+    <h2>
+      <span className="swatch" style={{ background: line.colour }} /> {line.name}
+      {planIsExpress(line) ? (
+        <span className="express" data-testid="express" title="Express: 5 km or longer, with stops at least 1.2 km apart on average. Riders feel the ride is quicker and mind the fare half as much.">
+          Express
+        </span>
+      ) : null}
+    </h2>
+  );
+}
+
+/**
  * A line's card: its riders, its round trip at peak and off-peak and what roadworks or snow add to it (the M4
  * spec, item 2), when its buses fill (K27), its buses and their model, its fare (set in Finance's
  * Lines with the band of fares that net the most, D25), and three headways (D7). A headway that needs
  * more buses reads "Needs 3 buses (you have 2) · $95k" and confirming buys them (GD-09); another model
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
- * (sim/rules/line.ts, GD-05).
+ * (sim/rules/line.ts, GD-05). Its heading is the Lines panel's (LineHeading).
  */
 export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
   const [wanted, setWanted] = useState<HeadwayPick | null>(null);
@@ -96,14 +113,6 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   const pick = (period: Period, value: string) => setWanted(pickHeadway(held, line, game, period, value === 'off' ? null : Number(value) * 60));
   return (
     <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={s.finance.lines.find((m) => m.id === line.id)?.forecastCents.running ?? 0}>
-      <h2>
-        <span className="swatch" style={{ background: line.colour }} /> {line.name}
-        {planIsExpress(line) ? (
-          <span className="express" data-testid="express" title="Express: 5 km or longer, with stops at least 1.2 km apart on average. Riders feel the ride is quicker and mind the fare half as much.">
-            Express
-          </span>
-        ) : null}
-      </h2>
       <p>
         {about(line.ridersPerDay)} riders a day · {busCount(line.buses, model.name)}
       </p>
