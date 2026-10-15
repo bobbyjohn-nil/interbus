@@ -99,3 +99,23 @@ describe('the page’s store', () => {
     expect(sim().storeRefused).toBe(true);
   });
 });
+
+describe('the undos', () => {
+  // Every undo the page sends has one answer, in the order sent: 'undone' when it took a command back, or
+  // its refusal (time has run, nothing to undo). `done` is the place of the newest the sim did among those
+  // sent, so a Create or a Save route on its way lets go only on an undo sent after its press that the sim
+  // did. Shown failing (TS-04) on 5f4bce3, which counted the undos sent alone: `undos` read 3.
+  it('counts the undos sent, and the newest the sim did by its place among them', async () => {
+    sim();
+    await settle();
+    for (let k = 0; k < 3; k++) sim().send({ type: 'undo' });
+    from({ type: 'refused', command: 'undo', reason: 'time_has_run' });
+    from({ type: 'undone' });
+    from({ type: 'refused', command: 'undo', reason: 'nothing_to_undo' });
+    expect(sim().undos).toEqual({ sent: 3, done: 2 });
+    sim().send({ type: 'undo' });
+    expect(sim().undos).toEqual({ sent: 4, done: 2 }); // on its way
+    from({ type: 'undone' });
+    expect(sim().undos).toEqual({ sent: 4, done: 4 });
+  });
+});

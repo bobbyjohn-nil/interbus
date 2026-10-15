@@ -4,7 +4,9 @@
 // when the keyboard brought the focus there. The window's pointer and key listeners run in the capture
 // phase, so a key a menu keeps to itself still counts; a modifier alone moves no focus (Alt or ⌘ before
 // leaving the window); and the focus the browser hands back to the same element when the window or tab
-// comes back is no new arrival, so it keeps the source it came by.
+// comes back is no new arrival, so it keeps the source it came by. A pointer press says the pointer acts
+// now even where no focus moves: a button Tab once reached and the mouse then pressed keeps the focus
+// with no new arrival, and kept Space too, so Space pressed it again.
 
 const MODIFIERS = ['Alt', 'Control', 'Meta', 'Shift'];
 
@@ -25,7 +27,7 @@ export function focusSource(): FocusSource {
   let byKey = false;
   return {
     input(event) {
-      if (event.type === 'pointerdown') pressedByKey = false;
+      if (event.type === 'pointerdown') pressedByKey = byKey = false;
       else if (!MODIFIERS.includes(event.key ?? '')) pressedByKey = true;
     },
     left(active) {

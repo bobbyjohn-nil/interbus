@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BUS_MODELS } from "../../sim/rules/line";
 import { isExpress } from "../../sim/rules/express";
 import type { LineView, LngLatPair } from "../../sim/types";
@@ -23,27 +23,37 @@ export interface Routing {
   readonly points: RoutePoint[];
   /** The line's stops as the list last followed them: as the editor opened, then as the game changed them. */
   readonly base: readonly number[];
-  /** While a Save route is on its way: the line's stops as it was pressed, and how many Save routes the sim had refused by then. */
-  readonly saved: { readonly stops: string; readonly refusals: number } | null;
+  /** While a Save route is on its way: the line's stops as it was pressed, how many Save routes the sim had refused by then, and how many undos the page had sent (Sim's undos.sent). */
+  readonly saved: { readonly stops: string; readonly refusals: number; readonly undos: number } | null;
 }
 
 /** Save route pressed: the editor with its save on its way, or null while one already is (a double-click's second press sends nothing). */
-export function pressSave(routing: Routing, line: LineView, refusals: number): Routing | null {
-  return routing.saved === null ? { ...routing, saved: { stops: line.stopIds.join(","), refusals } } : null;
+export function pressSave(routing: Routing, line: LineView, refusals: number, undos: Sim["undos"]): Routing | null {
+  return routing.saved === null ? { ...routing, saved: { stops: line.stopIds.join(","), refusals, undos: undos.sent } } : null;
+}
+
+/** Whether the save on its way has landed: the line's stops are no longer those it was pressed on, so App closes the editor and shows the line. */
+export function saveLanded(routing: Routing, line: LineView): boolean {
+  return routing.saved !== null && line.stopIds.join(",") !== routing.saved.stops;
 }
 
 /**
  * The editor as the game changes under it, so its card stays the route rule's verdict on the line as it
- * stands (GD-05). A save on its way waits until the line's stops change (it landed, and App closes the
- * editor) or the sim refuses it (`refusals` passes the count at the press): a refresh of the lines that
- * is not its answer, such as the day's close retiming them, leaves it waiting.
+ * stands (GD-05). A save on its way waits until it lands (saveLanded, and App closes the editor) or the
+ * sim refuses it (`refusals` passes the count at the press): a refresh of the lines that is not its
+ * answer, such as the day's close retiming them, leaves it waiting, as does an undo not yet answered.
+ * An undo sent after the press that the sim did lets it go (Sim's undos.done, the newest undo done by its
+ * place among those sent, passes the count sent at the press), as it lets Create go (createWaits,
+ * Tools.tsx): a save and its undo answered in one render leave the line's stops as they were, so the list
+ * keeps the player's changes and Save route opens again. An undo refused, as every undo is while time
+ * runs, lets nothing go, and the save lands as ever.
  * Otherwise the list follows the line: as opened, it is the line again; as edited, it keeps the
  * player's changes less a stop taken off the line or taken down, and a stop put back on the line goes
  * back in after the stop it follows there. `routing` itself while nothing changed.
  */
-export function followed(routing: Routing, line: LineView, game: { readonly stops: readonly { readonly id: number }[] }, refusals: number): Routing {
+export function followed(routing: Routing, line: LineView, game: { readonly stops: readonly { readonly id: number }[] }, refusals: number, undos: Sim["undos"]): Routing {
   const { points, base, saved } = routing;
-  if (saved !== null) return refusals > saved.refusals ? { ...routing, saved: null } : routing;
+  if (saved !== null) return refusals > saved.refusals || undos.done > saved.undos ? { ...routing, saved: null } : routing;
   const ids = line.stopIds;
   const changed = base.length !== ids.length || base.some((id, k) => id !== ids[k]);
   if (changed && points.length === base.length && points.every((p, k) => p.stopId === base[k])) return { ...routing, points: routeOf(line), base: ids };
@@ -58,6 +68,21 @@ export function followed(routing: Routing, line: LineView, game: { readonly stop
   });
   if (!changed && next.length === points.length) return routing;
   return { ...routing, points: next, base: ids };
+}
+
+/**
+ * Each row's key, which a move keeps (the systems audit): its stop, or its click for a new one, and how many
+ * rows above it are the same, as a loop line lists a stop twice. Keyed by its place, a moved row and the
+ * one it passed were drawn afresh, the arrow pressed went with them, and the next Space played the game.
+ */
+export function rowKeys(points: readonly RoutePoint[]): string[] {
+  const seen = new Map<string, number>();
+  return points.map((p) => {
+    const id = p.stopId === null ? p.at.join(",") : `stop ${p.stopId}`;
+    const n = seen.get(id) ?? 0;
+    seen.set(id, n + 1);
+    return `${id}#${n}`;
+  });
 }
 
 /** `points` with the stop at `from` moved to `to`. */
@@ -96,6 +121,28 @@ export function RouteEditor({
   onCancel: () => void;
 }) {
   const [dragging, setDragging] = useState<number | null>(null);
+  // A stop moved with its arrow keeps the focus there, so Space or Enter moves it again: on the same
+  // arrow, or on its other one at the top or the bottom of the list, where that arrow shuts.
+  const list = useRef<HTMLOListElement>(null);
+  const refocus = useRef<{ readonly at: number; readonly up: boolean } | null>(null);
+  useLayoutEffect(() => {
+    const r = refocus.current;
+    refocus.current = null;
+    if (!r) return;
+    const arrows = list.current?.children[r.at]?.querySelectorAll("button");
+    const [same, other] = r.up ? [arrows?.[0], arrows?.[1]] : [arrows?.[1], arrows?.[0]];
+    (same?.disabled ? other : same)?.focus();
+  }, [points]);
+  const move = (from: number, to: number, arrow: HTMLButtonElement) => {
+    if (document.activeElement === arrow) refocus.current = { at: to, up: to < from };
+    onPoints(moved(points, from, to));
+  };
+  // A held Enter moves the stop once, as a held Space does (its press comes as it is let go): the browser
+  // presses a focused button again on each repeat of Enter, and the arrow keeps the focus, so it went on.
+  const once = (event: KeyboardEvent) => {
+    if (event.key === "Enter" && event.repeat) event.preventDefault();
+  };
+  const keys = rowKeys(points);
   const draft = sim.draft;
   const refused = draft?.refusal ?? null;
   const unchanged = refused?.reason === "no_change";
@@ -121,12 +168,12 @@ export function RouteEditor({
         <span className="swatch" style={{ background: line.colour }} /> {line.name}’s route
       </h2>
       <p className="hint">Drag stops to reorder them. Click the map to add a stop at the end.</p>
-      <ol className="route-stops">
+      <ol className="route-stops" ref={list}>
         {points.map((p, k) => {
           const label = name(p, k);
           return (
             <li
-              key={`${k}:${p.at.join(",")}`}
+              key={keys[k]}
               draggable
               className={dragging === k ? "dragging" : undefined}
               data-testid={`route-stop-${k}`}
@@ -145,10 +192,10 @@ export function RouteEditor({
             >
               <span className="grip" aria-hidden="true" />
               <span className="name">{label}</span>
-              <button type="button" aria-label={`Move ${label} up`} disabled={k === 0} onClick={() => onPoints(moved(points, k, k - 1))}>
+              <button type="button" aria-label={`Move ${label} up`} disabled={k === 0} onKeyDown={once} onClick={(e) => move(k, k - 1, e.currentTarget)}>
                 ↑
               </button>
-              <button type="button" aria-label={`Move ${label} down`} disabled={k === points.length - 1} onClick={() => onPoints(moved(points, k, k + 1))}>
+              <button type="button" aria-label={`Move ${label} down`} disabled={k === points.length - 1} onKeyDown={once} onClick={(e) => move(k, k + 1, e.currentTarget)}>
                 ↓
               </button>
               <button type="button" aria-label={`Remove ${label}`} onClick={() => onPoints(points.filter((_, j) => j !== k))}>

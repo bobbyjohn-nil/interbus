@@ -54,8 +54,13 @@ test.describe('undo while paused', () => {
     await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
     await placeStop();
     // The chip pressed with the mouse takes back the stop, and Space then plays, as everywhere (D25),
-    // instead of pressing the chip again, which took back the depot too.
+    // instead of pressing the chip again, which took back the depot too. So even once Tab has visited
+    // the chip: the mouse is what pressed it last (shown failing, TS-04, on 5f4bce3: Space pressed the chip
+    // again, and time stayed paused).
     await expect(chip).toHaveText(/^Undo: Place Stop/);
+    await page.getByTestId('speed-menu').focus();
+    await page.keyboard.press('Tab');
+    await expect(chip).toBeFocused();
     await chip.click();
     await expect(chip).toHaveText('Undo: Place Depot 1');
     await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));

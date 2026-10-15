@@ -38,6 +38,16 @@ test.describe('time and the speed menu', () => {
     await page.keyboard.press('Space');
     await expect(panel).toHaveAttribute('data-speed', '1');
     await expect(page.getByRole('listbox')).toHaveCount(0);
+    // A held Space pauses once: the key's repeat plays nothing (shown failing, TS-04, on 5f4bce3, where
+    // each repeat flipped time again: it read 1). The wait after it gives a wrong flip time to show.
+    await page.keyboard.down('Space');
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    await page.keyboard.down('Space'); // held: Playwright sends a second down of a held key as a repeat
+    await page.keyboard.up('Space');
+    await page.waitForTimeout(500);
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    await page.keyboard.press('Space');
+    await expect(panel).toHaveAttribute('data-speed', '1');
     // So after any button pressed with the mouse: Finance stays open, and the game pauses.
     const finance = page.getByTestId('finance');
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
