@@ -2,13 +2,14 @@
 // or less with a panel open, at 1440×900, 1366×768 and 1152×720, in the light theme. Chrome is every
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, the compass
 // and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
-// the draft card, the inspector, the route editor, a stop's card, Finance, Saves).
-import { expect, test, type Page } from '@playwright/test';
+// the draft card, the inspector, the route editor, a stop's card, Finance, Saves, the day card). Home's
+// Saves always opens beside Home's card, so the two are measured together.
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { UNBACKED_COPY } from '../src/ui/copy';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, chromeShare, city, fillStorage, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, chromeShare, city, fillStorage, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, zoomOutOnce } from './shell';
 
 const SIZES = [
   [1440, 900],
@@ -30,6 +31,14 @@ async function savesAsking(page: Page, shares: Record<string, number>): Promise<
   await expect(saves.locator(':scope > .controls').first().getByRole('button')).toHaveText(['Replace this game', 'Keep playing']);
   shares.savesImport = await chromeShare(page);
   await saves.getByRole('button', { name: 'Keep playing' }).click();
+}
+
+/** Tab, from where the focus is, until `button` has it; then whether it shows whole inside `panel`, which scrolled it into view (to the pixel: a cap in vh is fractional). */
+async function tabbedIntoView(page: Page, panel: Locator, button: Locator): Promise<boolean> {
+  for (let n = 0; n < 40 && !(await button.evaluate((el) => el === document.activeElement)); n++) await page.keyboard.press('Tab');
+  await expect(button).toBeFocused();
+  const [p, b] = [(await panel.boundingBox())!, (await button.boundingBox())!];
+  return b.y >= p.y - 1 && b.y + b.height <= p.y + p.height + 1;
 }
 
 test.describe('the screen budget (I13)', () => {
@@ -116,7 +125,8 @@ test.describe('the screen budget (I13)', () => {
       // Panels stay open together (D25), so each is measured alone: the stop card closes first.
       await page.getByTestId('stop-card').getByRole('button', { name: 'Close' }).click();
       await page.getByRole('button', { name: 'Saves' }).click();
-      // Every slot full, each naming when it was saved, and a set-aside save: the save list at its tallest (the M5 spec, item 4).
+      // Every slot full, each naming when it was saved, and a set-aside save (the M5 spec, item 4).
+      const saves = page.getByTestId('saves');
       for (const n of [1, 2, 3]) {
         await page.getByTestId(`slot-${n}`).getByRole('button', { name: 'Save here' }).click();
         await expect(page.getByTestId(`slot-${n}-when`)).toBeVisible();
@@ -125,14 +135,82 @@ test.describe('the screen budget (I13)', () => {
       shares.saves = await chromeShare(page);
       // With a question open, Load's in a slot's row and Import's below the slots, each in place of its row's other buttons.
       await savesAsking(page, shares);
+      // Two more set aside, one a format, as a player through three format changes holds them: the save
+      // list at its tallest, scrolling inside its cap (69vh). Shown failing (TS-04) at 1152×720 without
+      // the cap: 28.0%, the list running down to the dock.
+      await page.evaluate(() => {
+        for (const why of ['older-14', 'older-15']) localStorage.setItem(`interbus.backup.boston.${why}`, '{"format":1}');
+      });
+      await saves.getByRole('button', { name: 'Close' }).click();
+      await page.getByRole('button', { name: 'Saves' }).click();
+      for (const why of ['older', 'older-14', 'older-15']) await expect(saves.getByTestId(`set-aside-${why}`)).toBeVisible();
+      shares.savesTallest = await chromeShare(page);
+      // Tab reaches the buttons below the fold, each scrolled into view: Back to Home, the last.
+      await saves.getByRole('button', { name: 'Close' }).focus();
+      expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Back to Home' }))).toBe(true);
+      // Home with Continue; its Saves, which opens beside it; and Start over's question with Saves open.
+      // Shown failing (TS-04) without Saves' cap on Home and Home's width: 32.9% and 39.0% at 1152×720,
+      // 26.9% and 31.8% at 1366×768.
+      await saves.getByRole('button', { name: 'Back to Home' }).click();
+      const home = page.getByTestId('home');
+      await expect(home.getByTestId('home-continue')).toBeVisible();
+      shares.homeContinue = await chromeShare(page);
+      await home.getByRole('button', { name: 'Saves' }).click();
+      await expect(saves.getByTestId('set-aside-older-15')).toBeVisible();
+      shares.homeSaves = await chromeShare(page);
+      await home.getByRole('button', { name: 'New game' }).click();
+      await expect(home.getByRole('button', { name: 'Start a new game' })).toBeVisible();
+      shares.homeSavesAsk = await chromeShare(page);
+      await saves.getByRole('button', { name: 'Close' }).focus();
+      expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Import a save file' }))).toBe(true);
+      await home.getByRole('button', { name: 'Keep it' }).click();
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'homeContinue', 'homeSaves', 'homeSavesAsk']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
+
+  // A busy quarter's close: the day card's report card, a contract paid, a medal, snow named for
+  // tomorrow, interest and every kind of buying and selling, with a notice up beside it. The card is a
+  // panel's chrome; what does not fit scrolls inside its cap (52vh, as Finance), with Continue below
+  // it in view. Built once at 1152×720 and measured there, then at 1366×768, where it went over too; at
+  // 1440×900 it took 25.1% uncapped. Shown failing (TS-04) uncapped at 32.2% and 27.2%.
+  test('a busy quarter’s close: the day card ≤26% at 1152×720 and 1366×768', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withBusyQuarterClose(page);
+    await setSpeed(page, '600×');
+    const card = page.getByTestId('day-card');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Pause' }).click();
+    for (const part of ['report-card', 'contract-outcome', 'medal-news', 'event-news']) await expect(card.getByTestId(part)).toHaveCount(1);
+    for (const kind of ['interest', 'buses', 'busSales', 'stops', 'stopUpgrades', 'stopSales', 'depots']) await expect(card.locator(`tr[data-kind="${kind}"]`)).toHaveCount(1);
+    const [rows, go, notice] = [card.locator('.day-card-scroll'), card.getByRole('button', { name: 'Continue' }), page.getByTestId('notice')];
+    const shares: Record<string, number> = {};
+    for (const [width, height] of [
+      [1152, 720],
+      [1366, 768],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      // A notice up: Undo's refusal, with nothing to take back since the save was loaded.
+      await page.keyboard.press('Control+z');
+      await expect(notice).toHaveText('Nothing to undo');
+      shares[`${width}×${height}`] = await chromeShare(page);
+      const [c, r, g] = [(await card.boundingBox())!, (await rows.boundingBox())!, (await go.boundingBox())!];
+      expect(await rows.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      expect(g.y).toBeGreaterThanOrEqual(r.y + r.height);
+      expect(g.y + g.height).toBeLessThanOrEqual(c.y + c.height);
+    }
+    const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
+    test.info().annotations.push({ type: 'chrome % with a busy quarter’s day card', description: JSON.stringify(rounded) });
+    for (const [size, share] of Object.entries(shares)) expect(share, `${size} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+  });
 
   // A save the start could not set aside (a disk too full for its backup): its notice is untimed, at-rest
   // chrome until Saves opens, so Home, the shell at rest and at rest with a line are measured beside it;

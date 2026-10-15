@@ -17,6 +17,9 @@ function render(money: Money, view: FinanceViewName = 'breakdown', lines: readon
   return renderToStaticMarkup(createElement(Finance, { sim, onClose: () => undefined, view }));
 }
 
+/** The chart's axis labels, left to right. */
+const axis = (html: string) => [...html.matchAll(/<text x="[^"]*" y="146" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+
 /** The Breakdown with every group open, as after a click on each folded heading. */
 function renderOpen(money: Money): string {
   const finance: FinanceView = { days: [], lines: [], ...money };
@@ -85,8 +88,37 @@ describe('Finance’s views', () => {
     expect(html.match(/<g class="day[^"]*"/g)).toHaveLength(3);
     expect(html).toContain('<g class="day today" data-day="3"');
     expect(html.match(/class="capital"/g)).toHaveLength(1); // day 1's purchases
-    expect(html).toContain('role="img" aria-label="Cash $427,200 on Day 3, from $427,200 on Day 0"');
+    expect(html).toContain('role="img" aria-label="Cash $427,200 on Year 1, Q1, Day 3, from $427,200 on Day 0"');
     expect(html).toContain('Day 0: starting cash $427,200</p>');
+    expect(axis(html)).toEqual(['Day 0', 'Day 1', 'Day 3']);
+  });
+
+  // The systems audit (D26): the chart named a day by its count since founding ("Day 9", "Day 10")
+  // while the top bar read "Year 1, Q2 Day 1" and the day card "Year 1, Q2, Day 1 closed". Shown failing
+  // (TS-04) on the chart before: its axis read Day 0, Day 1, Day 9 and Day 10, and its titles and
+  // accessible name "Day 9" and "Day 10".
+  it('names its days as the calendar does across a quarter’s end, the quarter on the axis once two show', () => {
+    const across = [...Array(10).keys()].map((k) => ({ day: k + 1, inCents: 110_100, outCents: -7_900, capitalCents: 0, cashCents: 47_000_000 + k }));
+    const html = render({ ...base, day: 10, quarter: 2, quarterFirstDay: 9, openingCents: 47_454_800, days: across }, 'overview');
+    expect(html).toContain('role="img" aria-label="Cash $470,000 on Year 1, Q2, Day 2, from $474,548 on Day 0"');
+    expect(html).toContain('<title>Year 1, Q2, Day 1: $1,101 in, $79 running costs</title>');
+    expect(html).toContain('<title>Year 1, Q2, Day 2 so far: $1,101 in, $79 running costs</title>');
+    expect(html).toContain('<title>Year 1, Q1, Day 8: cash $470,000</title>');
+    expect(html).toContain('<title>Day 0: starting cash $474,548</title>');
+    // Today, Day 0 and Q1's first day; Q2's, beside today, would crowd it.
+    expect(axis(html)).toEqual(['Day 0', 'Q1 Day 1', 'Q2 Day 2']);
+    expect(html).not.toMatch(/Day (9|10)\b/);
+  });
+
+  it('names a late chart’s first day, each quarter’s first and today, a year’s end among them', () => {
+    const late = (first: number) => [...Array(16).keys()].map((k) => ({ day: first + k, inCents: 1, outCents: -1, capitalCents: 0, cashCents: 1_000_000 + k }));
+    const third = render({ ...base, day: 20, quarter: 3, quarterFirstDay: 17, days: late(5) }, 'overview');
+    expect(third).toContain('aria-label="Cash $10,000 on Year 1, Q3, Day 4, from $10,000 on Year 1, Q1, Day 5"');
+    expect(axis(third)).toEqual(['Q1 Day 5', 'Q2 Day 1', 'Q3 Day 1', 'Q3 Day 4']);
+    const yearEnd = render({ ...base, day: 40, quarter: 1, quarterFirstDay: 33, days: late(25) }, 'overview');
+    expect(yearEnd).toContain('from $10,000 on Year 1, Q4, Day 1"');
+    expect(yearEnd).toContain('<title>Year 2, Q1, Day 8 so far:');
+    expect(axis(yearEnd)).toEqual(['Q4 Day 1', 'Q1 Day 1', 'Q1 Day 8']);
   });
 
   it('lists each line’s money and its fare in Lines, the fare a custom dropdown', () => {

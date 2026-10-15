@@ -686,9 +686,14 @@ button.chip.checklist,
   border-top: 1px solid var(--ui-line);
 }
 
-/* Saves: one row a slot, its line above its buttons. */
+/* Saves: one row a slot, its line above its buttons. Each format change can set one more save aside, a
+   row each (sim/save/save.ts), so the list scrolls inside a cap that keeps I13's 26%. In the game (the
+   movable layer, below) 69vh, 497 px at 720 px high: as tall as Saves with one set-aside row, a little
+   under Finance's area. On Home, beside Home's card, 45vh: 324 px at 720 px high, so the two take 24.3%
+   of 1152×720 with Start over's question open. */
 .panel.saves {
   width: 320px;
+  max-height: min(calc(100% - 128px), 45vh);
 }
 
 .saves .slots {
@@ -1066,13 +1071,15 @@ button.chip.checklist,
   left: 50%;
   transform: translateX(-50%);
   /* Inside the window and above the dock, as the panels are (D26): 100% less the 60 px above, the
-     72 px left at the window's bottom (Panels.tsx's BOTTOM) and the card's 24 px of padding. What does
-     not fit (a busy quarter's close at 1152×720) scrolls inside the card, and its button stays in view
-     below. */
+     72 px left at the window's bottom (Panels.tsx's BOTTOM) and the card's 24 px of padding. And inside
+     I13's 26%: at most 380 px wide with its padding, a long line wrapping, and 52vh tall inside its
+     padding (374 px at 720 px high, so 380 × 398 at most, about 18% of 1152×720). What does not fit (a busy quarter's close) scrolls
+     inside the card, and its button stays in view below. */
   display: flex;
   flex-direction: column;
-  max-height: calc(100% - 156px);
+  max-height: min(calc(100% - 156px), 52vh);
   min-width: 260px;
+  max-width: 348px;
   padding: 12px 16px;
   border-radius: 10px;
   background: var(--ui-paper);
@@ -1243,7 +1250,9 @@ button.chip.checklist,
   vertical-align: middle;
 }
 
-/* Home (src/ui/shell/Home.tsx): the first screen, over the paused map. */
+/* Home (src/ui/shell/Home.tsx): the first screen, over the paused map. 324 px wide with its padding,
+   whatever it says: a long company name, or Start over's question, wraps instead of widening it, so
+   Home and its Saves stay inside I13's 26% together. */
 .home {
   position: absolute;
   top: 50%;
@@ -1252,7 +1261,8 @@ button.chip.checklist,
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 280px;
+  width: 280px;
+  overflow-wrap: anywhere;
   padding: 18px 22px;
   border-radius: 12px;
   background: var(--ui-paper);
@@ -1464,6 +1474,10 @@ button.chip.checklist,
 
 .movable > .panel.finance {
   max-height: min(var(--room, calc(100vh - 128px)), 52vh);
+}
+
+.movable > .panel.saves {
+  max-height: min(var(--room, calc(100vh - 128px)), 69vh);
 }
 
 .movable .panel h2 {

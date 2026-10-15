@@ -13,8 +13,8 @@ const points = (grade: number) => Math.floor(grade);
  * quarter's last day closes with its report card above the rows (the M3 spec, item 9), whose payout
  * or fine is one of them; a contract paid or lapsed at the close says so (item 11), as does a city
  * event rolled for tomorrow or just over (the M4 spec, item 2), and a medal awarded (item 3). All of
- * it above Continue scrolls inside the card when it is taller than the room above the dock, so
- * Continue stays in view (app.css).
+ * it above Continue scrolls inside the card when it is taller than its cap (52vh, and the room above
+ * the dock), so Continue stays in view; a long line wraps at its width (app.css, I13).
  */
 export function DayCard({ sim }: { sim: Sim }) {
   const card = sim.dayCard;
