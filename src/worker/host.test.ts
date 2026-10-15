@@ -7,6 +7,7 @@ import { foundingCapitalCents } from '../sim/economy/ledger';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
 import { SAVE_FORMAT } from '../sim/save/save';
+import { KENMORE } from '../sim/testing';
 import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
 import type { Sim } from '../ui/game/useSim';
 import { Finance } from '../ui/shell/Finance';
@@ -842,5 +843,42 @@ describe('city events (the M4 spec, item 2)', () => {
     const over = now();
     expect(over.event).toBeNull();
     expect(over.lines[0]!.cycles).toEqual(calm);
+  });
+
+  it('puts snow’s words amid the stops of the game on screen, after another game loads on the same snowy day and after a stop is built in the snow', () => {
+    // Every game starts from one seed, so another game loaded on a snowy day often meets the same snow.
+    // Its place was kept under the event and the day alone, and stayed amid the last game's stops.
+    /** A founded game with a line through `clicks`, as a file with snow falling today (days 1 and 2). */
+    const snowy = (clicks: [number, number][]) => {
+      const { host, last } = started();
+      host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+      host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+      host.handle({ type: 'create-line', clicks });
+      host.handle({ type: 'export' });
+      const file = JSON.parse(last('export')!.text) as { data: { event: unknown } };
+      file.data.event = { kind: 'snow', startDay: 1, endDay: 2, street: '', edges: [], at: null };
+      return JSON.stringify(file);
+    };
+    const { host, last } = started();
+    /** Where the words are, and the mean of the stops' places. */
+    const snow = () => {
+      const s = last('snapshot')!.snapshot;
+      expect(s.event).toMatchObject({ kind: 'snow', phase: 'on' });
+      return { at: s.event!.at, amid: [0, 1].map((k) => s.stops.reduce((sum, stop) => sum + stop.at[k]!, 0) / s.stops.length) };
+    };
+    const expectAmid = () => {
+      const { at, amid } = snow();
+      expect(at[0]).toBeCloseTo(amid[0]!, 6);
+      expect(at[1]).toBeCloseTo(amid[1]!, 6);
+    };
+    host.handle({ type: 'import', text: snowy(CLICKS.slice(2)) }); // the Museum of Fine Arts and Longwood
+    expectAmid();
+    const longwood = snow().at;
+    host.handle({ type: 'import', text: snowy([CLICKS[0]!, [...KENMORE]]) }); // Copley and Kenmore, about 1.7 km away
+    expectAmid();
+    expect(Math.abs(snow().at[1] - longwood[1])).toBeGreaterThan(0.01);
+    host.handle({ type: 'place-stop', at: CLICKS[1]! }); // Symphony
+    expect(last('snapshot')!.snapshot.stops).toHaveLength(3);
+    expectAmid();
   });
 });

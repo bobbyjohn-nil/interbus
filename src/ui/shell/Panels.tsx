@@ -17,7 +17,7 @@ interface Rect {
 const GAP = 12;
 /** The top of the first row of panels: under the chips. */
 const TOP = 56;
-/** The room left at the window's bottom for the dock and the map's credit (app.css's 100vh - 128px is TOP and this). */
+/** The room left at the window's bottom for the dock and the map's credit (app.css's 100vh - 128px is TOP and this; the day card's 100% - 156px counts it too). */
 const BOTTOM = 72;
 /** The least room a panel is given below its top: a row with less room down to the dock is not free. */
 const MIN_ROOM = 160;

@@ -12,10 +12,12 @@ export function FailureCard({ sim }: { sim: Sim }) {
   if (!sim.snapshot?.floor?.ended || sim.dayCard) return null;
   return (
     <section className="day-card failure" role="dialog" aria-label="The run is over" data-testid="failure-card" data-chrome="panel">
-      <h2>The lender has called in the loan</h2>
-      <p>
-        {FAILURE_CLOSES} days closed below {usdK(-CREDIT_LIMIT_CENTS)}. Start this quarter again from where it began.
-      </p>
+      <div className="day-card-scroll">
+        <h2>The lender has called in the loan</h2>
+        <p>
+          {FAILURE_CLOSES} days closed below {usdK(-CREDIT_LIMIT_CENTS)}. Start this quarter again from where it began.
+        </p>
+      </div>
       <button type="button" onClick={() => sim.send({ type: 'restart-quarter' })}>
         Restart this quarter
       </button>
