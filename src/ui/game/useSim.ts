@@ -115,7 +115,18 @@ export function useSim(city: City | undefined): Sim {
           errors.report({ severity: 'problem', source: 'save', code: 'store-failed', detail: String(error) });
         });
     };
-    Promise.all([readSimFile(sim.file), startSimWorker()])
+    // A worker that fails, to load or later, is stopped and says so (the failure card): its listener goes on at
+    // once, before the city's sim file is read, or a script that never loads would leave the game loading for good.
+    const started = startSimWorker().then((w) => {
+      w.onerror = (event) => {
+        errors.report({ severity: 'fatal', source: 'worker', code: 'crashed', detail: event.message });
+        w.terminate();
+        if (worker.current === w) worker.current = null;
+        if (!stopped) setStatus('failed');
+      };
+      return w;
+    });
+    Promise.all([readSimFile(sim.file), started])
       .then(([simText, w]) => {
         if (stopped) return w.terminate();
         worker.current = w;
@@ -143,10 +154,10 @@ export function useSim(city: City | undefined): Sim {
             setAutosave(m.autosave);
           }
           else if (m.type === 'export') downloadText(m.name, m.text);
-          // A new game from Home needs no notice: its founding card says what comes next. Whatever the
-          // game was, its day card and draft go with it.
+          // A new game from Home needs no notice, and takes down one still showing for the game before:
+          // its founding card says what comes next. Whatever the game was, its day card and draft go with it.
           else if (m.type === 'loaded') {
-            if (m.from !== 'new') setLoaded({ from: m.from, load: m.load, at: Date.now() });
+            setLoaded(m.from === 'new' ? null : { from: m.from, load: m.load, at: Date.now() });
             setDayCard(null);
             setDraft(null);
           }
@@ -187,10 +198,6 @@ export function useSim(city: City | undefined): Sim {
             if (m.command === 'set-route') setRouteRefusals((n) => n + 1);
             errors.report({ severity: 'note', source: 'sim', code: `refused-${m.command}`, detail: m.reason });
           }
-        };
-        w.onerror = (event) => {
-          errors.report({ severity: 'fatal', source: 'worker', code: 'crashed', detail: event.message });
-          setStatus('failed');
         };
         const message: ToWorker = { type: 'init', simText, city: { id: city.id, revision: sim.extent, hash: sim.sha256 }, seed: 1, build: { sha: build.sha, version: build.version } };
         w.postMessage(message);

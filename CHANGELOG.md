@@ -102,6 +102,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A new game, or a game loaded from Saves or Restart this quarter, starts clean: the old game's line tool, route editor, draft, day card, stop card, Lines panel and load notice ("Slot loaded", "Save file loaded", "Back to the start of the quarter") no longer come with it, so pointing at a dot shows its card again, no card shows a stop or line you never clicked in this game, and the new-line card starts on the Sparrow instead of a Goliath that game hasn't unlocked.
+- If Boston couldn't be loaded when the game opens, after a dropped connection or a server error, a card now says so with Reload, instead of leaving only the map with no Home and no way to go on. If the game stops working while you play, it stops for good and the card says so, with Reload, instead of the dock and Saves vanishing without a word.
+- A panel you dragged opens again where you left it after Back to Home and Continue, as it does the rest of the time.
+- When Undo takes back your only line with Lines open, Lines closes, and the dock no longer shows it pressed and grayed out with nothing open; a game you load later no longer opens Lines unasked.
 - A busy midnight card, such as the one that closes a quarter with its report card, a contract paid, a medal and a day of buying and selling, now fits in the window above the dock: what does not fit scrolls inside the card, and Continue stays in view. In a 1152×720 window it used to run off the bottom with Continue out of reach, and cover the dock's buttons until the next midnight.
 - The snow's words on the map ("Snow tomorrow", then the days left) sit in the middle of your stops: after you load or import another game on the same snowy day they no longer sit where the last game's stops were, and they move as you build or take down stops.
 - The line card's headway and bus menus keep only what you picked since the line last changed: a pick you didn't run is dropped when Undo changes the line, or when you load a slot or a save file or Restart this quarter. Run it, Buy and run and Buy and swap no longer put back a headway you just undid, or bring a pick from the game you left into the one you loaded.
@@ -142,7 +146,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Escape with the Build menu or a dropdown open closes just that menu: the tool stays out, a line you are drawing stays, and your panels stay open.
 - A click on the map that closes the Build menu, a dropdown or the demand menu only closes it: it no longer also places a stop, adds a stop to the line you are drawing or buys a depot. A click on another button closes the menu and works that button.
 - Keys pressed on Home no longer reach the paused game behind it: Space and 1 to 5 used to run time there, and Ctrl+Z to take back your last purchase.
-- A new game, or a game loaded from Saves, starts clean: the old game's line tool, route editor, draft and day card no longer come with it, so pointing at a dot shows its card again.
 - A notice shows once, instead of again each time you go between Home and the game.
 - Home's buttons are drawn in the game's own font.
 - The report card's Coverage grade counts the buses calling at each stop over one day, not three. A stop with a bus every hour counted almost as well as one with a bus every 15 minutes; it now counts 0.40 of it, and a half-hourly stop 0.68. An opening company's card grades about a point lower.
