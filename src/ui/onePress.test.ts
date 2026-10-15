@@ -1,0 +1,89 @@
+// One press, one command (onePress.ts; D26, the systems audit's second round): a double-click that
+// starts on a control is one press, its later clicks and its dblclick dropped wherever they land, and the
+// next click that starts a run of its own ends the watch. The browser shows what it fixes
+// (e2e/presses.spec.ts); this pins the rule itself. Shown failing (TS-04) on 2a00661, which has no such rule.
+import { describe, expect, it } from 'vitest';
+import { onControl, onePress } from './onePress';
+
+/** What a click lands on: a control (a button, a link, an option, a menu item), a card's text, the map's canvas, or a control drawn on the canvas. */
+type Under = 'button' | 'text' | 'canvas' | 'button on the canvas';
+
+/** `closest` as what is under the pointer answers it. */
+function closest(under: Under): (selector: string) => object | null {
+  return (selector) => {
+    if (selector.includes('maplibregl-canvas-container')) return under === 'canvas' || under === 'button on the canvas' ? {} : null;
+    return selector.includes('button') && (under === 'button' || under === 'button on the canvas') ? {} : null;
+  };
+}
+
+/** An event the browser makes from the player's own press (isTrusted). */
+class Players extends Event {
+  override get isTrusted(): boolean {
+    return true;
+  }
+}
+
+/** The window as the rule hears it: a click lands on the window itself, which answers `closest` as what is under the pointer would. */
+class Page extends EventTarget {
+  under: Under = 'text';
+  closest(selector: string): object | null {
+    return closest(this.under)(selector);
+  }
+  /** Click `detail` of its run (0 for a key's) on `under`, or its dblclick, the player's or (`trusted` false) one the page makes itself; whether it goes on. */
+  click(under: Under, detail: number, type: 'click' | 'dblclick' = 'click', trusted = true): boolean {
+    this.under = under;
+    const event = new (trusted ? Players : Event)(type, { cancelable: true });
+    Object.defineProperty(event, 'detail', { value: detail });
+    return this.dispatchEvent(event);
+  }
+}
+
+describe('one press, one command', () => {
+  it('drops the rest of a double-click that starts on a control, wherever it lands, and its dblclick', () => {
+    const page = new Page();
+    onePress(page);
+    expect(page.click('button', 1)).toBe(true);
+    // The card closed under it: the map, a card's text, the next row's button.
+    expect([page.click('canvas', 2), page.click('canvas', 2, 'dblclick'), page.click('text', 3), page.click('button', 4)]).toEqual([false, false, false, false]);
+  });
+
+  it('keeps a double-click that starts off a control: the map takes its second click as one with a tool out, and zooms or tilts with none', () => {
+    const page = new Page();
+    onePress(page);
+    expect([page.click('canvas', 1), page.click('canvas', 2), page.click('canvas', 2, 'dblclick')]).toEqual([true, true, true]);
+    expect([page.click('text', 1), page.click('button', 2)]).toEqual([true, true]);
+  });
+
+  it('ends the watch at the next click that starts a run of its own, or a key’s click, so no later click is lost', () => {
+    const page = new Page();
+    onePress(page);
+    page.click('button', 1);
+    expect([page.click('canvas', 1), page.click('canvas', 2)]).toEqual([true, true]);
+    page.click('button', 1);
+    expect([page.click('button', 0), page.click('canvas', 2)]).toEqual([true, true]);
+    // The next button pressed on its own works, and arms the watch again.
+    page.click('button', 1);
+    expect([page.click('button', 1), page.click('canvas', 2)]).toEqual([true, false]);
+  });
+
+  it('neither ends the watch for nor drops a click the page makes itself, such as Export’s download link', () => {
+    const page = new Page();
+    onePress(page);
+    page.click('button', 1);
+    expect(page.click('button', 0, 'click', false)).toBe(true);
+    expect(page.click('button', 2)).toBe(false);
+  });
+
+  it('drops nothing once taken off', () => {
+    const page = new Page();
+    onePress(page)();
+    page.click('button', 1);
+    expect(page.click('canvas', 2)).toBe(true);
+  });
+
+  it('counts a control anywhere but on the map’s canvas, and nothing that is not an element', () => {
+    expect([onControl({ closest: closest('button') }), onControl({ closest: closest('text') })]).toEqual([true, false]);
+    expect([onControl({ closest: closest('canvas') }), onControl({ closest: closest('button on the canvas') })]).toEqual([false, false]);
+    expect([onControl(null), onControl({})]).toEqual([false, false]);
+  });
+});

@@ -12,9 +12,10 @@ import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
 import { followed, pressSave, RouteEditor, routeOf, type RoutePoint, type Routing } from "./game/RouteEditor";
-import { DepotCard, DraftCard, draftShows, StopSiteCard, type Tool } from "./game/Tools";
+import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { focusSource } from "./focusSource";
+import { onePress } from "./onePress";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
 import { Panels, type PanelFront, type PanelItem } from "./shell/Panels";
@@ -221,6 +222,12 @@ export function App() {
   // Lines with no line left to show (an undo took back the only one) closes, as Escape closes it, so
   // the dock shows it neither open nor pressed.
   if (game && !game.lines.length && open.includes("lines")) setOpen((o) => o.filter((p) => p !== "lines"));
+  // A stop's card closes with its stop (taken down, or an undo), so it never opens again by itself on a
+  // stop that takes the same id later.
+  if (stopId !== null && game && !game.stops.some((s) => s.id === stopId)) {
+    setStopId(null);
+    hide("stop");
+  }
 
   // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
   // that arrives with a loaded save opens no panel).
@@ -230,6 +237,11 @@ export function App() {
   const depots = sim.snapshot?.depots.length ?? 0;
   const lines = sim.snapshot?.lines.length ?? 0;
   const newest = sim.snapshot?.lines.at(-1)?.id ?? null;
+  // A Create on its way: until its own answer (a newer line, or a Create refused), a second press sends
+  // nothing (createWaits, game/Tools.tsx). Let go during render, as the route editor follows the game.
+  const [createPress, setCreatePress] = useState<CreatePress | null>(null);
+  const createNow = { tool, newest: newest ?? 0, refusals: sim.createRefusals, undos: sim.undos, loadedAt: sim.loaded?.at ?? null };
+  if (createPress && !createWaits(createPress, createNow)) setCreatePress(null);
   // Counted from the game as it starts, so a reloaded game's lines are not new ones.
   const counts = useRef<{ depots: number; lines: number } | null>(null);
   useEffect(() => {
@@ -289,6 +301,8 @@ export function App() {
       window.removeEventListener("blur", left);
     };
   }, []);
+  // One press, one command, on every button of the page (onePress.ts): a double-click's second click goes nowhere.
+  useEffect(() => onePress(), []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -371,9 +385,13 @@ export function App() {
           sim={sim}
           clicks={clicks.length}
           model={draftModel}
+          creating={createPress !== null}
           onModel={setDraftModel}
           onCreate={() => {
+            // One press, one command: a second before the first has its answer sends nothing.
+            if (createPress) return;
             creating.current = true;
+            setCreatePress({ newest: createNow.newest, refusals: createNow.refusals, undos: createNow.undos, loadedAt: createNow.loadedAt });
             send({ type: "create-line", clicks, model: draftModel });
           }}
           onUndo={removeLast}

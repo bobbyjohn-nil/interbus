@@ -67,6 +67,34 @@ export function StopSiteCard({ sim, screen }: { sim: Sim; screen: [number, numbe
 }
 
 /**
+ * A Create on its way, as App keeps it: the newest line's id as it was pressed (0 with none), how many
+ * Creates the sim had refused and how many undos the page had sent by then, and the game it was pressed
+ * in (its loaded.at).
+ */
+export interface CreatePress {
+  readonly newest: number;
+  readonly refusals: number;
+  readonly undos: number;
+  readonly loadedAt: number | null;
+}
+
+/** What createWaits reads of the game now: the tool out, and the same counts as CreatePress. */
+export interface CreateNow extends CreatePress {
+  readonly tool: Tool;
+}
+
+/**
+ * Whether a Create on its way still waits for its answer (one press, one command, as Save route's
+ * pressSave): until a line newer than the press stands or the sim refuses a Create, a second press sends
+ * nothing. A refresh of the lines that is not its answer, such as the day's close or roadworks retiming
+ * them, leaves it waiting. It never outlasts the tool, the game it was pressed in or an undo sent after
+ * it: a Create and an Undo answered together leave no newer line to see, and Create opens again.
+ */
+export function createWaits(press: CreatePress, now: CreateNow): boolean {
+  return now.tool === "line" && now.loadedAt === press.loadedAt && now.undos === press.undos && now.newest <= press.newest && now.refusals <= press.refusals;
+}
+
+/**
  * A new line's clicks as its card shows them (the systems audit): the line rule reads no click after one
  * it refuses (sim/rules/line.ts), so `kept` are the clicks that became stops, and `shown` adds the refused
  * click while the card names it. The next click goes after the kept ones, in the refused one's place, and
@@ -87,6 +115,7 @@ export function DraftCard({
   sim,
   clicks,
   model,
+  creating = false,
   onModel,
   onCreate,
   onUndo,
@@ -95,6 +124,8 @@ export function DraftCard({
   sim: Sim;
   clicks: number;
   model: BusModelId;
+  /** True while a Create is on its way (createWaits): a press then does nothing, so the button is disabled, as Save route's is. */
+  creating?: boolean;
   onModel: (model: BusModelId) => void;
   onCreate: () => void;
   onUndo: () => void;
@@ -171,7 +202,7 @@ export function DraftCard({
         <button
           type="button"
           onClick={onCreate}
-          disabled={!draft || refused !== null}
+          disabled={!draft || refused !== null || creating}
         >
           Create
         </button>
