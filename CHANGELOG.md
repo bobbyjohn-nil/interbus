@@ -41,8 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The checklist's last step, Take a contract, opens the contracts; once you take one the checklist is done and a Contracts chip takes its place.
 - The preview opens on real Boston: streets, buildings, the Charles, parks and neighborhood names from Back Bay to Cambridge, drawn flat in the light theme and set in Afacad Flux. Zoom in to see individual buildings.
 - The build number of the version you are looking at sits in the bottom-right corner, beside the map credits.
-- Press T to tilt the map into 3D, with Boston's buildings standing up from its streets; press T again to lay it flat. Four buildings in five stand at their measured height, from OpenStreetMap or, where it has none, Overture Maps (credited in the corner); the rest stand about three storeys.
-- Everything beyond the play area is greyed out behind a dashed edge, so you can see where the board ends.
+- Press T to tilt the map into 3D, with Boston's buildings standing up from its streets; press T again to lay it flat. Four buildings in five stand at their measured height, from OpenStreetMap or, where it has none, Overture Maps (credited in the corner); the rest stand about three stories.
+- Everything beyond the play area is grayed out behind a dashed edge, so you can see where the board ends.
 - Dots show where people live (purple) and where they work (blue) from Back Bay to Longwood, sized by how many.
 - Point at a dot to see how many it stands for and how many more are within a walk: on a home dot, the people who live there and within a walk of it; on a job dot, the jobs there and within a walk.
 - A new company starts with $474,548: enough for a depot, four stops and the two buses a line every 20 minutes needs, with some to spare.
@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two more buses: the Metro 40 (70 seats, $260,000) and the Goliath (115 seats, locked until a silver medal). Each line runs one model: pick it on the new-line card, or swap a line's buses on its card, where the old ones sell for half their price. Bigger buses are drawn longer on the map.
 - The game saves itself in this browser as you play, so a reload carries on where you left off. A save from an older build is kept aside, a new game starts, and a note says so.
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
-- Running a line costs money: $0.90 for each kilometer a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what the day will cost.
+- Running a line costs money: $0.90 for each kilometer a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what the day is forecast to cost.
 - Stops cost upkeep: a thousandth of what a stop cost to build, every day, so a Sign costs $4 a day, a Shelter $16, a Station $51, an Interchange $141 and a Transfer Hub $341. A stop's card says its upkeep and the next tier's, its upkeep counts in what the stop earns, and Costs/day includes it.
 
 ### Changed
@@ -91,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Place a depot and Draw a line moved into Build, in the dock, beside Place a stop.
 - Saves moved out of the dock to a button at the top right.
 - Panels stay open together and move: Lines, Finance, Saves, Contracts and a stop's card can all be open at once, each opening in a free place beside the others. Drag one by its heading anywhere on the screen and it opens there again for the rest of the session; press one to bring it to the front. A tool's card takes its own place too, so a tool stays out while panels open, and Escape puts everything away. Edit route stands in for the line's panel while it is open.
-- The bus and headway menus on a line's panel and on the new-line card are the game's own, like the speed and fare menus; a locked bus is greyed out and says a silver medal unlocks it.
+- The bus and headway menus on a line's panel and on the new-line card are the game's own, like the speed and fare menus; a locked bus is grayed out and says a silver medal unlocks it.
 - Extending a line from either end and inserting a stop, on a line's panel, are now Edit route, which also reorders the line and takes stops off it.
 - A line's fare and its day forecast moved from its card to Finance, under Lines. The line card says the fare and links there, and otherwise shows only the line.
 - Your starting cash is on Day 0, before the first day, so day 1's card and Finance's columns show only what day 1 earned and spent.

@@ -103,7 +103,7 @@ export function Breakdown({ finance: f, today, quarter, fold = FOLDED }: { finan
           <th scope="col">Today</th>
           <th scope="col">Yesterday</th>
           <th scope="col">{quarterText(f.quarterFirstDay)}</th>
-          <th scope="col" title="A day’s forecast, from today’s lines, fares and riders: a line you drew today counts from that hour">
+          <th scope="col" title="A day’s forecast, from today’s lines, fares and riders: a line you drew today counts from the hour you drew it">
             Day forecast
           </th>
         </tr>
