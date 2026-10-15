@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cyclesOf } from '../../sim/rules/cycle';
-import { HEADWAY_MINUTES } from '../../sim/rules/periods';
-import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange } from '../../sim/rules/line';
+import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
+import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, type FleetContext } from '../../sim/rules/line';
 import { planIsExpress } from '../../sim/rules/express';
 import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
@@ -18,6 +18,49 @@ const PERIODS = [
 ] as const;
 
 /**
+ * A headway pick on the line card: the three headways as picked, and what they were picked against: the line's headways
+ * then, and the game (Sim's `loaded.at`, which a slot or a file loaded and Restart this quarter move).
+ */
+export interface HeadwayPick {
+  readonly headways: HeadwaysData;
+  readonly base: HeadwaysData;
+  readonly game: number | null;
+}
+
+/** `period` set to `seconds` (null: off) on the card as it shows: the pick it still holds, or else the line's own headways. */
+export function pickHeadway(held: HeadwayPick | null, line: { readonly headways: HeadwaysData }, game: number | null, period: Period, seconds: number | null): HeadwayPick {
+  return { headways: { ...(held?.headways ?? line.headways), [period]: seconds }, base: line.headways, game };
+}
+
+/**
+ * The pick as the line and the game now stand, so the card never shows or sends a headway the line does not run unless the
+ * player picked it since the line last changed: null once the line's headways changed under the card (an undo) or another game
+ * took this one's place (a slot or a file loaded, Restart this quarter), and `pick` itself otherwise.
+ */
+export function heldPick(pick: HeadwayPick | null, line: { readonly headways: HeadwaysData }, game: number | null): HeadwayPick | null {
+  return pick && pick.game === game && sameHeadways(pick.base, line.headways) ? pick : null;
+}
+
+/** A model pick on the line card, and what it was picked against: the line's model then, and the game, as HeadwayPick. */
+export interface ModelPick {
+  readonly model: BusModelId;
+  readonly base: BusModelId;
+  readonly game: number | null;
+}
+
+/** The model pick as the line and the game now stand: null once the line's model changed under the card or another game took this one's place. */
+export function heldModel(pick: ModelPick | null, line: { readonly model: BusModelId }, game: number | null): ModelPick | null {
+  return pick && pick.game === game && pick.base === line.model ? pick : null;
+}
+
+/** The change card for the pick held: the headway rule's verdict on it (GD-05), or no card for no pick or the line's own headways picked back, which are no change. */
+export function headwayChange(fleet: FleetContext, line: Pick<LineView, 'cycle' | 'cycles' | 'buses' | 'model' | 'headways'>, held: HeadwayPick | null) {
+  if (!held) return null;
+  const verdict = checkHeadwayChange(fleet, { cycle: line.cycle, cycles: line.cycles, buses: line.buses, model: BUS_MODELS[line.model], headways: line.headways }, held.headways);
+  return !verdict.ok && verdict.reason === 'same_headways' ? null : verdict;
+}
+
+/**
  * A line's card: its riders, its round trip at peak and off-peak and what roadworks or snow add to it (the M4
  * spec, item 2), when its buses fill (K27), its buses and their model, its fare (set in Finance's
  * Lines with the band of fares that net the most, D25), and three headways (D7). A headway that needs
@@ -26,15 +69,23 @@ const PERIODS = [
  * (sim/rules/line.ts, GD-05).
  */
 export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
-  const [wanted, setWanted] = useState<HeadwaysData | null>(null);
-  const [wantedModel, setWantedModel] = useState<BusModelId | null>(null);
+  const [wanted, setWanted] = useState<HeadwayPick | null>(null);
+  const [modelPick, setModelPick] = useState<ModelPick | null>(null);
   const s = sim.snapshot;
   if (!s) return null;
+  const game = sim.loaded?.at ?? null;
+  // A pick made before an undo or a load is dropped, not sent with the line as it now stands.
+  const held = heldPick(wanted, line, game);
+  if (held !== wanted) setWanted(held);
+  const keptModel = heldModel(modelPick, line, game);
+  if (keptModel !== modelPick) setModelPick(keptModel);
+  const wantedModel = keptModel?.model ?? null;
+  const setWantedModel = (id: BusModelId | null) => setModelPick(id === null ? null : { model: id, base: line.model, game });
   const snow = s.event?.kind === 'snow' && s.event.phase === 'on';
   const fleet = { depots: s.depots.length, busesOwned: s.lines.reduce((n, l) => n + l.buses, 0), cashCents: s.cashCents, medals: s.medals };
-  const next = wanted ?? line.headways;
+  const next = held?.headways ?? line.headways;
   const model = BUS_MODELS[line.model];
-  const change = wanted ? checkHeadwayChange(fleet, { cycle: line.cycle, cycles: line.cycles, buses: line.buses, model }, wanted) : null;
+  const change = headwayChange(fleet, line, held);
   const swap = wantedModel
     ? checkModelChange(fleet, { routeM: line.stopDistM[line.stopDistM.length - 1] ?? 0, stops: line.stops.length, rush: line.rush, worksM: line.worksM, snow, buses: line.buses, model, headways: line.headways }, BUS_MODELS[wantedModel])
     : null;
@@ -42,9 +93,9 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   const clear = cyclesOf(line.stopDistM[line.stopDistM.length - 1] ?? 0, line.stops.length, model.kmh, line.rush);
   const works = line.worksM > 0 && s.event ? { street: s.event.street, addS: line.cycles.peak - clear.peak } : null;
   const snowAddS = snow ? line.cycles.peak - clear.peak : 0;
-  const pick = (period: (typeof PERIODS)[number][0], value: string) => setWanted({ ...next, [period]: value === 'off' ? null : Number(value) * 60 });
+  const pick = (period: Period, value: string) => setWanted(pickHeadway(held, line, game, period, value === 'off' ? null : Number(value) * 60));
   return (
-    <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={line.forecastCents.running}>
+    <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={s.finance.lines.find((m) => m.id === line.id)?.forecastCents.running ?? 0}>
       <h2>
         <span className="swatch" style={{ background: line.colour }} /> {line.name}
         {planIsExpress(line) ? (

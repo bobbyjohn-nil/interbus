@@ -7,8 +7,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BUS_MODELS } from '../../sim/rules/line';
 import { cyclesOf } from '../../sim/rules/cycle';
-import type { EventView, FareBandView, LineView, Snapshot } from '../../sim/types';
-import { LineCard } from './LineCard';
+import { NO_MEDALS } from '../../sim/rules/medal';
+import type { EventView, FareBandView, HeadwaysData, LineView, Snapshot } from '../../sim/types';
+import { headwayChange, heldModel, heldPick, LineCard, pickHeadway } from './LineCard';
 import type { Sim } from './useSim';
 
 function render(change: Partial<LineView>, band: FareBandView | null = null, event: Partial<EventView> | null = null): string {
@@ -37,10 +38,9 @@ function render(change: Partial<LineView>, band: FareBandView | null = null, eve
     settling: null,
     buses: 3,
     model: 'sparrow',
-    forecastCents: { running: 0, wages: 0, deadhead: 0 },
     ...change,
   };
-  const snapshot = { depots: [], lines: [line], cashCents: 0, event, medals: { bronze: null, silver: null, gold: null } } as unknown as Snapshot;
+  const snapshot = { depots: [], lines: [line], cashCents: 0, event, medals: { bronze: null, silver: null, gold: null }, finance: { lines: [] } } as unknown as Snapshot;
   const sim = { snapshot, fareBand: band ? { lineId: 1, band } : null, fareBandFor: () => undefined } as unknown as Sim;
   return renderToStaticMarkup(createElement(LineCard, { sim, line }));
 }
@@ -82,5 +82,62 @@ describe('the line card', () => {
   it('says Express beside the name of a line of 5 km or more with its stops 1.2 km apart, and nothing beside a local one', () => {
     expect(render({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_800, 3_600, 5_300] })).toContain('data-testid="express"');
     expect(render({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_339, 2_425, 3_535] })).not.toContain('Express');
+  });
+});
+
+// The headway menus show and send only what the player picked since the line last changed, against the line as it stands then.
+// Shown failing (TS-04) with 2a00661's pick restored in heldPick and headwayChange (a pick kept through any change, and every pick
+// a change): after the undo the card still offered Peak 15 with Off-peak 10 and Buy and run sent both; a slot's line got the
+// replaced game's Peak 15; and Peak 20 picked back offered Run it.
+describe('the line card’s headway pick', () => {
+  const TWENTY: HeadwaysData = { peak: 1_200, offpeak: 1_200, overnight: null };
+  const line = (headways: HeadwaysData) => ({ cycle: 1_539, cycles: { peak: 1_539, offpeak: 1_539, overnight: 1_539 }, buses: 2, model: 'sparrow' as const, headways });
+  const fleet = { depots: 1, busesOwned: 2, cashCents: 10_000_000, medals: NO_MEDALS };
+
+  it('drops a pick made before an undo put the line’s headways back, so the next is against the line as it stands', () => {
+    const ran = line({ ...TWENTY, peak: 900 }); // Peak 15, run
+    const offpeak = pickHeadway(null, ran, null, 'offpeak', 600); // then Off-peak 10, not run
+    expect(offpeak.headways).toEqual({ peak: 900, offpeak: 600, overnight: null });
+    expect(heldPick(offpeak, ran, null)).toBe(offpeak);
+    expect(headwayChange(fleet, ran, offpeak)).toEqual({ ok: true, needed: 3, extra: 1, priceCents: 9_500_000 });
+    const undone = line(TWENTY);
+    expect(heldPick(offpeak, undone, null)).toBeNull();
+    expect(headwayChange(fleet, undone, heldPick(offpeak, undone, null))).toBeNull();
+    expect(pickHeadway(heldPick(offpeak, undone, null), undone, null, 'offpeak', 600).headways).toEqual({ peak: 1_200, offpeak: 600, overnight: null });
+  });
+
+  it('drops a pick made in a game a load replaced, though the loaded line runs the same headways', () => {
+    const twenty = line(TWENTY);
+    const before = pickHeadway(null, twenty, null, 'peak', 900); // no game loaded yet this session
+    const loaded = pickHeadway(null, twenty, 1_000, 'peak', 900);
+    expect(heldPick(loaded, twenty, 1_000)).toBe(loaded);
+    expect(heldPick(before, twenty, 1_000)).toBeNull();
+    expect(heldPick(loaded, twenty, 2_000)).toBeNull();
+  });
+
+  it('keeps every pick since the line last changed, each on the last', () => {
+    const twenty = line(TWENTY);
+    const peak = pickHeadway(null, twenty, null, 'peak', 900);
+    const both = pickHeadway(heldPick(peak, twenty, null), twenty, null, 'overnight', 3_600);
+    expect(both.headways).toEqual({ peak: 900, offpeak: 1_200, overnight: 3_600 });
+    expect(heldPick(both, twenty, null)).toBe(both);
+  });
+
+  it('offers no change for the line’s own headways picked back, as the rule refuses them', () => {
+    const twenty = line(TWENTY);
+    const fifteen = pickHeadway(null, twenty, null, 'peak', 900);
+    expect(headwayChange(fleet, twenty, fifteen)).toEqual({ ok: true, needed: 2, extra: 0, priceCents: 0 });
+    expect(headwayChange(fleet, twenty, pickHeadway(fifteen, twenty, null, 'peak', 1_200))).toBeNull();
+    expect(headwayChange(fleet, twenty, null)).toBeNull();
+  });
+
+  // The model menu's pick likewise. Shown failing (TS-04) with the pick kept through any change: Buy and swap sent a Metro 40
+  // picked in the replaced game to the loaded one's line.
+  it('drops a model pick made before the line’s model changed, or in a game a load replaced', () => {
+    const pick = { model: 'metro40' as const, base: 'sparrow' as const, game: 1_000 };
+    expect(heldModel(pick, { model: 'sparrow' }, 1_000)).toBe(pick);
+    expect(heldModel(pick, { model: 'sparrow' }, 2_000)).toBeNull();
+    expect(heldModel(pick, { model: 'metro40' }, 1_000)).toBeNull();
+    expect(heldModel(null, { model: 'sparrow' }, 1_000)).toBeNull();
   });
 });

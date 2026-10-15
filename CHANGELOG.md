@@ -102,6 +102,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The line card's headway and bus menus keep only what you picked since the line last changed: a pick you didn't run is dropped when Undo changes the line, or when you load a slot or a save file or Restart this quarter. Run it, Buy and run and Buy and swap no longer put back a headway you just undid, or bring a pick from the game you left into the one you loaded.
+- Picking every headway on a line's card back to what the line runs is no change: the card no longer offers Run it, and Undo no longer names a change that changed nothing.
+- After a change late in the evening to a line that runs overnight, Finance's Lines shows the line's costs for that next day as the Breakdown does, and as the day then banks, instead of the evening before's figures all day.
 - Below -$150,000, a change that costs nothing or gives money back goes through: running a line less often or turning its overnight buses off; in Edit route, reordering or shortening a route or taking in a stop that already stands; or swapping a line's buses for cheaper ones when the old ones sell back for more than the new ones cost. The line card and Edit route refused them as so many dollars short, even beside "Total $2k back". Anything that costs money is still refused past -$150,000.
 - Space pauses and plays after you click a button with the mouse, such as Finance, the Undo chip or a speed picked from the speed menu: it no longer opens the speed menu again, closes Finance or takes back one more thing. An open menu still takes Space, and Space still presses a button you reach with the keyboard.
 - Ctrl+Shift+Z (⌘⇧Z on a Mac), the usual redo, no longer takes back the last thing you did as Ctrl+Z does; there is no redo, so it does nothing.

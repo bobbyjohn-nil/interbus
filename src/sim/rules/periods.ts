@@ -51,6 +51,11 @@ export function checkHeadways(h: Headways): Result<object, HeadwayRefusal, { lim
   return ok();
 }
 
+/** Whether two sets of headways are the same in every period: a headway change to a line's own is none (rules/line.ts). */
+export function sameHeadways(a: Headways, b: Headways): boolean {
+  return a.peak === b.peak && a.offpeak === b.offpeak && a.overnight === b.overnight;
+}
+
 /** Whether a line with these headways runs at all in `period`. */
 export function runsIn(h: Headways, period: Period): boolean {
   return period !== 'overnight' || h.overnight !== null;

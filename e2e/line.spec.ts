@@ -124,6 +124,29 @@ test.describe('the line tool on the fixture', () => {
     await expect(page.getByTestId('notice')).toHaveCount(0);
     await page.getByRole('button', { name: 'Lines' }).click();
     await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
+    // The headway menus keep only a pick made since the line last changed (the second audit round): the line's own headways
+    // picked back are no change, and an undo drops a pick made before it. Shown failing (TS-04) on 2a00661: the change card
+    // stayed up after Peak 20 was picked back, and (that check cut) after the undo Peak still read every 15 minutes.
+    const pickHeadway = async (period: 'peak' | 'offpeak', name: string, minutes: number) => {
+      await page.getByTestId(`headway-${period}`).click();
+      await page.getByRole('listbox', { name }).getByRole('option', { name: `Every ${minutes} min`, exact: true }).click();
+    };
+    const change = page.getByTestId('headway-change');
+    await pickHeadway('peak', 'Peak', 15);
+    await expect(change).toBeVisible();
+    await pickHeadway('peak', 'Peak', 20);
+    await expect(change).toHaveCount(0);
+    await pickHeadway('peak', 'Peak', 15);
+    await change.getByRole('button', { name: /^(Run it|Buy and run)/ }).click();
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Line 1’s headways');
+    await pickHeadway('offpeak', 'Off-peak', 10);
+    await expect(change).toBeVisible();
+    await page.getByTestId('undo').click();
+    await expect(page.getByTestId('undo')).toHaveCount(0);
+    await expect(page.getByTestId('headway-peak')).toContainText('Every 20 min');
+    await expect(page.getByTestId('headway-offpeak')).toContainText('Every 20 min');
+    await expect(change).toHaveCount(0);
+    await expect(page.getByTestId('line-card')).toHaveAttribute('data-running', String(running));
     // The fare, set in Finance beside the line's money (D25): the line card reads it and links there,
     // and Finance names the fares that net the most (the M3 spec, item 4); a pick sets it.
     await expect(page.getByTestId('line-fare')).toHaveAttribute('data-fare', '225');

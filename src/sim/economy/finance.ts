@@ -12,7 +12,7 @@ import { toCalendarTime } from '../core/calendar';
 import { subsidyCents } from '../rules/fare';
 import { isOperating, ROW_GROUP } from '../rules/money';
 import type { World } from '../world';
-import { forecastDay, stopsUpkeepCents } from './costs';
+import { forecastDay, stopsUpkeepCents, type LineCosts } from './costs';
 import { ROW_KINDS, type RowKind } from './ledger';
 
 export interface FinanceRow {
@@ -36,11 +36,13 @@ export interface FinanceDay {
   readonly cashCents: number;
 }
 
-/** One line's own money yesterday (rows that name it): what its riders paid, and what running it cost. */
+/** One line's own money: yesterday's (rows that name it), what its riders paid and what running it cost, and its costs in the day's forecast. */
 export interface FinanceLine {
   readonly id: number;
   readonly yesterdayInCents: number;
   readonly yesterdayOutCents: number;
+  /** A whole day's costs, positive: its share of the forecast column's running, wages and deadhead rows, worked out with them. */
+  readonly forecastCents: LineCosts;
 }
 
 /** The chart shows the last two quarters' days at most. */
@@ -117,6 +119,7 @@ export function finance(world: World): Finance {
     // As the close charges it (step.ts), on what is owed now.
     interest: owing > 0 ? -Math.round((owing * INTEREST_PER_DAY_PPM) / 1_000_000) : 0,
   };
+  const lineCosts = new Map<number, LineCosts>();
   for (const line of state.lines) {
     const riders = Math.floor(world.assignment.lines.get(line.id)?.paidPerDay ?? 0);
     forecast.fares! += riders * line.fareCents;
@@ -125,6 +128,7 @@ export function finance(world: World): Finance {
     if (!service) continue;
     // Today's, so a line settling after a change bills each leg at the version it runs on, as the day will bank it.
     const c = forecastDay(service.costs, 0, t.day);
+    lineCosts.set(line.id, c);
     forecast.running! -= c.running;
     forecast.wages! -= c.wages;
     forecast.deadhead! -= c.deadhead;
@@ -137,7 +141,7 @@ export function finance(world: World): Finance {
     days: chart,
     lines: state.lines.map((l) => {
       const s = lineSums.get(l.id)!;
-      return { id: l.id, yesterdayInCents: s.in, yesterdayOutCents: s.out };
+      return { id: l.id, yesterdayInCents: s.in, yesterdayOutCents: s.out, forecastCents: lineCosts.get(l.id) ?? { running: 0, wages: 0, deadhead: 0 } };
     }),
     rows: ROW_KINDS.map((kind) => {
       const s = sums.get(kind)!;

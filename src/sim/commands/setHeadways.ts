@@ -18,7 +18,7 @@ export function setHeadways(
   const line = world.state.lines.find((l) => l.id === lineId);
   const service = world.services.get(lineId);
   if (!line || !service) return refuse('no_such_line');
-  const change = checkHeadwayChange(fleetContext(world), { cycle: service.timing.cycle, cycles: service.timing.cycles, buses: line.buses, model: BUS_MODELS[line.model] }, headways);
+  const change = checkHeadwayChange(fleetContext(world), { cycle: service.timing.cycle, cycles: service.timing.cycles, buses: line.buses, model: BUS_MODELS[line.model], headways: line.headways }, headways);
   if (!change.ok) return change;
   const paid = spendParts(world.state.ledger, [{ kind: 'buses', amountCents: -change.priceCents, lineId }], toCalendarTime(world.state.elapsed).day);
   if (!paid.ok) return refuse('insufficient_funds', { shortCents: paid.shortCents });

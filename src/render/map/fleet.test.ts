@@ -32,7 +32,6 @@ function line(buses = 2): LineView {
     settling: null,
     buses,
     model: 'sparrow',
-    forecastCents: { running: 0, wages: 0, deadhead: 0 },
   };
 }
 

@@ -156,9 +156,12 @@ export function Breakdown({ finance: f, today, quarter, fold = FOLDED }: { finan
 
 const FARE_OPTIONS = FARES_CENTS.map((c) => ({ value: c, label: usd(c, { cents: true }) }));
 
-/** A line's whole day as the plan forecasts it: its modelled riders' fares and subsidy, and its costs to the cent. */
-function dayNet(line: LineView): number {
-  return line.incomeCents - line.forecastCents.running - line.forecastCents.wages - line.forecastCents.deadhead;
+type LineCosts = FinanceView['lines'][number]['forecastCents'];
+const NO_COSTS: LineCosts = { running: 0, wages: 0, deadhead: 0 };
+
+/** A line's whole day as the plan forecasts it: its modelled riders' fares and subsidy, and its costs to the cent, the forecast column's own. */
+function dayNet(line: LineView, c: LineCosts): number {
+  return line.incomeCents - c.running - c.wages - c.deadhead;
 }
 
 function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceView; open: number | null }) {
@@ -193,10 +196,10 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
           const money = f.lines.find((m) => m.id === line.id);
           const yesterday = money ? money.yesterdayInCents + money.yesterdayOutCents : 0;
           const expanded = open === line.id;
-          const c = line.forecastCents;
+          const c = money?.forecastCents ?? NO_COSTS;
           return (
             <Fragment key={line.id}>
-              <tr data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(line)} className={expanded ? 'open' : undefined}>
+              <tr data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(line, c)} className={expanded ? 'open' : undefined}>
                 <th scope="row">
                   <button type="button" className="line-name" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : line.id)}>
                     <span className="swatch" style={{ background: line.colour }} /> {line.name}
@@ -207,7 +210,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
                   <Dropdown label={`Fare for ${line.name}`} value={line.fareCents} options={FARE_OPTIONS} testId={`fare-${line.id}`} onChange={(fareCents) => sim.send({ type: 'set-fare', lineId: line.id, fareCents })} />
                 </td>
                 <td>{f.day > 1 ? usd(yesterday) : '—'}</td>
-                <td>≈{usd(dayNet(line))}</td>
+                <td>≈{usd(dayNet(line, c))}</td>
               </tr>
               {expanded ? (
                 <tr className="detail">

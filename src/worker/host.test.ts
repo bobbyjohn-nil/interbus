@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { STEP_SECONDS } from '../sim/config/time';
@@ -6,6 +8,8 @@ import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
 import { SAVE_FORMAT } from '../sim/save/save';
 import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
+import type { Sim } from '../ui/game/useSim';
+import { Finance } from '../ui/shell/Finance';
 import { createHost, MAX_SLICE_MS, SPEEDS } from './host';
 
 const baked = bakeSim('boston', 'mini-boston');
@@ -91,7 +95,9 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.linesVersion).toBe(last('ready')!.snapshot.linesVersion + 2);
     expect(last('snapshot')!.snapshot.lines[0]!.route.length).toBeGreaterThan(10);
     const line = last('snapshot')!.snapshot.lines[0]!;
-    expect(line.forecastCents.deadhead).toBeGreaterThan(0);
+    // Its day's costs, as Finance's Lines and its forecast column have them.
+    const costs = last('snapshot')!.snapshot.finance.lines[0]!.forecastCents;
+    expect(costs.deadhead).toBeGreaterThan(0);
     // The page rebuilds the plan the costs bill from the view, and draws its buses on these streets (I6).
     const plan = dayPlan(line.plan);
     expect(busesOut(plan)).toBe(2);
@@ -100,7 +106,7 @@ describe('the sim host', () => {
     expect(line.pullIn[0]).toEqual(line.route[0]);
     expect(busPositionsAt(plan, prepareGeometry(line), 12 * 3_600, new Float64Array(24))).toBe(2);
     // Its costs, the depot's $300 and four Signs' $4 each (D25).
-    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(line.forecastCents.running + line.forecastCents.wages + line.forecastCents.deadhead + 30_000 + 1_600);
+    expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(costs.running + costs.wages + costs.deadhead + 30_000 + 1_600);
     host.handle({ type: 'speed', speed: 5 });
     const cards = () => out.filter((m) => m.type === 'day-card');
     for (let t = 0; cards().length < 2; t += 250) host.tick(t);
@@ -113,12 +119,51 @@ describe('the sim host', () => {
     const card = last('day-card')!.card;
     expect(card.day).toBe(2);
     const sum = (...kinds: string[]) => card.rows.filter((r) => kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
-    expect(sum('running')).toBe(-line.forecastCents.running);
-    expect(sum('wages')).toBe(-line.forecastCents.wages);
-    expect(sum('deadhead')).toBe(-line.forecastCents.deadhead);
+    expect(sum('running')).toBe(-costs.running);
+    expect(sum('wages')).toBe(-costs.wages);
+    expect(sum('deadhead')).toBe(-costs.deadhead);
     expect(sum('upkeep')).toBe(-30_000);
     // The debug line nets about $1,400 a day: both closed days were in profit (the checklist's step 4).
     expect(last('snapshot')!.snapshot.profitableDays).toBe(2);
+  });
+
+  // Finance's Lines view, its Breakdown and the Costs/day chip are one forecast, and the day banks it (D26), all of the day after a
+  // change at 23:50 on a line running overnight, which settles past midnight with no refresh of the lines at the close. Shown
+  // failing (TS-04) on 2a00661, whose Lines view read a forecast the line views kept from the 23:50 change: all day 2 it showed
+  // running 72,168, wages 174,096 and deadhead 688 cents against the Breakdown's and the bank's 83,808, 187,200 and 0.
+  it('shows each line in Finance the forecast the Breakdown sums and the day banks, all of the day after a late change', () => {
+    const { host, out, last } = started();
+    host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS, headways: { peak: 600, offpeak: 600, overnight: 1_800 } });
+    const lineId = last('snapshot')!.snapshot.lines[0]!.id;
+    host.advanceTo(18 * 3_600 + 50 * 60); // 23:50 on day 1, buses out
+    host.handle({ type: 'set-headways', lineId, headways: { peak: 600, offpeak: 600, overnight: 600 } });
+    expect(last('snapshot')!.snapshot.lines[0]!.settling).not.toBeNull();
+    /** The line's day costs as Finance's Lines view shows them (its split, open) and as the Breakdown's forecast column has them, now. */
+    const shown = () => {
+      host.handle({ type: 'speed', speed: 0 });
+      const snapshot = last('snapshot')!.snapshot;
+      const sim = { snapshot, fareBand: null, fareBandFor: () => undefined, send: () => undefined } as unknown as Sim;
+      const html = renderToStaticMarkup(createElement(Finance, { sim, onClose: () => undefined, view: 'lines', lineId }));
+      const split = html.match(/data-testid="line-forecast" data-running="(\d+)" data-wages="(\d+)" data-deadhead="(\d+)"/)!;
+      const column = (kind: string) => 0 - snapshot.finance.rows.find((r) => r.kind === kind)!.forecastCents!; // 0, not -0, for no deadhead
+      const lines = { running: Number(split[1]), wages: Number(split[2]), deadhead: Number(split[3]) };
+      return { lines, breakdown: { running: column('running'), wages: column('wages'), deadhead: column('deadhead') }, chip: snapshot.costsPerDayCents, day: snapshot.day };
+    };
+    host.advanceTo(19 * 3_600 + 60); // 00:01 on day 2
+    const midnight = shown();
+    expect(midnight.day).toBe(2);
+    expect(midnight.lines).toEqual(midnight.breakdown);
+    // The chip: the line's costs, the depot's $300 and four Signs' $4 each (D25).
+    expect(midnight.chip).toBe(midnight.lines.running + midnight.lines.wages + midnight.lines.deadhead + 30_000 + 1_600);
+    host.advanceTo(19 * 3_600 + 12 * 3_600); // noon
+    const noon = shown();
+    expect(noon.lines).toEqual(noon.breakdown);
+    host.advanceTo(19 * 3_600 + 86_400); // day 2's close
+    const card = out.flatMap((m) => (m.type === 'day-card' && m.card.day === 2 ? [m.card] : []))[0]!;
+    const banked = (kind: string) => 0 - card.rows.filter((r) => r.kind === kind).reduce((sum, r) => sum + r.amountCents, 0);
+    expect(noon.lines).toEqual({ running: banked('running'), wages: banked('wages'), deadhead: banked('deadhead') });
   });
 
   it('founds the company once, by name and colour, and the day card counts its first profitable day', () => {
@@ -157,7 +202,7 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.cashCents).toBe(47_454_800 - 15_000_000);
     expect(last('snapshot')!.snapshot.costsPerDayCents).toBe(30_000); // $300 a day of upkeep
     host.handle({ type: 'create-line', clicks: CLICKS });
-    expect(last('snapshot')!.snapshot.lines[0]!.forecastCents.deadhead).toBeGreaterThan(0);
+    expect(last('snapshot')!.snapshot.finance.lines[0]!.forecastCents.deadhead).toBeGreaterThan(0);
     host.handle({ type: 'depot-site', id: 4, at });
     expect(last('depot-site')).toMatchObject({ id: 4, site: { ok: false, reason: 'too_close_to_depot', limitM: 120 } });
     host.handle({ type: 'place-depot', at: [-71.0776, 42.3496] }); // Copley Square
@@ -443,6 +488,20 @@ describe('undo while paused (I9)', () => {
     host.handle({ type: 'undo' });
     expect(last('refused')).toEqual({ type: 'refused', command: 'undo', reason: 'time_has_run' });
     expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: paused.cashCents, elapsed: paused.elapsed, lines: [{ id: paused.lines[0]!.id }] });
+  });
+
+  // Run it on the line's own headways changes nothing: refused in words, as the same fare is, with nothing kept for the next undo
+  // to spend itself on and no save. Shown failing (TS-04) on 2a00661: accepted, the chip reading "Undo: Line 1's headways".
+  it('refuses headways the line already runs, and keeps nothing to undo for them', () => {
+    const { host, last, saves } = foundedWithSaves();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const line = last('snapshot')!.snapshot.lines[0]!;
+    const saved = saves().length;
+    host.handle({ type: 'set-headways', lineId: line.id, headways: { ...line.headways } });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'set-headways', reason: 'same_headways' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ undo: { command: 'create-line', subject: 'Line 1' }, lines: [{ headways: line.headways, buses: 2 }] });
+    expect(saves()).toHaveLength(saved);
   });
 
   it('keeps no command taken while time runs', () => {

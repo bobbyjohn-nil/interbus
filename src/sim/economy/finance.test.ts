@@ -64,6 +64,7 @@ describe('Finance', () => {
     const forecast = (kind: RowKind) => -f.rows.find((r) => r.kind === kind)!.forecastCents!;
     const day = { running: forecast('running'), wages: forecast('wages'), deadhead: forecast('deadhead') };
     expect(day).toEqual(forecastDay(world.services.get(line.id)!.costs, 0, 2));
+    expect(f.lines[0]!.forecastCents).toEqual(day); // the Lines view's, the same numbers
     advance(world, 12 * 3_600 + 60); // past day 2's close
     const banked = (kind: RowKind) => -rowsOfDay(world.state.ledger, 2).filter((r) => r.kind === kind).reduce((s, r) => s + r.amountCents, 0);
     expect(day).toEqual({ running: banked('running'), wages: banked('wages'), deadhead: banked('deadhead') });
@@ -113,13 +114,14 @@ describe('Finance’s chart and lines', () => {
     expect(f.days.at(-1)!.day).toBe(21);
   });
 
-  it('gives each line yesterday’s money from the rows that name it', () => {
+  it('gives each line yesterday’s money from the rows that name it, and its costs in the day’s forecast', () => {
     const world = game();
     advance(world, SECONDS_PER_DAY + 3 * 3_600); // to 08:00 on day 2, its first buses out
     const f = finance(world);
     const id = world.state.lines[0]!.id;
     const ofLine = (day: number, kinds: string[]) => rowsOfDay(world.state.ledger, day).filter((r) => r.lineId === id && kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
-    expect(f.lines).toEqual([{ id, yesterdayInCents: ofLine(1, ['fares', 'subsidy']), yesterdayOutCents: ofLine(1, ['running', 'wages', 'deadhead']) }]);
+    const forecastCents = forecastDay(world.services.get(id)!.costs, 0, 2);
+    expect(f.lines).toEqual([{ id, yesterdayInCents: ofLine(1, ['fares', 'subsidy']), yesterdayOutCents: ofLine(1, ['running', 'wages', 'deadhead']), forecastCents }]);
     expect(f.lines[0]!.yesterdayInCents).toBeGreaterThan(0);
     expect(f.lines[0]!.yesterdayOutCents).toBeLessThan(0);
     expect(ofLine(2, ['fares', 'subsidy'])).not.toBe(f.lines[0]!.yesterdayInCents); // today's differ

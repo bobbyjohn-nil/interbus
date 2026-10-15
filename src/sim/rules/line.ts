@@ -13,7 +13,7 @@ import { MIN_LINE_STOPS } from '../config/lines';
 import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
 import { busesNeeded, cycleSeconds, cyclesOf, slowedM, type Cycles } from './cycle';
-import { checkHeadways, type HeadwayRefusal, type Headways } from './periods';
+import { checkHeadways, sameHeadways, type HeadwayRefusal, type Headways } from './periods';
 import { shortfallCents } from './credit';
 import { checkStopSite, type StopPick, type StopSiteContext } from './stop';
 import { modelLocked, type Medals } from './medal';
@@ -131,16 +131,21 @@ export function checkLineDraft(ctx: LineDraftContext, clicks: readonly XY[], hea
   return ok({ draft });
 }
 
-export type HeadwayChangeRefusal = HeadwayRefusal | 'depot_full' | 'insufficient_funds';
+export type HeadwayChangeRefusal = HeadwayRefusal | 'same_headways' | 'depot_full' | 'insufficient_funds';
 
-/** A headway change on a line with round trips `cycles` (or one `cycle` all day) and `buses` of `model`: the buses it needs, how many to buy, and their price. */
+/**
+ * A headway change on a line running `headways`, with round trips `cycles` (or one `cycle` all day) and `buses` of `model`: the buses
+ * it needs, how many to buy, and their price. The line's own headways are no change (as the same fare or model is none), so the card
+ * offers nothing for them and the command keeps nothing to undo.
+ */
 export function checkHeadwayChange(
   ctx: FleetContext,
-  line: { readonly cycle: number; readonly cycles?: Cycles | undefined; readonly buses: number; readonly model: BusModel },
+  line: { readonly cycle: number; readonly cycles?: Cycles | undefined; readonly buses: number; readonly model: BusModel; readonly headways: Headways },
   headways: Headways,
 ): Result<{ needed: number; extra: number; priceCents: number }, HeadwayChangeRefusal, { limitSeconds?: number; room?: number; shortCents?: number }> {
   const valid = checkHeadways(headways);
   if (!valid.ok) return valid;
+  if (sameHeadways(headways, line.headways)) return refuse('same_headways');
   const needed = busesNeeded(line.cycles ?? line.cycle, headways);
   const extra = Math.max(0, needed - line.buses);
   const room = depotRoom(ctx);

@@ -84,12 +84,18 @@ describe('a line draft (the M2 spec, items 2–4)', () => {
 
 describe('a headway change (GD-09)', () => {
   const fleet = { depots: 1, busesOwned: 2, cashCents: 10_000_000, medals: NO_MEDALS };
-  const line = { cycle: 1_539, buses: 2, model: SPARROW };
+  const line = { cycle: 1_539, buses: 2, model: SPARROW, headways: TWENTY };
   it('buys the buses a shorter headway needs: every 10 min needs 3, one more at $95k', () => {
     expect(checkHeadwayChange(fleet, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: true, needed: 3, extra: 1, priceCents: 9_500_000 });
   });
   it('buys nothing for a longer one, and keeps the buses', () => {
     expect(checkHeadwayChange(fleet, line, { peak: 1_800, offpeak: 1_800, overnight: null })).toEqual({ ok: true, needed: 1, extra: 0, priceCents: 0 });
+  });
+  // The line's own headways are no change, as the same fare or model is none: one rule, so the card offers nothing for them and
+  // the command keeps nothing to undo. Shown failing (TS-04) on 2a00661, which priced them as a change buying no bus (ok: true).
+  it('refuses the headways the line already runs, as no change', () => {
+    expect(checkHeadwayChange(fleet, line, { ...TWENTY })).toEqual({ ok: false, reason: 'same_headways' });
+    expect(checkHeadwayChange(fleet, line, { ...TWENTY, overnight: 3_600 })).toEqual({ ok: true, needed: 2, extra: 0, priceCents: 0 });
   });
   it('refuses in money, or for want of depot room', () => {
     expect(checkHeadwayChange({ ...fleet, cashCents: -10_000_000 }, line, { peak: 600, offpeak: 1_200, overnight: null })).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 4_500_000 });
