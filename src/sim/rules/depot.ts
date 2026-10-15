@@ -5,7 +5,7 @@
 import { DEPOT_FIRST_PRICE_CENTS, DEPOT_PRICE_GROWTH, DEPOT_PRICE_STEP_CENTS, DEPOT_SPACING_M, DEPOT_STREET_REACH_M, MAX_DEPOTS } from '../config/depots';
 import { distXY, pointInRing, type XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
-import { spendableCents } from './credit';
+import { shortfallCents } from './credit';
 
 /** The price of the next depot when `built` already stand. */
 export function depotPriceCents(built: number): number {
@@ -38,7 +38,7 @@ export function checkDepotSite(ctx: DepotSiteContext, at: XY): Result<DepotSite,
   const nearestM = ctx.depots.reduce((best, d) => Math.min(best, distXY(d, at)), Infinity);
   if (nearestM < DEPOT_SPACING_M) return refuse('too_close_to_depot', { limitM: DEPOT_SPACING_M, nearestM });
   const priceCents = depotPriceCents(ctx.depots.length);
-  const short = priceCents - spendableCents(ctx.cashCents);
+  const short = shortfallCents(priceCents, ctx.cashCents);
   if (short > 0) return refuse('insufficient_funds', { shortCents: short, priceCents });
   return ok({ node: street.node, streetM: street.distM, priceCents });
 }

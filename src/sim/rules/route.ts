@@ -21,7 +21,7 @@ import { DETOUR_WARN_SHARE, INSERT_REACH_M, MIN_LINE_STOPS } from '../config/lin
 import { STOP_TIER_IDS, STOP_TIERS, type StopTier } from '../config/stops';
 import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
-import { spendableCents } from './credit';
+import { shortfallCents } from './credit';
 import { checkLineDraft, type LineDraft, type LineDraftContext, type LineRefusal } from './line';
 import type { Headways } from './periods';
 import { checkStopSite } from './stop';
@@ -84,7 +84,8 @@ export function checkExtend(
     return refuse(whole.reason, { ...extension, ...Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined)) });
   }
   if (clicks.length === 0) return refuse('no_new_stops', extension);
-  if (draft.priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { ...extension, shortCents: draft.priceCents - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(draft.priceCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { ...extension, shortCents: short });
   return ok(extension);
 }
 
@@ -152,7 +153,8 @@ export function checkInsert(
     const { at, limitM, limitSeconds, room } = whole;
     return refuse(whole.reason, { ...insertion, ...Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined)) });
   }
-  if (draft.priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { ...insertion, shortCents: draft.priceCents - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(draft.priceCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { ...insertion, shortCents: short });
   return ok(insertion);
 }
 
@@ -220,7 +222,7 @@ export function checkRoute(
   }
   const same = whole.draft.stops.length === line.stopIds.length && whole.draft.stops.every((s, k) => s.kind === 'join' && s.stopId === line.stopIds[k]);
   if (same) return refuse('no_change', edit);
-  const net = draft.priceCents - refundCents;
-  if (net > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { ...edit, shortCents: net - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(draft.priceCents - refundCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { ...edit, shortCents: short });
   return ok(edit);
 }

@@ -2,7 +2,7 @@
 // that tier's price; down gives back half of what the steps cost (the M3 spec, item 5).
 import { STOP_TIER_IDS, STOP_TIERS, stopUpkeepCents, type StopTier, type StopTierRow } from '../config/stops';
 import { ok, refuse, type Result } from '../core/result';
-import { spendableCents } from './credit';
+import { shortfallCents } from './credit';
 
 export { STOP_TIER_IDS, STOP_TIERS, stopUpkeepCents, type StopTier, type StopTierRow };
 
@@ -26,6 +26,7 @@ export function checkStopTier(
   const need = STOP_TIERS[to as StopTier].minLines;
   if (ctx.linesHere < need) return refuse('needs_lines', { limit: need });
   const priceCents = steps(from, to);
-  if (priceCents > spendableCents(ctx.cashCents)) return refuse('insufficient_funds', { shortCents: priceCents - spendableCents(ctx.cashCents) });
+  const short = shortfallCents(priceCents, ctx.cashCents);
+  if (short > 0) return refuse('insufficient_funds', { shortCents: short });
   return ok({ priceCents, saleCents: 0 });
 }

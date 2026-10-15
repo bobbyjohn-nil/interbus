@@ -5,12 +5,14 @@ import { describe, expect, it } from 'vitest';
 import { STOP_COST_CENTS } from '../config/economy';
 import { BUS_MODELS } from '../config/fleet';
 import { toXY, type LngLat } from '../core/geo';
+import { post } from '../economy/ledger';
 import { checkInsert } from '../rules/route';
 import { encode } from '../save/save';
 import { gameWithDepot } from '../testing';
 import { lineDraftContext, type World } from '../world';
 import { addDebugLine, DEBUG_STOPS } from './debugLine';
 import { insertStop } from './insertStop';
+import { placeStop } from './placeStop';
 
 const BUILD = { sha: 'test', version: '0.0.0' };
 /** On Huntington Avenue between Symphony and the MFA: the debug line's second leg, no detour. */
@@ -55,6 +57,19 @@ describe('inserting a stop (the M4 spec, item 4)', () => {
     const done = insertStop(world, line.id, DETOUR);
     expect(done.ok).toBe(true);
     expect(world.state.lines[0]!.stopIds).toHaveLength(5);
+  });
+
+  // Below the floor (D10) a stop placed on its own goes into the line for nothing, so it is no purchase and goes through, as the
+  // ledger's spendParts lets it. Shown failing (TS-04) with the price of nothing compared against the credit line.
+  it('inserts a stop standing on its own below the floor, buying nothing', () => {
+    const world = running();
+    const line = world.state.lines[0]!;
+    const placed = placeStop(world, ON_HUNTINGTON);
+    if (!placed.ok) throw new Error(placed.reason);
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 19_900_000) });
+    expect(insertStop(world, line.id, ON_HUNTINGTON)).toEqual({ ok: true, priceCents: 0, extraBuses: 0, stopId: placed.stopId });
+    expect(line.stopIds).toHaveLength(5);
+    expect(world.state.ledger.cashCents).toBe(-19_900_000);
   });
 
   it('refuses a click far from the line, or on one of its own stops, and changes nothing', () => {

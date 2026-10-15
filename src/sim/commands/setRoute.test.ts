@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { STOP_COST_CENTS } from '../config/economy';
 import type { LngLat } from '../core/geo';
 import { mint, type LineId, type StopId } from '../core/ids';
+import { post } from '../economy/ledger';
 import { toSaveData } from '../save/save';
 import { gameWithDepot } from '../testing';
 import { before, newUndo, remember, undo } from '../undo';
@@ -57,6 +58,32 @@ describe('setting a line’s route (D25)', () => {
     expect(setRoute(world, line.id, [LONGWOOD, MFA, SYMPHONY, COPLEY])).toMatchObject({ ok: true, priceCents: 0, refundCents: 0 });
     expect(line.stopIds).toEqual([...ids].reverse());
     expect(world.state.ledger.cashCents).toBe(cash);
+  });
+
+  // Below the floor (D10) the countdown runs, and a route that spends nothing or gives money back is no purchase: it goes through,
+  // as Remove on the stop card does, and a route that buys a stop is still refused. Shown failing (TS-04) with the net, nothing or
+  // $2k back, compared against the credit line: at -$199,000 the reorder read "$49,000 short", and the route that drops a stop
+  // "Total $2k back" beside "$47,000 short".
+  it('reorders a line and drops a stop below the floor, and still refuses a route that buys a stop there', () => {
+    const world = running();
+    const line = world.state.lines[0]!;
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 19_900_000) });
+    expect(setRoute(world, line.id, [COPLEY, ON_HUNTINGTON, MFA, LONGWOOD])).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: STOP_COST_CENTS / 2 + 4_900_000 });
+    expect(setRoute(world, line.id, [LONGWOOD, MFA, SYMPHONY, COPLEY])).toMatchObject({ ok: true, priceCents: 0, refundCents: 0 });
+    expect(setRoute(world, line.id, [LONGWOOD, MFA, SYMPHONY])).toMatchObject({ ok: true, priceCents: 0, refundCents: STOP_COST_CENTS / 2 });
+    expect(line.stopIds).toHaveLength(3);
+    expect(world.state.ledger.cashCents).toBe(-19_900_000 + STOP_COST_CENTS / 2);
+  });
+
+  it('takes in a stop placed on its own below the floor, buying nothing', () => {
+    const world = running();
+    const line = world.state.lines[0]!;
+    const placed = placeStop(world, ON_HUNTINGTON);
+    if (!placed.ok) throw new Error(placed.reason);
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 19_900_000) });
+    expect(setRoute(world, line.id, [COPLEY, SYMPHONY, ON_HUNTINGTON, MFA, LONGWOOD])).toMatchObject({ ok: true, priceCents: 0, refundCents: 0 });
+    expect(line.stopIds[2]).toBe(placed.stopId);
+    expect(world.state.ledger.cashCents).toBe(-19_900_000);
   });
 
   it('takes in a stop placed on its own without buying it, and keeps a stop another line calls at', () => {

@@ -4,7 +4,7 @@ import { loadCity } from '../city/simfile';
 import { BUS_MODELS } from '../config/fleet';
 import { toCalendarTime } from '../core/calendar';
 import { pointInRing, toLngLat, type XY } from '../core/geo';
-import { foundLedger, rowsOfDay } from '../economy/ledger';
+import { foundLedger, post, rowsOfDay } from '../economy/ledger';
 import { forecastDay } from '../economy/costs';
 import { busesNeeded } from '../rules/cycle';
 import { checkModelChange } from '../rules/line';
@@ -59,6 +59,17 @@ describe('a line changing model (the M3 spec, item 2)', () => {
     expect(setModel(world, lineId, 'goliath')).toEqual({ ok: false, reason: 'model_locked' });
     expect(world.state.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
     expect(world.state.ledger.cashCents).toBe(100_000_000 - 15_000_000);
+  });
+
+  // Below the floor (D10) a swap that sells more than it buys gives money back: it goes through, as the ledger's spendParts lets
+  // it. Shown failing (TS-04) with the net, $70k back, compared against the credit line: "$30,000 short".
+  it('swaps Metro 40s back to Sparrows below the floor for $70k back, and still refuses a swap that costs money there', () => {
+    const { world, lineId } = game();
+    if (!setModel(world, lineId, 'metro40').ok) throw new Error('no Metro 40s');
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 25_000_000) });
+    expect(setModel(world, lineId, 'sparrow')).toEqual({ ok: true, bought: 2, buyCents: 19_000_000, saleCents: 26_000_000 });
+    expect(world.state.ledger.cashCents).toBe(-25_000_000 + 7_000_000);
+    expect(setModel(world, lineId, 'metro40')).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 52_000_000 - 9_500_000 + 3_000_000 });
   });
 });
 
