@@ -240,7 +240,10 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // press (preventDefault on MapLibre's mousedown) keeps MapLibre's own pan off it; a held or dragged
   // double-click then swallows the click that would open a card, and turns MapLibre's double-click
   // zoom off until its dblclick has passed. (Preventing that dblclick instead would stop the flip's
-  // ease halfway: MapLibre stops the camera whenever a handler takes an event.)
+  // ease halfway: MapLibre stops the camera whenever a handler takes an event.) A second press is a
+  // double-click's only when the map heard the click before it, as for its click (heardLast, below):
+  // after a double-click's first click on a button that took itself away (Home's Continue), it is a
+  // press of its own, and neither tilts nor flips.
   type Press = { readonly button: number; readonly double: boolean; readonly x: number; readonly y: number; readonly pitch: number; readonly bearing: number; readonly turns: boolean; dragging: boolean; timer?: number };
   let press: Press | null = null;
   let swallow = false;
@@ -257,7 +260,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const o = e.originalEvent;
     if (o.detail !== 2 && swallow) swallowing(false);
     if (rung === 'low') return;
-    const double = o.button === 0 && o.detail === 2 && !o.ctrlKey && tiltGesture;
+    const double = o.button === 0 && o.detail === 2 && heardLast && !o.ctrlKey && tiltGesture;
     if (!(o.button === 2 || (o.button === 0 && o.ctrlKey) || double)) return;
     e.preventDefault();
     press = { button: o.button, double, x: o.clientX, y: o.clientY, pitch: map.getPitch(), bearing: map.getBearing(), turns: mode === '3d', dragging: false };

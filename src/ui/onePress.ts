@@ -17,11 +17,17 @@
 const CONTROLS = 'button, a, [role="option"], [role="menuitem"]';
 const CANVAS = '.maplibregl-canvas-container';
 
-/** Whether a click on `target` presses a control: inside a button, a link, an option or a menu item, and not on the map's canvas (the compass and the map's Reload are controls). */
+/** Whether `target` is on the map's canvas, where a press is the map's: the compass and the map's Reload sit beside it in the map's box, and are controls. */
+export function onCanvas(target: unknown): boolean {
+  const at = target as { closest?: (selector: string) => unknown } | null;
+  return typeof at?.closest === 'function' && at.closest(CANVAS) !== null;
+}
+
+/** Whether a click on `target` presses a control: inside a button, a link, an option or a menu item, and not on the map's canvas (onCanvas). */
 export function onControl(target: unknown): boolean {
   const at = target as { closest?: (selector: string) => unknown } | null;
   if (typeof at?.closest !== 'function') return false;
-  return at.closest(CONTROLS) !== null && at.closest(CANVAS) === null;
+  return at.closest(CONTROLS) !== null && !onCanvas(target);
 }
 
 /** Puts the rule on `page` (the window), once; returns what takes it off again. */

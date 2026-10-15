@@ -27,10 +27,11 @@ function reveal(list: HTMLUListElement | null, i: number): void {
  * The game's own dropdown, in place of the browser's (D25: "I don't like the default dropdown menus,
  * there should be custom ones"). A button names the choice; it opens a list the keyboard can work:
  * the arrows move, Home and End jump, Enter or Space picks, Escape and a click elsewhere close it
- * without picking; the option it is on stays in view. Escape stops there, so it never also closes the
- * panel the dropdown sits in, and the click elsewhere does nothing more, so it never also uses the
- * tool on the map (pressAway.ts). The list is drawn over the page beside its button, so a panel that
- * scrolls never clips it, and above or below its button within the window's top and bottom.
+ * without picking, and Tab closes it and goes on to the control after its button (Shift+Tab, before
+ * it); the option it is on stays in view. Escape stops there, so it never also closes the panel the
+ * dropdown sits in, and the click elsewhere does nothing more, so it never also uses the tool on the
+ * map (pressAway.ts). The list is drawn over the page beside its button, so a panel that scrolls never
+ * clips it, over every panel, and above or below its button within the window's top and bottom.
  */
 export function Dropdown<T extends string | number>({
   label,
@@ -144,7 +145,12 @@ export function Dropdown<T extends string | number>({
         setOpen(false);
         button.current?.focus();
       },
-      Tab: () => setOpen(false),
+      // The list closes and the browser's Tab goes on from the button, to the control after it or before
+      // it, as from its own select: from the list, drawn at the page's end, it went to the map or the credits.
+      Tab: () => {
+        setOpen(false);
+        button.current?.focus();
+      },
     };
     const act = keys[event.key];
     if (!act) return;

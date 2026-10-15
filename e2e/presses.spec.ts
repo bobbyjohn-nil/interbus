@@ -225,6 +225,52 @@ test.describe('one press, one command', () => {
     expect(downloads).toHaveLength(1);
   });
 
+  // The systems audit's second round: a double-click on a Home button that closes Home sent its second
+  // press to the map behind it, which zoomed a step, and held still, flipped the board to 3D. The zoom
+  // has stayed away since the one-press rule (#117); the held press was shown failing (TS-04) on
+  // 7d5ca2b, where the board ended in 3D, its tilt gesture reading any second press as a double-click's.
+  test('a double-click on a Home button acts once: the map behind it neither zooms a step nor, held, flips to 3D', async ({ page }) => {
+    await page.goto('./?gpu=full'); // the held double-click tilts on the full rung only
+    const map = page.getByTestId('map');
+    const home = page.getByTestId('home');
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const backHome = async () => {
+      await page.getByTestId('saves-chip').click();
+      await page.getByRole('button', { name: 'Back to Home' }).click();
+      await expect(home).toBeVisible();
+    };
+    await backHome();
+    const view = (await map.getAttribute('data-view'))!;
+
+    await doubleClick(page, page.getByTestId('home-continue'));
+    await expect(home).toBeHidden();
+    await page.waitForTimeout(1_000); // a zoom the double-click started would have ended by now
+    await expect(map).toHaveAttribute('data-view', view);
+
+    // The second press held still past the half second that flips the board.
+    await backHome();
+    const b = (await page.getByTestId('home-continue').boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down({ clickCount: 1 });
+    await page.mouse.up({ clickCount: 1 });
+    await page.mouse.down({ clickCount: 2 });
+    await page.waitForTimeout(700);
+    await page.mouse.up({ clickCount: 2 });
+    await expect(home).toBeHidden();
+    await page.waitForTimeout(500);
+    await expect(map).toHaveAttribute('data-mode', '2d');
+    await expect(map).toHaveAttribute('data-view', view);
+
+    // Start a new game: the founding card, and the map where it was.
+    await backHome();
+    await home.getByRole('button', { name: 'New game' }).click();
+    await doubleClick(page, home.getByRole('button', { name: 'Start a new game' }));
+    await expect(page.getByTestId('founding-card')).toBeVisible();
+    await page.waitForTimeout(1_000);
+    await expect(map).toHaveAttribute('data-view', view);
+  });
+
   test('Take it and a stop card’s buttons work once on a double-click: one step up, one step down, Close places nothing, off Line 1 and still on Line 2', async ({ page }) => {
     test.setTimeout(90_000);
     const refused = refusals(page);

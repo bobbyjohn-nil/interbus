@@ -35,10 +35,14 @@ const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w + GAP && b.x < a.x + a.w 
  */
 export const roomBelow = (y: number, height: number) => Math.max(MIN_ROOM, height - BOTTOM - y);
 
-/** A panel `w` wide at `at`, moved as little as keeps KEEP pixels of it, its heading among them, on a window `width` by `height`: a drag's rule, and a dragged panel's when the window changes size. */
+/**
+ * A panel `w` wide at `at`, moved as little as keeps KEEP pixels of it, its heading among them, on a window `width` by
+ * `height`: a drag's rule, and a dragged panel's when the window changes size. Its heading stays above the dock, which draws
+ * over the panels (app.css's layers), so it can always be dragged back.
+ */
 const inReach = (at: { x: number; y: number }, w: number, width: number, height: number) => ({
   x: Math.round(Math.min(width - KEEP, Math.max(KEEP - w, at.x))),
-  y: Math.round(Math.min(height - KEEP, Math.max(0, at.y))),
+  y: Math.round(Math.min(height - BOTTOM - KEEP, Math.max(0, at.y))),
 });
 
 /** A panel `w` by `h` that opened at `at` in a free place, moved as little as keeps it whole on a window `width` by `height` that changed size: inside the window's edges, its top MIN_ROOM or more above the dock. */
@@ -89,7 +93,9 @@ export interface PanelFront {
  * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
  * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
  * free place whole, and a dragged one's heading in reach. A tool's card is a panel like the others.
- * Places live on the elements, not in React state, so a drag re-renders nothing.
+ * Places live on the elements, not in React state, so a drag re-renders nothing. The panels are raised
+ * among themselves on a layer of their own, under the menus and the cards beside the pointer however
+ * many are raised (app.css's --layer-panels).
  */
 export function Panels({ items, front = null }: { items: readonly PanelItem[]; front?: PanelFront | null }) {
   const [raised, setRaised] = useState<readonly string[]>([]);
@@ -166,7 +172,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
   };
 
   return (
-    <>
+    <div className="panel-layer">
       {items.map(({ id, node }, k) => {
         const lift = raised.indexOf(id);
         return (
@@ -178,7 +184,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
               if (el) boxes.current.set(id, el);
               else boxes.current.delete(id);
             }}
-            style={{ zIndex: 10 + (lift >= 0 ? items.length + lift : k) }}
+            style={{ zIndex: 1 + (lift >= 0 ? items.length + lift : k) }}
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
           >
@@ -186,6 +192,6 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
