@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CREDIT_LIMIT_CENTS } from '../config/economy';
+import { DAYS_PER_QUARTER } from '../config/time';
 import { createRng } from '../core/rng';
-import { bankedBetween, foundingCapitalCents, foundLedger, OPENING_DAY, post, profitableDays, rowsOfDay, spendParts, type Ledger } from './ledger';
+import type { LineId } from '../core/ids';
+import { CHART_DAYS } from './finance';
+import { bankedBetween, closeDay, DAYS_KEPT, foundingCapitalCents, foundLedger, OPENING_DAY, post, profitableDays, rowsOfDay, spendParts, type Ledger, type LedgerRow } from './ledger';
 import { starterBuses, starterLineCents } from './starter';
 
 const sum = (l: Ledger) => l.rows.reduce((s, r) => s + r.amountCents, 0);
@@ -122,6 +125,92 @@ describe('profitable days (the checklist)', () => {
     post(ledger, { day: 3, kind: 'fares', amountCents: 90_000 });
     expect(profitableDays(ledger, 3)).toBe(1); // day 1 only: the starting cash is not profit, and day 3 is still open
     expect(profitableDays(ledger, 4)).toBe(2);
+  });
+});
+
+// The systems audit's third round (D26): closeDay kept every closed day's rows forever and every save
+// carries them, so a save grew by a day card a day without end, and a long game's copies outgrew the
+// browser's storage. Shown failing (TS-04) on 001fc4a, which kept all forty days: 164 rows, not 68.
+describe('closed days no reader reads (a save that stays bounded)', () => {
+  // Two lines; days 1 and 2 in profit, every later day at a loss, so the days folded lose money
+  // together though two of them made some; buses bought on day 3, a contract paid on day 5, a grant on day 8.
+  const postDay = (ledger: Ledger, day: number) => {
+    for (const lineId of [1, 2] as LineId[]) {
+      post(ledger, { day, kind: 'fares', amountCents: day <= 2 ? 50_000 : 10_000, lineId });
+      post(ledger, { day, kind: 'wages', amountCents: -30_000, lineId });
+    }
+    if (day === 3) spendParts(ledger, [{ kind: 'buses', amountCents: -1_000_000, lineId: 1 as LineId }], day);
+    if (day === 5) post(ledger, { day, kind: 'contract', amountCents: 600_000 });
+    if (day === 8) post(ledger, { day, kind: 'card', amountCents: 200_000 });
+  };
+  const capital = foundingCapitalCents();
+  const cash = capital + 2 * (2 * 20_000) + 38 * 2 * -20_000 - 1_000_000 + 600_000 + 200_000;
+  // Days 1 to 25 at day 40's close, Finance's two quarters (sixteen days to day 41) being 26 to 41:
+  // the days in profit on the last of them, the rest on theirs, a row a kind, in the day card's order, no line.
+  const folded: LedgerRow[] = [
+    { day: 2, kind: 'fares', amountCents: 200_000 },
+    { day: 2, kind: 'wages', amountCents: -120_000 },
+    { day: 25, kind: 'fares', amountCents: 23 * 20_000 },
+    { day: 25, kind: 'contract', amountCents: 600_000 },
+    { day: 25, kind: 'card', amountCents: 200_000 },
+    { day: 25, kind: 'wages', amountCents: 23 * -60_000 },
+    { day: 25, kind: 'buses', amountCents: -1_000_000 },
+  ];
+
+  it('folds the days before Finance’s two quarters as they pass, leaving cash, the days kept and a day in profit as they were', () => {
+    const ledger = foundLedger();
+    for (let day = 1; day <= 40; day++) {
+      postDay(ledger, day);
+      closeDay(ledger, day);
+    }
+    expect(ledger.rows.slice(0, 8)).toEqual([{ day: 0, kind: 'founding', amountCents: capital }, ...folded]);
+    expect(ledger.rows).toHaveLength(1 + folded.length + 15 * 4);
+    for (let day = 26; day <= 40; day++) {
+      expect(rowsOfDay(ledger, day), `day ${day}`).toEqual([
+        { day, kind: 'fares', amountCents: 10_000, lineId: 1 },
+        { day, kind: 'fares', amountCents: 10_000, lineId: 2 },
+        { day, kind: 'wages', amountCents: -30_000, lineId: 1 },
+        { day, kind: 'wages', amountCents: -30_000, lineId: 2 },
+      ]);
+    }
+    expect(ledger.cashCents).toBe(cash);
+    expect(sum(ledger)).toBe(cash);
+    // The checklist's "a day in profit" still holds, though the days folded lost money together.
+    expect(profitableDays(ledger, 41)).toBeGreaterThan(0);
+  });
+
+  it('folds a save from before at its next close to what it would have kept', () => {
+    const ledger = foundLedger();
+    for (let day = 1; day <= 40; day++) postDay(ledger, day);
+    closeDay(ledger, 40);
+    expect(ledger.rows.slice(0, 8)).toEqual([{ day: 0, kind: 'founding', amountCents: capital }, ...folded]);
+    expect(ledger.rows.slice(8).every((r) => r.day >= 26)).toBe(true);
+    expect(ledger.cashCents).toBe(cash);
+    expect(sum(ledger)).toBe(cash);
+  });
+
+  it('keeps day 1 whole while Finance’s two quarters reach back to it, and folds it at day 16’s close', () => {
+    const ledger = foundLedger();
+    for (let day = 1; day <= 15; day++) {
+      postDay(ledger, day);
+      closeDay(ledger, day);
+    }
+    expect(rowsOfDay(ledger, 1)).toHaveLength(4);
+    postDay(ledger, 16);
+    closeDay(ledger, 16);
+    expect(rowsOfDay(ledger, 1)).toEqual([
+      { day: 1, kind: 'fares', amountCents: 100_000 },
+      { day: 1, kind: 'wages', amountCents: -60_000 },
+    ]);
+    expect(rowsOfDay(ledger, 2)).toHaveLength(4);
+  });
+
+  // Finance's chart reads its last CHART_DAYS days and the report card its quarter's: a day folded
+  // within them would show on the chart and grade as a day of nothing. Shown failing (TS-04) on
+  // 001fc4a, which had no DAYS_KEPT, and with DAYS_KEPT a day short of the chart: 15 against 16.
+  it('keeps whole every day Finance’s chart and the report card read', () => {
+    expect(DAYS_KEPT).toBeGreaterThanOrEqual(CHART_DAYS);
+    expect(DAYS_KEPT).toBeGreaterThanOrEqual(DAYS_PER_QUARTER);
   });
 });
 

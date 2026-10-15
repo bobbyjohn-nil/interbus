@@ -62,6 +62,8 @@ export interface PacingResult {
   readonly tripsADay: number;
   readonly carried: number;
   readonly cashCents: number;
+  /** Day 2's running net, read at its close (bench/pacing.ts's founding-recipe band): the ledger folds a closed day once Finance no longer shows it (economy/ledger.ts DAYS_KEPT). Null if day 2 never closed. */
+  readonly secondDayNetCents: number | null;
 }
 
 /** A line whose first stop is farther than this from every depot gets a depot of its own, as a player would place one. */
@@ -172,6 +174,7 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
   const contracts: { day: number; landmark: string; kind: string; ask: number; rewardCents: number }[] = [];
   const cards: { day: number; overall: number; lowest: string; lowestGrade: number; trips: number }[] = [];
   let tripsADay = 0;
+  let secondDayNetCents: number | null = null;
   // Nothing is tried until the cash could pay for the cheapest line: four stops and two Sparrows.
   const cheapest = 4 * STOP_COST_CENTS + 2 * SPARROW.priceCents;
 
@@ -182,6 +185,7 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
     for (const e of events) {
       if (e.kind !== 'day-closed') continue;
       tripsADay = e.trips;
+      if (e.day === 2) secondDayNetCents = e.rows.filter((r) => isOperating(r.kind)).reduce((s, r) => s + r.amountCents, 0);
       if (profitableDays(world.state.ledger, e.day + 1) > 0) mark('profit', e.day);
       if (e.card) {
         mark('reportCard', e.day);
@@ -203,5 +207,5 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
     lines.push({ name: next.name, day: day + 1, minutes: Math.round(minutes * 10) / 10, gainCents: next.gainCents });
     if (lines.length === 1) mark('secondLine', day + 1);
   }
-  return { at, lines, contracts, cards, tripsADay, carried: world.state.tripsCarried, cashCents: world.state.ledger.cashCents };
+  return { at, lines, contracts, cards, tripsADay, carried: world.state.tripsCarried, cashCents: world.state.ledger.cashCents, secondDayNetCents };
 }

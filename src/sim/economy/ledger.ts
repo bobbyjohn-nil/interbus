@@ -10,6 +10,7 @@
 // per thing bought (buses, stops, stop upgrades, depots), so Finance can say where the money went
 // (D25); the kinds and their groups are sim/rules/money.ts.
 import { CREDIT_LIMIT_CENTS, STARTING_CASH_K_PERMILLE } from '../config/economy';
+import { DAYS_PER_QUARTER } from '../config/time';
 import { starterLineCents } from './starter';
 import type { LineId } from '../core/ids';
 import { ok, refuse, type Result } from '../core/result';
@@ -94,26 +95,73 @@ export function spendParts(
 }
 
 /**
+ * The days the ledger keeps in full, today among them: Finance's two quarters (finance.ts CHART_DAYS;
+ * ledger.test.ts holds this no shorter), which hold its chart, its quarter so far, yesterday and
+ * today, and the report card's quarter and the day card's day with them. No reader reads a closed day
+ * further back, so those fold (foldDays).
+ */
+export const DAYS_KEPT = 2 * DAYS_PER_QUARTER;
+
+/**
  * Closes a day: its rows merge into one per kind and line, in ROW_KINDS order then by line, so a save
- * grows by a day card a day rather than by every hour's rows. Cash and the day card's totals are
+ * grows by a day card a day rather than by every hour's rows; and the day that falls out of Finance's
+ * two quarters folds, so a save stops growing once they are full. Cash and the day card's totals are
  * unchanged (I1). A day's rows sit together at the end of the ledger when it closes.
  */
 export function closeDay(ledger: Ledger, day: number): void {
   const first = ledger.rows.findIndex((r) => r.day === day);
-  if (first < 0) return;
-  const merged = new Map<string, LedgerRow>();
-  for (const r of ledger.rows.slice(first)) {
-    if (r.day !== day) throw new RangeError(`day ${day} closes with a row of day ${r.day} after it`);
-    const key = `${r.kind} ${r.lineId ?? ''}`;
-    const had = merged.get(key);
-    merged.set(key, had ? { ...had, amountCents: had.amountCents + r.amountCents } : r);
+  if (first >= 0) {
+    const merged = new Map<string, LedgerRow>();
+    for (const r of ledger.rows.slice(first)) {
+      if (r.day !== day) throw new RangeError(`day ${day} closes with a row of day ${r.day} after it`);
+      const key = `${r.kind} ${r.lineId ?? ''}`;
+      const had = merged.get(key);
+      merged.set(key, had ? { ...had, amountCents: had.amountCents + r.amountCents } : r);
+    }
+    ledger.rows.length = first;
+    for (const r of [...merged.values()].sort((a, b) => kindOrder(a) - kindOrder(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
   }
-  const order = (r: LedgerRow) => ROW_KINDS.indexOf(r.kind);
-  ledger.rows.length = first;
-  for (const r of [...merged.values()].sort((a, b) => order(a) - order(b) || (a.lineId ?? 0) - (b.lineId ?? 0))) ledger.rows.push(r);
+  foldDays(ledger, day + 1 - DAYS_KEPT);
 }
 
-/** Closed days (before `today`) whose operating rows, income and running costs (sim/rules/money.ts), sum above zero: the checklist's "a day in profit". */
+const kindOrder = (r: LedgerRow) => ROW_KINDS.indexOf(r.kind);
+
+/**
+ * Folds the closed days up to `last` into totals (the systems audit's third round: a long game's save
+ * had outgrown the browser's storage): one row a kind, with no line, on at most two days, the days in
+ * profit on the last of them and the rest on the last of theirs. Every kind's total and cash stay as
+ * they were, and so does the checklist's "a day in profit" (profitableDays), which reads every closed
+ * day. Folded rows are ordinary rows in day order, so any build's save reader takes them, and a fold
+ * folds again to itself: a save from before, folded at its next close, keeps what this one would have.
+ */
+export function foldDays(ledger: Ledger, last: number): void {
+  // The starting cash stays first, on Day 0; the days up to `last` follow it.
+  const from = ledger.rows[0]?.kind === 'founding' ? 1 : 0;
+  let to = from;
+  while (to < ledger.rows.length && ledger.rows[to]!.day <= last) to++;
+  if (to === from) return;
+  const blocks = { profit: { day: 0, sums: new Map<RowKind, number>() }, rest: { day: 0, sums: new Map<RowKind, number>() } };
+  for (let k = from; k < to; ) {
+    const day = ledger.rows[k]!.day;
+    let end = k;
+    let net = 0;
+    for (; end < to && ledger.rows[end]!.day === day; end++) if (isOperating(ledger.rows[end]!.kind)) net += ledger.rows[end]!.amountCents;
+    const block = net > 0 ? blocks.profit : blocks.rest;
+    block.day = day;
+    for (; k < end; k++) block.sums.set(ledger.rows[k]!.kind, (block.sums.get(ledger.rows[k]!.kind) ?? 0) + ledger.rows[k]!.amountCents);
+  }
+  const folded = [blocks.profit, blocks.rest]
+    .filter((b) => b.sums.size > 0)
+    .sort((a, b) => a.day - b.day)
+    .flatMap((b) => ROW_KINDS.filter((kind) => b.sums.has(kind)).map((kind): LedgerRow => ({ day: b.day, kind, amountCents: b.sums.get(kind)! })));
+  ledger.rows.splice(from, to - from, ...folded);
+}
+
+/**
+ * Closed days (before `today`) whose operating rows, income and running costs (sim/rules/money.ts), sum
+ * above zero: the checklist's "a day in profit", which reads only whether there is one. Days folded
+ * (foldDays) count once at most, their days in profit together.
+ */
 export function profitableDays(ledger: Ledger, today: number): number {
   const byDay = new Map<number, number>();
   for (const r of ledger.rows) {
@@ -125,7 +173,7 @@ export function profitableDays(ledger: Ledger, today: number): number {
   return n;
 }
 
-/** The rows of one day, which are its day card (I1). */
+/** The rows of one day, which are its day card (I1), for the last DAYS_KEPT days only: older days are folded into totals (foldDays), so they read as nothing, or as many days' totals on the day a block was dated. */
 export function rowsOfDay(ledger: Ledger, day: number): LedgerRow[] {
   return ledger.rows.filter((r) => r.day === day);
 }

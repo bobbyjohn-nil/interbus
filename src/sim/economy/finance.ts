@@ -45,7 +45,7 @@ export interface FinanceLine {
   readonly forecastCents: LineCosts;
 }
 
-/** The chart shows the last two quarters' days at most. */
+/** The chart shows the last two quarters' days at most: the ledger keeps them in full and folds older days (ledger.ts DAYS_KEPT, which ledger.test.ts holds no shorter than this). */
 export const CHART_DAYS = 2 * DAYS_PER_QUARTER;
 
 export interface Finance {

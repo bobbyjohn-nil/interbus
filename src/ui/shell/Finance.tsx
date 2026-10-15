@@ -25,7 +25,7 @@ const VIEWS: readonly (readonly [FinanceViewName, string])[] = [
 /**
  * Finance (the M3 spec, item 6; D25: "it would be better with some visuals and better labeling with
  * more information about where the money is going"), in three views:
- * - **Overview:** cash, yesterday's and the quarter's running net, and a chart of the days since Day 0;
+ * - **Overview:** cash, yesterday's and the quarter's running net, and a chart of the last 16 days (from Day 0 early in a game);
  * - **Breakdown:** every ledger row by kind under where the money comes from or goes, for today,
  *   yesterday and the quarter, beside a whole day's forecast; capital is in, so each column adds up to
  *   the change in cash over it. Each group's heading gives its subtotals and folds it; buying and
