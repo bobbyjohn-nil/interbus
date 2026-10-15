@@ -459,4 +459,6 @@ export type FromWorker =
   /** Null for a line that runs no buses. */
   | { readonly type: 'fare-band'; readonly id: number; readonly lineId: number; readonly band: FareBandView | null }
   | ({ readonly type: 'refused'; readonly command: string } & RefusalView)
+  /** An undo took a command back (its snapshot follows): with an undo's refusal, every undo has its answer, so the page knows which were done. */
+  | { readonly type: 'undone' }
   | { readonly type: 'failed'; readonly problem: string };

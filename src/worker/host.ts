@@ -815,6 +815,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         else {
           refreshLines();
           save();
+          post({ type: 'undone' });
         }
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'slots') {

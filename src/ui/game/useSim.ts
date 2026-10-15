@@ -45,8 +45,15 @@ export interface Sim {
   readonly routeRefusals: number;
   /** How many Creates the sim has refused, counted as Save route's are, so a Create on its way knows its answer. */
   readonly createRefusals: number;
-  /** How many undos the page has sent: an undo while a Create is on its way lets Create go (game/Tools.tsx, createWaits). */
-  readonly undos: number;
+  /**
+   * The undos the page has sent the sim (Ctrl+Z, ⌘Z or the Undo chip: `sent`), and the newest of them the
+   * sim did, taking a command back, by its place in that count (`done`, 0 before any): every undo has one
+   * answer, 'undone' or its refusal, in the order sent. Its two users: a Create on its way (game/Tools.tsx,
+   * createWaits) and a Save route on its way (game/RouteEditor.tsx, pressSave and followed) each keep `sent`
+   * from the press and let go once `done` passes it, as an undo sent after the press took a command back.
+   * One the sim refused, as it refuses every undo while time runs, lets neither go.
+   */
+  readonly undos: { readonly sent: number; readonly done: number };
   /** What became of the save this game started from. */
   readonly load: LoadView | null;
   /** The save slots, once asked for (Saves panel), and the last slot or file that became the game. */
@@ -95,7 +102,7 @@ export function useSim(city: City | undefined): Sim {
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
   const [routeRefusals, setRouteRefusals] = useState(0);
   const [createRefusals, setCreateRefusals] = useState(0);
-  const [undos, setUndos] = useState(0);
+  const [undos, setUndos] = useState<Sim['undos']>({ sent: 0, done: 0 });
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
   const [setAside, setSetAside] = useState<Sim['setAside']>(null);
@@ -143,6 +150,8 @@ export function useSim(city: City | undefined): Sim {
       .then(([simText, w]) => {
         if (stopped) return w.terminate();
         worker.current = w;
+        // The undos this worker has answered, done or refused: the newest done is the answer's place among those sent.
+        let undoAnswers = 0;
         w.onmessage = (event: MessageEvent<FromWorker>) => {
           const m = event.data;
           if (m.type === 'ready') {
@@ -213,7 +222,11 @@ export function useSim(city: City | undefined): Sim {
           } else if (m.type === 'failed') {
             errors.report({ severity: 'fatal', source: 'sim', code: 'start-failed', detail: m.problem });
             setStatus('failed');
+          } else if (m.type === 'undone') {
+            const done = ++undoAnswers;
+            setUndos((u) => ({ ...u, done }));
           } else if (m.type === 'refused') {
+            if (m.command === 'undo') undoAnswers++;
             setRefusal({ ...m, command: m.command });
             if (m.command === 'set-route') setRouteRefusals((n) => n + 1);
             if (m.command === 'create-line') setCreateRefusals((n) => n + 1);
@@ -237,7 +250,8 @@ export function useSim(city: City | undefined): Sim {
   const send = useCallback((message: ToWorker) => {
     // Listing the saves is no command, so a refusal on screen stays (Saves lists them again at each save).
     if (message.type !== 'slots') setRefusal(null);
-    if (message.type === 'undo') setUndos((n) => n + 1);
+    // Counted only when it reaches the sim, so each undo sent has its answer.
+    if (message.type === 'undo' && worker.current) setUndos((u) => ({ ...u, sent: u.sent + 1 }));
     worker.current?.postMessage(message);
   }, []);
   const probeAt = useCallback((dot: ProbeDot | null) => {

@@ -11,7 +11,7 @@ import { FailureCard } from "./game/FailureCard";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
-import { followed, pressSave, RouteEditor, routeOf, type RoutePoint, type Routing } from "./game/RouteEditor";
+import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { focusSource } from "./focusSource";
@@ -202,13 +202,12 @@ export function App() {
   const routingLine = routing
     ? (sim.snapshot?.lines.find((l) => l.id === routing.lineId) ?? null)
     : null;
-  const routingStops = routingLine ? routingLine.stopIds.join(",") : null;
   // During render, as the play speed follows the game (React's pattern for state that follows a prop).
   if (routing && !routingLine) {
     // Its line gone under it (an undo): the editor and its tool go down together, as Cancel puts them down.
     setTool("none");
     setRouting(null);
-  } else if (routing && routing.saved !== null && routingStops !== routing.saved.stops) {
+  } else if (routing && routingLine && saveLanded(routing, routingLine)) {
     setTool("none");
     setRouting(null);
     setLineId(routing.lineId);
@@ -216,7 +215,7 @@ export function App() {
   } else if (routing && routingLine && game) {
     // The list follows the line as the game changes it under the editor, and a save that did not land
     // can be pressed again.
-    const next = followed(routing, routingLine, game, sim.routeRefusals);
+    const next = followed(routing, routingLine, game, sim.routeRefusals, sim.undos);
     if (next !== routing) setRouting(next);
   }
   // Lines with no line left to show (an undo took back the only one) closes, as Escape closes it, so
@@ -240,7 +239,7 @@ export function App() {
   // A Create on its way: until its own answer (a newer line, or a Create refused), a second press sends
   // nothing (createWaits, game/Tools.tsx). Let go during render, as the route editor follows the game.
   const [createPress, setCreatePress] = useState<CreatePress | null>(null);
-  const createNow = { tool, newest: newest ?? 0, refusals: sim.createRefusals, undos: sim.undos, loadedAt: sim.loaded?.at ?? null };
+  const createNow = { tool, newest: newest ?? 0, refusals: sim.createRefusals, undos: sim.undos.sent, undone: sim.undos.done, loadedAt: sim.loaded?.at ?? null };
   if (createPress && !createWaits(createPress, createNow)) setCreatePress(null);
   // Counted from the game as it starts, so a reloaded game's lines are not new ones.
   const counts = useRef<{ depots: number; lines: number } | null>(null);
@@ -316,12 +315,13 @@ export function App() {
         return;
       // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A button the keyboard reached
       // keeps Space, so Space still presses it; one pressed with the mouse does not, or Space pressed it
-      // again (opening the speed menu, closing Finance, taking back one more command).
+      // again (opening the speed menu, closing Finance, taking back one more command). A held Space
+      // pauses or plays once, as a button's press does (DemandMenu.tsx, tilt.ts): its repeats send nothing.
       const { now, play, founded } = speedRef.current;
       const keeps = event.target instanceof HTMLButtonElement && focus.current.byKey;
       if (founded && event.key === " " && !keeps) {
         event.preventDefault();
-        send({ type: "speed", speed: now === 0 ? play : 0 });
+        if (!event.repeat) send({ type: "speed", speed: now === 0 ? play : 0 });
         return;
       }
       const pick = founded && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
@@ -363,7 +363,7 @@ export function App() {
           onPoints={(points) => setRouting({ ...routing, points, saved: null })}
           onSave={() => {
             // One press, one command: a second before the first lands (a double-click) sends nothing.
-            const next = pressSave(routing, routingLine, sim.routeRefusals);
+            const next = pressSave(routing, routingLine, sim.routeRefusals, sim.undos);
             if (!next) return;
             setRouting(next);
             send({ type: "set-route", lineId: routing.lineId, points: routing.points.map((p) => p.at) });

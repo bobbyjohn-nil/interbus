@@ -596,6 +596,24 @@ describe('undo while paused (I9)', () => {
     expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: paused.cashCents, elapsed: paused.elapsed, lines: [{ id: paused.lines[0]!.id }] });
   });
 
+  // Every undo has one answer, 'undone' or its refusal, so the page knows which undos took a command back
+  // (useSim's undos): a Create or a Save route on its way lets go only on one of those. Shown failing
+  // (TS-04) on 5f4bce3, whose host said nothing of an undo done: the first expect read [], not ['done'].
+  it('says each undo that took a command back before its snapshot, and nothing more for an undo refused', () => {
+    const { host, out } = foundedWithSaves();
+    const answers = () => out.flatMap((m) => (m.type === 'undone' ? ['done'] : m.type === 'refused' && m.command === 'undo' ? [m.reason] : []));
+    const depot = depotSpot((out.find((m) => m.type === 'ready') as Extract<FromWorker, { type: 'ready' }>).depotLand as [number, number][][]);
+    host.handle({ type: 'place-depot', at: depot });
+    host.handle({ type: 'undo' });
+    expect(answers()).toEqual(['done']);
+    expect(out.at(-1)).toMatchObject({ type: 'snapshot', snapshot: { depots: [] } });
+    host.handle({ type: 'undo' });
+    host.handle({ type: 'place-depot', at: depot });
+    host.handle({ type: 'speed', speed: 3 }); // time runs: the depot can no longer be taken back
+    host.handle({ type: 'undo' });
+    expect(answers()).toEqual(['done', 'nothing_to_undo', 'time_has_run']);
+  });
+
   // Run it on the line's own headways changes nothing: refused in words, as the same fare is, with nothing kept for the next undo
   // to spend itself on and no save. Shown failing (TS-04) on 2a00661: accepted, the chip reading "Undo: Line 1's headways".
   it('refuses headways the line already runs, and keeps nothing to undo for them', () => {

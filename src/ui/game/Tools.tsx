@@ -78,9 +78,10 @@ export interface CreatePress {
   readonly loadedAt: number | null;
 }
 
-/** What createWaits reads of the game now: the tool out, and the same counts as CreatePress. */
+/** What createWaits reads of the game now: the tool out, the same counts as CreatePress, and the newest undo the sim did, by its place among those sent (Sim's undos.done). */
 export interface CreateNow extends CreatePress {
   readonly tool: Tool;
+  readonly undone: number;
 }
 
 /**
@@ -88,10 +89,12 @@ export interface CreateNow extends CreatePress {
  * pressSave): until a line newer than the press stands or the sim refuses a Create, a second press sends
  * nothing. A refresh of the lines that is not its answer, such as the day's close or roadworks retiming
  * them, leaves it waiting. It never outlasts the tool, the game it was pressed in or an undo sent after
- * it: a Create and an Undo answered together leave no newer line to see, and Create opens again.
+ * it that the sim did: a Create and an Undo answered together leave no newer line to see, and Create
+ * opens again. An undo not yet answered, or refused, as every undo is while time runs, lets nothing go,
+ * so a second press meanwhile still buys no second line.
  */
 export function createWaits(press: CreatePress, now: CreateNow): boolean {
-  return now.tool === "line" && now.loadedAt === press.loadedAt && now.undos === press.undos && now.newest <= press.newest && now.refusals <= press.refusals;
+  return now.tool === "line" && now.loadedAt === press.loadedAt && now.undone <= press.undos && now.newest <= press.newest && now.refusals <= press.refusals;
 }
 
 /**
