@@ -2,14 +2,16 @@
 // moves more than 5 m, buses out never exceed buses owned, and the merged plan hands over to the
 // line's own day plan with nothing moving there either. On the debug line laid straight east, for a
 // headway change, a slower round trip, an extension, its first stop dropped and a model swap, each at
-// random instants of the service day.
+// random instants of the service day. Changed again within a round trip, a bus finishing a trip from
+// before both carries on only where neither change moved its first stop or swapped its model. Drawn
+// mid-day and changed again after it has handed over, a line still runs nothing before the draw.
 import { describe, expect, it } from 'vitest';
 import { SECONDS_PER_DAY } from '../config/time';
 import { createRng } from '../core/rng';
 import type { LngLatPair } from '../types';
 import { busPositionsAt, positionsInEffect, prepareGeometry, type LineGeometry, type PreparedGeometry } from './position';
 import { busesOut, dayPlan, type PlanInputs } from './schedule';
-import { planInEffect, type Earlier } from './transition';
+import { planInEffect, versionAt, type Earlier } from './transition';
 
 const LAT = 42.35;
 const M_LON = 111_320 * Math.cos((LAT * Math.PI) / 180);
@@ -105,4 +107,111 @@ describe('a line changed while its buses are out (I6)', () => {
       }
     });
   }
+});
+
+describe('a line changed again within a round trip (I6)', () => {
+  const KEEPS = [
+    { sameModel: true, sameStart: true },
+    { sameModel: true, sameStart: false },
+    { sameModel: false, sameStart: true },
+    { sameModel: false, sameStart: false },
+  ] as const;
+  const v0 = inputs(DEBUG, 600, 3);
+  const v1 = inputs(DEBUG, 900, 3);
+  const v2 = inputs(DEBUG, 720, 3);
+  const v3 = inputs(DEBUG, 600, 4, 0.9);
+
+  // A bus out at both changes heads home after its trip if either moved its first stop, and is back
+  // in the depot for the line if neither swapped its model, so the two plan as one change. Shown
+  // failing (TS-04) on 5f4bce3: a first stop moved and then the headways changed at 14:53:57, and the
+  // buses the first change sent home took the second's departures from the other end.
+  it('plans two changes at one instant as one change straight to the second, its first stop and model kept only if both kept them', () => {
+    const rng = createRng(17);
+    for (const a of KEEPS) {
+      for (const b of KEEPS) {
+        for (let run = 0; run < 5; run++) {
+          const at = rng.int(6 * 3_600, 22 * 3_600);
+          const label = `${JSON.stringify(a)} then ${JSON.stringify(b)} at ${at}`;
+          const two = planInEffect(v2, [
+            { inputs: v0, until: at, ...a },
+            { inputs: v1, until: at, ...b },
+          ]).merged!;
+          const one = planInEffect(v2, [{ inputs: v0, until: at, sameModel: a.sameModel && b.sameModel, sameStart: a.sameStart && b.sameStart }]).merged!;
+          expect({ trips: two.trips, stints: two.stints, handover: two.handover }, label).toEqual({ trips: one.trips, stints: one.stints, handover: one.handover });
+        }
+      }
+    }
+  });
+
+  // A bus of the old model on its way home at the second change, or waiting at the first stop at the
+  // swap and so sent home from there, was sold: the second change keeps the model it is not, and
+  // finds every one of the new model's buses in the depot, as one change straight to it would. With
+  // the old buses' drive home long and the new timetable needing every bus at once, a sold bus
+  // counted as the line's leaves a departure no bus can make. Shown failing (TS-04) on 5f4bce3, and
+  // with only the branch for a bus on its way home put back as it was there (the latest change's
+  // sameModel): at 16:45:22 the 17:10 departure went unrun, a sold bus due home 30 minutes on counted
+  // as the one to run it.
+  it('counts no sold bus on its way home as the line’s at a second change made at the same instant', () => {
+    const far = { ...v0, pullInS: 1_800 };
+    const tight = inputs(DEBUG, 300, 5);
+    const rng = createRng(31);
+    for (let run = 0; run < 25; run++) {
+      const at = rng.int(6 * 3_600, 22 * 3_600);
+      const swap: Earlier = { inputs: far, until: at, sameModel: false, sameStart: true };
+      const two = planInEffect(tight, [swap, { inputs: v1, until: at, sameModel: true, sameStart: true }]).merged!;
+      const one = planInEffect(tight, [swap]).merged!;
+      expect({ trips: two.trips, stints: two.stints, handover: two.handover }, `at ${at}`).toEqual({ trips: one.trips, stints: one.stints, handover: one.handover });
+    }
+  });
+
+  // Shown failing (TS-04) on 5f4bce3: a model swap at 11:48:33 between two changes that kept it, and a
+  // bus of the first version took a departure of the last.
+  it('never hands a bus a departure across a change that moved its first stop or swapped its model, over three changes within a round trip', () => {
+    const rng = createRng(29);
+    for (let run = 0; run < 60; run++) {
+      const t1 = rng.int(6 * 3_600, 22 * 3_600);
+      const t2 = t1 + rng.int(0, 900);
+      const t3 = t2 + rng.int(0, 900);
+      const earlier: Earlier[] = [v0, v1, v2].map((inputs, k) => ({ inputs, until: [t1, t2, t3][k]!, ...KEEPS[rng.int(0, 3)]! }));
+      const m = planInEffect(v3, earlier).merged!;
+      for (const s of m.stints) {
+        for (let i = 1; i < s.trips.length; i++) {
+          const [from, to] = [versionAt(m, s.trips[i - 1]!), versionAt(m, s.trips[i]!)];
+          const crossed = earlier.slice(from, to);
+          expect(
+            crossed.every((e) => e.sameModel && e.sameStart),
+            `${JSON.stringify(earlier.map((e) => [e.until, e.sameModel, e.sameStart]))}: a bus from version ${from} takes a departure of ${to}`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+// A line drawn mid-day changes from a version that ran no bus, and keeps it through that day (world.ts),
+// so a second change after it has handed over to its own day plan still finds nothing run before the
+// draw: the merged plan keeps what ran past a handover, rather than starting again from the day plan.
+// Shown failing (TS-04) with merge() starting again from the latest version's day plan past a handover:
+// drawn at 13:13:42 and changed at 15:39:40, the plan ran the 164 departures before the draw, the day
+// before's included.
+describe('a line drawn, then changed again after it has handed over (I6, I1)', () => {
+  it('runs nothing before the draw, and every bus out at the second change as the first left it', () => {
+    const rng = createRng(37);
+    const drawn = inputs(DEBUG, 600, 3);
+    const none = { ...drawn, timing: { ...drawn.timing, buses: 0 } };
+    for (let run = 0; run < 10; run++) {
+      const t0 = rng.int(6 * 3_600, 20 * 3_600);
+      const first = planInEffect(drawn, [{ inputs: none, until: t0, sameModel: true, sameStart: true }]).merged!;
+      expect(first.trips.filter((t) => t < t0)).toEqual([]);
+      const t1 = first.handover + rng.int(0, 2 * 3_600);
+      const m = planInEffect(inputs(DEBUG, 900, 3), [
+        { inputs: none, until: t0, sameModel: true, sameStart: true },
+        { inputs: drawn, until: t1, sameModel: true, sameStart: true },
+      ]).merged!;
+      expect(m.trips.filter((t) => t < t0), `drawn at ${t0}, changed at ${t1}`).toEqual([]);
+      expect(m.versions, `drawn at ${t0}, changed at ${t1}`).toHaveLength(3);
+      expect(m.trips.filter((t) => t < t1)).toEqual(first.trips.filter((t) => t < t1));
+      expect(m.stints.filter((st) => st.leaveDepot < t0)).toEqual([]);
+    }
+  });
 });

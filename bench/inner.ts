@@ -11,16 +11,22 @@ import { createWorld, planLine, type World } from '../src/sim/world';
 
 const BAKED = '.cache/bake/boston/sim-inner-boston.json';
 
-/** Inner Boston's sim file: the local bake, else the published one in public/cities, else null. */
-export function innerBostonCity(): City | null {
+/** Inner Boston's sim file's text: the local bake, else the published one in public/cities, else null. */
+export function innerBostonText(): string | null {
   let path = BAKED;
   if (!existsSync(path)) {
     const index = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { sim?: { file: string } }[] };
     const file = index.cities[0]?.sim?.file;
     path = file ? `public/cities/${file}` : '';
   }
-  if (!path || !existsSync(path)) return null;
-  const loaded = loadCity(readFileSync(path, 'utf8'));
+  return path && existsSync(path) ? readFileSync(path, 'utf8') : null;
+}
+
+/** Inner Boston's sim file, read as innerBostonText finds it, or null. */
+export function innerBostonCity(): City | null {
+  const text = innerBostonText();
+  if (text === null) return null;
+  const loaded = loadCity(text);
   if (!loaded.ok) throw new Error(loaded.problem);
   return loaded.city;
 }

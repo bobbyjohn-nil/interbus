@@ -1,17 +1,20 @@
 // Finance (the M3 spec, item 6; D25): every ledger row by kind, for today so far, yesterday and this
-// quarter so far, beside a whole day's forecast. Capital rows (buses, stops and depots bought and sold)
+// quarter so far, beside a day's forecast. Capital rows (buses, stops and depots bought and sold)
 // are included, so each column adds up to the change in cash over it; V1 and V2 left fixed costs and
 // capital out, so their "profit" overstated. The starting cash sits on Day 0, before every column.
 // The forecast is the inspector's: the modelled paid riders' fares and subsidy, each line's day plan's
 // costs to the cent, each depot's and stop's upkeep, and a day's interest while cash is below zero;
-// capital, contracts and the report card have none (sim/rules/money.ts).
+// capital, contracts and the report card have none (sim/rules/money.ts). A line's costs are today's as
+// the day banks them, so on the day it is drawn they count from its first drive out, and its fares and
+// subsidy from the hour it was drawn: the whole of that clock hour, as step.ts banks riders by the hour.
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
 import { DAYS_PER_QUARTER } from '../config/time';
 import { INTEREST_PER_DAY_PPM } from '../config/economy';
 import { toCalendarTime } from '../core/calendar';
 import { subsidyCents } from '../rules/fare';
 import { isOperating, ROW_GROUP } from '../rules/money';
-import type { World } from '../world';
+import type { Line } from '../state';
+import { drawnAt, type World } from '../world';
 import { forecastDay, stopsUpkeepCents, type LineCosts } from './costs';
 import { ROW_KINDS, type RowKind } from './ledger';
 
@@ -20,7 +23,7 @@ export interface FinanceRow {
   readonly todayCents: number;
   readonly yesterdayCents: number;
   readonly quarterCents: number;
-  /** A whole day's forecast, or null for a row no day plans: capital, a contract's reward, the report card, the opening. */
+  /** A day's forecast (a line drawn today from the hour it was drawn), or null for a row no day plans: capital, a contract's reward, the report card, the opening. */
   readonly forecastCents: number | null;
 }
 
@@ -36,12 +39,14 @@ export interface FinanceDay {
   readonly cashCents: number;
 }
 
-/** One line's own money: yesterday's (rows that name it), what its riders paid and what running it cost, and its costs in the day's forecast. */
+/** One line's own money: yesterday's (rows that name it), what its riders paid and what running it cost, and its income and costs in the day's forecast. */
 export interface FinanceLine {
   readonly id: number;
   readonly yesterdayInCents: number;
   readonly yesterdayOutCents: number;
-  /** A whole day's costs, positive: its share of the forecast column's running, wages and deadhead rows, worked out with them. */
+  /** Its riders' fares and subsidy: its share of the forecast column's fares and subsidy rows, on the day it was drawn from the hour it was drawn (paidRidersOn). */
+  readonly incomeCents: number;
+  /** A day's costs (on the day it was drawn, from its first drive out), positive: its share of the forecast column's running, wages and deadhead rows, worked out with them. */
   readonly forecastCents: LineCosts;
 }
 
@@ -63,9 +68,24 @@ export interface Finance {
   readonly rows: readonly FinanceRow[];
 }
 
-/** A whole day's running costs as the forecast column has them, interest included: the Costs/day chip, so the two never disagree. */
+/** A day's running costs as the forecast column has them (a line drawn today from its first drive out), interest included: the Costs/day chip, so the two never disagree. */
 export function runningCostsCents(f: Pick<Finance, 'rows'>): number {
   return -f.rows.reduce((sum, r) => sum + (ROW_GROUP[r.kind] === 'running' ? (r.forecastCents ?? 0) : 0), 0);
+}
+
+/**
+ * A line's modelled paid riders on game day `day`, whole, as its hours bank them (step.ts): a whole
+ * day's, but on the day it was drawn only from the hour it was drawn, the whole of that clock hour,
+ * since bankHour banks an hour's riders at its end; its costs that day count from its first drive out
+ * (it keeps the version before the draw, which ran no bus, until the day's close: world.ts).
+ */
+function paidRidersOn(world: Pick<World, 'assignment'>, line: Pick<Line, 'id' | 'earlier'>, day: number): number {
+  const demand = world.assignment.lines.get(line.id);
+  if (!demand) return 0;
+  const drawn = drawnAt(line);
+  const at = drawn === null ? null : toCalendarTime(drawn);
+  if (!at || at.day !== day) return Math.floor(demand.paidPerDay);
+  return Math.floor(demand.paidBySlot.subarray(2 * at.hour).reduce((sum, paid) => sum + paid, 0));
 }
 
 export function finance(world: World): Finance {
@@ -120,10 +140,13 @@ export function finance(world: World): Finance {
     interest: owing > 0 ? -Math.round((owing * INTEREST_PER_DAY_PPM) / 1_000_000) : 0,
   };
   const lineCosts = new Map<number, LineCosts>();
+  const lineIncome = new Map<number, number>();
   for (const line of state.lines) {
-    const riders = Math.floor(world.assignment.lines.get(line.id)?.paidPerDay ?? 0);
-    forecast.fares! += riders * line.fareCents;
-    forecast.subsidy! += riders * subsidyCents(line.fareCents);
+    const riders = paidRidersOn(world, line, t.day);
+    const [fares, subsidy] = [riders * line.fareCents, riders * subsidyCents(line.fareCents)];
+    forecast.fares! += fares;
+    forecast.subsidy! += subsidy;
+    lineIncome.set(line.id, fares + subsidy);
     const service = world.services.get(line.id);
     if (!service) continue;
     // Today's, so a line settling after a change bills each leg at the version it runs on, as the day will bank it.
@@ -141,7 +164,7 @@ export function finance(world: World): Finance {
     days: chart,
     lines: state.lines.map((l) => {
       const s = lineSums.get(l.id)!;
-      return { id: l.id, yesterdayInCents: s.in, yesterdayOutCents: s.out, forecastCents: lineCosts.get(l.id) ?? { running: 0, wages: 0, deadhead: 0 } };
+      return { id: l.id, yesterdayInCents: s.in, yesterdayOutCents: s.out, incomeCents: lineIncome.get(l.id)!, forecastCents: lineCosts.get(l.id) ?? { running: 0, wages: 0, deadhead: 0 } };
     }),
     rows: ROW_KINDS.map((kind) => {
       const s = sums.get(kind)!;

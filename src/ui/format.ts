@@ -137,7 +137,7 @@ export function rowName(kind: string): string {
 
 /** What a ledger row's name leaves out, as its tooltip. */
 export const ROW_HINTS: Partial<Readonly<Record<RowKind, string>>> = {
-  running: 'Fuel, wear and maintenance for every kilometre a bus drives',
+  running: 'Fuel, wear and maintenance for every kilometer a bus drives',
   deadhead: 'Buses driving out of the depot before their first trip and back after their last',
   upkeep: 'Each depot’s upkeep, a day',
   stopUpkeep: 'Each stop’s upkeep, a day: a thousandth of what it cost to build',

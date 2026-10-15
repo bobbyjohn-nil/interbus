@@ -30,7 +30,6 @@ function lineView(change: Partial<LineView>): LineView {
     fareCents: 225,
     turnedAwayPerDay: 0,
     fullAtMinute: null,
-    incomeCents: 0,
     headways: { peak: 600, offpeak: 900, overnight: null },
     cycle: 1_539,
     cycles: { peak: 1_539, offpeak: 1_539, overnight: 1_539 },

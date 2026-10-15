@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../../sim/rules/money';
-import type { FinanceView, LineView } from '../../sim/types';
+import type { FinanceView } from '../../sim/types';
 import { Dropdown } from '../Dropdown';
 import { about, GROUP_NAMES, quarterText, ROW_HINTS, rowName, usd } from '../format';
 import { bandText } from '../game/LineCard';
@@ -27,9 +27,10 @@ const VIEWS: readonly (readonly [FinanceViewName, string])[] = [
  * more information about where the money is going"), in three views:
  * - **Overview:** cash, yesterday's and the quarter's running net, and a chart of the last 16 days (from Day 0 early in a game);
  * - **Breakdown:** every ledger row by kind under where the money comes from or goes, for today,
- *   yesterday and the quarter, beside a whole day's forecast; capital is in, so each column adds up to
- *   the change in cash over it. Each group's heading gives its subtotals and folds it; buying and
- *   building starts folded, so a late game's table stays inside I13's panel budget;
+ *   yesterday and the quarter, beside a day's forecast, a line drawn today counted from the hour it was
+ *   drawn; capital is in, so each column adds up to the change in cash over it. Each group's heading
+ *   gives its subtotals and folds it; buying and building starts folded, so a late game's table stays
+ *   inside I13's panel budget;
  * - **Lines:** each line's own money and its fare, the fare picked here (D25: "finances should be in
  *   the finances tab"), with the fares that make it the most.
  */
@@ -102,7 +103,7 @@ export function Breakdown({ finance: f, today, quarter, fold = FOLDED }: { finan
           <th scope="col">Today</th>
           <th scope="col">Yesterday</th>
           <th scope="col">{quarterText(f.quarterFirstDay)}</th>
-          <th scope="col" title="A whole day’s forecast, from today’s lines, fares and riders">
+          <th scope="col" title="A day’s forecast, from today’s lines, fares and riders: a line you drew today counts from the hour you drew it">
             Day forecast
           </th>
         </tr>
@@ -159,9 +160,9 @@ const FARE_OPTIONS = FARES_CENTS.map((c) => ({ value: c, label: usd(c, { cents: 
 type LineCosts = FinanceView['lines'][number]['forecastCents'];
 const NO_COSTS: LineCosts = { running: 0, wages: 0, deadhead: 0 };
 
-/** A line's whole day as the plan forecasts it: its modelled riders' fares and subsidy, and its costs to the cent, the forecast column's own. */
-function dayNet(line: LineView, c: LineCosts): number {
-  return line.incomeCents - c.running - c.wages - c.deadhead;
+/** A line's day as the plan forecasts it, on the day it was drawn from the hour it was drawn: its modelled riders' fares and subsidy, and its costs to the cent, the forecast column's own. */
+function dayNet(incomeCents: number, c: LineCosts): number {
+  return incomeCents - c.running - c.wages - c.deadhead;
 }
 
 function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceView; open: number | null }) {
@@ -186,7 +187,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
           <th scope="col" title="Its fares and subsidy less its running costs, yesterday">
             Yesterday
           </th>
-          <th scope="col" title="A whole day’s forecast for the line">
+          <th scope="col" title="A day’s forecast for the line: on the day you drew it, from the hour you drew it">
             Day forecast
           </th>
         </tr>
@@ -197,9 +198,10 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
           const yesterday = money ? money.yesterdayInCents + money.yesterdayOutCents : 0;
           const expanded = open === line.id;
           const c = money?.forecastCents ?? NO_COSTS;
+          const income = money?.incomeCents ?? 0;
           return (
             <Fragment key={line.id}>
-              <tr data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(line, c)} className={expanded ? 'open' : undefined}>
+              <tr data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(income, c)} className={expanded ? 'open' : undefined}>
                 <th scope="row">
                   <button type="button" className="line-name" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : line.id)}>
                     <span className="swatch" style={{ background: line.colour }} /> {line.name}
@@ -210,7 +212,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
                   <Dropdown label={`Fare for ${line.name}`} value={line.fareCents} options={FARE_OPTIONS} testId={`fare-${line.id}`} onChange={(fareCents) => sim.send({ type: 'set-fare', lineId: line.id, fareCents })} />
                 </td>
                 <td>{f.day > 1 ? usd(yesterday) : '—'}</td>
-                <td>≈{usd(dayNet(line, c))}</td>
+                <td>≈{usd(dayNet(income, c))}</td>
               </tr>
               {expanded ? (
                 <tr className="detail">
@@ -218,7 +220,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
                     <dl className="split" data-testid="line-forecast" data-running={c.running} data-wages={c.wages} data-deadhead={c.deadhead}>
                       <div>
                         <dt>Fares and subsidy</dt>
-                        <dd>≈{usd(line.incomeCents)}</dd>
+                        <dd>≈{usd(income)}</dd>
                       </div>
                       <div title={ROW_HINTS.running}>
                         <dt>{rowName('running')}</dt>

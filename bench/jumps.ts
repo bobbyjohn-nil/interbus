@@ -2,8 +2,9 @@
 // fixture's debug line every 10 minutes, paused at 08:00 on day 2, each edit sent to the same host
 // the game runs, and every bus placed by the same fleet the vehicle layer draws, just before the edit
 // and just after, at the same second. Buses are paired in stint order. Also roadworks starting at a
-// midnight with buses still out. Then Inner Boston's recompute with every line settling (I14).
-// `npm run bench jumps`.
+// midnight with buses still out. Then Inner Boston's recompute with every line settling, and the
+// commands of a line drawn there and changed every 20 minutes through the day it was drawn, which keeps
+// every version since the draw until that day's close (I14). `npm run bench jumps`.
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import type { FromWorker, LineView, Snapshot, ToWorker } from '../src/sim/types';
@@ -14,7 +15,7 @@ import { createRng } from '../src/sim/core/rng';
 import { pickRoadworks } from '../src/sim/events/roll';
 import { gameWithDepot } from '../src/sim/testing';
 import { recompute, recomputeInService } from '../src/sim/world';
-import { innerBoston } from './inner';
+import { CORRIDORS, innerBoston, innerBostonText } from './inner';
 
 const baked = bakeSim('boston', 'mini-boston');
 const CITY = { id: 'boston', revision: 'mini-boston', hash: baked.sha256 };
@@ -127,5 +128,93 @@ for (const [name, edit] of EDITS) {
     recomputeInService(world);
     const settling = world.state.lines.filter((l) => (l.earlier ?? []).length > 0).length;
     console.log(`Inner Boston's recompute, ten corridors: ${settled} settled; ${time()} with ${settling} lines settling`);
+  }
+}
+
+// A line drawn on Inner Boston, then changed every 20 minutes through its day: it keeps every version
+// since the draw until that day's close (world.ts recomputeInService), so each change merges and the
+// worker draws one more version than the last for the vehicle layer. Each command's whole handling is
+// timed (the merge, the costs, the assignment and the line views), its headways changed back and forth
+// (every version on the same streets) or a stop added beyond its end and taken off again (each added
+// stop a new street, so the worker's routed streets must carry over from one refresh to the next);
+// I14 holds the 95th percentile to 150 ms. `change` offers places in order, and a place the rules refuse
+// (no street near) is passed over untimed; a change with none taken, or versions not kept, fails the run.
+function drawDay(text: string, what: string, change: (k: number, line: LineView) => readonly ToWorker[]): void {
+  const out: FromWorker[] = [];
+  const host = createHost((m) => out.push(m));
+  const last = <T extends FromWorker['type']>(type: T) => out.filter((m) => m.type === type).at(-1) as Extract<FromWorker, { type: T }>;
+  host.handle({ type: 'init', simText: text, city: { id: 'boston', revision: 'inner-boston', hash: '-' }, seed: 1, build: BUILD });
+  host.handle({ type: 'save-text', text: null });
+  host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+  const [, from, to, count] = CORRIDORS[0]!;
+  const clicks = Array.from({ length: count }, (_, k): [number, number] => [from[0] + ((to[0] - from[0]) * k) / (count - 1), from[1] + ((to[1] - from[1]) * k) / (count - 1)]);
+  // The depot land nearest the corridor's middle, and cash to spare, so every change goes through.
+  const mid = clicks[Math.floor(count / 2)]!;
+  const centre = (ring: readonly (readonly [number, number])[]) => ring.reduce(([x, y], p) => [x + p[0] / ring.length, y + p[1] / ring.length], [0, 0]);
+  const near = [...last('ready').depotLand].map(centre).sort((a, b) => Math.hypot(a[0]! - mid[0], a[1]! - mid[1]) - Math.hypot(b[0]! - mid[0], b[1]! - mid[1]))[0]!;
+  host.handle({ type: 'place-depot', at: [near[0]!, near[1]!] });
+  host.handle({ type: 'export' });
+  const save = JSON.parse(last('export').text) as { data: { ledger: unknown[] } };
+  save.data.ledger.push({ day: 1, kind: 'contract', amountCents: 500_000_000, lineId: null });
+  host.handle({ type: 'import', text: JSON.stringify(save) });
+  host.handle({ type: 'speed', speed: 0 });
+  const start = last('snapshot').snapshot.elapsed;
+  const refusals = () => out.filter((m) => m.type === 'refused');
+  host.handle({ type: 'create-line', clicks, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
+  const refused = [...refusals()];
+  const ms: number[] = [];
+  for (let k = 0; k < 48; k++) {
+    host.handle({ type: 'speed', speed: 1 });
+    host.advanceTo(start + (k + 1) * 20 * 60);
+    host.handle({ type: 'speed', speed: 0 });
+    let taken = false;
+    for (const command of change(k, last('snapshot').snapshot.lines[0]!)) {
+      const before = refusals().length;
+      const t0 = performance.now();
+      host.handle(command);
+      const took = performance.now() - t0;
+      if (refusals().length === before) {
+        ms.push(took);
+        taken = true;
+        break;
+      }
+    }
+    if (!taken) refused.push(refusals().at(-1)!);
+  }
+  const kept = last('snapshot').snapshot.lines[0]?.settling?.earlier.length ?? 0;
+  if (refused.length > 0 || kept !== 49) {
+    console.error(`bench: the draw-day run, ${what}, measured nothing: ${refused.length} changes refused (${JSON.stringify(refused.map((r) => r.type === 'refused' && r.reason))}), ${kept} versions kept of 49`);
+    process.exitCode = 1;
+    return;
+  }
+  const at = (k: number) => ms[k]!.toFixed(1);
+  const sorted = [...ms].sort((a, b) => a - b);
+  console.log(`Inner Boston, Massachusetts Avenue drawn, then ${what} 48 times in its day: ${kept} versions kept at the last; the 1st change ${at(0)} ms, the 12th ${at(11)} ms, the 24th ${at(23)} ms, the 48th ${at(47)} ms, the slowest ${sorted[47]!.toFixed(1)} ms; p95 ${sorted[45]!.toFixed(1)} ms`);
+  if (sorted[45]! > 150) {
+    console.error(`bench: a line changed through its draw day is over I14's 150 ms at the 95th percentile`);
+    process.exitCode = 1;
+  }
+}
+{
+  const text = innerBostonText();
+  if (text) {
+    drawDay(text, 'its headways changed', (k) => [{ type: 'set-headways', lineId: 1, headways: { peak: k % 2 ? 1_200 : 1_500, offpeak: 1_200, overnight: null } }]);
+    // Before its first stop, about 280 m on along the corridor towards Porter Square, a new place each
+    // time: 25 m further to one side or the other at each place offered, so no two stops added stand in
+    // one place and every one stays in the city.
+    const [, from, to] = CORRIDORS[0]!;
+    const [dx, dy] = [from[0] - to[0], from[1] - to[1]];
+    const step = 25 / 111_320 / Math.hypot(dx, dy);
+    const beyond = (j: number): [number, number] => {
+      const side = (j % 2 ? 1 : -1) * Math.ceil(j / 2) * step;
+      return [from[0] + dx * 0.05 + dy * side, from[1] + dy * 0.05 - dx * side];
+    };
+    let next = 0;
+    drawDay(text, 'a stop added before its first or taken off', (k, line) => {
+      if (k % 2 === 1) return [{ type: 'remove-stop', lineId: 1, stopId: line.stopIds[0]! }];
+      return Array.from({ length: 12 }, () => ({ type: 'extend-line', lineId: 1, end: 'start', clicks: [beyond(next++)] }) as const);
+    });
+  } else {
+    console.log(`bench: the draw-day runs skipped; Inner Boston is not baked or fetched`);
   }
 }

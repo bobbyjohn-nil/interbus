@@ -3,9 +3,11 @@
 // failing (TS-04) with capital rows left out of the columns, as V1 and V2 left capital out of
 // "profit": the quarter no longer adds up to the cash.
 import { describe, expect, it } from 'vitest';
-import { addDebugLine } from '../commands/debugLine';
+import { createLine } from '../commands/createLine';
+import { addDebugLine, DEBUG_STOPS } from '../commands/debugLine';
 import { setHeadways } from '../commands/setHeadways';
 import { SECONDS_PER_DAY } from '../config/time';
+import { subsidyCents } from '../rules/fare';
 import { advance } from '../step';
 import { gameWithDepot } from '../testing';
 import { forecastDay } from './costs';
@@ -65,9 +67,75 @@ describe('Finance', () => {
     const day = { running: forecast('running'), wages: forecast('wages'), deadhead: forecast('deadhead') };
     expect(day).toEqual(forecastDay(world.services.get(line.id)!.costs, 0, 2));
     expect(f.lines[0]!.forecastCents).toEqual(day); // the Lines view's, the same numbers
+    // Its fares and subsidy are a whole day's at the riders it has now: only on the day a line is drawn do they count from that hour.
+    const riders = Math.floor(world.assignment.lines.get(line.id)!.paidPerDay);
+    expect([-forecast('fares'), -forecast('subsidy'), f.lines[0]!.incomeCents]).toEqual([riders * line.fareCents, riders * subsidyCents(line.fareCents), riders * (line.fareCents + subsidyCents(line.fareCents))]);
     advance(world, 12 * 3_600 + 60); // past day 2's close
     const banked = (kind: RowKind) => -rowsOfDay(world.state.ledger, 2).filter((r) => r.kind === kind).reduce((s, r) => s + r.amountCents, 0);
     expect(day).toEqual({ running: banked('running'), wages: banked('wages'), deadhead: banked('deadhead') });
+  });
+
+  // A line drawn mid-day bills from its first drive out (rules/transition.ts), as the day banks it, and
+  // its riders pay from the hour it was drawn, that whole clock hour (step.ts banks by the hour), so
+  // Finance forecasts both from then. Shown failing (TS-04) with paidRidersOn returning a whole day's
+  // riders: 941 riders' fares and subsidy against the costs from 15:20, where 417 pay by midnight, so the
+  // line's day read $2,667.10 and banked $649.70. On 5f4bce3 both were a whole day's: $1,471.27 against
+  // $587.65 banked.
+  it('forecasts a line drawn at 15:20 from then, its fares and subsidy from 15:00 and its costs from its drives out, as the day banks them', () => {
+    const world = gameWithDepot();
+    advance(world, 10 * 3_600 + 20 * 60); // 15:20 on day 1
+    const made = createLine(world, DEBUG_STOPS.map((s) => s.at), { peak: 600, offpeak: 600, overnight: null });
+    if (!made.ok) throw new Error(made.reason);
+    const line = world.state.lines[0]!;
+    const demand = world.assignment.lines.get(line.id)!;
+    const riders = Math.floor(demand.paidBySlot.slice(2 * 15).reduce((s, paid) => s + paid, 0));
+    expect(riders).toBeLessThan(0.6 * demand.paidPerDay);
+    const f = finance(world);
+    const forecast = (kind: RowKind) => f.rows.find((r) => r.kind === kind)!.forecastCents!;
+    const fare = [line.fareCents, subsidyCents(line.fareCents)];
+    expect([forecast('fares'), forecast('subsidy'), f.lines[0]!.incomeCents]).toEqual([riders * fare[0]!, riders * fare[1]!, riders * (fare[0]! + fare[1]!)]);
+    const costs = forecastDay(world.services.get(line.id)!.costs, 0, 1);
+    expect(f.lines[0]!.forecastCents).toEqual(costs);
+    expect([forecast('running'), forecast('wages'), forecast('deadhead')]).toEqual([-costs.running, -costs.wages, -costs.deadhead]);
+    // Day 1 then banks it: its costs to the cent, its fares and subsidy within a boarding.
+    advance(world, 8 * 3_600 + 40 * 60); // to day 1's close
+    const banked = (kind: RowKind) => rowsOfDay(world.state.ledger, 1).filter((r) => r.kind === kind && r.lineId === line.id).reduce((s, r) => s + r.amountCents, 0);
+    expect({ running: -banked('running'), wages: -banked('wages'), deadhead: -banked('deadhead') }).toEqual(costs);
+    expect(Math.abs(banked('fares') - forecast('fares'))).toBeLessThanOrEqual(fare[0]!);
+    expect(Math.abs(banked('subsidy') - forecast('subsidy'))).toBeLessThanOrEqual(fare[1]!);
+    // Day 2 is a whole day of it.
+    const whole = Math.floor(world.assignment.lines.get(line.id)!.paidPerDay);
+    expect(finance(world).lines[0]!.incomeCents).toBe(whole * (fare[0]! + fare[1]!));
+  });
+
+  // Changed again the same day, long after it handed over to its own day plan, it keeps that basis: it
+  // keeps the version before it was drawn, which ran no bus, until the day's close (world.ts). Shown
+  // failing (TS-04) with recomputeInService letting go of a drawn line's earlier versions once it has
+  // handed over, as of any settled line: changed at 18:00, its day read a whole day's $3,110.80 of fares
+  // and subsidy and $2,073.82 of costs, the hours before 15:20 in them, where day 1 banked $877.99 of
+  // costs; and with merge() starting again from the day plan past a handover, its running read NaN.
+  it('keeps forecasting a line drawn at 15:20 from that hour after a second change at 18:00, as the day banks it', () => {
+    const world = gameWithDepot();
+    advance(world, 10 * 3_600 + 20 * 60); // 15:20 on day 1
+    const made = createLine(world, DEBUG_STOPS.map((s) => s.at), { peak: 600, offpeak: 600, overnight: null });
+    if (!made.ok) throw new Error(made.reason);
+    const line = world.state.lines[0]!;
+    expect(world.services.get(line.id)!.effect.merged!.handover).toBeLessThan(16 * 3_600);
+    advance(world, 2 * 3_600 + 40 * 60); // 18:00
+    if (!setHeadways(world, line.id, { peak: 900, offpeak: 900, overnight: null }).ok) throw new Error('no change');
+    const f = finance(world);
+    const forecast = (kind: RowKind) => f.rows.find((r) => r.kind === kind)!.forecastCents!;
+    const fare = [line.fareCents, subsidyCents(line.fareCents)];
+    // Its fares and subsidy at the riders it has now, as any line's, from the hour it was drawn.
+    const riders = Math.floor(world.assignment.lines.get(line.id)!.paidBySlot.slice(2 * 15).reduce((s, paid) => s + paid, 0));
+    expect([forecast('fares'), forecast('subsidy'), f.lines[0]!.incomeCents]).toEqual([riders * fare[0]!, riders * fare[1]!, riders * (fare[0]! + fare[1]!)]);
+    // Its costs nothing before the draw, its hours from 15:00 all of its day, and the day banks them to the cent.
+    const costs = forecastDay(world.services.get(line.id)!.costs, 0, 1);
+    expect(forecastDay(world.services.get(line.id)!.costs, 15, 1)).toEqual(costs);
+    expect(f.lines[0]!.forecastCents).toEqual(costs);
+    advance(world, 6 * 3_600); // to day 1's close
+    const banked = (kind: RowKind) => rowsOfDay(world.state.ledger, 1).filter((r) => r.kind === kind && r.lineId === line.id).reduce((s, r) => s + r.amountCents, 0);
+    expect({ running: -banked('running'), wages: -banked('wages'), deadhead: -banked('deadhead') }).toEqual(costs);
   });
 
   it('starts a new quarter on day 9: its column holds days 9 on, yesterday day 8', () => {
@@ -121,7 +189,9 @@ describe('Finance’s chart and lines', () => {
     const id = world.state.lines[0]!.id;
     const ofLine = (day: number, kinds: string[]) => rowsOfDay(world.state.ledger, day).filter((r) => r.lineId === id && kinds.includes(r.kind)).reduce((s, r) => s + r.amountCents, 0);
     const forecastCents = forecastDay(world.services.get(id)!.costs, 0, 2);
-    expect(f.lines).toEqual([{ id, yesterdayInCents: ofLine(1, ['fares', 'subsidy']), yesterdayOutCents: ofLine(1, ['running', 'wages', 'deadhead']), forecastCents }]);
+    const line = world.state.lines[0]!;
+    const incomeCents = Math.floor(world.assignment.lines.get(id)!.paidPerDay) * (line.fareCents + subsidyCents(line.fareCents));
+    expect(f.lines).toEqual([{ id, yesterdayInCents: ofLine(1, ['fares', 'subsidy']), yesterdayOutCents: ofLine(1, ['running', 'wages', 'deadhead']), incomeCents, forecastCents }]);
     expect(f.lines[0]!.yesterdayInCents).toBeGreaterThan(0);
     expect(f.lines[0]!.yesterdayOutCents).toBeLessThan(0);
     expect(ofLine(2, ['fares', 'subsidy'])).not.toBe(f.lines[0]!.yesterdayInCents); // today's differ
