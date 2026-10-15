@@ -358,9 +358,17 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   // the page though the browser keeps nothing (storage refused, or too full for it); the store's copy
   // is read only after a reload.
   let quarter: string | null = null;
+  // Owed once the page's store refuses its write (a full disk, which may refuse it alone: over the last quarter's start it
+  // needs a quarter's growth of room, the autosave over its last save an hour's): written again from memory after a delete in
+  // Saves, so after a reload Restart this quarter goes back to this quarter's start, not an older one's.
+  let quarterOwed = false;
+  const writeQuarter = () => {
+    quarterOwed = false;
+    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: quarter! }], owed: true });
+  };
   const saveQuarter = () => {
     quarter = encode(world!.state, build, stamp());
-    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: quarter }] });
+    writeQuarter();
     beginSession(quarter);
   };
   // A save set aside at the start whose backup did not read back (a full disk refused it): the live
@@ -368,15 +376,22 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   // waits, owed. Nothing tries the backup again after the start's one read-back: only the player's
   // Delete in Saves, or a later page load that sets it aside afresh, ends the hold.
   let unbacked: { why: SetAsideWhy; text: string } | null = null;
+  // A save is owed too once the page's store refuses the live key's write (a full disk): any delete in Saves
+  // makes room, so the game writes it at once after the delete rather than at its next command, pause or hour.
   let saveOwed = false;
   const save = () => {
     savedHour = Math.floor(world!.state.elapsed / 3_600);
     saveOwed = unbacked !== null;
-    if (!saveOwed) post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }] });
+    if (!saveOwed) post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }], owed: true });
+  };
+  /** After a delete in Saves, into the room it made and before the list reads it: what is owed, the autosave first. */
+  const writeOwed = () => {
+    if (saveOwed) save();
+    if (quarterOwed) writeQuarter();
   };
   const release = () => {
     unbacked = null;
-    if (saveOwed) save();
+    writeOwed();
   };
   let speed: Speed = 0;
   let lastMs: number | null = null;
@@ -665,6 +680,12 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         then?.(message.texts);
         return;
       }
+      if (message.type === 'store-refused') {
+        // Only the saves under the keys refused are owed; before a game is playing there is none to owe.
+        if (world && message.keys.includes(key)) saveOwed = true;
+        if (world && quarter !== null && message.keys.includes(quarterKey(world.state.city.id))) quarterOwed = true;
+        return;
+      }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
       if (SESSION_COMMANDS.has(message.type)) session?.commands.push({ at: world.state.elapsed, message });
       if (message.type === 'speed') {
@@ -827,6 +848,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       } else if (message.type === 'delete-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
         post({ type: 'store', effects: [{ op: 'remove', key: slotKey(playing!.ref.id, message.slot) }] });
+        writeOwed();
         listSlots();
       } else if (message.type === 'export-set-aside') {
         if (!SET_ASIDE.includes(message.why)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
@@ -858,6 +880,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       } else if (message.type === 'delete-set-aside') {
         if (!SET_ASIDE.includes(message.why)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
         post({ type: 'store', effects: [{ op: 'remove', key: backupKey(playing!.ref.id, message.why) }] });
+        writeOwed();
         listSlots();
       } else if (message.type === 'load-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
