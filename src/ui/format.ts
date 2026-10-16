@@ -1,6 +1,7 @@
 // Display copy for numbers (V3's format.ts moved out of the sim, which never formats). Integer
 // maths on cents, so -150 cents reads -$1.50, never V3's rounded "-$1".
 import { calendarOfDay } from '../sim/rules/calendar';
+import { contractMet, HEADWAY_HAIR_S } from '../sim/rules/contract';
 import { BRONZE_OVERALL, GOLD_GRADE_MIN, GOLD_OVERALL, GOLD_TRIPS_PER_DAY, SILVER_TRIPS, type MedalId } from '../sim/rules/medal';
 import { SPEED_RATES } from '../sim/rules/speed';
 import type { RowGroup, RowKind } from '../sim/rules/money';
@@ -44,10 +45,19 @@ export function askText(kind: 'headway' | 'ridership', ask: number): string {
   return kind === 'headway' ? every(ask) : `${ask.toLocaleString('en-US')} boardings a day`;
 }
 
-/** Today's figure against it, the same way; or why there is none. */
-export function figureText(kind: 'headway' | 'ridership', figure: number | null): string {
+/**
+ * Today's figure against it, the same way; or why there is none. Rounded toward the verdict its
+ * colour shows (contractMet, GD-05), so a figure short of the ask never reads as the ask: RIDERSHIP's
+ * boardings down, HEADWAY's seconds up when short (past the rule's hair, a float's noise) and to the
+ * nearest when met, asks being whole seconds; to the second within a minute of the ask or where one
+ * decimal would read as a whole minute ("every 10 min 1 s", never "every 10 min" or "every 10.0 min").
+ */
+export function figureText(kind: 'headway' | 'ridership', figure: number | null, ask: number): string {
   if (figure === null) return kind === 'headway' ? 'no bus within a walk' : 'no stop within a walk';
-  return kind === 'headway' ? every(Math.round(figure)) : `${Math.floor(figure).toLocaleString('en-US')} boardings a day`;
+  if (kind === 'ridership') return `${Math.floor(figure).toLocaleString('en-US')} boardings a day`;
+  const s = contractMet(kind, figure, ask) ? Math.round(figure) : Math.ceil(figure - HEADWAY_HAIR_S);
+  const exact = s % 60 !== 0 && (Math.abs(s - ask) < 60 || Number.isInteger(Number((s / 60).toFixed(1))));
+  return exact ? `every ${duration(s, true)}` : every(s);
 }
 
 /** "≈9,000": two significant figures, for counts the sim models rather than knows. */

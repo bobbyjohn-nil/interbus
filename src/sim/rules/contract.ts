@@ -40,13 +40,16 @@ export function landmarkBoardings(paidBoardingsAtStops: readonly number[]): numb
   return paidBoardingsAtStops.length === 0 ? null : paidBoardingsAtStops.reduce((sum, v) => sum + v, 0);
 }
 
+/** The hair a HEADWAY figure may run over its ask and still meet it, in seconds (contractMet): a float's noise on whole seconds. */
+export const HEADWAY_HAIR_S = 1e-6;
+
 /**
  * Met while the figure meets the ask: HEADWAY at or under it (headways are whole seconds per line; the
  * sum of a few lines' is not, so a hair's tolerance), RIDERSHIP at or over it.
  */
 export function contractMet(kind: ContractKind, figure: number | null, ask: number): boolean {
   if (figure === null) return false;
-  return kind === 'headway' ? figure <= ask + 1e-6 : figure >= ask;
+  return kind === 'headway' ? figure <= ask + HEADWAY_HAIR_S : figure >= ask;
 }
 
 /** Days left to hold it, counting today, from the day it was taken. */

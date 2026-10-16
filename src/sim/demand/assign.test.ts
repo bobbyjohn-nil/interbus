@@ -10,10 +10,11 @@ import { bakeSim } from '../../../tools/bake/sim.mjs';
 import { createLine } from '../commands/createLine';
 import { addDebugLine } from '../commands/debugLine';
 import { loadCity } from '../city/simfile';
+import type { LngLat } from '../core/geo';
 import type { LineId } from '../core/ids';
 import { PERIODS, periodAt } from '../rules/periods';
 import { newGame } from '../state';
-import { gameWithDepot } from '../testing';
+import { COPLEY, gameWithDepot, KENMORE } from '../testing';
 import { createWorld, planLine, runningPlans } from '../world';
 import { assign, SLOTS, spread, type LinePlan } from './assign';
 import { assignNaive } from './reference/assignNaive';
@@ -145,6 +146,37 @@ describe('assign against the reference loop', () => {
     expect(off(fast.tripsPerDay, ref.tripsPerDay)).toBeLessThan(0.06);
     for (const plan of plans) expect(off(fast.lines.get(plan.id)!.perDay, ref.lines.get(plan.id)!.perDay), `line ${plan.id}`).toBeLessThan(0.07);
     expect(off(changes(fast, plans[1]!.id), changes(ref, plans[1]!.id))).toBeLessThan(0.09);
+  });
+
+  it.each([
+    ['after', 0],
+    ['before', 2],
+  ])('splits riders changing onto twin lines evenly in both loops, the twins drawn %s the line they change from', (_, first) => {
+    // Copley, Longwood and Kenmore, then Kenmore to Symphony twice: riders off the first line at
+    // Kenmore chose one second line per first line, keeping the first seen on a tie, so the fast loop
+    // gave every one of them (4.56 a day) to the twin drawn last and the reference to the one drawn
+    // first (the systems audit's fifth round, D26). Shown failing (TS-04) with ties kept as first seen in both loops: 0
+    // against 4.56 changes a day, and 67.30 against 71.86 riders. One change of line costs the second
+    // line's own wait (DECISIONS 2026-10-13), so the twins carry no more changers than one line would.
+    const symphony: LngLat = [-71.0857, 42.3424];
+    const draws: LngLat[][] = [[KENMORE, symphony], [KENMORE, symphony]];
+    draws.splice(first, 0, [COPLEY, [-71.1035, 42.336], KENMORE]);
+    const game = gameWithDepot();
+    for (const clicks of draws) expect(createLine(game, clicks).ok).toBe(true);
+    const plans = runningPlans(game);
+    const fast = assign(game.city, game.commuters, plans);
+    const naive = assignNaive(game.city, game.commuters, plans);
+    const ref = spread(plans, naive.riders, naive.busiest, naive.ends, naive.paid);
+    const changes = (a: typeof fast, id: LinePlan['id']) => a.lines.get(id)!.transfersByStop.reduce((s, v) => s + v, 0);
+    const [a, b] = plans.filter((_, k) => k !== first).map((p) => p.id);
+    for (const [loop, got] of [['fast', fast], ['reference', ref]] as const) {
+      expect(changes(got, a!) + changes(got, b!), loop).toBeGreaterThan(4);
+      expect.soft(changes(got, a!), loop).toBeCloseTo(changes(got, b!), 9);
+      expect.soft(got.lines.get(a!)!.perDay, loop).toBeCloseTo(got.lines.get(b!)!.perDay, 9);
+      expect.soft(got.lines.get(a!)!.paidPerDay, loop).toBeCloseTo(got.lines.get(b!)!.paidPerDay, 9);
+    }
+    // And the fast loop changes as many onto each twin as the reference does, as at Kenmore above.
+    for (const id of [a!, b!]) expect.soft(off(changes(fast, id), changes(ref, id)), `line ${id}`).toBeLessThan(0.09);
   });
 });
 
