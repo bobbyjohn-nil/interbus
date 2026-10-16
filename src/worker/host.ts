@@ -708,6 +708,23 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         if (world && quarter !== null && message.keys.includes(quarterKey(world.state.city.id))) quarterOwed = true;
         return;
       }
+      if (message.type === 'take-save') {
+        // Another tab saved this city's game since this page last read or wrote it, and Home stands over this one (useSim): that
+        // game becomes this page's, as a reload would bring it, if this build can play it. Nothing is written or set aside: a save
+        // this build can't play stays for the tab that wrote it, and this game as it was.
+        const decoded = world && playing && message.text !== null ? decode(message.text, playing.ref).result : null;
+        const read = decoded && worldFrom(playing!.city, playing!.ref, decoded);
+        if (!read || !read.ok) return post({ type: 'took-save', ok: false });
+        play(read.world, playing!.city, playing!.ref);
+        // Its quarter's start is the store's, the other tab's, read as after a reload; what this game owed is owed no more.
+        quarter = null;
+        quarterOwed = false;
+        saveOwed = unbacked !== null;
+        beginSession(encode(read.world.state, build));
+        post({ type: 'took-save', ok: true });
+        post({ type: 'snapshot', snapshot: snapshot() });
+        return;
+      }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
       // The speed already running, picked again (the speed menu's re-pick, a held key's repeats): nothing changes, so
       // nothing is recorded, saved or sent, and the clock runs on. Its slice and part-step were dropped each time, so

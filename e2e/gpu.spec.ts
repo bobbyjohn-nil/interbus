@@ -3,9 +3,9 @@
 // most 30 frames a second; with no WebGL2 a calm card asks for hardware acceleration while Home, Saves
 // and Export still work; a context lost mid-game says so with Reload, and one given back draws the buses
 // again. `?gpu=` forces each rung.
-import { expect, test, type Page } from '@playwright/test';
-import { foundCompany } from './found';
-import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { foundCompany, STARTING_CENTS } from './found';
+import { build, city, onDepotLand, setSpeed, toScreen, withDebugLine, zoomOutOnce } from './shell';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 
 /** Takes the map's graphics away, as a GPU reset or a sleep may, keeping the extension that gives them back (a lost context hands out none). */
@@ -15,6 +15,34 @@ async function takeGraphics(page: Page): Promise<void> {
     (window as unknown as { lostContext: WEBGL_lose_context }).lostContext = lose;
     lose.loseContext();
   });
+}
+
+/** Site data blocked, for page.addInitScript: the localStorage getter throws a SecurityError, as e2e/saves.spec.ts has it. */
+function blockStorage(): void {
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    get() {
+      throw new DOMException('The operation is insecure.', 'SecurityError');
+    },
+  });
+}
+
+/** Whether `target` is what is drawn at its middle and near both ends of its middle row, so its words can be read and it pressed. */
+function onTop(target: Locator): Promise<boolean[]> {
+  return target.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return [0.05, 0.5, 0.95].map((f) => el.contains(document.elementFromPoint(r.x + r.width * f, r.y + r.height / 2)));
+  });
+}
+
+/** The GPU card says the game isn't saving itself, never that it is saved, and its Export this game hands the game over as a file. */
+async function saysUnsaved(page: Page): Promise<string> {
+  const card = page.getByTestId('gpu-card');
+  await expect(card).toContainText('This game isn’t saving itself: export it before you reload.');
+  await expect(card).not.toContainText('is saved');
+  const download = page.waitForEvent('download');
+  await card.getByRole('button', { name: 'Export this game' }).click();
+  return (await download).suggestedFilename();
 }
 
 test.describe('the GPU ladder', () => {
@@ -61,10 +89,97 @@ test.describe('the GPU ladder', () => {
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'no-gpu');
     const home = page.getByTestId('home');
     await expect(home).toBeVisible({ timeout: 30_000 });
+    await expect(card).toContainText('Your game is saved, and Saves and Export still work.');
+    await expect(card.getByRole('button')).toHaveCount(0);
     await home.getByRole('button', { name: 'Saves' }).click();
     const download = page.waitForEvent('download');
     await page.getByTestId('saves').getByRole('button', { name: 'Export this game' }).click();
     expect((await download).suggestedFilename()).toBe('interbus-boston-day-1.json');
+  });
+
+  // The systems audit's fifth round: the GPU ladder's cards said "your game is saved" while the Saves chip beside them said
+  // "Autosave off", and the lost card's one button, Reload, then lost all play since the last save kept: the whole company
+  // with blocked site data, everything since the store first refused with a full one (31,620 game seconds and a fare change on
+  // the audit's run). While the game isn't saving itself they say so, and offer Export this game, before the lost card's
+  // Reload. Shown failing (TS-04) on 050dbdd, where each card said the game was saved and had no Export.
+  test('with blocked site data, the lost card says the game isn’t saving itself and offers Export this game before Reload', async ({ page }) => {
+    await page.addInitScript(blockStorage);
+    await page.goto('./?gpu=full');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
+    await takeGraphics(page);
+    expect(await saysUnsaved(page)).toBe('interbus-boston-day-1.json');
+    await expect(page.getByTestId('gpu-card').getByRole('button')).toHaveText(['Export this game', 'Reload']);
+  });
+
+  test('with a full store, the lost card says the game isn’t saving itself and offers Export this game before Reload', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./?gpu=full');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    // Other data of the origin takes the rest of its room, as on the audit's run.
+    await page.evaluate(() => {
+      for (const size of [100_000, 10_000, 1_000, 100, 10, 1]) {
+        try {
+          for (let k = 0; k < 1_000; k++) localStorage.setItem(`another.app.${size}.${k}`, 'f'.repeat(size));
+        } catch {
+          // full at this size: on to the next
+        }
+      }
+    });
+    await setSpeed(page, '5,400×');
+    await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off', { timeout: 30_000 });
+    await page.getByTestId('play').click();
+    await takeGraphics(page);
+    expect(await saysUnsaved(page)).toMatch(/^interbus-boston-day-\d+\.json$/);
+    await expect(page.getByTestId('gpu-card').getByRole('button')).toHaveText(['Export this game', 'Reload']);
+  });
+
+  test('with no WebGL2 and blocked site data, the card says the game isn’t saving itself and offers Export this game', async ({ page }) => {
+    await page.addInitScript(blockStorage);
+    await page.goto('./?gpu=none');
+    await foundCompany(page);
+    await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
+    await expect(page.getByTestId('gpu-card')).toContainText('Turn on hardware acceleration to see the map.');
+    expect(await saysUnsaved(page)).toBe('interbus-boston-day-1.json');
+    await expect(page.getByTestId('gpu-card').getByRole('button')).toHaveText(['Export this game']);
+  });
+
+  // The systems audit's fifth round: the lost card sat high on the board where the cards that wait for an answer sit, under
+  // them, so the lender's card, which has no close, hid its words and its Reload (but 20 px of it) and a day card hid its
+  // words. While such a card is up the GPU ladder's cards drop to the board's foot now, still under the cards and panels
+  // (DECISIONS 2026-10-16), so neither hides the other: lifted over them, the lost card hid a short day card's Continue. Shown
+  // failing (TS-04) on 050dbdd, where elementFromPoint found the day card over the words and the lender's card over words and
+  // Reload.
+  test('the lost card is read and its Reload pressed beside a day card and the lender’s card, whose buttons stay pressable', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./?gpu=full');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // Ten minutes before day 2's close owing $200k, with four closes below the floor: the close ends the run.
+    await withDebugLine(page, (d) => {
+      d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60;
+      d.closesBelowFloor = 4;
+      d.ledger.push({ day: 2, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
+    });
+    await setSpeed(page, '5,400×');
+    const dayCard = page.getByTestId('day-card');
+    await expect(dayCard).toBeVisible({ timeout: 30_000 });
+    await takeGraphics(page);
+    const card = page.getByTestId('gpu-card');
+    await expect(card).toContainText('The browser took the map’s graphics away.');
+    const [words, reload] = [card.locator('p'), card.getByRole('button', { name: 'Reload' })];
+    expect.soft({ words: await onTop(words), reload: await onTop(reload) }).toEqual({ words: [true, true, true], reload: [true, true, true] });
+    expect(await onTop(dayCard.getByRole('button', { name: 'Continue' }))).toEqual([true, true, true]);
+    await dayCard.getByRole('button', { name: 'Continue' }).click();
+    const failure = page.getByTestId('failure-card');
+    await expect(failure).toBeVisible();
+    expect({ words: await onTop(words), reload: await onTop(reload) }).toEqual({ words: [true, true, true], reload: [true, true, true] });
+    expect(await onTop(failure.getByRole('button', { name: 'Restart this quarter' }))).toEqual([true, true, true]);
+    await reload.click({ trial: true });
   });
 
   // The systems audit (D26): with the graphics gone MapLibre has no style, and T, a demand toggle or
@@ -82,6 +197,7 @@ test.describe('the GPU ladder', () => {
     await takeGraphics(page);
     const card = page.getByTestId('gpu-card');
     await expect(card).toContainText('The browser took the map’s graphics away.');
+    await expect(card).toContainText(/your game is saved\./i); // as it is: the Saves chip says Saves
     await expect(map).toHaveAttribute('data-status', 'lost');
 
     // T, a kind of dot hidden, and Place a depot, with the graphics gone.

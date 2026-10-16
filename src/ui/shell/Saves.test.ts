@@ -72,6 +72,18 @@ describe('the save list', () => {
     expect(html).toContain('This browser isn’t keeping saves. Export this game to keep it.');
   });
 
+  // Two tabs of the game (the systems audit's fifth round): while another tab's change to the autosave lasts this game saves
+  // nothing of its own, room or none, so Saves says that first, and the autosave's row no longer says it saves itself. Shown
+  // failing (TS-04) on 050dbdd, which said nothing.
+  it('says another tab changed the autosave, and how to keep this game', () => {
+    const autosave = { day: 12, hour: 7, minute: 5, company: 'Back Bay Transit', cashCents: 12_345_600, lines: 2, buses: 5, savedAt: AT };
+    for (const storeRefused of [null, 'full'] as const) {
+      const html = render([{ slot: 1, about: null, readable: true }], [], { newer: true, storeRefused, autosave });
+      expect(html).toContain('data-testid="saves-refused">Another tab changed the autosave. Export this game to keep it.</p>');
+      expect(html).not.toContain('This game saves itself as it plays');
+    }
+  });
+
   // A store with no room left says so, and the way out, not that the browser keeps no saves. Shown failing (TS-04) on 029387a,
   // where a store the game's own saves had filled read "This browser isn’t keeping saves. Export this game to keep it."
   it('says when there is no room to save this game, and how to make some', () => {

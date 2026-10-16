@@ -5,7 +5,7 @@ import { readDotPrefs, writeDotPrefs } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
 import type { BusModelId, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
-import { AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, failedText } from "./copy";
+import { AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, failedText, MAP_UNSAVED_COPY } from "./copy";
 import { DayCard } from "./game/DayCard";
 import { FailureCard } from "./game/FailureCard";
 import { FoundingCard } from "./game/Founding";
@@ -290,10 +290,14 @@ export function App() {
   // Saves" waits for a game that is ready.
   const stopped = sim.status === "failed";
   // While the game is not saving itself (it saves nothing over a save it could not set aside, or the browser refused the
-  // autosave and has kept none since), the Saves chip says so, for as long as that lasts, open or not, so it neither changes
-  // its name nor jumps under the pointer as Saves opens: no notice of its own, which took the shell at rest past I13's 6%
-  // beside a full chip row (the systems audit's third round).
-  const autosaveOff = Boolean(sim.unbacked) || sim.autosaveRefused;
+  // autosave and has kept none since, or another tab changed the autosave since this one last read or wrote it), the Saves chip
+  // says so, for as long as that lasts, open or not, so it neither changes its name nor jumps under the pointer as Saves
+  // opens: no notice of its own, which took the shell at rest past I13's 6% beside a full chip row (the systems audit's third
+  // round).
+  const autosaveOff = Boolean(sim.unbacked) || sim.autosaveRefused || sim.newer;
+  // The map's GPU cards say the game is saved only while it is (the systems audit's fifth round): while it isn't saving itself,
+  // or the browser keeps nothing at all (before a company is founded too), they say so and offer Export this game, which keeps it.
+  const mapUnsaved = autosaveOff || sim.storeRefused === "blocked" ? { ...MAP_UNSAVED_COPY, onKeep: () => send({ type: "export" }) } : null;
 
   // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space.
   const focus = useRef(focusSource());
@@ -505,6 +509,7 @@ export function App() {
               : null
           }
           quiet={stopped}
+          unsaved={mapUnsaved}
         />
         <Home
           sim={sim}
@@ -554,6 +559,7 @@ export function App() {
         }
         // Its card says the game cannot go on, alone: the map adds none of its own beside it (D12).
         quiet={stopped}
+        unsaved={mapUnsaved}
         {...(ready ? { onPointer, onClick } : {})}
       />
       <TopBar

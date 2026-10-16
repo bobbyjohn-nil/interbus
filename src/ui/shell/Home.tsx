@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { dateText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
@@ -7,10 +7,17 @@ import type { Sim } from '../game/useSim';
  * first screen, over the paused, flat map. Continue goes on with the game that saves itself as it
  * plays, named by its company, day and cash; New game starts an unnamed company, asking first when it
  * would replace that game (V1 asked too); Saves opens the slots. Settings, help and credits wait for
- * week 14. The build chip stays in its corner.
+ * week 14. The build chip stays in its corner. While it stands, a game another tab saves becomes this
+ * one (useSim), so Continue names and plays the game the browser holds now, not the one read when this
+ * tab opened (the systems audit's fifth round).
  */
 export function Home({ sim, onContinue, onNewGame, onSaves }: { sim: Sim; onContinue: () => void; onNewGame: () => void; onSaves: () => void }) {
   const [asking, setAsking] = useState(false);
+  const { followNewest } = sim;
+  useEffect(() => {
+    followNewest(true);
+    return () => followNewest(false);
+  }, [followNewest]);
   const s = sim.snapshot;
   if (sim.status !== 'ready' || !s) return null;
   const company = s.company.name;

@@ -974,6 +974,37 @@ describe('save slots, export and import', () => {
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'slot', load: 'rebaked' });
   });
 
+  // Two tabs of the game (the systems audit's fifth round): Home takes up another tab's newer save as the game, as a reload would,
+  // writing nothing, and Restart this quarter then reads the quarter's start from the store, the other tab's, not this game's
+  // own; one this build can't play leaves the game as it was. Shown failing (TS-04) on 050dbdd, which had no answer to it.
+  it('takes up another tab’s save as the game, writing nothing, its quarter’s start the store’s; one it can’t play changes nothing', () => {
+    const other = withStore();
+    other.send({ type: 'create-line', clicks: CLICKS });
+    other.send({ type: 'speed', speed: 5 });
+    for (let t = 0; t < 2_000; t += 250) other.tick(t);
+    other.send({ type: 'speed', speed: 0 });
+    const theirs = other.store.get(KEY)!;
+    const at = other.last('snapshot')!.snapshot;
+    expect(at.elapsed).toBeGreaterThan(0);
+    const { send, last, store, out, writes } = withStore();
+    store.set('interbus.quarter.boston', theirs); // the other tab's quarter's start, as the store holds it
+    const from = out.length;
+    send({ type: 'take-save', text: theirs });
+    expect(last('took-save')).toEqual({ type: 'took-save', ok: true });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: at.elapsed, cashCents: at.cashCents, lines: [{ name: 'Line 1' }], speed: 0, undo: null });
+    expect(writes(from)).toEqual([]);
+    send({ type: 'restart-quarter' });
+    expect(last('snapshot')!.snapshot.elapsed).toBe(at.elapsed); // not this game's founding, at 0
+    const was = last('snapshot')!.snapshot;
+    const before = out.length;
+    for (const text of [JSON.stringify({ format: SAVE_FORMAT + 1, data: {} }), null]) {
+      send({ type: 'take-save', text });
+      expect(last('took-save')).toEqual({ type: 'took-save', ok: false });
+    }
+    expect(out.slice(before).filter((m) => m.type !== 'took-save')).toEqual([]);
+    expect(last('snapshot')!.snapshot).toBe(was);
+  });
+
   // The autosave in the save list (the M5 spec's exit check 2). Shown failing (TS-04) with the list
   // sent without it, when the panel named only the game's day and time.
   it('lists the autosave with its company, cash, lines and buses, and when it was saved', () => {

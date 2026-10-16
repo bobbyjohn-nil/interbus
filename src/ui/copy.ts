@@ -143,6 +143,17 @@ export function failedText(failed: GameFailure, city: string): string {
   return failed === 'start' ? `${city} couldn’t be loaded` : 'The game stopped working';
 }
 
+/**
+ * Said for a few seconds in the game when another tab has changed this city's autosave (saved its game there, or removed it)
+ * since this one last read or wrote it: this tab then writes none of its own saves over it (useSim), the Saves chip reads
+ * "Autosave off", and Home carries on with the other tab's game when this build can play it. "Changed", not "saved a newer
+ * game": a removal saves nothing, and a Load or a New game there is no further on (the review of the fifth round).
+ */
+export const NEWER_COPY = 'Another tab changed the autosave';
+
+/** Saves' line meanwhile, in place of a full or blocked store's: why the game isn't saving itself (the Saves chip's tooltip sends the player here), and the way out, in a blocked store's two rows. */
+export const NEWER_LINE_COPY = `${NEWER_COPY}. Export this game to keep it.`;
+
 /** Said on Home, until the player opens Saves, when a save could not be set aside (a full disk), so the game keeps it where it is and saves nothing over it: what that means for the player, and where to look. */
 export const UNBACKED_COPY = 'Not autosaving: see Saves';
 
@@ -155,6 +166,14 @@ export const UNBACKED_COPY = 'Not autosaving: see Saves';
 export const AUTOSAVE_OFF_CHIP = 'Autosave off';
 export const AUTOSAVE_OFF_NAME = `Saves: ${AUTOSAVE_OFF_CHIP.toLowerCase()}`;
 export const AUTOSAVE_OFF_TITLE = 'This game isn’t saving itself: open Saves to see why';
+
+/**
+ * The GPU ladder's cards (the no-GPU card, the lost-graphics card; MapView) while the game isn't saving itself ("Autosave off"),
+ * or the browser keeps nothing at all: said where they say "your game is saved" otherwise, with `keep`'s button alone on the
+ * no-GPU card and before the lost card's Reload. True alike of blocked site data, which keeps nothing, a full store, whose
+ * autosave is older than the game, and another tab's change to the autosave.
+ */
+export const MAP_UNSAVED_COPY = { words: 'This game isn’t saving itself: export it before you reload.', keep: 'Export this game' } as const;
 
 /** That save's row in Saves, after its name there ("A save from an older build (format 15)"), beside Export and Delete. */
 export const unbackedRowText = (name: string): string => `${name}, not set aside · this game isn’t saving itself`;

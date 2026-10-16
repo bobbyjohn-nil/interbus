@@ -19,11 +19,20 @@ const page = vi.hoisted(() => {
   const posted: unknown[] = [];
   const worker = { onmessage: null as ((event: { data: unknown }) => void) | null, onerror: null, postMessage: (m: unknown) => void posted.push(m), terminate: () => undefined };
   const kept = new Map<string, string>();
+  /** The window's 'storage' listeners (src/platform's onOtherTabWrite), by key. */
+  const heard = new Map<string, (text: string | null) => void>();
   return {
     cells,
     worker,
     kept,
+    heard,
     posted,
+    /** Another tab of the game writes `text` under `key` (removes it with null), and this page hears it as the browser tells it. */
+    otherTab(key: string, text: string | null) {
+      if (text === null) kept.delete(key);
+      else kept.set(key, text);
+      heard.get(key)?.(text);
+    },
     /** How many characters of keys and values the store has room for, as a browser's quota. */
     room: Infinity,
     /** Whether the store keeps nothing at all, as with blocked site data. */
@@ -36,6 +45,7 @@ const page = vi.hoisted(() => {
       mounted = false;
       posted.length = 0;
       kept.clear();
+      heard.clear();
       this.room = Infinity;
       this.blocked = false;
     },
@@ -86,6 +96,10 @@ vi.mock('../../platform', async () => ({
       },
       remove: async (key: string) => (blocked(), void page.kept.delete(key)),
     };
+  },
+  onOtherTabWrite: (key: string, then: (text: string | null) => void) => {
+    page.heard.set(key, then);
+    return () => page.heard.delete(key);
   },
   downloadText: () => undefined,
   pickTextFile: async () => null,
@@ -279,6 +293,162 @@ describe('the page’s store', () => {
     own(LIVE, 100);
     await settle();
     expect(sim()).toMatchObject({ storeRefused: 'blocked', storeNotice: 'blocked' });
+  });
+});
+
+// Two tabs of the game on one browser (the systems audit's fifth round; D12 keeps an old tab open across a deploy): the page
+// keeps the live key's text as it last read or wrote it, and writes none of the game's own saves while the key holds another
+// tab's save since, whether the browser said so ('storage') or a read before the write finds it; Home takes that save up as
+// the game. Shown failing (TS-04) on 050dbdd, which wrote whatever this page's game was over the other tab's newer save.
+describe('another tab’s save', () => {
+  beforeEach(() => page.reset());
+
+  const LIVE = 'interbus.save.boston';
+  const QUARTER = 'interbus.quarter.boston';
+  const takes = () => page.posted.filter((m) => (m as { type: string }).type === 'take-save');
+  /** A page opened on `text` under the live key, read and ready. */
+  const opened = async (text: string) => {
+    page.kept.set(LIVE, text);
+    sim();
+    await settle();
+    from({ type: 'read-save', key: LIVE });
+    await settle();
+    from({ type: 'ready', dots: null, depotLand: [], snapshot: null, load: 'ok' } as unknown as FromWorker);
+  };
+  const own = (key: string, value: string) => from({ type: 'store', effects: [{ op: 'write', key, value }], owed: key === QUARTER ? 'quarter' : 'autosave' });
+
+  it('writes none of the game’s own saves over a save another tab made since, heard or found, and says so, owing nothing', async () => {
+    await opened('A0');
+    own(LIVE, 'B1'); // this page's own save over what it read: kept
+    await settle();
+    expect(page.kept.get(LIVE)).toBe('B1');
+    page.otherTab(LIVE, 'A1'); // the other tab plays on and saves
+    own(LIVE, 'B2');
+    own(QUARTER, 'B2 quarter');
+    await settle();
+    expect(page.kept.get(LIVE)).toBe('A1');
+    expect(page.kept.has(QUARTER)).toBe(false);
+    // Said, but not as a refusal: no room is owed, and the store's line and notice stay as they were.
+    expect(sim()).toMatchObject({ newer: true, storeRefused: null, storeNotice: null, autosaveRefused: false });
+    expect(page.posted.filter((m) => (m as { type: string }).type === 'store-refused')).toEqual([]);
+
+    // A save the browser did not tell this page of is found by the read before the write.
+    page.reset();
+    await opened('A0');
+    page.kept.set(LIVE, 'A1');
+    own(LIVE, 'B1');
+    await settle();
+    expect(page.kept.get(LIVE)).toBe('A1');
+    expect(sim().newer).toBe(true);
+  });
+
+  it('says so as soon as the browser tells of another tab’s save, before any write', async () => {
+    await opened('A0');
+    expect(sim().newer).toBe(false);
+    page.otherTab(LIVE, 'A1');
+    expect(sim().newer).toBe(true);
+  });
+
+  it('takes the other tab’s save up as the game while Home stands, and saves over it again from there', async () => {
+    await opened('A0');
+    page.otherTab(LIVE, 'A1');
+    expect(takes()).toEqual([]); // in the game: said, not taken
+    sim().followNewest?.(true); // Home
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }]);
+    from({ type: 'took-save', ok: true });
+    expect(sim().newer).toBe(false);
+    // Each save the other tab makes while Home stands is taken up, one take at a time, each reading the newest.
+    page.otherTab(LIVE, 'A2');
+    page.otherTab(LIVE, 'A3');
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }, { type: 'take-save', text: 'A3' }]);
+    page.otherTab(LIVE, 'A4'); // while that take is on its way: the next goes once it is answered
+    from({ type: 'took-save', ok: true });
+    await settle();
+    expect(takes().at(-1)).toEqual({ type: 'take-save', text: 'A4' });
+    from({ type: 'took-save', ok: true });
+    await settle();
+    expect(takes()).toHaveLength(3);
+    expect(sim().newer).toBe(false);
+    sim().followNewest(false); // Continue
+    own(LIVE, 'B4');
+    await settle();
+    expect(page.kept.get(LIVE)).toBe('B4');
+    expect(sim().newer).toBe(false);
+    // A save this build can't play is left where it is: the game is as it was, and still writes nothing over it.
+    page.otherTab(LIVE, 'C1');
+    sim().followNewest(true);
+    await settle();
+    from({ type: 'took-save', ok: false });
+    expect(sim().newer).toBe(true);
+    own(LIVE, 'B5');
+    await settle();
+    expect(page.kept.get(LIVE)).toBe('C1');
+  });
+
+  it('takes the other tab’s save up when Home opens over a game it was found newer than', async () => {
+    await opened('A0');
+    page.kept.set(LIVE, 'A1');
+    own(LIVE, 'B1');
+    await settle();
+    sim().followNewest?.(true);
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }]);
+  });
+
+  // Home reads the key as it opens: a page the browser told nothing (one back from its cache) still names the browser's game.
+  // Shown failing (TS-04) on the first cut of this fix, which took only a save it had heard of or found before a write.
+  it('takes up a save the browser told this page nothing of, as Home opens', async () => {
+    await opened('A0');
+    page.kept.set(LIVE, 'A1'); // no 'storage' event, and no write since
+    sim().followNewest(true);
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }]);
+    from({ type: 'took-save', ok: true });
+    sim().followNewest(false);
+    sim().followNewest(true); // Home again, nothing changed: nothing to take
+    await settle();
+    expect(takes()).toHaveLength(1);
+  });
+
+  // A take on its way as the player presses Continue is the last: one more saved meanwhile by the other tab is said in the
+  // game, never taken up there. Shown failing (TS-04) on the first cut of this fix, whose next take went after Continue and
+  // replaced the game in play (the review of the fifth round).
+  it('takes nothing more once Home is gone, though the other tab saved again during the last take', async () => {
+    await opened('A0');
+    sim().followNewest(true);
+    page.otherTab(LIVE, 'A1');
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }]);
+    page.otherTab(LIVE, 'A2'); // while that take is on its way
+    sim().followNewest(false); // Continue
+    from({ type: 'took-save', ok: true });
+    await settle();
+    expect(takes()).toHaveLength(1);
+    expect(sim().newer).toBe(true); // said instead: the browser's game is A2
+    // And a take read before Continue but not yet sent stays unsent.
+    sim().followNewest(true);
+    sim().followNewest(false);
+    await settle();
+    expect(takes()).toHaveLength(1);
+  });
+
+  // Saves lists again when the browser's autosave changes, so its row names the game Continue names; and a take, as a load,
+  // drops the replaced game's refused Save here.
+  it('has Saves list again at another tab’s change, and drops a refused Save here with the game a take replaces', async () => {
+    await opened('A0');
+    const before = sim().stored;
+    page.otherTab(LIVE, 'A1');
+    expect(sim().stored).toBe(before + 1);
+    page.room = page.used();
+    from({ type: 'store', effects: [{ op: 'write', key: 'interbus.slot.boston.1', value: 'x'.repeat(50) }], slot: 1 });
+    await settle();
+    expect(sim().slotsRefused).toEqual(new Map([[1, 'full']]));
+    sim().followNewest(true);
+    await settle();
+    from({ type: 'took-save', ok: true });
+    expect(sim().slotsRefused).toEqual(new Map());
   });
 });
 

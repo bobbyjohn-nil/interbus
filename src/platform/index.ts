@@ -5,7 +5,7 @@ export { onReplaced, reportReplaced, watchChunkFailures, reload, type ReplacedRe
 export { assetUrl, assetBase, assetGone } from './web/assets';
 export { openCityFile, type CityFile } from './web/cityFile';
 export { externalLink, ALLOWED_LINKS, type ExternalLinkProps } from './web/links';
-export { createWebSaveStore, storeRefusal } from './web/saveStore';
+export { createWebSaveStore, onOtherTabWrite, storeRefusal } from './web/saveStore';
 export { createMemorySaveStore } from './memory/saveStore';
 export { applyEffects, type SaveStore, type StoreEffect, type StoreRefusal } from './types';
 export { readSimFile, startSimWorker } from './web/simFile';

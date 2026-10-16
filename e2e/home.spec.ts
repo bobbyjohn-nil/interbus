@@ -1,10 +1,10 @@
 // Home (the M5 spec, item 3; exit check 1's first step): the first screen over the paused map. New
 // game leads to the founding card; Saves' Back to Home returns to it, where Continue names the game
 // and goes on with it; New game asks before it replaces that game, and the slots stay.
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { usd } from '../src/ui/format';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, setFare, setSpeed, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
 test.describe('Home', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -105,5 +105,70 @@ test.describe('Home', () => {
     await expect(home).toBeHidden();
     await expect(page.getByTestId('notice')).toContainText('Slot loaded');
     await expect(page.getByTestId('saves-chip')).toBeVisible();
+  });
+
+  // Two tabs of the game on one browser, as when the owner opens the preview again to see a deploy while an old tab stays open
+  // (D12; the systems audit's fifth round). On 050dbdd the second tab's Home named and played the game it read as it opened,
+  // its first pause wrote that over the first tab's newer day, fare change and cash, and nothing said so: shown failing (TS-04)
+  // there, where its Home still read Day 2 after the first tab had saved Day 3. Now Home names and plays the game the browser
+  // holds, and a tab whose game another tab's save has overtaken writes nothing over it, and says so.
+  test('names and plays the game another tab saved, and a tab another tab has overtaken writes nothing over it', async ({ context }) => {
+    test.setTimeout(150_000);
+    const live = (p: Page) => p.evaluate(() => JSON.parse(localStorage.getItem('interbus.save.boston')!) as { data: { clock: { elapsed: number }; lines: { fareCents: number }[] } });
+    const elapsed = async (p: Page) => Number(await p.getByTestId('sim-panel').getAttribute('data-elapsed'));
+    const a = await context.newPage();
+    await a.goto('./');
+    await foundCompany(a);
+    await withDebugLine(a);
+    const b = await context.newPage();
+    await b.goto('./');
+    const continueB = b.getByTestId('home-continue');
+    await expect(continueB).toContainText('Back Bay Transit · Year 1, Q1, Day 2 ·', { timeout: 30_000 });
+
+    // A plays on into day 3 and changes a fare, paused: B's Home names that game, and Continue goes on with it.
+    await a.bringToFront();
+    await setSpeed(a, '5,400×');
+    await expect.poll(() => elapsed(a), { timeout: 60_000 }).toBeGreaterThan(2 * 86_400);
+    await a.getByTestId('play').click();
+    await setFare(a, 'Line 1', '$3.00');
+    await expect.poll(async () => (await live(a)).data.lines[0]!.fareCents).toBe(300);
+    const fromA = await live(a);
+    const cashA = Number(await a.getByTestId('sim-panel').getAttribute('data-cash'));
+    await expect(continueB).toContainText(`Back Bay Transit · Year 1, Q1, Day 3 · ${usd(cashA)}`);
+    await b.bringToFront();
+    await continueB.click();
+    await expect(b.getByTestId('sim-panel')).toHaveAttribute('data-elapsed', String(fromA.data.clock.elapsed));
+    await expect(b.getByTestId('saves-chip')).toHaveText('Saves');
+
+    // B plays on, so its saves are the newest: A, still on its game, says it is overtaken and writes nothing over them.
+    await setSpeed(b, '600×');
+    await expect(a.getByTestId('saves-chip')).toHaveText('Autosave off', { timeout: 10_000 });
+    await expect(a.getByTestId('notice')).toHaveText('Another tab changed the autosave');
+    await expect.poll(() => elapsed(b), { timeout: 30_000 }).toBeGreaterThan(fromA.data.clock.elapsed + 3_600);
+    await b.getByTestId('play').click();
+    await expect(b.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await expect.poll(async () => (await live(b)).data.clock.elapsed).toBe(await elapsed(b));
+    const fromB = await live(b);
+    expect(fromB.data.lines[0]!.fareCents).toBe(300);
+    await a.bringToFront();
+    await setSpeed(a, '600×');
+    await expect.poll(() => elapsed(a)).toBeGreaterThan(fromA.data.clock.elapsed + 1_800);
+    await a.getByTestId('play').click();
+    await expect(a.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await a.waitForTimeout(500);
+    expect((await live(a)).data.clock.elapsed).toBe(fromB.data.clock.elapsed);
+    await expect(a.getByTestId('saves-chip')).toHaveText('Autosave off');
+
+    // A's Saves says why; Back to Home names B's game, and Continue goes on with it, saving itself again.
+    await a.getByTestId('saves-chip').click();
+    await expect(a.getByTestId('saves-refused')).toHaveText('Another tab changed the autosave. Export this game to keep it.');
+    await a.getByRole('button', { name: 'Back to Home' }).click();
+    const cashB = Number(await b.getByTestId('sim-panel').getAttribute('data-cash'));
+    await expect(a.getByTestId('home-continue')).toContainText(`Back Bay Transit · Year 1, Q1, Day 3 · ${usd(cashB)}`);
+    await a.getByTestId('home-continue').click();
+    await expect(a.getByTestId('sim-panel')).toHaveAttribute('data-elapsed', String(fromB.data.clock.elapsed));
+    await expect(a.getByTestId('saves-chip')).toHaveText('Saves');
+    await setSpeed(a, '600×');
+    await expect.poll(async () => (await live(a)).data.clock.elapsed, { timeout: 10_000 }).toBeGreaterThan(fromB.data.clock.elapsed);
   });
 });
