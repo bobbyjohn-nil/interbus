@@ -65,4 +65,45 @@ test.describe('Home', () => {
     await expect(page.getByTestId('notice')).toContainText('Slot loaded');
     await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
   });
+
+  // Every screen can be left (the M5 spec, item 3): the founding card's Back to Home returns to Home as Saves' does, on a
+  // first visit (to import a save instead) and after a new game replaced a company (to load a slot instead), by the mouse or
+  // the keyboard. Shown failing (TS-04) on abb5f2f, where the card held only its form, with no Saves chip and no dock beside
+  // it, and Escape did nothing: only a reload left it.
+  test('leaves the founding card for Home, on a first visit and after a new game', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    const home = page.getByTestId('home');
+    const card = page.getByTestId('founding-card');
+    await leaveHome(page);
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'Back to Home' }).click();
+    await expect(home).toBeVisible();
+    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId('home-continue')).toHaveCount(0);
+    await home.getByRole('button', { name: 'Saves' }).click();
+    const saves = page.getByTestId('saves');
+    await expect(saves.getByRole('button', { name: 'Import a save file' })).toBeVisible();
+    await saves.getByRole('button', { name: 'Close' }).click();
+
+    // After a new game replaced the company, from the keyboard: back on Home, slot 1 loads.
+    await foundCompany(page);
+    await page.getByTestId('saves-chip').click();
+    await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
+    await page.getByRole('button', { name: 'Back to Home' }).click();
+    await home.getByRole('button', { name: 'New game' }).click();
+    await home.getByRole('button', { name: 'Start a new game' }).click();
+    await expect(card).toBeVisible();
+    const back = card.getByRole('button', { name: 'Back to Home' });
+    for (let n = 0; n < 10 && !(await back.evaluate((el) => el === document.activeElement)); n++) await page.keyboard.press('Tab');
+    await expect(back).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(home).toBeVisible();
+    await expect(page.getByTestId('home-continue')).toHaveCount(0);
+    await home.getByRole('button', { name: 'Saves' }).click();
+    await page.getByTestId('slot-1').getByRole('button', { name: 'Load' }).click();
+    await expect(home).toBeHidden();
+    await expect(page.getByTestId('notice')).toContainText('Slot loaded');
+    await expect(page.getByTestId('saves-chip')).toBeVisible();
+  });
 });

@@ -106,6 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- When Boston's map can't be loaded, after a server error, a dropped connection or a map that never finishes loading, a card high on the screen says so, with Reload, above Home and the founding card. Before, the only word of it was hidden under Home, then under the founding card, with no Reload, and it blamed your computer. The card for a map that loads but draws nothing moved up too, with Reload. When Boston itself can't be loaded either, its own card says so alone.
+- The founding card has Back to Home, so after New game you can go back to import a save file or load a slot instead. Before, nothing on the card left it.
+- A game saved before its company was founded, loaded from a slot or a file, opens its founding card empty, on Red, as a new game does. Before, it showed the name and color of the company it replaced, and one press founded the loaded game under them.
 - Holding down 1, 2, 3, 4 or 5 picks that speed once, and time runs at it while you hold the key. Before, time all but stopped for as long as you held it, and the game saved itself again at every repeat of the key.
 - When the game stops working while time runs, the map under "The game stopped working" rests, as it does while paused, with its buses where the game last had them, instead of keeping your computer busy drawing it again and again until you reload.
 - Building and editing no longer slow down as your company adds depots: with ten lines and five depots on Inner Boston, the game's work after each change took about a fifth of a second and now takes about a tenth, as it did before the depots.

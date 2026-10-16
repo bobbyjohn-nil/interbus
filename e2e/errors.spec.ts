@@ -1,5 +1,6 @@
-import { expect, test, type Route } from '@playwright/test';
-import { foundCompany } from './found';
+import { expect, test, type Locator, type Route } from '@playwright/test';
+import { copyProblems } from '../src/ui/copyRules';
+import { foundCompany, leaveHome } from './found';
 import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
 
 // The error bus is installed at boot (V3 never registered a sink, so its reports reached only the
@@ -40,6 +41,62 @@ for (const [what, fail] of [
     await page.unroute(sim);
     await card.getByRole('button', { name: 'Reload' }).click();
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
+    await expect(card).toHaveCount(0);
+  });
+}
+
+// A dropped connection fails both of the city's files: the game's own card says so, alone, with its one Reload; the map adds no
+// card of its own beside it (D12). Shown failing (TS-04) on the lane's first fix, where the map's card stood under the game's
+// with a second Reload.
+test('a connection dropped for both city files shows the game’s card alone', async ({ page }) => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+  test.setTimeout(90_000);
+  await page.route('**/cities/*', (r) => r.abort('internetdisconnected'));
+  await page.goto('./');
+  await expect(page.getByTestId('failed-card')).toHaveText('Boston couldn’t be loadedReload', { timeout: 30_000 });
+  await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'failed', { timeout: 30_000 });
+  await expect(page.locator('.map-notice')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reload' })).toHaveCount(1);
+});
+
+/** Whether nothing covers `card` at its two ends and its middle: elementFromPoint finds it there. */
+const inFront = (card: Locator) =>
+  card.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return [r.left + 4, r.left + r.width / 2, r.right - 4].every((x) => el.contains(document.elementFromPoint(x, r.top + r.height / 2)));
+  });
+
+// The city's map file unread for a reason other than a newer build (a server error, a dropped connection; a mount error and
+// the load's timeout end the same way) says so in one card high on the board, in front of Home and then of the founding card,
+// with Reload, in words true of every such cause. Shown failing (TS-04) on abb5f2f, where its words sat centred under Home's
+// card and then the founding card, with no Reload, and said the map "could not start on this computer".
+for (const [what, fail] of [
+  ['a server error', (r: Route) => r.fulfill({ status: 500, body: 'Internal Server Error' })],
+  ['a dropped connection', (r: Route) => r.abort('internetdisconnected')],
+] as const) {
+  test(`a map file unread for ${what} says so in front of Home and the founding card, with Reload, which brings the map back`, async ({ page }) => {
+    test.skip(!city.sim, 'no sim file in this build yet');
+    test.setTimeout(90_000);
+    const tiles = '**/cities/*.pmtiles';
+    await page.route(tiles, fail);
+    await page.goto('./');
+    const map = page.getByTestId('map');
+    await expect(map).toHaveAttribute('data-status', 'failed', { timeout: 30_000 });
+    const home = page.getByTestId('home');
+    await expect(home).toBeVisible({ timeout: 30_000 });
+    const card = map.locator('.map-notice');
+    await expect(card).toBeVisible();
+    expect(await inFront(card), 'the card in front of Home').toBe(true);
+    await expect(card.getByRole('button', { name: 'Reload' })).toHaveCount(1);
+    await expect(card).toHaveText('Boston’s map couldn’t be loaded.Reload');
+    expect(copyProblems(await card.locator('p, button').allInnerTexts())).toEqual([]);
+    await leaveHome(page);
+    await expect(page.getByTestId('founding-card')).toBeVisible();
+    expect(await inFront(card), 'the card in front of the founding card').toBe(true);
+    await page.unroute(tiles);
+    await card.getByRole('button', { name: 'Reload' }).click();
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await expect(home).toBeVisible({ timeout: 30_000 });
     await expect(card).toHaveCount(0);
   });
 }

@@ -65,7 +65,10 @@ body,
   border-radius: 8px;
   background: var(--ui-paper);
   color: var(--ui-ink-soft);
+  /* The game's own font: inside the map, MapLibre's container sets its own (.maplibregl-map). */
+  font-family: 'Afacad Flux', system-ui, sans-serif;
   font-size: 15px;
+  line-height: normal;
 }
 
 .corner {
@@ -114,7 +117,8 @@ body,
   font-size: 15px;
 }
 
-.replaced button {
+.replaced button,
+.map-notice button {
   font: inherit;
   font-weight: 600;
   padding: 4px 12px;
@@ -1284,6 +1288,11 @@ button.chip.checklist,
   cursor: default;
 }
 
+/* Back to Home (src/ui/game/Founding.tsx): the way back, under the way on, in Home's and Saves' weight. */
+.founding-card button.back {
+  font-weight: 400;
+}
+
 .checklist {
   font-weight: 600;
 }
@@ -1354,8 +1363,10 @@ button.chip.checklist,
   margin: 0 0 6px;
 }
 
-/* The GPU ladder's cards and Low graphics' word on a refused tilt (src/render/map/gpu.ts): high on the
-   board, so Home stays clear below. */
+/* The GPU ladder's cards, the map's own start failures and Low graphics' word on a refused tilt
+   (src/render/map/MapView.tsx, gpu.ts): high on the board, so Home and the founding card stay clear
+   below. They stay under the cards and panels, as the map does: the no-GPU card stays up while the
+   game plays on, and would hide the day card's first rows. */
 .map-notice.top {
   top: 72px;
   transform: translateX(-50%);

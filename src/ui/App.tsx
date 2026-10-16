@@ -501,6 +501,7 @@ export function App() {
               ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate, day: sim.snapshot.day }
               : null
           }
+          quiet={stopped}
         />
         <Home
           sim={sim}
@@ -548,6 +549,8 @@ export function App() {
             ? { second: sim.snapshot.secondOfDay, rate: stopped ? 0 : sim.snapshot.rate, day: sim.snapshot.day }
             : null
         }
+        // Its card says the game cannot go on, alone: the map adds none of its own beside it (D12).
+        quiet={stopped}
         {...(ready ? { onPointer, onClick } : {})}
       />
       <TopBar
@@ -588,7 +591,18 @@ export function App() {
         </button>
       ) : null}
       <Notices key="notices" sim={sim} home={false} savesOpen={open.includes("saves")} />
-      <FoundingCard sim={sim} />
+      {/* Keyed by the load, so a game loaded with no company yet opens it empty, on the first colour, as a new game does, never
+          with the name and colour typed for the company it replaced. Back to Home leaves it as Saves' does; its game has not
+          started, so there is no clock to pause. */}
+      <FoundingCard
+        key={loadedAt ?? "new"}
+        sim={sim}
+        onHome={() => {
+          choose("none");
+          setOpen([]);
+          setHomeAt(Date.now());
+        }}
+      />
       {stopped ? null : <DayCard sim={sim} />}
       {stopped ? null : <FailureCard sim={sim} />}
       <Corner key="corner" />
