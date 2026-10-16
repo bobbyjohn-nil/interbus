@@ -88,6 +88,35 @@ describe('the sim host', () => {
     expect(saves().length).toBe(before + 1);
   });
 
+  it('changes nothing for the speed already running: a held key’s repeats keep the clock, and save and record nothing', () => {
+    // Two games 3 real seconds at 5,400x in the worker's 50 ms ticks: 5 pressed once, and 5 held, its repeats every 33 ms
+    // (about 30 a second, a common rate). Shown failing (TS-04) on abb5f2f, where each repeat dropped the clock's slice and
+    // saved: the held game moved 0 game seconds, against 16,200, with 92 saves against 6 and 91 speed commands recorded.
+    const [once, held] = [started(), started()];
+    for (const game of [once, held]) {
+      game.host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+      game.host.handle({ type: 'speed', speed: 5 });
+    }
+    for (let t = 0, next = 33; t <= 3_000; t++) {
+      if (t === next) {
+        held.host.handle({ type: 'speed', speed: 5 });
+        next += 33;
+      }
+      if (t % 50 === 0) for (const game of [once, held]) game.host.tick(t);
+    }
+    expect(once.last('snapshot')!.snapshot.elapsed).toBe(3 * SPEEDS[5]);
+    expect(held.last('snapshot')!.snapshot.elapsed).toBe(once.last('snapshot')!.snapshot.elapsed);
+    expect(held.saves()).toEqual(once.saves());
+    held.host.handle({ type: 'export-session' });
+    const session = JSON.parse(held.last('export')!.text) as { commands: { message: ToWorker }[] };
+    expect(session.commands.map((c) => c.message)).toEqual([{ type: 'speed', speed: 5 }]);
+    // A pause, and a pause again (Home's), still saves where it stopped.
+    const paused = held.saves().length;
+    held.host.handle({ type: 'speed', speed: 0 });
+    held.host.handle({ type: 'speed', speed: 0 });
+    expect(held.saves().length).toBe(paused + 2);
+  });
+
   it('runs a line from its depot, and the day card at 24:00 adds up and meets the forecast (M1 and M2, headless)', () => {
     const { host, out, last } = started();
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });

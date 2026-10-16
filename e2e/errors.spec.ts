@@ -1,6 +1,6 @@
 import { expect, test, type Route } from '@playwright/test';
 import { foundCompany } from './found';
-import { build, city, onDepotLand, pointAt, zoomOutOnce } from './shell';
+import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
 
 // The error bus is installed at boot (V3 never registered a sink, so its reports reached only the
 // console, S07): an uncaught error anywhere on the page lands on the bus as ui/uncaught.
@@ -120,4 +120,43 @@ test('a sim worker that stops mid-game says so in one card with Reload, and take
   await expect(card).toHaveText('The game stopped workingReload');
   await expect(home).toHaveCount(0);
   await expect(saves).toHaveCount(0);
+});
+
+// A worker that stops while time runs leaves a map that stands still: the vehicle layer asks for no frame under the card,
+// as while paused (I14). Shown failing (TS-04) on abb5f2f, where the map still had the last snapshot's clock, running,
+// and the layer asked for a frame after every frame until a reload: 6 more in the 2 s measured.
+test('a sim worker that stops while time runs leaves the map standing still under its card', async ({ page }) => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+  // The worker stops at an export once armed, so the debug line's own export goes through.
+  await page.route('**/assets/sim.worker-*.js', async (route) => {
+    const response = await route.fetch();
+    const stop = "self.addEventListener('message', (e) => { if (e.data?.type === 'arm') self.armed = true; else if (e.data?.type === 'export' && self.armed) throw new Error('e2e: the worker stops'); });";
+    await route.fulfill({ response, body: `${stop}\n${await response.text()}` });
+  });
+  await page.addInitScript(() => {
+    const seen = window as unknown as { sim: Worker };
+    const Base = window.Worker;
+    window.Worker = class extends Base {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        if (String(url).includes('sim.worker')) seen.sim = this;
+      }
+    };
+  });
+  await page.goto('./');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  await withDebugLine(page);
+  await setSpeed(page, '60×');
+  await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await map.getAttribute('data-asked')), { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.evaluate(() => (window as unknown as { sim: Worker }).sim.postMessage({ type: 'arm' }));
+  await page.getByTestId('saves-chip').click();
+  await page.getByRole('button', { name: 'Export this game' }).click();
+  await expect(page.getByTestId('failed-card')).toHaveText('The game stopped workingReload');
+  await page.waitForTimeout(500);
+  const asked = await map.getAttribute('data-asked');
+  await page.waitForTimeout(2_000);
+  expect(await map.getAttribute('data-asked')).toBe(asked);
 });
