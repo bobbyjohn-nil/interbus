@@ -5,7 +5,8 @@
 // Build menu's tools, as the browser's own controls let it. Shown failing (TS-04) on 7d5ca2b: Homes
 // lay under Finance, where a press landed on Finance instead; the compass press only closed the menu,
 // the board staying flat; Tab out of the speed list went to the map's canvas; and Tab from Build went
-// on past its open menu, Place a stop never focused.
+// on past its open menu, Place a stop never focused. The systems audit's fourth round: Escape closing
+// a menu the mouse opened leaves Space to time, arrows or not (shown failing below).
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { foundCompany } from './found';
 import { city } from './shell';
@@ -160,6 +161,49 @@ test.describe('the menus', () => {
       await expect(list).toHaveCount(0);
       expect(await focused(page), `${key} from the list opened by ${open}`).toBe(where);
     }
+  });
+
+  // Escape hands the focus back to the menu's button as it closes the menu, and focusSource took that for the keyboard
+  // reaching the button, so Space opened the menu the mouse had opened again instead of playing; and so it did after the
+  // arrows had moved through the menu, once Escape alone was let off. The button gets the focus back as it had it when
+  // the menu opened (focusSource.ts); a button Tab reached keeps Space through it (#112, #120). Shown failing (TS-04) on
+  // abb5f2f: after Escape alone the speed stayed 0 (Space opened the Speed list again); and on the first fix, which
+  // let Escape off but not the arrows before it (Escape among focusSource's modifiers), the same after ArrowDown, End
+  // and Escape.
+  test('Escape closing a menu the mouse opened leaves Space to play and pause, arrows or not; one reached with Tab keeps Space', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const panel = page.getByTestId('sim-panel');
+    const speed = page.getByTestId('speed-menu');
+    const list = page.getByRole('listbox', { name: 'Speed' });
+    for (const keys of [[], ['ArrowDown', 'End']])
+      for (const [chip, menu, after] of [
+        [speed, list, '3'],
+        [page.getByTestId('demand-chip'), page.getByTestId('demand-menu'), '0'],
+      ] as const) {
+        await chip.click();
+        await expect(menu).toBeVisible();
+        for (const key of keys) await page.keyboard.press(key);
+        await page.keyboard.press('Escape');
+        await expect(menu).toHaveCount(0);
+        await expect(chip).toBeFocused();
+        await page.keyboard.press('Space');
+        await expect(panel, `after ${[...keys, 'Escape'].join(', ')}`).toHaveAttribute('data-speed', after);
+        await expect(menu).toHaveCount(0);
+      }
+    // Reached with Tab, the speed menu's button keeps Space through Escape: Space opens its list again.
+    await page.getByTestId('play').focus();
+    await page.keyboard.press('Tab');
+    await expect(speed).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(list).toBeVisible();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Escape');
+    await expect(list).toHaveCount(0);
+    await page.keyboard.press('Space');
+    await expect(list).toBeVisible();
+    await expect(panel).toHaveAttribute('data-speed', '0');
   });
 
   test('with the Build menu open, Tab goes through its three tools in order, and on past the last closes it', async ({ page }) => {

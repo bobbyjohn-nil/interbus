@@ -1513,11 +1513,14 @@ button.chip.checklist,
    heading, several open at once. --room is the height down to the dock from where the layer put it
    (roomBelow), so a panel that grows scrolls inside it instead of running over the dock. The layer
    covers the window, its panels raised among themselves inside it, and lets presses through to the map
-   where no panel is. */
+   where no panel is. It clips a panel dragged past the window's edge, so focus on a control there never
+   scrolls the page, the whole game with it (overflow: hidden on the root still scrolled to it); the panel
+   comes in to show the control instead (Panels.tsx, showing). */
 .panel-layer {
   position: absolute;
   z-index: var(--layer-panels);
   inset: 0;
+  overflow: clip;
   pointer-events: none;
 }
 

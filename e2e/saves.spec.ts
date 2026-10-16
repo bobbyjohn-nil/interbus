@@ -5,7 +5,8 @@
 // or deleted. A slot from an older build says so, exports, and is replaced only after a question; a
 // browser that refuses storage says once that it keeps no saves, and one with no room left says so,
 // with the way out. A save file replaces a founded company only after the question Load asks, one
-// question at a time, and an older save the disk has no room to set aside is never written over.
+// question at a time, and an older save the disk has no room to set aside is never written over. A
+// question keeps the keyboard's place (the systems audit's fourth round, shown failing below).
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
@@ -255,6 +256,67 @@ test.describe('saves: slots, export and import', () => {
       await slot.getByRole('button', { name: keep }).click();
       await expect(slot.getByRole('button')).toHaveText(['Save here', 'Delete', 'Load']);
     }
+  });
+
+  // A question took the place of the button pressed for it, and an answer took the question's place, so the focus fell to
+  // the page and the next Space ran time behind Saves. A question opened from the keyboard takes the focus to its keeping
+  // answer (never to Delete Slot 1 or Replace this game, so a second Space keeps the save), and an answer gives it back to
+  // the button the question stood in for, or to its row where that button went with the save. Shown failing (TS-04) on
+  // abb5f2f: Keep it was not focused, the focus on the page, once Save here's question opened.
+  test('a question opened from the keyboard takes the focus to its keeping answer, and an answer gives it back; time stays paused', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const panel = page.getByTestId('sim-panel');
+    await page.getByRole('button', { name: 'Saves' }).click();
+    const saves = page.getByTestId('saves');
+    const slot = saves.getByTestId('slot-1');
+    const button = (name: string) => slot.getByRole('button', { name, exact: true });
+    await button('Save here').click();
+    await expect(slot).toContainText('Back Bay Transit');
+    // The keyboard's way in: Tab from Close.
+    await saves.getByRole('button', { name: 'Close' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(button('Save here')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(button('Keep it')).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(button('Save here')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(button('Delete')).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(button('Keep it')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(button('Delete')).toBeFocused();
+    // Load, answered: the game loads and the keyboard is back on Load.
+    await page.keyboard.press('Tab');
+    await expect(button('Load')).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(button('Keep playing')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(button('Replace this game')).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(page.getByTestId('notice')).toContainText('Slot loaded');
+    await expect(button('Load')).toBeFocused();
+    // Import a save file, four Tabs on: Keep playing, and back.
+    for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
+    const importing = saves.getByRole('button', { name: 'Import a save file' });
+    await expect(importing).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(saves.getByRole('button', { name: 'Keep playing' })).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(importing).toBeFocused();
+    // Delete Slot 1, answered: its Delete goes with the save, and the keyboard is on the row.
+    await button('Delete').focus();
+    await page.keyboard.press('Space');
+    await expect(button('Keep it')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(button('Delete Slot 1')).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(slot).toHaveAttribute('data-empty', 'yes');
+    await expect(slot).toBeFocused();
+    await expect(panel).toHaveAttribute('data-speed', '0');
   });
 
   // Before a company is founded, Load and Import go ahead without a question, and close any question

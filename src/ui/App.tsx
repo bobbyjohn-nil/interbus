@@ -229,7 +229,9 @@ export function App() {
   }
 
   // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
-  // that arrives with a loaded save opens no panel).
+  // that arrives with a loaded save opens no panel). A load lets it go too: a Create refused, or undone
+  // with it in one render, brings no line to let it go, and the game loaded later opened Lines on its
+  // newest line (the systems audit's fourth round).
   const creating = useRef(false);
   // A tool closes once its purchase lands: a new depot, or a new line.
   const started = sim.snapshot !== null;
@@ -273,6 +275,7 @@ export function App() {
   useEffect(() => {
     if (loadedAt === loadedSeen.current) return;
     loadedSeen.current = loadedAt;
+    creating.current = false;
     choose("none");
     setOpen((o) => o.filter((p) => p !== "stop" && p !== "lines"));
     setDraftModel("sparrow");
@@ -311,7 +314,7 @@ export function App() {
       window.removeEventListener("blur", left);
     };
   }, []);
-  // One press, one command, on every button of the page (onePress.ts): a double-click's second click goes nowhere.
+  // One press, one command, on every button of the page (onePress.ts): a double-click's second click goes nowhere, and so do a held key's repeats.
   useEffect(() => onePress(), []);
 
   useEffect(() => {
@@ -327,8 +330,8 @@ export function App() {
       // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A button the keyboard reached
       // keeps Space, so Space still presses it; one pressed with the mouse does not, or Space pressed it
       // again (opening the speed menu, closing Finance, taking back one more command). A held Space
-      // pauses or plays once, as a button's press does (DemandMenu.tsx, tilt.ts), and a held 1 to 5 picks
-      // its speed once: their repeats send nothing (each was a command, an autosave and a stalled clock).
+      // pauses or plays once, as a held key presses a button once (onePress.ts) and tilts once (tilt.ts), and a held 1 to 5
+      // picks its speed once: their repeats send nothing (each was a command, an autosave and a stalled clock).
       const { now, play, founded } = speedRef.current;
       const keeps = event.target instanceof HTMLButtonElement && focus.current.byKey;
       if (founded && event.key === " " && !keeps) {

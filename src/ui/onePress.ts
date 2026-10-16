@@ -15,9 +15,24 @@
 // of its run with it (the systems audit's third round): the first click opened a stop's card or the Lines panel under
 // the pointer, and the second would press whatever button came there (Take it down, Make it a Shelter).
 // No control in the game asks for a double-click. The press-away rule's twin (pressAway.ts).
+// A held key is one press too (the systems audit's fourth round; DECISIONS 2026-10-15, "a held key
+// acts once"): the browser presses a focused button again at each repeat of Enter, the demand menu
+// turned a kind on or off again at each repeat of Enter, and a dropdown's list picked again at each
+// repeat of Enter or Space. Before, only the page's Space and 1 to 5 (App.tsx), the tilt keys
+// (tilt.ts), the demand menu's Space and the route editor's arrows (Enter) dropped their repeats, each
+// with a guard of its own. Now a repeat of
+// Enter or Space on a control, or on the list that holds a dropdown's focus, is stopped at the window
+// in the capture phase, as a dropped click is, before anything hears it, and its default (the
+// browser's press) with it; the demand menu's and the route editor's own guards went. Space presses a
+// button as it is let go, and a repeat dropped never arms it, so a held Space presses once too. Other
+// keys' repeats go on: an arrow held still moves and a text field types; the page's own Space and 1 to
+// 5 drop their repeats themselves (App.tsx).
 
-const CONTROLS = 'button, a, [role="option"], [role="menuitem"]';
+/** What a press presses: a button, a link, a dropdown's option or a menu's item. */
+export const CONTROLS = 'button, a, [role="option"], [role="menuitem"]';
 const CANVAS = '.maplibregl-canvas-container';
+/** Where a key presses: a control, or a dropdown's open list, which holds the focus while its options are picked. */
+const KEYED = `${CONTROLS}, [role="listbox"]`;
 
 /** Whether `target` is on the map's canvas, where a press is the map's: the compass and the map's Reload sit beside it in the map's box, and are controls. */
 export function onCanvas(target: unknown): boolean {
@@ -30,6 +45,12 @@ export function onControl(target: unknown): boolean {
   const at = target as { closest?: (selector: string) => unknown } | null;
   if (typeof at?.closest !== 'function') return false;
   return at.closest(CONTROLS) !== null && !onCanvas(target);
+}
+
+/** Whether a key down on `target` presses something (KEYED): on a control or a dropdown's list, but not on the map's canvas. */
+function keyed(target: unknown): boolean {
+  const at = target as { closest?: (selector: string) => unknown } | null;
+  return typeof at?.closest === 'function' && at.closest(KEYED) !== null && !onCanvas(target);
 }
 
 /** Puts the rule on `page` (the window), once; returns what takes it off again. */
@@ -52,10 +73,19 @@ export function onePress(page: EventTarget = window): () => void {
     event.stopPropagation();
     event.preventDefault();
   };
+  // A held Enter's or Space's repeats on a control go nowhere.
+  const held = (event: Event) => {
+    const { key, repeat } = event as KeyboardEvent;
+    if (!repeat || (key !== 'Enter' && key !== ' ') || !keyed(event.target)) return;
+    event.stopPropagation();
+    event.preventDefault();
+  };
   page.addEventListener('click', heard, { capture: true });
   page.addEventListener('dblclick', heard, { capture: true });
+  page.addEventListener('keydown', held, { capture: true });
   return () => {
     page.removeEventListener('click', heard, { capture: true });
     page.removeEventListener('dblclick', heard, { capture: true });
+    page.removeEventListener('keydown', held, { capture: true });
   };
 }

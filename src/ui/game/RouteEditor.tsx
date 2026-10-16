@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { BUS_MODELS } from "../../sim/rules/line";
 import { isExpress } from "../../sim/rules/express";
 import type { LineView, LngLatPair } from "../../sim/types";
@@ -122,7 +122,8 @@ export function RouteEditor({
 }) {
   const [dragging, setDragging] = useState<number | null>(null);
   // A stop moved with its arrow keeps the focus there, so Space or Enter moves it again: on the same
-  // arrow, or on its other one at the top or the bottom of the list, where that arrow shuts.
+  // arrow, or on its other one at the top or the bottom of the list, where that arrow shuts. A held key
+  // moves it once: the page drops a held Enter's repeats on a control (onePress.ts).
   const list = useRef<HTMLOListElement>(null);
   const refocus = useRef<{ readonly at: number; readonly up: boolean } | null>(null);
   useLayoutEffect(() => {
@@ -136,11 +137,6 @@ export function RouteEditor({
   const move = (from: number, to: number, arrow: HTMLButtonElement) => {
     if (document.activeElement === arrow) refocus.current = { at: to, up: to < from };
     onPoints(moved(points, from, to));
-  };
-  // A held Enter moves the stop once, as a held Space does (its press comes as it is let go): the browser
-  // presses a focused button again on each repeat of Enter, and the arrow keeps the focus, so it went on.
-  const once = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && event.repeat) event.preventDefault();
   };
   const keys = rowKeys(points);
   const draft = sim.draft;
@@ -192,10 +188,10 @@ export function RouteEditor({
             >
               <span className="grip" aria-hidden="true" />
               <span className="name">{label}</span>
-              <button type="button" aria-label={`Move ${label} up`} disabled={k === 0} onKeyDown={once} onClick={(e) => move(k, k - 1, e.currentTarget)}>
+              <button type="button" aria-label={`Move ${label} up`} disabled={k === 0} onClick={(e) => move(k, k - 1, e.currentTarget)}>
                 ↑
               </button>
-              <button type="button" aria-label={`Move ${label} down`} disabled={k === points.length - 1} onKeyDown={once} onClick={(e) => move(k, k + 1, e.currentTarget)}>
+              <button type="button" aria-label={`Move ${label} down`} disabled={k === points.length - 1} onClick={(e) => move(k, k + 1, e.currentTarget)}>
                 ↓
               </button>
               <button type="button" aria-label={`Remove ${label}`} onClick={() => onPoints(points.filter((_, j) => j !== k))}>

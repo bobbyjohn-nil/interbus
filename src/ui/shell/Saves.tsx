@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
 import { clock, dateText, savedWhen, usd } from '../format';
 import type { SaveAbout, SetAsideWhy } from '../../sim/types';
@@ -71,6 +71,24 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
     setReplacing(null);
     setImporting(false);
   };
+  // The keyboard keeps its place (the systems audit's fourth round): a question takes the place of the button pressed for
+  // it, and an answer the question's, so the focus fell to the page, where the next Space ran time behind Saves. Pressed
+  // from the keyboard (a key's click has detail 0), a question takes the focus to its keeping answer, never to the one that
+  // deletes or replaces, so a second Space keeps the save; an answer gives it back to the button the question stood in for,
+  // or to the question's row where that button goes with the save, or to Saves where the row goes too (a save set aside).
+  const panel = useRef<HTMLElement>(null);
+  const keyTo = useRef<{ readonly row: Element | null; readonly name: string | null } | null>(null);
+  useEffect(() => {
+    const to = keyTo.current;
+    keyTo.current = null;
+    if (!to) return;
+    const named = [...(to.row?.querySelectorAll('button') ?? [])].find((b) => b.textContent === to.name);
+    ((named ?? (to.row?.isConnected ? to.row : panel.current)) as HTMLElement | null)?.focus();
+  });
+  /** After a press from the keyboard, the focus goes to the button named `name` in the pressed one's row, or to that row (null), or to Saves (`row` false). */
+  const keep = (event: MouseEvent<HTMLElement>, name: string | null, row = true) => {
+    if (event.detail === 0) keyTo.current = { row: row ? event.currentTarget.closest('li, div.controls') : null, name };
+  };
   if (!sim.snapshot) return null;
   const autosave = sim.autosave;
   /** Export and Delete, which asks first, for a save set aside or the one the start could not set aside. */
@@ -83,22 +101,30 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
         <>
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              keep(e, null, id === 'unbacked');
               setDeleting(null);
               send(id === 'unbacked' ? { type: 'delete-unbacked' } : { type: 'delete-set-aside', why });
             }}
           >
             Delete it
           </button>
-          <button type="button" onClick={() => setDeleting(null)}>
+          <button
+            type="button"
+            onClick={(e) => {
+              keep(e, 'Delete');
+              setDeleting(null);
+            }}
+          >
             Keep it
           </button>
         </>
       ) : (
         <button
           type="button"
-          onClick={() => {
+          onClick={(e) => {
             closeQuestions();
+            keep(e, 'Keep it');
             setDeleting(id);
           }}
         >
@@ -110,7 +136,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
   // A game to lose: before a company is founded, Load and Import ask nothing.
   const founded = sim.snapshot.company.name !== '';
   return (
-    <aside className="panel saves" aria-label="Saves" data-testid="saves" data-chrome="panel">
+    <aside className="panel saves" aria-label="Saves" data-testid="saves" data-chrome="panel" ref={panel} tabIndex={-1}>
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
         ×
       </button>
@@ -123,7 +149,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
       <ul className="slots">
         {/* A save the start could not set aside holds the autosave's place, the live key, so its row says so: the panel grows by its buttons only (I13). */}
         {sim.slots || sim.unbacked ? (
-          <li data-testid="autosave" title={sim.unbacked ? UNBACKED_ROW_TITLE : sim.storeRefused ? undefined : 'This game saves itself as it plays'}>
+          <li data-testid="autosave" title={sim.unbacked ? UNBACKED_ROW_TITLE : sim.storeRefused ? undefined : 'This game saves itself as it plays'} tabIndex={-1}>
             <span>
               Autosave · {sim.unbacked ? unbackedRowText(setAsideName(sim.unbacked)) : autosave ? aboutText(autosave) : 'Empty'}
               <When about={sim.unbacked ? null : autosave} testId="autosave-when" />
@@ -132,7 +158,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
           </li>
         ) : null}
         {(sim.slots ?? []).map(({ slot, about, readable, why }) => (
-          <li key={slot} data-testid={`slot-${slot}`} data-empty={about ? 'no' : 'yes'}>
+          <li key={slot} data-testid={`slot-${slot}`} data-empty={about ? 'no' : 'yes'} tabIndex={-1}>
             <span>
               Slot {slot} · {about ? aboutText(about) : readable ? 'Empty' : setAsideName(why ?? 'unreadable')}
               <When about={about} testId={`slot-${slot}-when`} />
@@ -148,24 +174,32 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                 <>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      keep(e, 'Save here');
                       setReplacing(null);
                       send({ type: 'save-slot', slot });
                     }}
                   >
                     Replace Slot {slot}
                   </button>
-                  <button type="button" onClick={() => setReplacing(null)}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      keep(e, 'Save here');
+                      setReplacing(null);
+                    }}
+                  >
                     Keep it
                   </button>
                 </>
               ) : confirm === slot || deleting === slot ? null : (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
                     // A slot that holds a save, even one this game cannot load, is replaced only after a question.
                     if (!about && readable) return send({ type: 'save-slot', slot });
                     closeQuestions();
+                    keep(e, 'Keep it');
                     setReplacing(slot);
                   }}
                 >
@@ -181,8 +215,9 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
               {(about || !readable) && deleting !== slot && confirm !== slot && replacing !== slot ? (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
                     closeQuestions();
+                    keep(e, 'Keep it');
                     setDeleting(slot);
                   }}
                 >
@@ -193,14 +228,21 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                 <>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      keep(e, null);
                       setDeleting(null);
                       send({ type: 'delete-slot', slot });
                     }}
                   >
                     Delete Slot {slot}
                   </button>
-                  <button type="button" onClick={() => setDeleting(null)}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      keep(e, 'Delete');
+                      setDeleting(null);
+                    }}
+                  >
                     Keep it
                   </button>
                 </>
@@ -208,9 +250,10 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
               {about && confirm !== slot && deleting !== slot && replacing !== slot ? (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
                     closeQuestions();
                     if (!founded) return send({ type: 'load-slot', slot });
+                    keep(e, 'Keep playing');
                     setConfirm(slot);
                   }}
                 >
@@ -221,14 +264,21 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                 <>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      keep(e, 'Load');
                       setConfirm(null);
                       send({ type: 'load-slot', slot });
                     }}
                   >
                     Replace this game
                   </button>
-                  <button type="button" onClick={() => setConfirm(null)}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      keep(e, 'Load');
+                      setConfirm(null);
+                    }}
+                  >
                     Keep playing
                   </button>
                 </>
@@ -237,7 +287,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
           </li>
         ))}
         {(sim.setAside ?? []).map((why) => (
-          <li key={why} data-testid={`set-aside-${why}`} className="set-aside">
+          <li key={why} data-testid={`set-aside-${why}`} className="set-aside" tabIndex={-1}>
             <span>{setAsideName(why)}, set aside</span>
             {keepOrDelete(why, why)}
           </li>
@@ -254,23 +304,31 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
           <>
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                keep(e, 'Import a save file');
                 setImporting(false);
                 sim.importSave();
               }}
             >
               Replace this game
             </button>
-            <button type="button" onClick={() => setImporting(false)}>
+            <button
+              type="button"
+              onClick={(e) => {
+                keep(e, 'Import a save file');
+                setImporting(false);
+              }}
+            >
               Keep playing
             </button>
           </>
         ) : (
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
               closeQuestions();
               if (!founded) return sim.importSave();
+              keep(e, 'Keep playing');
               setImporting(true);
             }}
           >

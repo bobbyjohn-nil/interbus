@@ -57,6 +57,15 @@ export const keptWhole = (at: { x: number; y: number }, w: number, width: number
 });
 
 /**
+ * Where a panel at `at` goes so that `control`, the part of it the keyboard's focus reached (its left and right in the
+ * window), shows whole: moved across as little as brings it GAP inside the window `width` wide, or null where it shows
+ * already. The layer clips what hangs past the window and the page never scrolls to show it (app.css), so a control Tab
+ * reaches in a panel dragged past an edge brings the panel in (the systems audit's fourth round: the page scrolled 272 px).
+ */
+export const showing = (at: { x: number; y: number }, control: { left: number; right: number }, width: number) =>
+  control.left >= 0 && control.right <= width ? null : { x: Math.round(at.x + (control.left < 0 ? GAP - control.left : width - GAP - control.right)), y: at.y };
+
+/**
  * The free place for a panel `w` by `h` beside those already on screen (`taken`), in a window
  * `width` by `height`: the rightmost spot of the highest row with room, scanning right to left past
  * each panel in the way. Rows start under the chips and just below each panel, and a row has room
@@ -154,6 +163,18 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
   }, []);
 
   const raise = (id: string) => setRaised((r) => (r.at(-1) === id ? r : [...r.filter((x) => x !== id), id]));
+  // A control the keyboard focuses past the window's edge brings its panel in as far as shows it (showing), and the panel
+  // stays there, as if dragged there. Only the keyboard's focus moves it (:focus-visible): a press focuses what is under
+  // the pointer, on screen already, though a Saves row it focuses may run on past the edge. A dropdown's open list is
+  // portaled to the page with its place fixed as it opened (React's focus still bubbles here), so it moves no panel.
+  const reveal = (box: HTMLDivElement, target: EventTarget, id: string) => {
+    if (!(target instanceof Element) || !box.contains(target) || !target.matches(":focus-visible")) return;
+    const b = box.getBoundingClientRect();
+    const at = showing({ x: b.left, y: b.top }, target.getBoundingClientRect(), window.innerWidth);
+    if (!at) return;
+    put(box, at);
+    if (dragged.current.has(id)) dragged.current.set(id, at);
+  };
   const drag = (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
     const target = event.target as Element;
     if (event.button !== 0 || !target.closest("h2") || target.closest("button, a, input")) return;
@@ -194,6 +215,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
             style={{ zIndex: 1 + (lift >= 0 ? items.length + lift : k) }}
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
+            onFocus={(e) => reveal(e.currentTarget, e.target, id)}
           >
             {node}
           </div>
