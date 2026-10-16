@@ -19,6 +19,14 @@ describe('notices', () => {
     expect(render({})).toBe('');
   });
 
+  // Two tabs of the game (the systems audit's fifth round): in the game, said as it is found; on Home, which takes the newer
+  // game up instead (useSim), not. Shown failing (TS-04) on 050dbdd, which said nothing.
+  it('says another tab changed the autosave, in the game but not on Home', () => {
+    expect(render({ newer: true }, false, false)).toContain('>Another tab changed the autosave<');
+    expect(render({ newer: true, storeNotice: 'full' }, false, false)).toContain('>Another tab changed the autosave<');
+    expect(render({ newer: true })).toBe('');
+  });
+
   // A store with no room left (src/platform's `full`) is said as full, with the way out. Shown failing (TS-04) on 029387a, where
   // it read "This browser isn’t keeping saves" though the browser kept saves: the game's own copies had filled it.
   it('says a full store has no room, and how to make some', () => {

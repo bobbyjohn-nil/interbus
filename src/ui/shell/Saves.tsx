@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
+import { NEWER_LINE_COPY, SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
 import { clock, dateText, savedWhen, usd } from '../format';
 import type { SaveAbout, SetAsideWhy } from '../../sim/types';
 import type { Sim } from '../game/useSim';
@@ -141,15 +141,16 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
         ×
       </button>
       <h2>Saves</h2>
-      {sim.storeRefused ? (
+      {/* Another tab's change to the autosave first: while it lasts this game saves nothing of its own, room or none. */}
+      {sim.newer || sim.storeRefused ? (
         <p className="hint" data-testid="saves-refused">
-          {STORE_LINE_COPY[sim.storeRefused]}
+          {sim.newer ? NEWER_LINE_COPY : STORE_LINE_COPY[sim.storeRefused!]}
         </p>
       ) : null}
       <ul className="slots">
         {/* A save the start could not set aside holds the autosave's place, the live key, so its row says so: the panel grows by its buttons only (I13). */}
         {sim.slots || sim.unbacked ? (
-          <li data-testid="autosave" title={sim.unbacked ? UNBACKED_ROW_TITLE : sim.storeRefused ? undefined : 'This game saves itself as it plays'} tabIndex={-1}>
+          <li data-testid="autosave" title={sim.unbacked ? UNBACKED_ROW_TITLE : sim.storeRefused || sim.newer ? undefined : 'This game saves itself as it plays'} tabIndex={-1}>
             <span>
               Autosave · {sim.unbacked ? unbackedRowText(setAsideName(sim.unbacked)) : autosave ? aboutText(autosave) : 'Empty'}
               <When about={sim.unbacked ? null : autosave} testId="autosave-when" />

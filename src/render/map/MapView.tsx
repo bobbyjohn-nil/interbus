@@ -21,9 +21,15 @@ const MESSAGES: Record<Exclude<Status, 'loading' | 'ready' | 'replaced'>, string
   'no-city-file': 'Boston’s map file is not in this build yet.',
   empty: 'Boston’s map file loaded but drew nothing.',
   failed: 'Boston’s map couldn’t be loaded.',
-  // The GPU ladder's last rungs (gpu.ts): the game itself plays on, so its saves and Export stay a click away.
-  'no-gpu': 'Turn on hardware acceleration to see the map. It is off in this browser: switch it on in the browser’s settings, then reload. Your game is saved, and Saves and Export still work.',
-  lost: 'The browser took the map’s graphics away. Reload to bring them back; your game is saved.',
+  // The GPU ladder's last rungs (gpu.ts): the game itself plays on, so its saves and Export stay a click away (SAVED).
+  'no-gpu': 'Turn on hardware acceleration to see the map. It is off in this browser: switch it on in the browser’s settings, then reload.',
+  lost: 'The browser took the map’s graphics away. Reload to bring them back.',
+};
+
+/** What the GPU ladder's cards say of the game's saves while it saves itself; while it does not, App's words take their place (`unsaved`). */
+const SAVED: Partial<Record<Status, string>> = {
+  'no-gpu': 'Your game is saved, and Saves and Export still work.',
+  lost: 'Your game is saved.',
 };
 
 /** How long Low graphics' word on a refused tilt stays. */
@@ -56,6 +62,11 @@ export interface MapViewProps {
   readonly clock?: { readonly second: number; readonly rate: number; readonly day: number } | null;
   /** The game's own card says it cannot go on (App's failed card), so the map adds no card of its own beside it (D12: one card). */
   readonly quiet?: boolean;
+  /**
+   * Set while the game isn't saving itself (App): the GPU ladder's cards say so in these words where they say the game is saved
+   * otherwise, with `keep`'s button (Export this game) before the lost card's Reload, so a reload never loses unsaved play unsaid.
+   */
+  readonly unsaved?: { readonly words: string; readonly keep: string; readonly onKeep: () => void } | null;
 }
 
 /** Sets the dots; the count of what draws follows from the next settled frame (below). */
@@ -85,7 +96,7 @@ export function eventLayerKey(event: EventView | null): string {
 
 const BOTH: DotKinds = { home: true, job: true };
 
-export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null, quiet = false }: MapViewProps) {
+export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null, quiet = false, unsaved = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
@@ -303,6 +314,9 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
     if (clockSecond !== null) mountedRef.current?.setClock(clockSecond, clockRate, clockDay);
   }, [clockSecond, clockRate, clockDay]);
 
+  // A GPU card's word on the game's saves: true of them, as the Saves chip is.
+  const saves = status in SAVED ? (unsaved ? unsaved.words : SAVED[status]) : undefined;
+
   return (
     <div
       className="map"
@@ -326,8 +340,14 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
       data-fps={fps ? Math.round(fps.fps) : ''}
     >
       {status in MESSAGES && !quiet ? (
-        <div className="map-notice top" role="alert" data-testid={status === 'no-gpu' || status === 'lost' ? 'gpu-card' : 'map-card'}>
-          <p>{MESSAGES[status as keyof typeof MESSAGES]}</p>
+        // The GPU ladder's cards drop to the board's foot while a day card or the run's end is up (app.css), so neither hides the other.
+        <div className={status === 'no-gpu' || status === 'lost' ? 'map-notice top gpu' : 'map-notice top'} role="alert" data-testid={status === 'no-gpu' || status === 'lost' ? 'gpu-card' : 'map-card'}>
+          <p>{saves ? `${MESSAGES[status as keyof typeof MESSAGES]} ${saves}` : MESSAGES[status as keyof typeof MESSAGES]}</p>
+          {saves && unsaved ? (
+            <button type="button" onClick={unsaved.onKeep}>
+              {unsaved.keep}
+            </button>
+          ) : null}
           {status !== 'no-gpu' ? (
             <button type="button" onClick={reload}>
               Reload

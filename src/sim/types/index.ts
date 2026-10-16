@@ -396,6 +396,8 @@ export type ToWorker =
   | { readonly type: 'key-texts'; readonly id: number; readonly texts: readonly (string | null)[] }
   /** The page's store refused the game's own saves it was given (`owed`; a full disk, blocked site data), under these keys: the sim owes the autosave if its key is one, and the quarter's start it holds if that key is, and writes them after the next delete in Saves. */
   | { readonly type: 'store-refused'; readonly keys: readonly string[] }
+  /** Another tab saved this city's game under the live key since this page last read or wrote it, and Home stands over this one: its text, to play here as a reload would ('took-save'). */
+  | { readonly type: 'take-save'; readonly text: string | null }
   /** Saves (the M3 spec, item 8): list the slots, save into one, load one, load a file's text, or hand over this game as a file. */
   | { readonly type: 'slots' }
   | { readonly type: 'save-slot'; readonly slot: number }
@@ -456,6 +458,8 @@ export type FromWorker =
    * it; null again once the player deletes it, after the slots listed with the save owed meanwhile.
    */
   | { readonly type: 'unbacked'; readonly why: SetAsideWhy | null }
+  /** The answer to take-save: whether its save became the game (its snapshot follows), or this build can't play it and the game is as it was. */
+  | { readonly type: 'took-save'; readonly ok: boolean }
   /** A slot or a file became the game; refusals come as 'refused' and leave the game as it was. */
   | { readonly type: 'loaded'; readonly from: 'slot' | 'file' | 'quarter' | 'new'; readonly load: LoadView }
   | { readonly type: 'snapshot'; readonly snapshot: Snapshot }

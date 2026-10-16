@@ -1373,6 +1373,21 @@ button.chip.checklist,
   max-width: 420px;
 }
 
+/* While a card that waits for an answer is up at top 60 px (the day's close, the run's end), the GPU
+   ladder's cards drop to the board's foot, above the dock, which such a card leaves clear (at most
+   52vh below its 60 px: its foot at 458 px of 720). High on the board, the lender's card, which has
+   no close, hid the lost card's words and Reload, and a day card its words (the systems audit's fifth
+   round); lifted over the cards instead, the lost card hid a short day card's Continue and Finance's
+   tabs. */
+.app:has(.day-card) .map-notice.top.gpu {
+  top: auto;
+  bottom: 80px;
+}
+
+.map-notice button + button {
+  margin-left: 8px;
+}
+
 .map-notice.top p {
   margin: 0 0 6px;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LOAD_COPY, loadedText, refusalText, STORE_FULL_COPY, STORE_REFUSED_COPY, UNBACKED_COPY } from '../copy';
+import { LOAD_COPY, loadedText, NEWER_COPY, refusalText, STORE_FULL_COPY, STORE_REFUSED_COPY, UNBACKED_COPY } from '../copy';
 import type { Sim } from '../game/useSim';
 
 /** How long a notice stays, in milliseconds. */
@@ -10,8 +10,11 @@ const NOTICE_MS = 6_000;
  * seconds; once, when the game starts, a save it set aside (D12), or, on Home until the player opens
  * Saves, one it could not set aside (in the game the Saves chip says so itself, App); once, that the
  * browser keeps no saves or has no room for one, if it refuses one (a Save here is said on its slot's
- * row instead, Saves); and a slot or a file that became the game. `home` is whether Home is on screen,
- * whose Saves button the held save's notice points at, and `savesOpen` whether the Saves panel is open.
+ * row instead, Saves); in the game, once each time another tab is found to have changed the autosave
+ * since this one last read or wrote it (Home takes that game up instead, useSim); and a slot or a
+ * file that became the game. `home` is
+ * whether Home is on screen, whose Saves button the held save's notice points at, and `savesOpen`
+ * whether the Saves panel is open.
  */
 export function Notices({ sim, home, savesOpen = false }: { sim: Sim; home: boolean; savesOpen?: boolean }) {
   const refusal = sim.refusal;
@@ -36,13 +39,22 @@ export function Notices({ sim, home, savesOpen = false }: { sim: Sim; home: bool
   const [savesSeen, setSavesSeen] = useState(false);
   if (savesOpen && sim.unbacked && !savesSeen) setSavesSeen(true);
   const heldShows = Boolean(sim.unbacked) && sim.status === 'ready' && home && !savesSeen && !(refusal && refusal !== expired);
+  // Said once each time this tab is left behind, for a few seconds; the Saves chip says it while it lasts.
+  const [newerDone, setNewerDone] = useState(false);
+  if (!sim.newer && newerDone) setNewerDone(false);
+  const newerShows = sim.newer && !home && !newerDone && !(refusal && refusal !== expired) && !heldShows;
+  useEffect(() => {
+    if (!newerShows) return;
+    const timer = window.setTimeout(() => setNewerDone(true), NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [newerShows]);
   // Said once the game is on screen, so it is said when someone can see it, and timed only while it
   // shows: a refusal on screen first holds it back without using up its few seconds. In the words for
   // why the store first refused (a full one names the way out), though Saves' own line waits only on the
   // game's saves (useSim).
   const unsaved = sim.storeNotice !== null && sim.status === 'ready';
   const [unsavedDone, setUnsavedDone] = useState(false);
-  const unsavedShows = unsaved && !unsavedDone && !(refusal && refusal !== expired) && !heldShows;
+  const unsavedShows = unsaved && !unsavedDone && !(refusal && refusal !== expired) && !heldShows && !newerShows;
   useEffect(() => {
     if (!unsavedShows) return;
     const timer = window.setTimeout(() => setUnsavedDone(true), NOTICE_MS);
@@ -60,15 +72,17 @@ export function Notices({ sim, home, savesOpen = false }: { sim: Sim; home: bool
       ? refusalText(refusal)
       : heldShows
         ? UNBACKED_COPY
-        : unsaved && !unsavedDone
-          ? sim.storeNotice === 'full'
-            ? STORE_FULL_COPY
-            : STORE_REFUSED_COPY
-          : loaded && loaded !== loadedDone
-            ? loadedText(loaded)
-            : setAside && !setAsideDone
-              ? setAside
-              : null;
+        : newerShows
+          ? NEWER_COPY
+          : unsaved && !unsavedDone
+            ? sim.storeNotice === 'full'
+              ? STORE_FULL_COPY
+              : STORE_REFUSED_COPY
+            : loaded && loaded !== loadedDone
+              ? loadedText(loaded)
+              : setAside && !setAsideDone
+                ? setAside
+                : null;
   if (!text) return null;
   return (
     <div className="notices" role="status" data-testid="notice" data-chrome="rest">
