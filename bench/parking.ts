@@ -2,24 +2,29 @@
 // synthetic lines laid as the transition tests lay the debug line, 2 to 13 km with six stops between
 // its ends and the depot 1.2 km off, every 6 to 30 minutes at peak and off-peak, and no service
 // overnight or every 20 to 45 minutes, each owning the buses the rules have it own (rules/cycle.ts
-// busesNeeded; a headway change never sells one), changed at a random second of the day to longer
-// headways, to shorter ones, or by roadworks starting or ending (a round trip 30% slower on the same
-// headways and buses). For each change, its merged plan against the line's own day plan: the day
+// busesNeeded) or one more (a headway change never sells one), changed at a random second of the day
+// to longer headways, to shorter ones, or by roadworks starting or ending (its drive 30% slower, a
+// round trip 16 to 27% longer, on the same headways and buses). For each change, its merged plan
+// against the line's own day plan: the day
 // plan's departures from the change to the handover that the merged plan does not run; handovers that
 // fall back to the window's end, two days on; buses sent home after the change and free in time for a
 // departure another bus then pulls out of the depot for within the idle limit (a wasted round trip);
 // how long after the change the plan hands over, and how often past the next midnight; and the merged
 // plan with fewer buses out than its day plan for over an hour, a round trip or more after the change.
-// Seeded and deterministic. Each run's unrun departures go to .cache/bench/parking.json, and a run
-// that finds the last one's there, over the same cases, counts the departures it leaves unrun that the
-// last one ran, and the other way, so running it on one tree and then another compares the two.
-// `npm run bench parking`.
+// Then chains of two or three headway changes on a line, 1 second to 3 hours apart on one day, where a
+// bus an earlier change parked may be home when a later change's departure needs it: each version's
+// own day plan's departures from its change to the next, and after the last to the handover, that the
+// merged plan leaves unrun, and the same handover and lean measures. Seeded and deterministic. Each
+// run's unrun departures go to .cache/bench/parking.json, and a run that finds the last one's there,
+// over the same cases, counts the departures it leaves unrun that the last one ran, and the other way:
+// copied into another tree's bench/ and run there, then here, from the same directory's .cache, it
+// compares the two. `npm run bench parking`.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { SECONDS_PER_DAY } from '../src/sim/config/time';
 import { createRng } from '../src/sim/core/rng';
 import { busesNeeded } from '../src/sim/rules/cycle';
 import { checkHeadways, sameHeadways, type Headways } from '../src/sim/rules/periods';
-import { idleLimitOf, tripTimes, type PlanInputs } from '../src/sim/rules/schedule';
+import { dayPlan, idleLimitOf, tripTimes, type PlanInputs } from '../src/sim/rules/schedule';
 import { busesOutAt, planInEffect, versionAt, type MergedPlan, type PlanInEffect } from '../src/sim/rules/transition';
 
 const KMH = 26;
@@ -81,6 +86,33 @@ for (const kind of KINDS) {
   }
 }
 
+// The chains, drawn after the single changes so those stay as they were.
+interface Chain {
+  readonly overnight: boolean;
+  /** Its versions, oldest first, and the instant each after the first came in. */
+  readonly versions: readonly PlanInputs[];
+  readonly at: readonly number[];
+}
+const CHAINS: Chain[] = [];
+while (CHAINS.length < 2_500) {
+  const routeM = rng.int(2_000, 13_000);
+  const overnight = rng.int(0, 1) === 1;
+  const changes = rng.int(2, 3);
+  let v = lay(routeM, headways(overnight), 0);
+  v = owning(v, needs(v) + rng.int(0, 1));
+  const versions = [v];
+  const at = [rng.int(0, SECONDS_PER_DAY - 1)];
+  while (versions.length <= changes) {
+    const h = headways(overnight);
+    const was = versions[versions.length - 1]!;
+    if (sameHeadways(was.timing.headways, h) || !checkHeadways(h).ok) continue;
+    const next = lay(routeM, h, 0);
+    versions.push(owning(next, Math.max(was.timing.buses, needs(next))));
+    if (versions.length <= changes) at.push(at[at.length - 1]! + rng.int(1, 3 * 3_600));
+  }
+  if (at[at.length - 1]! < SECONDS_PER_DAY) CHAINS.push({ overnight, versions, at });
+}
+
 /** Buses the merged plan sends home after the change and before the handover, each free in time for a departure another bus then pulls out of the depot for within `idleLimit` of it. */
 function wasted(m: MergedPlan, at: number, idleLimit: number): number {
   const home = m.stints.filter((s) => s.trips.length > 0 && s.lastArrival >= at && s.lastArrival < m.handover);
@@ -131,13 +163,31 @@ const results: Result[] = CASES.map((c) => {
   const lean = leanest(p, c.at + Math.max(c.before.timing.cycle, c.after.timing.cycle), Math.min(m.handover, 2 * SECONDS_PER_DAY));
   return { unrun, handover: m.handover, wasted: wasted(m, c.at, idleLimitOf(c.after)), lean };
 });
+interface ChainResult {
+  /** Each version's own departures from its change to the next that the merged plan leaves unrun, then the last's to the handover. */
+  readonly between: number[];
+  readonly unrun: number[];
+  readonly handover: number;
+  readonly lean: number;
+}
+const chainResults: ChainResult[] = CHAINS.map((ch) => {
+  const earlier = ch.versions.slice(0, -1).map((inputs, k) => ({ inputs, until: ch.at[k]!, sameModel: true, sameStart: true }));
+  const p = planInEffect(ch.versions[ch.versions.length - 1]!, earlier);
+  const m = p.merged!;
+  const ran = new Set(m.trips);
+  const last = ch.at[ch.at.length - 1]!;
+  const between = ch.versions.slice(1, -1).flatMap((v, k) => dayPlan(v).trips.filter((t) => t >= ch.at[k]! && t < ch.at[k + 1]! && !ran.has(t)));
+  const unrun = p.periodic.trips.filter((t) => t >= last && t < m.handover && !ran.has(t));
+  const cycle = Math.max(...ch.versions.map((v) => v.timing.cycle));
+  return { between, unrun, handover: m.handover, lean: leanest(p, last + cycle, Math.min(m.handover, 2 * SECONDS_PER_DAY)) };
+});
 const seconds = (performance.now() - t0) / 1_000;
 
 const q = (xs: readonly number[], p: number) => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(p * xs.length))] ?? NaN;
 const minutesOf = (s: number) => (s / 60).toFixed(0);
 /** What `f` counts over `rows`, and in how many of them. */
 const tally = (rows: readonly Result[], f: (r: Result) => number) => `${rows.reduce((a, r) => a + f(r), 0)} in ${rows.filter((r) => f(r) > 0).length} changes`;
-console.log(`${CASES.length} changes, ${CASES.length / KINDS.length} of each kind, about half with service overnight, in ${seconds.toFixed(1)} s`);
+console.log(`${CASES.length} changes, ${CASES.length / KINDS.length} of each kind, about half with service overnight, and ${CHAINS.length} chains, in ${seconds.toFixed(1)} s`);
 console.log(`handovers that fall back to the window's end: ${results.filter((r) => r.handover >= 2 * SECONDS_PER_DAY).length}`);
 for (const kind of KINDS) {
   const of = CASES.flatMap((c, i) => (c.kind === kind ? [{ c, r: results[i]! }] : []));
@@ -155,9 +205,24 @@ for (const kind of KINDS) {
   console.log(`  fewer buses out than the day plan for over an hour, a round trip or more after the change: ${lean.filter((s) => s > 3_600).length} changes, the longest ${minutesOf(Math.max(0, ...lean))} minutes`);
 }
 
+{
+  const count = (f: (r: ChainResult) => number) => `${chainResults.reduce((a, r) => a + f(r), 0)} in ${chainResults.filter((r) => f(r) > 0).length} chains`;
+  console.log(`chains of two or three headway changes, 1 s to 3 h apart:`);
+  console.log(`  a version's own departures, from its change to the next, that the merged plan leaves unrun: ${count((r) => r.between.length)}`);
+  console.log(`  the last version's, from its change to the handover: ${count((r) => r.unrun.length)}`);
+  console.log(`  handovers that fall back to the window's end: ${chainResults.filter((r) => r.handover >= 2 * SECONDS_PER_DAY).length}`);
+  const delays = chainResults.map((r, i) => r.handover - CHAINS[i]!.at[CHAINS[i]!.at.length - 1]!);
+  console.log(`  the handover: p50 ${minutesOf(q(delays, 0.5))}, p90 ${minutesOf(q(delays, 0.9))}, max ${minutesOf(q(delays, 1))} minutes after the last change`);
+  const lean = chainResults.map((r) => r.lean);
+  console.log(`  fewer buses out than the day plan for over an hour, a round trip or more after the last change: ${lean.filter((s) => s > 3_600).length} chains, the longest ${minutesOf(Math.max(0, ...lean))} minutes`);
+}
+
 // Against the last run's unrun departures, over the same cases.
 const file = '.cache/bench/parking.json';
-const key = CASES.map((c) => `${c.kind}|${c.before.timing.cycle}|${c.after.timing.cycle}|${JSON.stringify(c.before.timing.headways)}|${JSON.stringify(c.after.timing.headways)}|${c.before.timing.buses}|${c.after.timing.buses}|${c.at}`).join('\n');
+const key = [
+  ...CASES.map((c) => `${c.kind}|${c.before.timing.cycle}|${c.after.timing.cycle}|${JSON.stringify(c.before.timing.headways)}|${JSON.stringify(c.after.timing.headways)}|${c.before.timing.buses}|${c.after.timing.buses}|${c.at}`),
+  ...CHAINS.map((ch) => `chain|${ch.versions.map((v) => `${v.timing.cycle}/${JSON.stringify(v.timing.headways)}/${v.timing.buses}`).join(';')}|${ch.at.join(',')}`),
+].join('\n');
 const last = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as { key: string; unrun: number[][] }) : null;
 if (last && last.key === key) {
   const diff = (a: readonly number[][], b: readonly number[][]) => {
@@ -171,8 +236,8 @@ if (last && last.key === key) {
     });
     return `${n} in ${changes} changes`;
   };
-  const now = results.map((r) => r.unrun);
+  const now = [...results.map((r) => r.unrun), ...chainResults.map((r) => [...r.between, ...r.unrun])];
   console.log(`against the last run: departures it ran that this one leaves unrun ${diff(now, last.unrun)}; the other way ${diff(last.unrun, now)}`);
 } else console.log(`against the last run: ${last ? 'its cases differ' : 'none'}, so not compared`);
 mkdirSync('.cache/bench', { recursive: true });
-writeFileSync(file, JSON.stringify({ key, unrun: results.map((r) => r.unrun) }));
+writeFileSync(file, JSON.stringify({ key, unrun: [...results.map((r) => r.unrun), ...chainResults.map((r) => [...r.between, ...r.unrun])] }));

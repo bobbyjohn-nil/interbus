@@ -391,7 +391,7 @@ describe('changes in a row through two days (seeded; I1, I6)', () => {
 // next day, so the line kept its versions across each close; changed again on the days after, each
 // change laid them all out again in its own day's frame, re-costing the hours that day had banked. Now a
 // spare goes home after its trip, as the day plan would have it (transition.ts parkSpares), and the line
-// settles within the hour. The changes are the systems audit's fifth round's, on seed 1.
+// usually settles within an hour or two. The changes are the systems audit's fifth round's, on seed 1.
 describe('a line running overnight (I1, I6)', () => {
   /** A game with a depot, $5M more with `rich`, and the debug line's stops drawn at 05:00 on day 1 with `headways`. */
   function nightLine(headways: Headways, rich: boolean): { world: World; line: LineId } {

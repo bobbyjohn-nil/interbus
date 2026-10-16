@@ -12,7 +12,8 @@
 // version that ran no bus, so their buses pull out of the depot for the departures they can reach, as
 // each morning's do, rather than appear on the line. A bus out beyond those the day plan has out goes
 // home after its trip, as the day plan would park it, so a line with spare buses pays no driver for
-// them, overnight service or not. The plan hands over to the line's own day plan at the first
+// them, overnight service or not; until the merged plan's buses can stand in for all of the day plan's,
+// it goes home only once it has waited out the idle limit at the first stop. The plan hands over to the line's own day plan at the first
 // departure where both have the same buses doing the same things, so nothing moves at the handover
 // either; with no service overnight that is the next morning's first departure at the latest.
 //
@@ -194,8 +195,11 @@ function merge(was: MergedPlan, after: PlanInputs, e: Earlier, own: DayPlan): Me
  * out, needs a stand-in: one of the merged plan's free as early as it is (its trip under way done, or
  * that first departure), and not so early that it would wait at the first stop past the idle limit for
  * the departure. Of the buses that can stand in, those free latest are kept. The kept buses then take
- * each departure the day plan's take, so none goes unrun for the parking, and none waits out the hour
- * to be sent home while another pulls out of the depot for the departure. Where one of the day plan's
+ * each departure this version's day plan's take, so none of them goes unrun for the parking, and none
+ * waits out the hour to be sent home while another pulls out of the depot for the departure. A later
+ * change is another matter: a bus parked for this version may be on its way home when the next
+ * version's first departures need it, and one no bus can reach then is not run (bench/parking.ts's
+ * chains: 47 departures in 46 of 2,500 that the rule before ran, and 1 the other way). Where one of the day plan's
  * buses has no stand-in, the merged plan is not yet ahead of it, and none goes home. With no service
  * overnight the spares went home after the evening's last departure anyway, but a line running round
  * the clock kept them out, paid, until the plan ran out of departures (the systems audit's fifth round).
