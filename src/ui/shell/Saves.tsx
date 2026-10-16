@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { NEWER_LINE_COPY, SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
+import { BACK_HOME_ASK_COPY, NEWER_LINE_COPY, SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
 import { clock, dateText, savedWhen, usd } from '../format';
 import type { SaveAbout, SetAsideWhy } from '../../sim/types';
 import type { Sim } from '../game/useSim';
@@ -37,7 +37,8 @@ function When({ about, testId }: { about: SaveAbout | null; testId: string }) {
  * three slots, and a save file out and in. The autosave and each slot name their game (day, company,
  * cash, lines and buses) and when it was saved. Loading a slot or a file replaces this game once a
  * company is founded, and saving over a slot or deleting one loses what it held, so each asks first,
- * one question at a time; the sim reads the save before anything changes and refuses one it cannot
+ * one question at a time, as Back to Home does where Home would drop this game's play since another tab
+ * changed the autosave; the sim reads the save before anything changes and refuses one it cannot
  * play, keeping this game and its autosave. A slot this game cannot load says why and can be
  * exported, and a save set aside by a new build is listed until the player exports or deletes it, so
  * none is lost unseen (D12); so is one the game could not set aside, which it saves nothing over
@@ -64,12 +65,16 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
   const [replacing, setReplacing] = useState<number | null>(null);
   // Import a save file asks as Load does, before the file is picked.
   const [importing, setImporting] = useState(false);
+  // Back to Home asks too, while another tab's change to the autosave lasts and this game has moved on since (`movedOn`): Home
+  // takes up the autosave, and the play since is kept nowhere (the systems audit's sixth round).
+  const [leaving, setLeaving] = useState(false);
   // One question at a time: opening one closes any other.
   const closeQuestions = () => {
     setConfirm(null);
     setDeleting(null);
     setReplacing(null);
     setImporting(false);
+    setLeaving(false);
   };
   // The keyboard keeps its place (the systems audit's fourth round): a question takes the place of the button pressed for
   // it, and an answer the question's, so the focus fell to the page, where the next Space ran time behind Saves. Pressed
@@ -85,6 +90,11 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
     const named = [...(to.row?.querySelectorAll('button') ?? [])].find((b) => b.textContent === to.name);
     ((named ?? (to.row?.isConnected ? to.row : panel.current)) as HTMLElement | null)?.focus();
   });
+  // Back to Home's question is the panel's last row: with every slot full at 1152×720 Saves reaches its height and scrolls, and
+  // the answers sat half below its fold after a press of the mouse, which moves no focus (the review of the sixth round).
+  useEffect(() => {
+    if (leaving) panel.current?.querySelector('[data-testid="saves-home-ask"]')?.parentElement?.scrollIntoView({ block: 'nearest' });
+  }, [leaving]);
   /** After a press from the keyboard, the focus goes to the button named `name` in the pressed one's row, or to that row (null), or to Saves (`row` false). */
   const keep = (event: MouseEvent<HTMLElement>, name: string | null, row = true) => {
     if (event.detail === 0) keyTo.current = { row: row ? event.currentTarget.closest('li, div.controls') : null, name };
@@ -337,15 +347,56 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
           </button>
         )}
       </div>
+      {/* Back to Home's question stands alone in its row, its words above its answers, as Import's does. */}
       <div className="controls">
-        <button type="button" title="For bug reports: everything since this quarter began, with every command, so it can be replayed" onClick={() => send({ type: 'export-session' })}>
-          Export session
-        </button>
-        {onHome ? (
-          <button type="button" onClick={onHome}>
-            Back to Home
-          </button>
-        ) : null}
+        {leaving && onHome ? (
+          <>
+            <p className="ask" id="saves-home-ask" data-testid="saves-home-ask">
+              {BACK_HOME_ASK_COPY}
+            </p>
+            <button
+              type="button"
+              aria-describedby="saves-home-ask"
+              onClick={() => {
+                setLeaving(false);
+                onHome();
+              }}
+            >
+              Replace this game
+            </button>
+            <button
+              type="button"
+              aria-describedby="saves-home-ask"
+              onClick={(e) => {
+                keep(e, 'Back to Home');
+                setLeaving(false);
+              }}
+            >
+              Keep playing
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" title="For bug reports: everything since this quarter began, with every command, so it can be replayed" onClick={() => send({ type: 'export-session' })}>
+              Export session
+            </button>
+            {onHome ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  // Nothing to lose: no company yet, nothing played since the change, or an autosave this build can't play, which
+                  // Home leaves where it is, going on with this game (the review of the sixth round).
+                  if (!(founded && sim.newer && sim.movedOn && sim.autosave)) return onHome();
+                  closeQuestions();
+                  keep(e, 'Keep playing');
+                  setLeaving(true);
+                }}
+              >
+                Back to Home
+              </button>
+            ) : null}
+          </>
+        )}
       </div>
     </aside>
   );

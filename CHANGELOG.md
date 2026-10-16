@@ -107,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- With the game open in two tabs, Back to Home in a tab the other tab's saves have left behind (its Saves chip says "Autosave off") now asks first if that tab's game has run on since: going Home takes up the other tab's game, so the play since would be lost. Export this game, just above, keeps it, and Keep playing stays in your game. With nothing played since, or since you last exported it or saved it to a slot, it still goes straight to Home. Before, Back to Home took up the other tab's game without asking.
 - After you change a line that runs overnight, no bus jumps back to its first stop late the next day: one on its way home to the depot used to reappear there, up to 1.4 km away. A bus the change leaves spare drives home, usually after the trip it is on, and you pay no driver for it from then on; it used to stay out, and be paid, until late the next day.
 - Finance's Day forecast, the line's costs under Lines and Costs/day show what that night's midnight card banks for a line that runs overnight and was changed on several days in a row. Before, they counted the hours already gone that day by the wrong timetable, so they could read well off what the day banked.
 - After a late-evening change to a line, a bus pulling out of the depot the next morning is billed for its drive under To and from the depot. That drive was sometimes left off the day's costs, the forecast and the midnight card alike.

@@ -2,9 +2,10 @@
 // game leads to the founding card; Saves' Back to Home returns to it, where Continue names the game
 // and goes on with it; New game asks before it replaces that game, and the slots stay.
 import { expect, test, type Page } from '@playwright/test';
+import { BACK_HOME_ASK_COPY, NEWER_LINE_COPY } from '../src/ui/copy';
 import { usd } from '../src/ui/format';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, setFare, setSpeed, toScreen, withDebugLine, zoomOutOnce } from './shell';
+import { build, chromeShare, city, onDepotLand, setFare, setSpeed, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
 test.describe('Home', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -111,12 +112,14 @@ test.describe('Home', () => {
   // (D12; the systems audit's fifth round). On 050dbdd the second tab's Home named and played the game it read as it opened,
   // its first pause wrote that over the first tab's newer day, fare change and cash, and nothing said so: shown failing (TS-04)
   // there, where its Home still read Day 2 after the first tab had saved Day 3. Now Home names and plays the game the browser
-  // holds, and a tab whose game another tab's save has overtaken writes nothing over it, and says so.
-  test('names and plays the game another tab saved, and a tab another tab has overtaken writes nothing over it', async ({ context }) => {
+  // holds, and a tab whose game another tab's save has overtaken writes nothing over it, and says so; its Back to Home, which
+  // goes on with the other tab's game, asks first once it has played on since (the systems audit's sixth round).
+  test('names and plays the game another tab saved, and a tab another tab has overtaken writes nothing over it, and asks before Home drops its play', async ({ context }) => {
     test.setTimeout(150_000);
     const live = (p: Page) => p.evaluate(() => JSON.parse(localStorage.getItem('interbus.save.boston')!) as { data: { clock: { elapsed: number }; lines: { fareCents: number }[] } });
     const elapsed = async (p: Page) => Number(await p.getByTestId('sim-panel').getAttribute('data-elapsed'));
     const a = await context.newPage();
+    await a.setViewportSize({ width: 1152, height: 720 }); // I13's tight size, for Saves with Back to Home's question
     await a.goto('./');
     await foundCompany(a);
     await withDebugLine(a);
@@ -158,11 +161,34 @@ test.describe('Home', () => {
     await a.waitForTimeout(500);
     expect((await live(a)).data.clock.elapsed).toBe(fromB.data.clock.elapsed);
     await expect(a.getByTestId('saves-chip')).toHaveText('Autosave off');
+    const playedA = await elapsed(a);
 
-    // A's Saves says why; Back to Home names B's game, and Continue goes on with it, saving itself again.
+    // A's Saves says why. A has played on since B left it behind, and Home would go on with B's game, so Back to Home asks first,
+    // naming what is lost and the way to keep it, in place of its row's buttons, the focus on Keep playing from the keyboard; Keep
+    // playing keeps A's game. Shown failing (TS-04) on c3c2d9a, whose Back to Home went to Home at once and took B's game up.
+    // Day 2's card, from A's play into day 3, closes first: I13 measures one panel at a time.
+    await a.getByTestId('day-card').getByRole('button', { name: 'Continue' }).click();
     await a.getByTestId('saves-chip').click();
-    await expect(a.getByTestId('saves-refused')).toHaveText('Another tab changed the autosave. Export this game to keep it.');
-    await a.getByRole('button', { name: 'Back to Home' }).click();
+    const savesA = a.getByTestId('saves');
+    await expect(savesA.getByTestId('saves-refused')).toHaveText(NEWER_LINE_COPY);
+    const share = { saves: await chromeShare(a), asking: 0 };
+    await savesA.getByRole('button', { name: 'Back to Home' }).focus();
+    await a.keyboard.press('Enter');
+    await expect(savesA.getByTestId('saves-home-ask')).toHaveText(BACK_HOME_ASK_COPY);
+    await expect(savesA.getByRole('button', { name: 'Keep playing' })).toBeFocused();
+    await expect(savesA.getByRole('button', { name: 'Export this game' })).toBeVisible();
+    // I13 at 1152×720: Saves with the question open stays within a panel's 26%.
+    share.asking = await chromeShare(a);
+    test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(Object.fromEntries(Object.entries(share).map(([k, v]) => [k, Math.round(v * 10_000) / 100]))) });
+    expect(share.asking).toBeLessThanOrEqual(0.26);
+    await a.keyboard.press('Enter');
+    await expect(savesA.getByRole('button', { name: 'Back to Home' })).toBeFocused();
+    await expect(a.getByTestId('home')).toHaveCount(0);
+    await expect(a.getByTestId('sim-panel')).toHaveAttribute('data-elapsed', String(playedA));
+
+    // Replace this game: Home names B's game, and Continue goes on with it, saving itself again.
+    await savesA.getByRole('button', { name: 'Back to Home' }).click();
+    await savesA.getByRole('button', { name: 'Replace this game' }).click();
     const cashB = Number(await b.getByTestId('sim-panel').getAttribute('data-cash'));
     await expect(a.getByTestId('home-continue')).toContainText(`Back Bay Transit · Year 1, Q1, Day 3 · ${usd(cashB)}`);
     await a.getByTestId('home-continue').click();
