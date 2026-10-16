@@ -33,7 +33,7 @@ describe('number copy', () => {
     expect(every(450)).toBe('every 7.5 min');
   });
   it('rounds a HEADWAY figure toward the verdict it is coloured by, so one over the ask never reads as it', () => {
-    // The round 5 audit: two 20-minute lines at Copley, one of them a second slower in snow, run every
+    // The systems audit's fifth round (D26): two 20-minute lines at Copley, one of them a second slower in snow, run every
     // 600.2499 s against the 10-minute ask, short by contractMet, and read "every 10 min" in red; a
     // line a second over a 20-minute ask read "every 20.0 min". Shown failing (TS-04) on Math.round.
     const cases: [figure: number, ask: number, text: string][] = [

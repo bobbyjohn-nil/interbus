@@ -151,16 +151,16 @@ describe('assign against the reference loop', () => {
   it.each([
     ['after', 0],
     ['before', 2],
-  ])('splits riders changing onto twin lines evenly in both loops, the twins drawn %s the line they change from', (_, express) => {
+  ])('splits riders changing onto twin lines evenly in both loops, the twins drawn %s the line they change from', (_, first) => {
     // Copley, Longwood and Kenmore, then Kenmore to Symphony twice: riders off the first line at
     // Kenmore chose one second line per first line, keeping the first seen on a tie, so the fast loop
     // gave every one of them (4.56 a day) to the twin drawn last and the reference to the one drawn
-    // first (the round 5 audit). Shown failing (TS-04) with ties kept as first seen in both loops: 0
+    // first (the systems audit's fifth round, D26). Shown failing (TS-04) with ties kept as first seen in both loops: 0
     // against 4.56 changes a day, and 67.30 against 71.86 riders. One change of line costs the second
     // line's own wait (DECISIONS 2026-10-13), so the twins carry no more changers than one line would.
     const symphony: LngLat = [-71.0857, 42.3424];
     const draws: LngLat[][] = [[KENMORE, symphony], [KENMORE, symphony]];
-    draws.splice(express, 0, [COPLEY, [-71.1035, 42.336], KENMORE]);
+    draws.splice(first, 0, [COPLEY, [-71.1035, 42.336], KENMORE]);
     const game = gameWithDepot();
     for (const clicks of draws) expect(createLine(game, clicks).ok).toBe(true);
     const plans = runningPlans(game);
@@ -168,7 +168,7 @@ describe('assign against the reference loop', () => {
     const naive = assignNaive(game.city, game.commuters, plans);
     const ref = spread(plans, naive.riders, naive.busiest, naive.ends, naive.paid);
     const changes = (a: typeof fast, id: LinePlan['id']) => a.lines.get(id)!.transfersByStop.reduce((s, v) => s + v, 0);
-    const [a, b] = plans.filter((_, k) => k !== express).map((p) => p.id);
+    const [a, b] = plans.filter((_, k) => k !== first).map((p) => p.id);
     for (const [loop, got] of [['fast', fast], ['reference', ref]] as const) {
       expect(changes(got, a!) + changes(got, b!), loop).toBeGreaterThan(4);
       expect.soft(changes(got, a!), loop).toBeCloseTo(changes(got, b!), 9);
