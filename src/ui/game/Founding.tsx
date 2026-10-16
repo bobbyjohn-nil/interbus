@@ -17,8 +17,10 @@ const COLOUR_NAMES: Readonly<Record<string, string>> = {
 /**
  * The founding card (the M2 spec's exit check, step 1): name and colour the company. Its cash is the
  * founding capital already on the ledger. The card reads the same rule the command checks (GD-05).
+ * Back to Home leaves it for Home, as Saves' does, so a player who pressed New game can import a save
+ * or load a slot instead: every screen can be left (the M5 spec, item 3).
  */
-export function FoundingCard({ sim }: { sim: Sim }) {
+export function FoundingCard({ sim, onHome }: { sim: Sim; onHome: () => void }) {
   const [name, setName] = useState('');
   const [colour, setColour] = useState(COMPANY_COLOURS[0]!);
   const s = sim.snapshot;
@@ -53,6 +55,9 @@ export function FoundingCard({ sim }: { sim: Sim }) {
         ) : null}
         <button type="submit" disabled={!verdict.ok}>
           Found the company
+        </button>
+        <button type="button" className="back" onClick={onHome}>
+          Back to Home
         </button>
       </form>
     </section>

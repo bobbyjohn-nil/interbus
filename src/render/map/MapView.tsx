@@ -13,11 +13,14 @@ import { buildingsLayer, toggled, TURN_STEP_DEG, viewKey, type ViewMode } from '
 /** A map still loading after this long has failed; MapLibre does not always say why. */
 const LOAD_TIMEOUT_MS = 60_000;
 
-// 'replaced' has no notice of its own: the replaced-build card says it (ReplacedCard).
+// 'replaced' has no notice of its own: the replaced-build card says it (ReplacedCard). Every other word on the map is a card high
+// on the board, in front of Home and the founding card, and all but 'no-gpu' offer Reload, as the replaced build's sibling card
+// does (D12): a reload brings the newest build and reads the map's file again. 'failed' covers the file unread (a server error,
+// a dropped connection), MapLibre failing to mount and the load's timeout, so its words blame neither the computer nor the network.
 const MESSAGES: Record<Exclude<Status, 'loading' | 'ready' | 'replaced'>, string> = {
   'no-city-file': 'Boston’s map file is not in this build yet.',
   empty: 'Boston’s map file loaded but drew nothing.',
-  failed: 'The map could not start on this computer.',
+  failed: 'Boston’s map couldn’t be loaded.',
   // The GPU ladder's last rungs (gpu.ts): the game itself plays on, so its saves and Export stay a click away.
   'no-gpu': 'Turn on hardware acceleration to see the map. It is off in this browser: switch it on in the browser’s settings, then reload. Your game is saved, and Saves and Export still work.',
   lost: 'The browser took the map’s graphics away. Reload to bring them back; your game is saved.',
@@ -51,6 +54,8 @@ export interface MapViewProps {
   readonly event?: EventView | null;
   /** The sim's clock at the last snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
   readonly clock?: { readonly second: number; readonly rate: number; readonly day: number } | null;
+  /** The game's own card says it cannot go on (App's failed card), so the map adds no card of its own beside it (D12: one card). */
+  readonly quiet?: boolean;
 }
 
 /** Sets the dots; the count of what draws follows from the next settled frame (below). */
@@ -80,7 +85,7 @@ export function eventLayerKey(event: EventView | null): string {
 
 const BOTH: DotKinds = { home: true, job: true };
 
-export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null }: MapViewProps) {
+export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null, quiet = false }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
@@ -320,17 +325,15 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
       data-graphics={rung}
       data-fps={fps ? Math.round(fps.fps) : ''}
     >
-      {status === 'no-gpu' || status === 'lost' ? (
-        <div className="map-notice top" role="alert" data-testid="gpu-card">
-          <p>{MESSAGES[status]}</p>
-          {status === 'lost' ? (
+      {status in MESSAGES && !quiet ? (
+        <div className="map-notice top" role="alert" data-testid={status === 'no-gpu' || status === 'lost' ? 'gpu-card' : 'map-card'}>
+          <p>{MESSAGES[status as keyof typeof MESSAGES]}</p>
+          {status !== 'no-gpu' ? (
             <button type="button" onClick={reload}>
               Reload
             </button>
           ) : null}
         </div>
-      ) : status in MESSAGES ? (
-        <p className="map-notice">{MESSAGES[status as keyof typeof MESSAGES]}</p>
       ) : null}
       {flatNotice ? (
         <p className="map-notice top" role="status" data-testid="flat-notice">

@@ -116,6 +116,34 @@ test.describe('starting and leaving a game', () => {
     await expect(notice).toHaveCount(0);
   });
 
+  // A game loaded with no company yet opens its founding card clean, empty and on the first colour, as a new game's does: nothing
+  // of the company it replaced. Shown failing (TS-04) on abb5f2f, where the card kept the replaced company's name and Blue, and
+  // one press founded the loaded game under them.
+  test('opens a loaded game’s founding card clean, with nothing of the company it replaced', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    const home = page.getByTestId('home');
+    await expect(home).toBeVisible({ timeout: 30_000 });
+    await home.getByRole('button', { name: 'Saves' }).click();
+    await leaveHome(page);
+    const card = page.getByTestId('founding-card');
+    const slot = page.getByTestId('saves').getByTestId('slot-1');
+    await expect(card).toBeVisible();
+    await slot.getByRole('button', { name: 'Save here' }).click();
+    await expect(slot).toContainText('no company yet');
+    await card.getByLabel('Name').fill('Back Bay Transit');
+    await card.getByRole('radio', { name: 'Blue' }).check();
+    await card.getByRole('button', { name: 'Found the company' }).click();
+    await expect(card).toBeHidden();
+    await slot.getByRole('button', { name: 'Load' }).click();
+    await slot.getByRole('button', { name: 'Replace this game' }).click();
+    await expect(page.getByTestId('notice')).toContainText('Slot loaded');
+    await expect(card).toBeVisible();
+    await expect(card.getByLabel('Name')).toHaveValue('');
+    await expect(card.getByRole('radio', { name: 'Red' })).toBeChecked();
+    await expect(card.getByRole('button', { name: 'Found the company' })).toBeDisabled();
+  });
+
   test('draws Home’s buttons in the game’s own type', async ({ page }) => {
     await page.goto('./');
     const home = page.getByTestId('home');

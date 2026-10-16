@@ -60,7 +60,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
      - **Saves**;
      - the build chip.
    - **What waits:** settings, help and credits wait for week 14.
-   - **Getting back:** "Back to Home" in Saves, which saves first.
+   - **Getting back:** "Back to Home" in Saves, which saves first, and on the founding card, so New game can be left for a slot or a file (the systems audit's fifth round).
    - **Cost:** Home is gone once a game plays, so it costs nothing in I13 at rest. Its code counts toward the menu's 200 KiB.
    - **Built so** (DECISIONS, Measured): the chip row and the dock wait for the game; New game replaces the autosave with an unnamed company at once; a slot loaded from Home's Saves goes straight into that game. Home takes 8.0% of 1152×720 and adds 0.5 KiB to the menu's 95.9 KiB.
 4. **The save list** (V1's rows, `Intralines@7af45b1:src/ui/Menu.tsx:278-347`; V3's backup key, [DP-06](../history/lessons-ledger.md)). Saves today shows the autosave and Slots 1–3 with day, time, company, cash and lines (`src/ui/shell/Saves.tsx`). It gains:
