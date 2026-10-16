@@ -128,6 +128,17 @@ export function freeLongest(open: readonly OpenBus[], t: number): number {
   return pick;
 }
 
+/** Departure `t` as a day plan runs it on the buses `open`: those idle too long go home, then the bus free longest takes it; none free means one more pulls out. */
+export function takeDeparture(open: OpenBus[], t: number, inputs: PlanInputs, idleLimit: number, home: (bus: OpenBus) => void): void {
+  sendHomeIdle(open, t, idleLimit, home);
+  const pick = freeLongest(open, t);
+  const cycle = tripTimes(inputs, t).cycle;
+  if (pick >= 0) {
+    open[pick]!.trips.push(t);
+    open[pick]!.free = t + cycle;
+  } else open.push({ leaveDepot: t - inputs.pullOutS, trips: [t], free: t + cycle });
+}
+
 export function dayPlan(inputs: PlanInputs): DayPlan {
   const trips = departures(inputs.timing, -1, 2);
   // A bus waits at the first stop for its next departure, unless that is over an hour off, or it
@@ -136,16 +147,7 @@ export function dayPlan(inputs: PlanInputs): DayPlan {
   const open: OpenBus[] = [];
   const stints: Stint[] = [];
   const close = (bus: OpenBus) => stints.push(closeStint(bus, () => inputs));
-  for (const t of trips) {
-    sendHomeIdle(open, t, idleLimit, close);
-    // The bus free longest takes the departure; none free means one more pulls out.
-    const pick = freeLongest(open, t);
-    const cycle = tripTimes(inputs, t).cycle;
-    if (pick >= 0) {
-      open[pick]!.trips.push(t);
-      open[pick]!.free = t + cycle;
-    } else open.push({ leaveDepot: t - inputs.pullOutS, trips: [t], free: t + cycle });
-  }
+  for (const t of trips) takeDeparture(open, t, inputs, idleLimit, close);
   for (const bus of open) close(bus);
   stints.sort((a, b) => a.leaveDepot - b.leaveDepot || a.trips[0]! - b.trips[0]!);
   return { inputs, trips, stints };

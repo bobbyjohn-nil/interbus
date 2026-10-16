@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A line that needs fewer buses after a change, such as a longer headway, sends the bus it no longer needs home once that bus finishes the trip it is on, and you pay no driver for it from then on. Before, a line that stops at night kept it out, and paid, until the evening's last trip.
 - A line drawn as a game starts, as a new game's first line usually is, skips the departures no bus can reach from the depot in time, such as its 05:00 departure: its buses pull out of the depot first, as they do for a line drawn later in the day.
 - Undo names taking a stop off a line as "Undo: Take Stop 2 off Line 1", shorter than before, so it fits beside the other chips.
 - Before you have founded a company there is no game to lose, so Load in Saves opens the slot's game straight away.
@@ -106,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- After you change a line that runs overnight, no bus jumps back to its first stop late the next day: one on its way home to the depot used to reappear there, up to 1.4 km away. A bus the change leaves spare drives home after the trip it is on, and you pay no driver for it from then on; it used to stay out, and be paid, until late the next day.
+- Finance's Day forecast, the line's costs under Lines and Costs/day show what that night's midnight card banks for a line that runs overnight and was changed on several days in a row. Before, they counted the hours already gone that day by the wrong timetable, so they could read well off what the day banked.
+- After a late-evening change to a line, a bus pulling out of the depot the next morning is billed for its drive under To and from the depot. That drive was sometimes left off the day's costs, the forecast and the midnight card alike.
 - The cards for a browser without graphics acceleration, and for one that takes the map's graphics away mid-game, say your game is saved only while it is saving itself. While it isn't (the Saves chip says "Autosave off") or the browser keeps no saves at all, they say so and offer Export this game, which on the lost-graphics card comes before Reload. Before, they said your game was saved, and the lost-graphics card's Reload then lost everything since the last save the browser had kept: the whole company when it kept nothing, or all the play since it ran out of room.
 - With the game open in two tabs, the game saved last wins. Home names and continues the game saved last in either tab, when this build can play it, not the one the tab found when it opened. A tab left behind by the other tab's saves writes nothing over them: its Saves chip says "Autosave off", a note says another tab changed the autosave, and its Home names and continues the other tab's game. Before, the second tab's Continue played the older game and saved it over the other tab's newer days, fares and cash, without a word.
 - The card that says the browser took the map's graphics away moves to the foot of the map while the midnight card or the lender's card is up, so you can read it and press its Reload, and their own buttons stay clear of it. Before, the lender's card, which can't be closed, hid all of it but the edge of Reload, and a midnight card hid its words.

@@ -351,6 +351,80 @@ function checkStart(name: string, setUp: (s: Game) => void, change: ToWorker) {
   });
 }
 
+/**
+ * A line that also runs overnight (the systems audit's fifth round): its buses never wait an hour at the
+ * first stop, so on 050dbdd a bus a change left spare stayed out until the plan ran out of departures,
+ * near the end of the next day, and the plan handed over there to its day plan as both wound down; the
+ * vehicle layer, reading the day plan's middle day from then, put that bus back at its first stop. Drawn
+ * at 05:00 on day 1 and changed by `changes` (game seconds, in order); then, second by second, every bus
+ * drives on from where it was for three game hours after the last change and for ten minutes either side
+ * of the handover, as the page's snapshot holds it then, never more out than owned.
+ */
+function checkOvernight(name: string, headways: Headways, rich: boolean, changes: readonly (readonly [number, ToWorker])[]) {
+  it(`${name}: every bus drives on from where it was after the change and through the handover`, { timeout: 60_000 }, () => {
+    const s = founded();
+    if (rich) {
+      s.host.handle({ type: 'export' });
+      const text = JSON.parse(s.last('export').text) as { data: { ledger: unknown[] } };
+      text.data.ledger.push({ day: 1, kind: 'contract', amountCents: 500_000_000, lineId: null });
+      s.host.handle({ type: 'import', text: JSON.stringify(text) });
+    }
+    s.host.handle(debugLine(headways));
+    for (const [at, change] of changes) {
+      s.host.advanceTo(at);
+      s.host.handle(change);
+    }
+    expect(s.out.filter((m) => m.type === 'refused')).toEqual([]);
+    const sod = (e: number) => (e + 5 * 3_600) % 86_400;
+    const dayOf = (e: number) => Math.floor((e + 5 * 3_600) / 86_400) + 1;
+    /** Every bus drawn from the snapshot now, from game second `from` to `to`, within a step of one drawn the second before. */
+    const drivesOn = (from: number, to: number, label: string) => {
+      const snapshot = s.now();
+      const fleet = watch(snapshot);
+      const ends = depotEnds(snapshot);
+      let prev = fleet(sod(from), dayOf(from));
+      for (let e = from + 1; e <= to; e++) {
+        const next = fleet(sod(e), dayOf(e));
+        expect(largestStep(prev, next, ends), `${label}, ${e - from} s on`).toBeLessThanOrEqual(STEP_M);
+        expect(next.length, `${label}, ${e - from} s on`).toBeLessThanOrEqual(snapshot.lines[0]!.buses);
+        prev = next;
+      }
+    };
+    /** The game second the line's plan hands over to its day plan, as the snapshot now holds it, or null once it has settled. */
+    const handover = (): number | null => {
+      const l = s.now().lines[0]!;
+      const m = l.settling && planInEffect(l.plan, l.settling.earlier.map((e) => ({ inputs: e.plan, until: e.until, sameModel: e.sameModel, sameStart: e.sameStart }))).merged;
+      return m ? (l.settling!.frameDay - 1) * 86_400 + m.handover - 5 * 3_600 : null;
+    };
+    const last = changes[changes.length - 1]![0];
+    drivesOn(last, last + 3 * 3_600, 'after the last change');
+    // A close may let go of versions, so the handover is read again from the snapshot ten minutes before it.
+    let at = handover();
+    for (let k = 0; at !== null && k < 3; k++) {
+      if (at - 600 > s.now().elapsed) s.host.advanceTo(at - 600);
+      const again = handover();
+      if (again === at) break;
+      at = again;
+    }
+    if (at !== null && at + 600 > s.now().elapsed) drivesOn(Math.max(s.now().elapsed, at - 600), at + 600, `around the handover at day ${dayOf(at)}, ${sod(at)} s`);
+  });
+}
+
+describe('I6 on a line running overnight', () => {
+  // Shown failing (TS-04) on 050dbdd: a fresh company's line, every 15 minutes from 10:58 on day 1, handed
+  // over at 23:30 on day 2, where a bus on its drive home moved 456 m back to Copley.
+  checkOvernight('a fresh company’s line every 10, 12 and 15 minutes, every 15, 20 and 20 from 10:58 on day 1', { peak: 600, offpeak: 720, overnight: 900 }, false, [
+    [5 * 3_600 + 3_484, { type: 'set-headways', lineId: 1, headways: { peak: 900, offpeak: 1_200, overnight: 1_200 } }],
+  ]);
+  // Shown failing (TS-04) on 050dbdd: still settling past day 3's close, it handed over at 23:44 on day 4,
+  // where a bus driving home to the depot moved 1,360 m back to Copley.
+  checkOvernight('Metro 40s from 21:39 on day 1, then new headways at 06:42 and 15:35 on day 3', { peak: 720, offpeak: 900, overnight: 1_800 }, true, [
+    [59_953, { type: 'set-model', lineId: 1, model: 'metro40' }],
+    [178_921, { type: 'set-headways', lineId: 1, headways: { peak: 360, offpeak: 720, overnight: 1_800 } }],
+    [210_904, { type: 'set-headways', lineId: 1, headways: { peak: 600, offpeak: 720, overnight: 1_200 } }],
+  ]);
+});
+
 describe('service starting with no bus out (I6)', () => {
   checkStart('the debug line drawn at 10:00', (s) => s.host.advanceTo(5 * 3_600), debugLine({ peak: 600, offpeak: 600, overnight: null }));
   checkStart(
