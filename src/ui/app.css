@@ -142,7 +142,8 @@ body,
 }
 
 /* While the Saves chip says "Autosave off" (App.tsx), 33 px wider than "Saves" (105 px, from 72), the row keeps as much
-   farther from it: with the row full, the undo gives that room up, so the shell takes no more of the screen than before (I13). */
+   farther from it: with the row full, the undo (then the row's last chip) gives that room up, so the shell takes no more of the
+   screen than before (I13). */
 .app:has(> .saves-chip.off) > .top-bar {
   right: 137px;
 }
@@ -407,7 +408,21 @@ button.chip.checklist,
   max-width: max-content;
 }
 
-.chip.undo .chip-text {
+/* Then the row's last chip, the checklist's step or the Contracts chip, gives room the same way, its medals kept whole. Its
+   grow, a thousand times the undo's, takes the room first, so the undo is down to its 6em before this chip is cut at all,
+   and the row wraps only when not even 6em of each fits. A late game's chips (three medals, "3 on offer", 5,400×, Year 10)
+   beside the countdown and "Autosave off" wrapped the row at 1152×720 with the undo at its 6em (the systems audit's fourth
+   round). */
+.chip.checklist,
+.chip.contracts {
+  flex: 1000 1 0;
+  min-width: 6em;
+  max-width: max-content;
+}
+
+.chip.undo .chip-text,
+.chip.checklist .chip-text,
+.chip.contracts .chip-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

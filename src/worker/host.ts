@@ -709,6 +709,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });
+      // The speed already running, picked again (the speed menu's re-pick, a held key's repeats): nothing changes, so
+      // nothing is recorded, saved or sent, and the clock runs on. Its slice and part-step were dropped each time, so
+      // repeats faster than the 50 ms tick stopped the clock while a key was held (the systems audit's fourth round).
+      if (message.type === 'speed' && message.speed !== 0 && message.speed === speed) return;
       if (SESSION_COMMANDS.has(message.type)) session?.commands.push({ at: world.state.elapsed, message });
       if (message.type === 'speed') {
         // Once the run has ended, only Restart this quarter goes on (D10).

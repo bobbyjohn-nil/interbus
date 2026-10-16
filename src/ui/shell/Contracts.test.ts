@@ -25,11 +25,12 @@ const bar = (s: Sim) => renderToStaticMarkup(createElement(TopBar, { sim: s, pla
 
 describe('contracts on the page', () => {
   it('makes the checklist’s last step a button, and puts the Contracts chip in its place once a contract is taken', () => {
-    expect(bar(sim({}))).toContain('<button type="button" class="chip checklist" data-testid="checklist">5/5 Take a contract</button>');
+    // Each in a text that a full chip row cuts with "…", its whole words in its title (app.css; e2e/i13.spec.ts).
+    expect(bar(sim({}))).toContain('<button type="button" class="chip checklist" data-testid="checklist" title="5/5 Take a contract"><span class="chip-text">5/5 Take a contract</span></button>');
     const taken = bar(sim({ contractTaken: true, contracts: [{ ...offer, held: true, daysMet: 3, daysLeft: 17 }] }));
     expect(taken).not.toContain('checklist');
-    expect(taken).toContain('<span class="chip-label">Contracts</span> 1 held');
-    expect(bar(sim({ profitableDays: 0 }))).toContain('<span class="chip checklist" data-testid="checklist">4/5 Close a day in profit</span>');
+    expect(taken).toContain('title="Contracts 1 held"><span class="chip-text"><span class="chip-label">Contracts</span> 1 held</span>');
+    expect(bar(sim({ profitableDays: 0 }))).toContain('<span class="chip checklist" data-testid="checklist" title="4/5 Close a day in profit"><span class="chip-text">4/5 Close a day in profit</span></span>');
   });
 
   it('shows today’s headway against the ask, with Take it on an offer and the days on a held one', () => {

@@ -327,7 +327,8 @@ export function App() {
       // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A button the keyboard reached
       // keeps Space, so Space still presses it; one pressed with the mouse does not, or Space pressed it
       // again (opening the speed menu, closing Finance, taking back one more command). A held Space
-      // pauses or plays once, as a button's press does (DemandMenu.tsx, tilt.ts): its repeats send nothing.
+      // pauses or plays once, as a button's press does (DemandMenu.tsx, tilt.ts), and a held 1 to 5 picks
+      // its speed once: their repeats send nothing (each was a command, an autosave and a stalled clock).
       const { now, play, founded } = speedRef.current;
       const keeps = event.target instanceof HTMLButtonElement && focus.current.byKey;
       if (founded && event.key === " " && !keeps) {
@@ -337,7 +338,7 @@ export function App() {
       }
       const pick = founded && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
       if (pick !== undefined && /^[1-5]$/.test(event.key)) {
-        send({ type: "speed", speed: pick });
+        if (!event.repeat) send({ type: "speed", speed: pick });
         return;
       }
       // Ctrl+Z or ⌘Z takes back the newest command taken while paused (I9); with Shift, the usual
@@ -540,9 +541,11 @@ export function App() {
         tiltGesture={tool === "none"}
         event={sim.snapshot?.event ?? null}
         draft={!stopped && ((tool === "line" && clicks.length) || (tool === "route" && routing)) ? sim.draft : null}
+        // A game that stopped working has no clock that runs: its map stands still, asking for no frame (I14), though
+        // the last snapshot came while time ran (the systems audit's fourth round).
         clock={
           sim.snapshot
-            ? { second: sim.snapshot.secondOfDay, rate: sim.snapshot.rate, day: sim.snapshot.day }
+            ? { second: sim.snapshot.secondOfDay, rate: stopped ? 0 : sim.snapshot.rate, day: sim.snapshot.day }
             : null
         }
         {...(ready ? { onPointer, onClick } : {})}

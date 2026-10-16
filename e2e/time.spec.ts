@@ -8,6 +8,17 @@ test.describe('time and the speed menu', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
   test('names the year, quarter and day; plays from real time up; Space pauses and plays', async ({ page }) => {
+    // The page counts the speed commands it sends the sim.
+    await page.addInitScript(() => {
+      const seen = window as unknown as { speeds: number };
+      seen.speeds = 0;
+      const post = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function (this: Worker, ...args: unknown[]) {
+        if ((args[0] as { type?: string } | null)?.type === 'speed') seen.speeds++;
+        return (post as (...a: unknown[]) => void).apply(this, args);
+      };
+    });
+    const speeds = () => page.evaluate(() => (window as unknown as { speeds: number }).speeds);
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
@@ -68,6 +79,17 @@ test.describe('time and the speed menu', () => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('5');
     await expect(panel).toHaveAttribute('data-speed', '5');
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    // A held 5 picks 5,400x once: its repeats send nothing. Shown failing (TS-04) on abb5f2f, where each repeat sent the
+    // speed again (6 commands for one), and the worker dropped the clock's slice at each, so time all but stopped while
+    // the key was held (src/worker/host.test.ts holds the worker's half).
+    const sent = await speeds();
+    await page.keyboard.down('5');
+    await expect(panel).toHaveAttribute('data-speed', '5');
+    for (let n = 0; n < 5; n++) await page.keyboard.down('5'); // held: Playwright sends each later down as a repeat
+    await page.keyboard.up('5');
+    expect(await speeds()).toBe(sent + 1);
     await page.getByRole('button', { name: 'Pause' }).click();
     await expect(panel).toHaveAttribute('data-speed', '0');
   });

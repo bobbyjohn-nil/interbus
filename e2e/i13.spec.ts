@@ -9,7 +9,7 @@ import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { AUTOSAVE_OFF_CHIP, UNBACKED_COPY } from '../src/ui/copy';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, chromeShare, city, fillStorage, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce } from './shell';
+import { build, chromeShare, city, fillStorage, onDepotLand, setFare, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce } from './shell';
 
 const SIZES = [
   [1440, 900],
@@ -379,6 +379,71 @@ test.describe('the screen budget (I13)', () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await expect.poll(() => undoWhole(page)).toBe(true);
       expect((await top.boundingBox())!.height).toBeLessThanOrEqual(28);
+    });
+  }
+
+  // The same late in a game: Year 10, paused at 5,400×, a fare's undo, and at the row's end the Contracts chip with three
+  // medals and "3 on offer" (a contract paid, none held) or the checklist's "4/5 Close a day in profit" (never a day in
+  // profit), each wider than the room the undo had left. Once the undo is down to its 6em, that last chip is cut the same
+  // way, its full words in its title and its name, its medals whole. Shown failing (TS-04) on abb5f2f, where the row
+  // wrapped to two: with "Autosave off", 1003×62 and 10.08% with either chip last; without, with Inner Boston's numbers,
+  // 1036×62 and 10.22%.
+  for (const [last, held] of [['contracts', false], ['contracts', true], ['checklist', true]] as const) {
+    test(`at 1152×720: ≤6% at rest in the countdown late in a game, on one row, with ${last === 'contracts' ? 'three medals and 3 on offer' : '4/5 Close a day in profit'}${held ? ', and a save not set aside' : ''}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.setViewportSize({ width: 1152, height: 720 });
+      if (held) await page.addInitScript(fillStorage, JSON.stringify({ format: SAVE_FORMAT - 1, data: {}, pad: 'p'.repeat(300_000) }));
+      await page.goto('./');
+      await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+      await foundCompany(page);
+      await withDebugLine(page, (d) => {
+        d.clock.elapsed = 288 * 86_400 + 4 * 3_600; // Year 10, Q1 Day 1
+        // Owing $1m more and a close below the floor behind it; a contract paid, or day 1 a loss, so no day yet in profit.
+        if (last === 'contracts') d.ledger.push({ day: 2, kind: 'buses', amountCents: -100_000_000, lineId: null }, { day: 2, kind: 'contract', amountCents: 6_000_000, lineId: null });
+        else d.ledger.push({ day: 1, kind: 'wages', amountCents: -100_000_000, lineId: null });
+        d.closesBelowFloor = 1;
+        d.medals = { bronze: 1, silver: 1, gold: 1 };
+        d.tripsCarried = 400_000;
+      });
+      await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
+      const end = last === 'contracts' ? page.getByTestId('contracts-chip') : page.getByTestId('checklist');
+      await expect(end).toHaveText(last === 'contracts' ? 'Contracts 3 on offer' : '4/5 Close a day in profit');
+      await setSpeed(page, '5,400×');
+      await page.getByRole('button', { name: 'Pause' }).click();
+      await setFare(page, 'Line 1', '$2.50');
+      await expect(page.getByTestId('undo')).toHaveText('Undo: Line 1’s fare');
+      await expect(page.getByTestId('date')).toContainText('Year 10');
+      await page.getByTestId('date').hover();
+      await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 15_000 });
+      const top = page.getByTestId('sim-panel');
+      await expect(page.getByTestId('saves-chip')).toHaveText(held ? AUTOSAVE_OFF_CHIP : 'Saves');
+      const measured: string[] = [];
+      for (const numbers of ['fixture', 'Inner Boston']) {
+        if (numbers === 'Inner Boston') await bostonNumbers(page, '-$1,524,452');
+        const share = await chromeShare(page);
+        const bar = (await top.boundingBox())!;
+        const [undoBox, endBox] = [(await page.getByTestId('undo').boundingBox())!, (await end.boundingBox())!];
+        measured.push(`${numbers}: ${Math.round(share * 10_000) / 100}% (top bar ${Math.round(bar.width)}×${Math.round(bar.height)}, undo ${Math.round(undoBox.width)} px, ${last} ${Math.round(endBox.width)} px)`);
+        expect(share, measured.at(-1)).toBeLessThanOrEqual(REST);
+        expect(bar.height, `one row of chips: ${measured.at(-1)}`).toBeLessThanOrEqual(28);
+        expect(endBox.y, `the last chip on the row: ${measured.at(-1)}`).toBeCloseTo(bar.y, 0);
+        // The undo gives its room first: the last chip is cut only once the undo is down to its 6em (84 px).
+        const whole = await end.evaluate((chip) => [...chip.querySelectorAll('.chip-text')].every((t) => t.scrollWidth <= t.clientWidth));
+        if (!whole) expect(undoBox.width, `the undo at its least: ${measured.at(-1)}`).toBeLessThanOrEqual(85);
+        // The tightest row, "Autosave off" with Inner Boston's numbers, is cut; the fixture's without it is whole.
+        if (held && numbers === 'Inner Boston') expect(whole, `the last chip cut: ${measured.at(-1)}`).toBe(false);
+        if (!held && numbers === 'fixture') expect(whole, `the last chip whole: ${measured.at(-1)}`).toBe(true);
+        if (last === 'contracts') {
+          const medals = (await page.getByTestId('medals').boundingBox())!;
+          expect(medals.x + medals.width, `three medals whole: ${measured.at(-1)}`).toBeLessThanOrEqual(endBox.x + endBox.width);
+        }
+      }
+      test.info().annotations.push({ type: `chrome % in the countdown late in a game, ${last}${held ? ', with a save not set aside' : ''}`, description: measured.join('; ') });
+      // Cut or whole, its full words are in its title and its name.
+      const words = (await end.locator('.chip-text').textContent())!;
+      await expect(end).toHaveAttribute('title', words);
+      if (last === 'contracts') await expect(page.getByRole('button', { name: new RegExp(`^${words}`) })).toBeVisible();
+      else await expect(end).toHaveText(words);
     });
   }
 

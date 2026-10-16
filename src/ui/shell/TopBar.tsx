@@ -22,7 +22,9 @@ const SPEED_OPTIONS = RUNNING_SPEEDS.map((speed) => ({ value: speed, label: spee
  * (the M4 spec, item 3), since a chip of its own broke I13 (DECISIONS, Measured). The undo takes the
  * room the row has left: whole where there is room, cut short with an ellipsis only when the row is full,
  * and named in full in its title and to a screen reader, so the countdown, the undo and the Contracts chip
- * keep to one row at 1152×720 (the systems audit's third round; app.css).
+ * keep to one row at 1152×720 (the systems audit's third round; app.css). Once the undo is down to its
+ * least, the checklist's step or the Contracts chip is cut the same way, its medals kept whole, so a late
+ * game's chips keep to one row too (the fourth round).
  */
 export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: Exclude<Speed, 0>; onContracts: () => void }) {
   const s = sim.snapshot;
@@ -32,6 +34,7 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const checklist = checklistText(progress);
   const toContracts = checklistStep(progress) === CHECKLIST.indexOf('Take a contract');
   const held = s.contracts.filter((c) => c.held).length;
+  const offers = held > 0 ? `${held} held` : `${s.contracts.length} on offer`;
   const medals = MEDAL_IDS.filter((m) => s.medals[m] !== null);
   const undo = s.undo ? undoText(s.undo) : null;
   return (
@@ -76,18 +79,20 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
         </button>
       ) : null}
       {founded && checklist && !toContracts ? (
-        <span className="chip checklist" data-testid="checklist">
-          {checklist}
+        <span className="chip checklist" data-testid="checklist" title={checklist}>
+          <span className="chip-text">{checklist}</span>
         </span>
       ) : null}
       {founded && checklist && toContracts ? (
-        <button type="button" className="chip checklist" data-testid="checklist" onClick={onContracts}>
-          {checklist}
+        <button type="button" className="chip checklist" data-testid="checklist" title={checklist} onClick={onContracts}>
+          <span className="chip-text">{checklist}</span>
         </button>
       ) : null}
       {founded && !checklist ? (
-        <button type="button" className="chip contracts" data-testid="contracts-chip" onClick={onContracts}>
-          <span className="chip-label">Contracts</span> {held > 0 ? `${held} held` : `${s.contracts.length} on offer`}
+        <button type="button" className="chip contracts" data-testid="contracts-chip" title={`Contracts ${offers}`} onClick={onContracts}>
+          <span className="chip-text">
+            <span className="chip-label">Contracts</span> {offers}
+          </span>
           {medals.length > 0 ? (
             <span className="medals" data-testid="medals" data-held={medals.join(' ')}>
               {medals.map((m) => (
