@@ -9,7 +9,7 @@
 // site data does (SecurityError).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { City } from '../../cities';
-import type { FromWorker } from '../../sim/types';
+import type { FromWorker, Snapshot } from '../../sim/types';
 import { useSim } from './useSim';
 
 const page = vi.hoisted(() => {
@@ -485,6 +485,87 @@ describe('another tab’s save', () => {
     await settle();
     from({ type: 'took-save', ok: false });
     expect(sim().newer).toBe(true);
+  });
+
+  // What Back to Home in a tab left behind would lose (the systems audit's sixth round): the game has moved on since the page
+  // found the other tab's change if its clock has run since, or the page has held back a save of the game's own since (the sim
+  // saves after every command it takes, at a pause and each game hour), found by the 'storage' event or by that save's own
+  // read. With neither, or once Home has taken the browser's game up, nothing is lost, and Back to Home asks nothing. Shown
+  // failing (TS-04) on c3c2d9a, which had no such word: `movedOn` read undefined.
+  // The ways Saves names to keep this game, a Save here and Export this game, keep it as it stands, so Back to Home asks only of
+  // play since. Shown failing (TS-04) on the lane's first cut, which still said the kept play would be lost (the review of the
+  // sixth round).
+  it('times what Back to Home would lose from the last Save here kept or Export this game', async () => {
+    const clock = (elapsed: number) => from({ type: 'snapshot', snapshot: { elapsed } as unknown as Snapshot });
+    await opened('A0');
+    clock(7_200);
+    page.otherTab(LIVE, 'A1');
+    clock(7_260);
+    expect(sim().movedOn).toBe(true);
+    from({ type: 'store', effects: [{ op: 'write', key: 'interbus.slot.boston.1', value: 'B1' }], slot: 1 });
+    await settle();
+    expect(sim().movedOn).toBe(false);
+    clock(7_320);
+    expect(sim().movedOn).toBe(true);
+    sim().send({ type: 'export' });
+    expect(sim().movedOn).toBe(false);
+    clock(7_320);
+    expect(sim().movedOn).toBe(false);
+    clock(7_380);
+    expect(sim().movedOn).toBe(true);
+  });
+
+  it('knows whether the game has moved on since another tab changed the autosave: its clock run, or a save of its own held back', async () => {
+    const clock = (elapsed: number) => from({ type: 'snapshot', snapshot: { elapsed } as unknown as Snapshot });
+    await opened('A0');
+    clock(7_200);
+    page.otherTab(LIVE, 'A1');
+    expect(sim()).toMatchObject({ newer: true, movedOn: false });
+    clock(7_200); // a snapshot of the game as it stood, and a Save here: neither moves it on
+    from({ type: 'store', effects: [{ op: 'write', key: 'interbus.slot.boston.1', value: 'B0' }], slot: 1 });
+    await settle();
+    expect(sim().movedOn).toBe(false);
+    clock(7_260); // played on a minute
+    expect(sim()).toMatchObject({ newer: true, movedOn: true });
+    // Home takes the browser's game up: nothing of this one is left to lose.
+    sim().followNewest(true);
+    await settle();
+    from({ type: 'took-save', ok: true });
+    clock(9_000);
+    expect(sim()).toMatchObject({ newer: false, movedOn: false });
+    sim().followNewest(false); // Continue
+    // Left behind again, paused: a fare changed, which the sim saves, held back. The clock stands still.
+    page.otherTab(LIVE, 'A2');
+    expect(sim()).toMatchObject({ newer: true, movedOn: false });
+    own(LIVE, 'B1');
+    await settle();
+    expect(page.kept.get(LIVE)).toBe('A2');
+    expect(sim()).toMatchObject({ newer: true, movedOn: true });
+    // A change the browser told this page nothing of is found by the read before that save, which is held back as play kept nowhere.
+    page.reset();
+    await opened('A0');
+    clock(7_200);
+    page.kept.set(LIVE, 'A1');
+    expect(sim().movedOn).toBe(false);
+    own(LIVE, 'B1');
+    await settle();
+    expect(sim()).toMatchObject({ newer: true, movedOn: true });
+    // Another save during a take from Home is timed by the taken game's clock, not the replaced game's.
+    page.reset();
+    await opened('A0');
+    clock(7_200);
+    sim().followNewest(true);
+    page.otherTab(LIVE, 'A1');
+    await settle();
+    page.otherTab(LIVE, 'A2'); // while that take is on its way
+    from({ type: 'took-save', ok: true });
+    clock(90_000); // the taken game
+    expect(sim().movedOn).toBe(false);
+    sim().followNewest(false); // Continue, the take of A2 unsent
+    await settle();
+    expect(sim()).toMatchObject({ newer: true, movedOn: false });
+    clock(90_060);
+    expect(sim().movedOn).toBe(true);
   });
 
   // Saves lists again when the browser's autosave changes, so its row names the game Continue names; and a take, as a load,

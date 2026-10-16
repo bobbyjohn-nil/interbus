@@ -770,6 +770,12 @@ button.chip.checklist,
   color: var(--ui-ink-soft);
 }
 
+/* Back to Home's question: its words take the row's width, its answers the row below. */
+.saves .controls > .ask {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 /* Contracts: one a row, its ask above today's figure and its days or Take it. */
 .panel.contracts {
   width: 300px;

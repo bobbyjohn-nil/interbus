@@ -154,6 +154,14 @@ export const NEWER_COPY = 'Another tab changed the autosave';
 /** Saves' line meanwhile, in place of a full or blocked store's: why the game isn't saving itself (the Saves chip's tooltip sends the player here), and the way out, in a blocked store's two rows. */
 export const NEWER_LINE_COPY = `${NEWER_COPY}. Export this game to keep it.`;
 
+/**
+ * Back to Home's question in Saves while another tab's change to the autosave lasts, this build can play that autosave, and this
+ * game has moved on since (useSim's `movedOn`), above "Replace this game / Keep playing" as Load's and Import's: Home takes up the
+ * autosave, which its row in Saves names, so this game's play since would be lost; Saves' line above says another tab changed it
+ * and that Export this game, on the row above, keeps this one (the systems audit's sixth round).
+ */
+export const BACK_HOME_ASK_COPY = 'Go to Home? It takes up the autosave, and your play here since it changed will be lost.';
+
 /** Said on Home, until the player opens Saves, when a save could not be set aside (a full disk), so the game keeps it where it is and saves nothing over it: what that means for the player, and where to look. */
 export const UNBACKED_COPY = 'Not autosaving: see Saves';
 

@@ -89,6 +89,13 @@ export interface Sim {
    * takes the browser's game up (`followNewest`) or the key holds this page's game again.
    */
   readonly newer: boolean;
+  /**
+   * While `newer`, whether this game has moved on since the page found the other tab's change, or since the player last kept it
+   * (a Save here kept, or Export this game): its clock has run since, or the page has held back a save of the game's own since
+   * (the sim saves after every command it takes, at a pause and each game hour). That play is kept nowhere, and Home's take would
+   * drop it, so Back to Home asks first (Saves). False while not `newer`.
+   */
+  readonly movedOn: boolean;
   readonly loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView; readonly at: number } | null;
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
   importSave(): void;
@@ -139,9 +146,11 @@ export function useSim(city: City | undefined): Sim {
   const [slotsRefused, setSlotsRefused] = useState<Sim['slotsRefused']>(() => new Map());
   const [autosaveRefused, setAutosaveRefused] = useState(false);
   const [newer, setNewer] = useState(false);
+  const [movedOn, setMovedOn] = useState(false);
   const [loaded, setLoaded] = useState<Sim['loaded']>(null);
   const follow = useRef<(on: boolean) => void>(() => undefined);
   const loading = useRef<() => void>(() => undefined);
+  const keeping = useRef<() => void>(() => undefined);
   const probes = useRef(new LatestAsk<ProbeDot>());
   // Only the newest answer counts: an older one arriving late is dropped.
   const asked = useRef({ site: 0, draft: 0, band: 0, next: 1 });
@@ -175,7 +184,30 @@ export function useSim(city: City | undefined): Sim {
     // a reload would bring it. Null until the start's read is kept: a store that refuses it keeps nothing to write over.
     let live: { key: string; text: string | null; holds: string | null } | null = null;
     let unwatch: (() => void) | undefined;
-    const sayNewer = () => setNewer(live !== null && live.holds !== live.text);
+    // While the browser's game is the newer (`newer`), what this game's clock read when the page found it so, or the first clock
+    // the page hears after: the clock run since, or a save of the game's own held back since, is play kept nowhere (`movedOn`).
+    let elapsed: number | undefined;
+    let behind: { at: number | undefined } | null = null;
+    const sayNewer = () => {
+      const now = live !== null && live.holds !== live.text;
+      if (now) behind ??= { at: elapsed };
+      else if (behind) {
+        behind = null;
+        setMovedOn(false);
+      }
+      setNewer(now);
+    };
+    const clockAt = (now: number | undefined) => {
+      elapsed = now;
+      if (behind && now !== undefined && (behind.at ??= now) !== now) setMovedOn(true);
+    };
+    // The player kept this game as it stands (a Save here kept, or Export this game): what is lost is timed from here on.
+    const kept = () => {
+      if (!behind) return;
+      behind.at = elapsed;
+      setMovedOn(false);
+    };
+    keeping.current = kept;
     // Home stands, and has asked for no game (a slot, a file, a new game, the quarter's start), which a take posted after it
     // would replace: on a Load from Home with another tab saving every 0.67 s, 7 loads in 25 ended on the other tab's game
     // (the review of the fifth round). The ask holds until it is refused or Home goes, which it does once that game comes.
@@ -270,6 +302,7 @@ export function useSim(city: City | undefined): Sim {
             setDots(m.dots);
             setDepotLand(m.depotLand);
             setSnapshot(m.snapshot);
+            clockAt(m.snapshot?.elapsed);
             setLoad(m.load);
             setBackup(m.checking ? 'checking' : null);
             setStatus('ready');
@@ -325,12 +358,16 @@ export function useSim(city: City | undefined): Sim {
             inStore(
               async (s) => {
                 // Never over another tab's save: the game's own saves, and any job on the live key, read it first, and wait while it
-                // holds a save other than the one this page last read or wrote there (said, not refused: no room is owed).
+                // holds a save other than the one this page last read or wrote there (said, not refused: no room is owed). A save of
+                // the game's own held back is play kept nowhere (`movedOn`).
                 const l = live;
                 if (l && (m.owed !== undefined || m.effects.some((e) => e.key === l.key))) {
                   l.holds = await s.read(l.key);
                   sayNewer();
-                  if (l.holds !== l.text) return;
+                  if (l.holds !== l.text) {
+                    if (m.owed !== undefined && behind) setMovedOn(true);
+                    return;
+                  }
                 }
                 for (const e of m.effects) {
                   await applyEffects(s, [e]);
@@ -349,7 +386,10 @@ export function useSim(city: City | undefined): Sim {
                 sayRefused();
                 // A delete kept made room, so no slot's line still tells the player to make some.
                 if (m.effects.length > 0 && m.effects.every((e) => e.op === 'remove')) setSlotsRefused((r) => (r.size ? new Map() : r));
-                else if (slot !== undefined) setSlotsRefused((r) => (r.has(slot) ? new Map([...r].filter(([n]) => n !== slot)) : r));
+                else if (slot !== undefined) {
+                  setSlotsRefused((r) => (r.has(slot) ? new Map([...r].filter(([n]) => n !== slot)) : r));
+                  if (m.effects.some((e) => e.op === 'write')) kept();
+                }
               },
               m.setAside,
               () => ({ keys: m.owed ? m.effects.slice(done).flatMap((e) => (e.op === 'write' ? [e.key] : [])) : [], autosave: m.owed === 'autosave' }),
@@ -362,6 +402,10 @@ export function useSim(city: City | undefined): Sim {
           else if (m.type === 'took-save') {
             if (m.ok && taking && live) {
               live.text = taking.text;
+              // Nothing this game played is left to lose, and a change found since is timed by the taken game's clock, its first.
+              behind = null;
+              elapsed = undefined;
+              setMovedOn(false);
               refused.clear();
               autosaves.clear();
               sayRefused();
@@ -371,7 +415,10 @@ export function useSim(city: City | undefined): Sim {
             }
             taken();
           }
-          else if (m.type === 'snapshot') setSnapshot(m.snapshot);
+          else if (m.type === 'snapshot') {
+            setSnapshot(m.snapshot);
+            clockAt(m.snapshot.elapsed);
+          }
           else if (m.type === 'depot-site') {
             const at = sites.current.get(m.id);
             sites.current.delete(m.id);
@@ -429,6 +476,7 @@ export function useSim(city: City | undefined): Sim {
     // Counted only when it reaches the sim, so each undo sent has its answer.
     if (message.type === 'undo' && worker.current) setUndos((u) => ({ ...u, sent: u.sent + 1 }));
     if (LOADS.has(message.type)) loading.current();
+    if (message.type === 'export') keeping.current();
     worker.current?.postMessage(message);
   }, []);
   const probeAt = useCallback((dot: ProbeDot | null) => {
@@ -489,5 +537,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, storeNotice, slotsRefused, autosaveRefused, newer, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard, followNewest };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, storeNotice, slotsRefused, autosaveRefused, newer, movedOn, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard, followNewest };
 }
