@@ -10,14 +10,17 @@
 // change made before it is home: it carries on only if every change since its trip kept both. A change
 // made with none of the line's buses out is merged the same way, and a line just drawn changes from a
 // version that ran no bus, so their buses pull out of the depot for the departures they can reach, as
-// each morning's do, rather than appear on the line. The plan hands over to the line's own day plan at
-// the first departure where both have the same buses doing the same things, so nothing moves at the
-// handover either; with no service overnight that is the next morning's first departure at the latest.
+// each morning's do, rather than appear on the line. A bus out beyond those the day plan has out goes
+// home after its trip, as the day plan would park it, so a line with spare buses pays no driver for
+// them, overnight service or not; until the merged plan's buses can stand in for all of the day plan's,
+// it goes home only once it has waited out the idle limit at the first stop. The plan hands over to the line's own day plan at the first
+// departure where both have the same buses doing the same things, so nothing moves at the handover
+// either; with no service overnight that is the next morning's first departure at the latest.
 //
 // Times are seconds from the midnight of the frame's day, as in a day plan; the frame is the day of
 // the latest change, and a plan holds departures from the day before it to the day after.
 import { SECONDS_PER_DAY } from '../config/time';
-import { closeStint, dayPlan, freeLongest, idleLimitOf, sendHomeIdle, tripTimes, type DayPlan, type OpenBus, type PlanInputs, type Stint } from './schedule';
+import { closeStint, dayPlan, freeLongest, idleLimitOf, sendHomeIdle, takeDeparture, tripTimes, type DayPlan, type OpenBus, type PlanInputs, type Stint } from './schedule';
 
 /** An earlier version of a changed line: what it ran on, and the instant from which the next version took its departures. */
 export interface Earlier {
@@ -157,24 +160,26 @@ function merge(was: MergedPlan, after: PlanInputs, e: Earlier, own: DayPlan): Me
     stints.push(done);
     toDepot(done.arriveDepot);
   };
+  // The day plan's own buses as it runs each departure, for parking the spares.
+  const ownOpen: OpenBus[] = [];
   for (const d of own.trips) {
+    takeDeparture(ownOpen, d, after, idleLimit, () => undefined);
     if (d < at) continue;
     sendHomeIdle(open, d, idleLimit, close);
     const cycle = tripTimes(after, d).cycle;
     const pick = freeLongest(open, d);
+    const leave = d - after.pullOutS;
     if (pick >= 0) {
       open[pick]!.trips.push(d);
       open[pick]!.free = d + cycle;
       trips.push(d);
-      continue;
-    }
-    const leave = d - after.pullOutS;
-    if (leave >= at && home.length > 0 && home[0]! <= leave) {
+    } else if (leave >= at && home.length > 0 && home[0]! <= leave) {
       home.shift();
       open.push({ leaveDepot: leave, trips: [d], free: d + cycle });
       trips.push(d);
     }
     // No bus can make it: this departure is not run.
+    parkSpares(open, ownOpen, own, d, idleLimit, close);
   }
   for (const bus of open) stints.push(homeFrom(bus));
   stints.sort((a, b) => a.leaveDepot - b.leaveDepot || (a.trips[0] ?? 0) - (b.trips[0] ?? 0));
@@ -183,10 +188,60 @@ function merge(was: MergedPlan, after: PlanInputs, e: Earlier, own: DayPlan): Me
 }
 
 /**
+ * Sends home, after the trip it is on, each bus out at departure `d` that stands in for none of the
+ * day plan `own`'s buses, so a line parks its spare buses as its day plan would and comes to run as it
+ * does; with no more out than the day plan has (`ownOpen`, as it has run its departures to `d`), none
+ * is spare. Each of the day plan's buses that takes a departure after `d`, out already or yet to pull
+ * out, needs a stand-in: one of the merged plan's free as early as it is (its trip under way done, or
+ * that first departure), and not so early that it would wait at the first stop past the idle limit for
+ * the departure. Of the buses that can stand in, those free latest are kept. The kept buses then take
+ * each departure this version's day plan's take, so none of them goes unrun for the parking, and none
+ * waits out the hour to be sent home while another pulls out of the depot for the departure. A later
+ * change is another matter: a bus parked for this version may be on its way home when the next
+ * version's first departures need it, and one no bus can reach then is not run (bench/parking.ts's
+ * chains: 47 departures in 46 of 2,500 that the rule before ran, and 1 the other way). Where one of the day plan's
+ * buses has no stand-in, the merged plan is not yet ahead of it, and none goes home. With no service
+ * overnight the spares went home after the evening's last departure anyway, but a line running round
+ * the clock kept them out, paid, until the plan ran out of departures (the systems audit's fifth round).
+ */
+function parkSpares(open: OpenBus[], ownOpen: readonly OpenBus[], own: DayPlan, d: number, idleLimit: number, home: (bus: OpenBus) => void): void {
+  if (open.length <= ownOpen.length) return;
+  // A departure after this is past the idle limit of every bus out: none of them could stand in for it.
+  let reach = -Infinity;
+  for (const bus of open) reach = Math.max(reach, bus.free + idleLimit);
+  // The day plan's buses to stand in for, by their next departures: one for every bus out, and none is spare.
+  const wanted: [Stint, number][] = [];
+  for (const s of own.stints) {
+    if (s.leaveDepot > reach) break;
+    if (s.lastArrival <= d) continue;
+    const k = sortedIndex(s.trips, d);
+    if (k === s.trips.length || s.trips[k]! > reach) continue;
+    if (wanted.push([s, k]) >= open.length) return;
+  }
+  const wants = wanted.map(([s, k]) => {
+    const [last, next] = [s.trips[k - 1], s.trips[k]!];
+    return { ready: last === undefined ? next : last + tripTimes(own.inputs, last).cycle, next };
+  });
+  // Latest departure first, each takes the bus free latest that can stand in: free by its ready, within the idle limit of it.
+  wants.sort((a, b) => b.next - a.next);
+  const latest = [...open].sort((a, b) => b.free - a.free);
+  const kept = new Set<OpenBus>();
+  for (const w of wants) {
+    const bus = latest.find((b) => !kept.has(b) && b.free <= w.ready && w.next - b.free <= idleLimit);
+    if (bus === undefined) return;
+    kept.add(bus);
+  }
+  for (let i = open.length - 1; i >= 0; i--) if (!kept.has(open[i]!)) home(open.splice(i, 1)[0]!);
+}
+
+/**
  * The first moment from which every bus of the merged plan does what one of the day plan's does: the
  * same drive out under way, the same trip under way (on the new version) and the same departures
  * after, home at the same moments. From then on the two plans place every bus alike. The day plan's
- * window ends two days on; with no such moment before, that is the handover.
+ * window ends two days on; with no such moment before, that is the handover. After a cut, a line
+ * running overnight reaches one only by parking its spares (parkSpares): keeping them out, it matched
+ * only where both plans wound down at the window's end, which its day plan read on its middle day does
+ * not, so a bus driving home jumped 456 m back to its first stop (the systems audit's fifth round).
  */
 function handoverOf(m: Omit<MergedPlan, 'handover'>, own: DayPlan, at: number): number {
   const last = m.breaks.length;
@@ -207,7 +262,9 @@ function handoverOf(m: Omit<MergedPlan, 'handover'>, own: DayPlan, at: number): 
       .map((s) => sign(s, x, merged))
       .filter((v): v is string => v !== null)
       .sort();
-  const candidates = [...new Set([at, ...own.trips.filter((t) => t > at), ...own.stints.map((s) => s.leaveDepot).filter((t) => t > at)])].sort((a, b) => a - b);
+  // Each on a whole second, so the costs split an hour there exactly (costs.ts): at a drive out's own fractional
+  // second, the day plan's middle day put it a float's width before the split, and neither part billed it.
+  const candidates = [...new Set([at, ...own.trips.filter((t) => t > at), ...own.stints.map((s) => Math.floor(s.leaveDepot)).filter((t) => t > at)])].sort((a, b) => a - b);
   for (const x of candidates) {
     const a = signs(m.stints, x, true);
     if (a.some((v) => v.startsWith('earlier') || v.endsWith('earlier'))) continue;
@@ -217,10 +274,15 @@ function handoverOf(m: Omit<MergedPlan, 'handover'>, own: DayPlan, at: number): 
   return 2 * SECONDS_PER_DAY;
 }
 
+/** The index of the first of `list`, in order, after `t`. */
 function sortedIndex(list: readonly number[], t: number): number {
-  let i = 0;
-  while (i < list.length && list[i]! <= t) i++;
-  return i;
+  let [lo, hi] = [0, list.length];
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (list[mid]! <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /** Buses out at `second` of the frame on a plan in effect: on the road, at the first stop or driving to or from the depot. */

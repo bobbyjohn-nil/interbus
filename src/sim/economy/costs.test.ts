@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
 import { SPARROW } from '../config/fleet';
+import { SECONDS_PER_DAY } from '../config/time';
 import { dayPlan } from '../rules/schedule';
+import { planInEffect } from '../rules/transition';
 import type { Timing } from '../rules/timetable';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, driveSeconds, forecastDay, lineCostsInHour, type LineCostInputs } from './costs';
 
@@ -53,5 +55,21 @@ describe('a line’s costs, hour by hour, from its day plan (the M2 spec, item 5
   it('spreads a depot’s $300 a day over 24 whole-cent hours', () => {
     expect(Number.isSafeInteger(DEPOT_UPKEEP_PER_HOUR_CENTS)).toBe(true);
     expect(24 * DEPOT_UPKEEP_PER_HOUR_CENTS).toBe(DEPOT_UPKEEP_CENTS);
+  });
+
+  // A line settling after a change hands over to its day plan at a departure or a drive out, after one
+  // late in the evening at the next morning's first drive out (rules/transition.ts), and that hour bills
+  // the part before from the merged plan and the rest from the day plan's middle day. Shown failing
+  // (TS-04) on 050dbdd for 39 of these 101 depots: the hour split at the drive's own fractional second,
+  // which the middle day put a float's width before the split, so neither part billed the drive out.
+  it('bills a drive out at the handover once, wherever the depot', () => {
+    for (let m = 1_000; m <= 2_000; m += 10) {
+      const own = line(TIMING, m, m);
+      // At 23:45 its first stop moved: its buses go home, and the new version's pull out a few minutes before 05:00.
+      const merged = planInEffect(own.plan.inputs, [{ inputs: own.plan.inputs, until: 23 * 3_600 + 45 * 60, sameModel: true, sameStart: false }]).merged!;
+      expect(merged.handover, `${m} m`).toBeGreaterThan(SECONDS_PER_DAY + 4 * 3_600);
+      const settling: LineCostInputs = { ...own, settling: { merged, frameDay: 1, earlier: [{ routeM: own.routeM, model: SPARROW, pullOutM: m, pullInM: m }] } };
+      expect(lineCostsInHour(settling, 4, 2), `${m} m`).toEqual(lineCostsInHour(own, 4));
+    }
   });
 });

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { createLine } from './commands/createLine';
 import { addDebugLine, DEBUG_STOPS } from './commands/debugLine';
 import { extendLine } from './commands/extendLine';
+import { insertStop } from './commands/insertStop';
 import { removeStop } from './commands/removeStop';
 import { setHeadways } from './commands/setHeadways';
 import { setModel } from './commands/setModel';
@@ -19,6 +20,7 @@ import { createRng, type Rng } from './core/rng';
 import { forecastDay, lineCostsInHour } from './economy/costs';
 import { finance } from './economy/finance';
 import { post, type RowKind } from './economy/ledger';
+import type { Headways } from './rules/periods';
 import { hourOfPlan } from './rules/schedule';
 import { busesOutAt, hourOfMerged, planInEffect } from './rules/transition';
 import { fromSaveData, toSaveData } from './save/save';
@@ -116,7 +118,8 @@ describe('a line whose service starts with none of its buses out (I6, I1)', () =
   // versions once it has handed over, as of any settled line, and with merge() starting again from the
   // day plan past a handover: hour 15 billed the 15:00 departure no bus ran, three drivers from 15:00
   // ($78.00 of wages, where from their drives out it is $52.00) and no drive out ($0, where three cost
-  // $10.32).
+  // $10.32). Every 15 minutes needs a bus fewer, which goes home after its 15:20 trip (transition.ts
+  // parkSpares), so the hour bills its drive home too; on 050dbdd it ran on, paid, until the evening.
   it('bills the hour a line was drawn from its drives out after a second change in that hour', () => {
     const world = gameWithDepot();
     advance(world, 10 * SECONDS_PER_HOUR + 60); // 15:01 on day 1
@@ -139,7 +142,10 @@ describe('a line whose service starts with none of its buses out (I6, I1)', () =
     advance(world, 16 * SECONDS_PER_HOUR - (handover + 60));
     const hour = kinds.map((k, i) => total(world, 1, k) - before[i]!);
     const driveOut = lineCostsInHour(drawn.costs, 4).deadhead / hourOfPlan(drawn.day, 4 * SECONDS_PER_HOUR, 5 * SECONDS_PER_HOUR).pullOuts;
-    expect(hour[2]).toBe(-outs * driveOut);
+    const driveIn = lineCostsInHour(drawn.costs, 0).deadhead / hourOfPlan(drawn.day, 0, SECONDS_PER_HOUR).pullIns;
+    const homes = plan.stints.filter((s) => s.lastArrival >= at && s.lastArrival < 16 * SECONDS_PER_HOUR).length;
+    expect(homes).toBe(1);
+    expect(hour[2]).toBe(-(outs * driveOut + homes * driveIn));
     expect(-hour[1]!).toBeLessThanOrEqual(Math.ceil((outs * (16 * SECONDS_PER_HOUR - at) * WAGE_CENTS_PER_HOUR) / SECONDS_PER_HOUR));
   });
 });
@@ -151,7 +157,7 @@ const H = SECONDS_PER_HOUR;
 function dayForecast(world: World): Record<(typeof COSTS)[number], number> {
   const f = finance(world);
   const day = { running: 0, wages: 0, deadhead: 0 };
-  for (const k of COSTS) day[k] = -f.rows.find((r) => r.kind === k)!.forecastCents!;
+  for (const k of COSTS) day[k] = 0 - f.rows.find((r) => r.kind === k)!.forecastCents!; // 0, not -0, with none
   expect(f.lines[0]!.forecastCents).toEqual(day);
   return day;
 }
@@ -378,4 +384,79 @@ describe('changes in a row through two days (seeded; I1, I6)', () => {
       expect(firstStop).toBeGreaterThan(0);
     });
   }
+});
+
+// A line that also runs overnight never has a bus wait an hour at its first stop. On 050dbdd a cut kept
+// the bus it no longer needed out, and paid, until its plan ran out of departures near the end of the
+// next day, so the line kept its versions across each close; changed again on the days after, each
+// change laid them all out again in its own day's frame, re-costing the hours that day had banked. Now a
+// spare goes home after its trip, as the day plan would have it (transition.ts parkSpares), and the line
+// usually settles within an hour or two. The changes are the systems audit's fifth round's, on seed 1.
+describe('a line running overnight (I1, I6)', () => {
+  /** A game with a depot, $5M more with `rich`, and the debug line's stops drawn at 05:00 on day 1 with `headways`. */
+  function nightLine(headways: Headways, rich: boolean): { world: World; line: LineId } {
+    const world = gameWithDepot(1);
+    if (rich) post(world.state.ledger, { day: 1, kind: 'contract', amountCents: 500_000_000 });
+    const made = createLine(world, DEBUG_STOPS.map((s) => s.at), headways);
+    if (!made.ok) throw new Error(made.reason);
+    return { world, line: made.lineId };
+  }
+
+  /** Runs to game second `to`, each close's card what the day forecast, each change at its second as the hours gone banked. */
+  function play(world: World, line: LineId, changes: readonly (readonly [number, (world: World) => boolean])[], to: number): void {
+    const runTo = (until: number) => {
+      for (;;) {
+        const t = toCalendarTime(world.state.elapsed);
+        const close = world.state.elapsed - t.secondOfDay + SECONDS_PER_DAY;
+        if (close > until) break;
+        const day = dayForecast(world);
+        advance(world, close - world.state.elapsed);
+        expect(banked(world, t.day), `day ${t.day}'s card`).toEqual(day);
+      }
+      advance(world, until - world.state.elapsed);
+    };
+    for (const [at, change] of changes) {
+      runTo(at);
+      expect(change(world), `the change at ${at}`).toBe(true);
+      expect(forecastSoFar(world, line), `the hours gone at ${at}`).toEqual(banked(world, toCalendarTime(at).day));
+    }
+    runTo(to);
+  }
+
+  // Shown failing (TS-04) on 050dbdd: day 2 still ran the spare, $1,849.31 of wages and $6.88 of drives home, against $1,248.00 and $0.
+  it('parks the bus a cut leaves spare: from the next day it banks what the same timetable banks from the start', () => {
+    const cut = nightLine({ peak: 600, offpeak: 720, overnight: 900 }, false);
+    const same = nightLine({ peak: 900, offpeak: 1_200, overnight: 1_200 }, false);
+    play(cut.world, cut.line, [[5 * H + 3_484, (w) => setHeadways(w, cut.line, { peak: 900, offpeak: 1_200, overnight: 1_200 }).ok]], 3 * SECONDS_PER_DAY - 5 * H); // 10:58:04 on day 1, to day 3's close
+    advance(same.world, 3 * SECONDS_PER_DAY - 5 * H);
+    expect(cut.world.state.lines[0]!.buses).toBeGreaterThan(same.world.state.lines[0]!.buses);
+    for (const day of [2, 3]) expect(banked(cut.world, day), `day ${day}`).toEqual(banked(same.world, day));
+  });
+
+  // Shown failing (TS-04) on 050dbdd: the change at 04:05:33 on day 4 re-costed the four hours that day had
+  // banked at three drivers, $312.00 of wages, where four ran and banked $416.00.
+  it('forecasts each day what it banks, through changes on three days running', () => {
+    const { world, line } = nightLine({ peak: 360, offpeak: 900, overnight: 2_700 }, true);
+    const every = (peak: number, offpeak: number, overnight: number) => (w: World) => setHeadways(w, line, { peak, offpeak, overnight }).ok;
+    // Day 2 at 10:12:57, day 3 at 13:09:15 and day 4 at 04:05:33, to day 5's close.
+    play(world, line, [[105_177, every(720, 720, 900)], [202_155, every(600, 1_200, 1_200)], [255_933, every(360, 900, 2_700)]], 5 * SECONDS_PER_DAY - 5 * H);
+  });
+
+  // Shown failing (TS-04) on 050dbdd: the stop put in at 04:04:44 on day 5 re-costed the hours that day had
+  // banked at $312.00 of wages, where they banked $416.00.
+  it('forecasts each day what it banks, through a stop taken off and one put in on the days after two changes', () => {
+    const { world, line } = nightLine({ peak: 600, offpeak: 900, overnight: 1_800 }, true);
+    const every = (peak: number, offpeak: number, overnight: number) => (w: World) => setHeadways(w, line, { peak, offpeak, overnight }).ok;
+    play(
+      world,
+      line,
+      [
+        [169_803, every(360, 900, 2_700)], // day 3, 04:10:03
+        [203_371, every(600, 1_200, 1_200)], // day 3, 13:29:31
+        [252_211, (w) => removeStop(w, line, 2 as StopId).ok], // day 4, 03:03:31: Symphony off
+        [342_284, (w) => insertStop(w, line, [-71.0815, 42.3455]).ok], // day 5, 04:04:44
+      ],
+      5 * SECONDS_PER_DAY - 5 * H,
+    );
+  });
 });

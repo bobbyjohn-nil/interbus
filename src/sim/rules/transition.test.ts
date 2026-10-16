@@ -10,8 +10,8 @@ import { SECONDS_PER_DAY } from '../config/time';
 import { createRng } from '../core/rng';
 import type { LngLatPair } from '../types';
 import { busPositionsAt, positionsInEffect, prepareGeometry, type LineGeometry, type PreparedGeometry } from './position';
-import { busesOut, dayPlan, type PlanInputs } from './schedule';
-import { planInEffect, versionAt, type Earlier } from './transition';
+import { busesOut, dayPlan, idleLimitOf, tripTimes, type PlanInputs } from './schedule';
+import { inputsAt, planInEffect, versionAt, type Earlier } from './transition';
 
 const LAT = 42.35;
 const M_LON = 111_320 * Math.cos((LAT * Math.PI) / 180);
@@ -35,11 +35,11 @@ function geometry(stops: readonly number[]): PreparedGeometry {
 
 const KMH = 26;
 const drive = (m: number) => m / (KMH / 3.6);
-function inputs(stops: readonly number[], headway: number, buses: number, slower = 1): PlanInputs {
+function inputs(stops: readonly number[], headway: number, buses: number, slower = 1, overnight: number | null = null): PlanInputs {
   const routeM = stops[stops.length - 1]! - stops[0]!;
   const oneWayS = drive(routeM) * slower + 20 * (stops.length - 2);
   const cycle = Math.ceil(2 * oneWayS) + 2 * 120;
-  return { timing: { cycle, headways: { peak: headway, offpeak: headway, overnight: null }, buses }, oneWayS: cycle / 2 - 120, pullOutS: drive(1_200 + stops[0]!), pullInS: drive(1_200 + stops[0]!) };
+  return { timing: { cycle, headways: { peak: headway, offpeak: headway, overnight }, buses }, oneWayS: cycle / 2 - 120, pullOutS: drive(1_200 + stops[0]!), pullInS: drive(1_200 + stops[0]!) };
 }
 
 const DEBUG = [0, 1_339, 2_425, 3_535];
@@ -77,36 +77,84 @@ function unmoved(from: readonly LngLatPair[], to: readonly LngLatPair[], depot: 
   return { worst, ok: worst <= 5 && left.every((q) => metres(q, depot) <= 5) };
 }
 
-describe('a line changed while its buses are out (I6)', () => {
-  for (const c of CHANGES) {
-    it(`${c.name}: nothing moves at the change, never more buses out than owned, and nothing moves at the handover`, () => {
-      const rng = createRng(17);
-      const was = dayPlan(c.before);
-      for (let run = 0; run < 25; run++) {
-        const at = rng.int(6 * 3_600, 22 * 3_600);
-        const earlier: Earlier[] = [{ inputs: c.before, until: at, sameModel: c.sameModel, sameStart: c.sameStart }];
-        const effect = planInEffect(c.after, earlier);
-        const m = effect.merged!;
-        const label = `${c.name} at ${at}`;
-        // The instant: every bus where it was.
-        const before = read(busPositionsAt(was, c.geos[0], at, buf));
-        const after = read(positionsInEffect(effect, c.geos, at, buf));
-        expect(unmoved(before, after, south(1_200)), label).toMatchObject({ ok: true });
-        // Never more buses out than owned: the new model's own, with a swap's old ones finishing their trips beside them.
-        for (let t = at; t < Math.min(m.handover, at + 4 * 3_600); t += 20) {
-          const out = m.stints.filter((s) => t >= s.leaveDepot && t < s.arriveDepot);
-          const mine = c.sameModel ? out : out.filter((s) => s.leaveDepot >= at);
-          expect(mine.length, `${label}, ${t}`).toBeLessThanOrEqual(c.after.timing.buses);
-        }
-        // The handover: by the next morning's first departure at the latest, with every bus where it was.
-        expect(m.handover, label).toBeLessThanOrEqual(SECONDS_PER_DAY + 5 * 3_600);
-        const end = read(positionsInEffect(effect, c.geos, m.handover - 0.01, buf));
-        const own = read(busPositionsAt(effect.periodic, c.geos[1], m.handover % SECONDS_PER_DAY, buf));
-        expect(unmoved(end, own, south(1_200)), `${label}: handover at ${m.handover}`).toMatchObject({ ok: true });
-        expect(own.length, label).toBeLessThanOrEqual(busesOut(effect.periodic));
-      }
-    });
+/** `c` made at 25 random instants of the service day: every bus where it was at the change and at the handover, never more out than owned, and handed over by `latest(at)`. */
+function checkChange(c: Change, latest: (at: number) => number) {
+  const rng = createRng(17);
+  const was = dayPlan(c.before);
+  for (let run = 0; run < 25; run++) {
+    const at = rng.int(6 * 3_600, 22 * 3_600);
+    const earlier: Earlier[] = [{ inputs: c.before, until: at, sameModel: c.sameModel, sameStart: c.sameStart }];
+    const effect = planInEffect(c.after, earlier);
+    const m = effect.merged!;
+    const label = `${c.name} at ${at}`;
+    // The instant: every bus where it was.
+    const before = read(busPositionsAt(was, c.geos[0], at, buf));
+    const after = read(positionsInEffect(effect, c.geos, at, buf));
+    expect(unmoved(before, after, south(1_200)), label).toMatchObject({ ok: true });
+    // Never more buses out than owned: the new model's own, with a swap's old ones finishing their trips beside them.
+    for (let t = at; t < Math.min(m.handover, at + 4 * 3_600); t += 20) {
+      const out = m.stints.filter((s) => t >= s.leaveDepot && t < s.arriveDepot);
+      const mine = c.sameModel ? out : out.filter((s) => s.leaveDepot >= at);
+      expect(mine.length, `${label}, ${t}`).toBeLessThanOrEqual(c.after.timing.buses);
+    }
+    // The handover, with every bus where it was.
+    expect(m.handover, label).toBeLessThanOrEqual(latest(at));
+    const end = read(positionsInEffect(effect, c.geos, m.handover - 0.01, buf));
+    const own = read(busPositionsAt(effect.periodic, c.geos[1], m.handover % SECONDS_PER_DAY, buf));
+    expect(unmoved(end, own, south(1_200)), `${label}: handover at ${m.handover}`).toMatchObject({ ok: true });
+    expect(own.length, label).toBeLessThanOrEqual(busesOut(effect.periodic));
   }
+}
+
+describe('a line changed while its buses are out (I6)', () => {
+  // By the next morning's first departure at the latest.
+  for (const c of CHANGES) it(`${c.name}: nothing moves at the change, never more buses out than owned, and nothing moves at the handover`, () => checkChange(c, () => SECONDS_PER_DAY + 5 * 3_600));
+});
+
+// The same changes on a line that also runs every 20 minutes overnight: its buses never wait an hour at
+// the first stop, so after a longer headway the bus it no longer needs went home only when the plan ran
+// out of departures, near the end of the next day, and was paid until then; the plan handed over there
+// to its day plan as both wound down, which a line drawn from its middle day does not. Now a spare goes
+// home after its trip, as the day plan would have it, and on the debug line the plan hands over within
+// two hours. Shown failing (TS-04) on 050dbdd: every 10 minutes to every 15 handed over 1,740 to 2,444
+// minutes after the change (median 1,995; 300 to 1,004 with no service overnight); now 15 to 35 minutes
+// on the debug line, either way. On lines 2 to 13 km long after a longer headway (bench/parking.ts),
+// a median of 50 minutes and at most 387 with no service overnight, 54 and at most 337 with it.
+describe('a line running overnight changed while its buses are out (I6)', () => {
+  const night = (p: PlanInputs): PlanInputs => ({ ...p, timing: { ...p.timing, headways: { ...p.timing.headways, overnight: Math.max(p.timing.headways.peak, 1_200) } } });
+  for (const c of CHANGES) {
+    const n: Change = { ...c, name: `${c.name}, every 20 minutes overnight`, before: night(c.before), after: night(c.after) };
+    it(`${n.name}: nothing moves at the change or at the handover, within two hours, never more buses out than owned`, () => checkChange(n, (at) => at + 2 * 3_600));
+  }
+});
+
+// After a cut, the bus a line parks is one its day plan has no use for, not the one free in time for the
+// day plan's next pull out: that one stands in for it. Shown failing (TS-04) with parkSpares keeping
+// only buses free as early as the day plan's out: a 6 km line every 5 minutes at peak and 10 off-peak,
+// changed to every 15 and 20 at 06:16:29, after the 06:20 departure sent home the bus free at 06:25:42
+// rather than the one free at 06:45:42, and pulled another out of the depot at 06:32:14 for the 06:35.
+describe('a line with buses to spare after a cut (I1, I6)', () => {
+  it('sends home no bus free in time for a departure another then pulls out of the depot for, within the hour', () => {
+    const stops = [0, 900, 1_700, 2_600, 3_400, 4_300, 5_100, 6_000];
+    const every = (peak: number, offpeak: number): PlanInputs => {
+      const p = inputs(stops, peak, 8);
+      return { ...p, timing: { ...p.timing, headways: { peak, offpeak, overnight: null } } };
+    };
+    const at = 6 * 3_600 + 16 * 60 + 29;
+    const after = every(900, 1_200);
+    const m = planInEffect(after, [{ inputs: every(300, 600), until: at, sameModel: true, sameStart: true }]).merged!;
+    const parked = m.stints.filter((s) => s.trips.length > 0 && s.lastArrival >= at && s.lastArrival < m.handover);
+    const pulledOut = m.stints.filter((s) => s.trips.length > 0 && s.leaveDepot >= at);
+    for (const s of parked) {
+      const last = s.trips[s.trips.length - 1]!;
+      const free = last + tripTimes(inputsAt(m, last), last).cycle;
+      const instead = pulledOut.filter((o) => o.leaveDepot > s.lastArrival && o.trips[0]! >= free && o.trips[0]! - free <= idleLimitOf(after));
+      expect(instead.map((o) => o.leaveDepot), `the bus home at ${s.arriveDepot}, free at ${free}: pulled out instead at`).toEqual([]);
+    }
+    // And it does park its spare: one of the four out goes home, and the plan hands over within the hour.
+    expect(parked).toHaveLength(1);
+    expect(m.handover - at).toBeLessThan(3_600);
+  });
 });
 
 describe('a line changed again within a round trip (I6)', () => {
