@@ -5,7 +5,7 @@ import { readDotPrefs, writeDotPrefs } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
 import type { BusModelId, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
-import { failedText } from "./copy";
+import { AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, failedText } from "./copy";
 import { DayCard } from "./game/DayCard";
 import { FailureCard } from "./game/FailureCard";
 import { FoundingCard } from "./game/Founding";
@@ -286,6 +286,11 @@ export function App() {
   // so the card that says it stopped, with Reload, is all that is left. A notice has no button, and "Not autosaving: see
   // Saves" waits for a game that is ready.
   const stopped = sim.status === "failed";
+  // While the game is not saving itself (it saves nothing over a save it could not set aside, or the browser refused the
+  // autosave and has kept none since), the Saves chip says so, for as long as that lasts, open or not, so it neither changes
+  // its name nor jumps under the pointer as Saves opens: no notice of its own, which took the shell at rest past I13's 6%
+  // beside a full chip row (the systems audit's third round).
+  const autosaveOff = Boolean(sim.unbacked) || sim.autosaveRefused;
 
   // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space.
   const focus = useRef(focusSource());
@@ -516,7 +521,7 @@ export function App() {
         {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once
             and a panel dragged opens where it was dragged to again after Continue. */}
         <Panels key="panels" items={[]} front={front} />
-        <Notices key="notices" sim={sim} savesButton savesOpen={open.includes("saves")} />
+        <Notices key="notices" sim={sim} home savesOpen={open.includes("saves")} />
         <Corner key="corner" />
         <ReplacedCard key="replaced" />
       </main>
@@ -562,11 +567,13 @@ export function App() {
         />
       ) : null}
       {ready && sim.snapshot?.company.name ? (
-        // Saves at the top, out of the dock (D25: "it can be placed at the top or something").
+        // Saves at the top, out of the dock (D25: "it can be placed at the top or something"); "Autosave off" while the game isn't saving itself.
         <button
           type="button"
-          className="chip saves-chip"
+          className={autosaveOff ? "chip saves-chip off" : "chip saves-chip"}
           aria-pressed={open.includes("saves")}
+          aria-label={autosaveOff ? AUTOSAVE_OFF_NAME : undefined}
+          title={autosaveOff ? AUTOSAVE_OFF_TITLE : undefined}
           data-testid="saves-chip"
           data-chrome="rest"
           onClick={() => toggle("saves")}
@@ -574,10 +581,10 @@ export function App() {
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M4 4h10l2 2v10H4zM7 4v4h6V4M7 16v-5h6v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
           </svg>
-          Saves
+          {autosaveOff ? AUTOSAVE_OFF_CHIP : "Saves"}
         </button>
       ) : null}
-      <Notices key="notices" sim={sim} savesButton={Boolean(ready && sim.snapshot?.company.name)} savesOpen={open.includes("saves")} />
+      <Notices key="notices" sim={sim} home={false} savesOpen={open.includes("saves")} />
       <FoundingCard sim={sim} />
       {stopped ? null : <DayCard sim={sim} />}
       {stopped ? null : <FailureCard sim={sim} />}

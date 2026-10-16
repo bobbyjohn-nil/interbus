@@ -718,15 +718,19 @@ describe('save slots, export and import', () => {
   });
 
   // The save list (the M5 spec, item 4). Shown failing (TS-04) with the slot written without the
-  // page's clock, with delete-slot ignored, and with the set-aside keys left unread.
+  // page's clock, with delete-slot ignored, and with the set-aside keys left unread. Each job names its
+  // slot, so the page says a Save here the browser refused on that slot's row until the slot is saved
+  // or deleted: shown failing (TS-04) on 029387a, whose jobs named none.
   it('names each slot’s buses and when it was saved, and deletes a slot', () => {
     const at = Date.UTC(2026, 9, 13, 20, 41);
     const { send, last, store } = withStore(() => at);
     send({ type: 'create-line', clicks: CLICKS });
     send({ type: 'save-slot', slot: 2 });
+    expect(last('store')).toMatchObject({ effects: [{ op: 'write', key: 'interbus.slot.boston.2' }], slot: 2 });
     expect(last('slots')!.slots[1]).toMatchObject({ slot: 2, about: { lines: 1, buses: 2, savedAt: at }, readable: true });
     expect(JSON.parse(store.get(KEY)!).savedAt).toBe(at); // the autosave is stamped too
     send({ type: 'delete-slot', slot: 2 });
+    expect(last('store')).toEqual({ type: 'store', effects: [{ op: 'remove', key: 'interbus.slot.boston.2' }], slot: 2 });
     expect(store.has('interbus.slot.boston.2')).toBe(false);
     expect(last('slots')!.slots[1]).toEqual({ slot: 2, about: null, readable: true });
     send({ type: 'delete-slot', slot: 7 });

@@ -1,10 +1,12 @@
 // The page's side of the store (useSim): when the store refuses the backup of a save the start sets
 // aside, the sim says so ('unbacked'), so the page never also says this browser keeps no saves: one
-// failure, one notice. Another refused write still says it, once; a refused save of the game's own also
-// holds Saves' line, and the page tells the sim its key, until it is kept. There is no DOM here, so
+// failure, one notice. Another refused write still says it, once, in words for why (no room, or no
+// storage at all); a refused save of the game's own also holds Saves' line, and the page tells the sim
+// its key, until it is kept; a refused Save here is said on its slot's row. There is no DOM here, so
 // React's hooks are stood in for by a small runtime (state kept between renders, the one effect run once
 // per page) and the platform by a worker and a store that refuses a backup too large for it, and any
-// write beyond its room.
+// write beyond its room, as a full browser store does (QuotaExceededError), or every job, as blocked
+// site data does (SecurityError).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { City } from '../../cities';
 import type { FromWorker } from '../../sim/types';
@@ -24,6 +26,8 @@ const page = vi.hoisted(() => {
     posted,
     /** How many characters of keys and values the store has room for, as a browser's quota. */
     room: Infinity,
+    /** Whether the store keeps nothing at all, as with blocked site data. */
+    blocked: false,
     /** The characters kept now, but for `but`'s. */
     used: (but?: string) => [...kept].reduce((n, [k, v]) => n + (k === but ? 0 : k.length + v.length), 0),
     /** A page opened afresh: no hooks' state, nothing posted, nothing kept, room for anything. */
@@ -33,6 +37,7 @@ const page = vi.hoisted(() => {
       posted.length = 0;
       kept.clear();
       this.room = Infinity;
+      this.blocked = false;
     },
     /** The cell for the next hook, made by `init` the first time. */
     cell<T>(init: () => T): number {
@@ -64,16 +69,24 @@ vi.mock('react', () => ({
 
 vi.mock('../../platform', async () => ({
   applyEffects: (await import('../../platform/types')).applyEffects,
+  storeRefusal: (await import('../../platform/web/saveStore')).storeRefusal,
   build: { sha: 'test', version: '0.0.0' },
-  // A full disk: a backup is refused, as a large one is (QuotaExceededError), and so is a write beyond the room; smaller writes are kept.
-  createWebSaveStore: () => ({
-    read: async (key: string) => page.kept.get(key) ?? null,
-    write: async (key: string, value: string) => {
-      if (key.startsWith('interbus.backup.') || page.used(key) + key.length + value.length > page.room) throw new Error('QuotaExceededError');
-      page.kept.set(key, value);
-    },
-    remove: async (key: string) => void page.kept.delete(key),
-  }),
+  // A full disk: a backup is refused, as a large one is (QuotaExceededError), and so is a write beyond the room; smaller writes
+  // are kept. Blocked site data refuses every job (SecurityError).
+  createWebSaveStore: () => {
+    const blocked = () => {
+      if (page.blocked) throw new DOMException('The operation is insecure.', 'SecurityError');
+    };
+    return {
+      read: async (key: string) => (blocked(), page.kept.get(key) ?? null),
+      write: async (key: string, value: string) => {
+        blocked();
+        if (key.startsWith('interbus.backup.') || page.used(key) + key.length + value.length > page.room) throw new DOMException(`Setting the value of '${key}' exceeded the quota.`, 'QuotaExceededError');
+        page.kept.set(key, value);
+      },
+      remove: async (key: string) => (blocked(), void page.kept.delete(key)),
+    };
+  },
   downloadText: () => undefined,
   pickTextFile: async () => null,
   readSimFile: async () => '{}',
@@ -106,22 +119,25 @@ describe('the page’s store', () => {
       setAside: true,
     });
     await settle();
-    expect(sim()).toMatchObject({ storeRefused: false, storeRefusals: 0, stored: 0, backup: 'checking' });
+    expect(sim()).toMatchObject({ storeRefused: null, storeNotice: null, stored: 0, backup: 'checking' });
     expect(page.kept.get('interbus.save.boston')).toBe(older); // the remove after the refused backup never ran
     from({ type: 'unbacked', why: 'older-1' });
-    expect(sim()).toMatchObject({ storeRefused: false, storeRefusals: 0, unbacked: 'older-1', backup: 'not-kept' });
-    // A write the sim asks for later is the page's to report, as before: the notice says so.
+    expect(sim()).toMatchObject({ storeRefused: null, storeNotice: null, unbacked: 'older-1', backup: 'not-kept' });
+    // A write the sim asks for later is the page's to report, as before: the notice says so, with why.
     from({ type: 'store', effects: [{ op: 'write', key: 'interbus.backup.boston.newer', value: '{}' }] });
     await settle();
-    expect(sim().storeRefusals).toBe(1);
+    expect(sim().storeNotice).toBe('full');
   });
 
   const LIVE = 'interbus.save.boston';
   const QUARTER = 'interbus.quarter.boston';
   const SLOT = 'interbus.slot.boston.1';
-  /** A write the sim asks for: a Save here's, or with `owed` one of the game's own saves (the autosave, the quarter's start). */
-  const write = (key: string, size: number, owed = false) => from({ type: 'store', effects: [{ op: 'write', key, value: 'x'.repeat(size) }], ...(owed ? { owed } : {}) });
-  const own = (key: string, size: number) => write(key, size, true);
+  /** A write the sim asks for: with `owed` one of the game's own saves, the autosave or the quarter's start. */
+  const write = (key: string, size: number, owed?: 'autosave' | 'quarter') => from({ type: 'store', effects: [{ op: 'write', key, value: 'x'.repeat(size) }], ...(owed ? { owed } : {}) });
+  const own = (key: string, size: number) => write(key, size, key === QUARTER ? 'quarter' : 'autosave');
+  /** A slot's Save here, and its Delete, as the sim asks for them: each names its slot. */
+  const saveHere = (slot: number, size: number) => from({ type: 'store', effects: [{ op: 'write', key: `interbus.slot.boston.${slot}`, value: 'x'.repeat(size) }], slot });
+  const deleteSlot = (slot: number) => from({ type: 'store', effects: [{ op: 'remove', key: `interbus.slot.boston.${slot}` }], slot });
   const refusals = () => page.posted.filter((m) => (m as { type: string }).type === 'store-refused');
   const opened = async () => {
     sim();
@@ -139,15 +155,15 @@ describe('the page’s store', () => {
     page.room = page.used(); // full
     own(LIVE, 150);
     await settle();
-    expect(sim().storeRefused).toBe(true);
+    expect(sim()).toMatchObject({ storeRefused: 'full', autosaveRefused: true });
     from({ type: 'store', effects: [{ op: 'remove', key: SLOT }] });
     await settle();
     expect(page.kept.has(SLOT)).toBe(false);
-    expect(sim().storeRefused).toBe(true);
+    expect(sim()).toMatchObject({ storeRefused: 'full', autosaveRefused: true });
     expect(refusals()).toEqual([{ type: 'store-refused', keys: [LIVE] }]);
     own(LIVE, 150);
     await settle();
-    expect(sim().storeRefused).toBe(false);
+    expect(sim()).toMatchObject({ storeRefused: null, autosaveRefused: false });
   });
 
   // At a quarter's close the quarter's start, which needs a quarter's growth of room over the last one, may be refused, and
@@ -163,13 +179,14 @@ describe('the page’s store', () => {
     own(LIVE, 820);
     await settle();
     expect(page.kept.get(LIVE)).toHaveLength(820);
-    expect(sim().storeRefused).toBe(true);
+    // The game is saving itself, so the Saves chip says "Saves"; Saves' line says the quarter's start is not kept.
+    expect(sim()).toMatchObject({ storeRefused: 'full', autosaveRefused: false });
     expect(refusals()).toEqual([{ type: 'store-refused', keys: [QUARTER] }]);
     // A delete makes room, and the quarter's start the sim owes is kept.
     from({ type: 'store', effects: [{ op: 'remove', key: SLOT }] });
     own(QUARTER, 820);
     await settle();
-    expect(sim().storeRefused).toBe(false);
+    expect(sim().storeRefused).toBeNull();
   });
 
   // A Save here kept, into a slot it shrinks, keeps nothing the browser refused: while the autosave is owed, Saves still says
@@ -180,35 +197,88 @@ describe('the page’s store', () => {
     page.kept.set(LIVE, 'x'.repeat(100));
     page.room = page.used(); // full
     own(LIVE, 150);
-    write(SLOT, 300);
+    saveHere(1, 300);
     await settle();
     expect(page.kept.get(SLOT)).toHaveLength(300);
-    expect(sim().storeRefused).toBe(true);
+    expect(sim().storeRefused).toBe('full');
     own(LIVE, 150);
     await settle();
-    expect(sim().storeRefused).toBe(false);
+    expect(sim().storeRefused).toBeNull();
   });
 
-  // Only the game's own saves hold Saves' line until each is kept. A Save here refused owes the sim nothing: it raises the notice
-  // once, as any refused save does, and holds the line only until a write is kept, as every refusal did before, so it goes with
-  // the autosave kept. Shown failing (TS-04) with a slot's refused key held as the game's own are (every refused write's key
-  // kept until written or removed), where the line stayed after the autosave was kept, for as long as the page did; and with a
-  // slot's refusal holding nothing, where a Save here refused while paused left Saves without a word (the notice already said).
-  it('says once that a slot’s Save here was refused, and holds Saves’ line for it only until a write is kept', async () => {
+  // Only the game's own saves hold Saves' line until each is kept. A Save here refused owes the sim nothing, and is said on its
+  // slot's row, where it was pressed, until that slot is saved, a delete in Saves is kept (it made room, so the row's advice
+  // is followed) or another game loads: not by the page's one notice, which may be spent already, nor by Saves' line, which
+  // the next autosave kept takes down (every 0.67 s at 5,400×). Shown failing (TS-04) on 029387a, where it raised the notice
+  // once a page and held the line only until a write was kept, so a second Save here refused said nothing at all (the systems
+  // audit's third round). This test pinned that before.
+  it('says a refused Save here on its slot’s row until the slot is saved, a delete makes room, or another game loads', async () => {
     await opened();
     page.kept.set('interbus.slot.boston.2', 'x'.repeat(500));
     page.kept.set(LIVE, 'x'.repeat(100));
     page.room = page.used(); // full
-    write(SLOT, 300); // Save here into Slot 1, Empty: refused
+    saveHere(1, 300); // Save here into Slot 1, Empty: refused
     await settle();
-    expect(sim().storeRefused).toBe(true);
+    expect(sim()).toMatchObject({ storeRefused: null, storeNotice: null, slotsRefused: new Map([[1, 'full']]) });
     own(LIVE, 100); // the autosave, no larger than the last: kept
+    saveHere(1, 300); // pressed again: refused again
     await settle();
     expect(page.kept.has(SLOT)).toBe(false);
     expect(page.kept.get(LIVE)).toHaveLength(100);
-    expect(sim().storeRefused).toBe(false);
-    expect(sim().storeRefusals).toBe(1);
+    expect(sim()).toMatchObject({ storeRefused: null, storeNotice: null, slotsRefused: new Map([[1, 'full']]) });
     expect(refusals()).toEqual([]);
+    // Slot 2 deleted makes room: Slot 1's row no longer tells the player to make some, and its Save here is kept.
+    deleteSlot(2);
+    await settle();
+    expect(sim().slotsRefused).toEqual(new Map());
+    saveHere(1, 300);
+    await settle();
+    expect(page.kept.get(SLOT)).toHaveLength(300);
+    expect(sim().slotsRefused).toEqual(new Map());
+    // Refused into a full slot, the slot keeps its save and says so until it is saved; another slot saved leaves it so.
+    page.room = page.used();
+    saveHere(1, 400);
+    saveHere(2, 400);
+    await settle();
+    expect(page.kept.get(SLOT)).toHaveLength(300);
+    expect(sim().slotsRefused).toEqual(new Map([[1, 'full'], [2, 'full']]));
+    page.room += 500; // room for Slot 2's save, key and all
+    saveHere(2, 400);
+    await settle();
+    expect(sim().slotsRefused).toEqual(new Map([[1, 'full']]));
+    // A delete kept takes every row's words down; another game loading too: each row's words were for the game that played.
+    deleteSlot(2);
+    await settle();
+    expect(sim().slotsRefused).toEqual(new Map());
+    page.room = page.used();
+    saveHere(2, 400);
+    await settle();
+    expect(sim().slotsRefused).toEqual(new Map([[2, 'full']]));
+    from({ type: 'loaded', from: 'file', load: 'ok' });
+    expect(sim().slotsRefused).toEqual(new Map());
+  });
+
+  // A store with no room is said as such, with the way out (delete a save), and storage that keeps nothing as before. Shown
+  // failing (TS-04) on 029387a, where both read "This browser isn’t keeping saves" (storeRefused true): the browser did keep
+  // saves, but the game's own copies filled the origin's 5.24M characters (the systems audit's third round).
+  it('tells a full store from one that keeps nothing, for the notice and for Saves’ line', async () => {
+    await opened();
+    page.kept.set(LIVE, 'x'.repeat(100));
+    page.room = page.used(); // full
+    own(LIVE, 150);
+    await settle();
+    expect(sim()).toMatchObject({ storeRefused: 'full', storeNotice: 'full' });
+    // Blocked site data: a read is refused too. Saves' line says so, the worse of the two; the notice keeps its first words.
+    page.blocked = true;
+    from({ type: 'read-save', key: LIVE });
+    await settle();
+    expect(sim()).toMatchObject({ storeRefused: 'blocked', storeNotice: 'full' });
+    page.reset();
+    await opened();
+    page.blocked = true;
+    own(LIVE, 100);
+    await settle();
+    expect(sim()).toMatchObject({ storeRefused: 'blocked', storeNotice: 'blocked' });
   });
 });
 

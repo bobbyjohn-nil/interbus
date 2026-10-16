@@ -385,7 +385,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   let quarterOwed = false;
   const writeQuarter = () => {
     quarterOwed = false;
-    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: quarter! }], owed: true });
+    post({ type: 'store', effects: [{ op: 'write', key: quarterKey(world!.state.city.id), value: quarter! }], owed: 'quarter' });
   };
   const saveQuarter = () => {
     quarter = encode(world!.state, build, stamp());
@@ -403,7 +403,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   const save = () => {
     savedHour = Math.floor(world!.state.elapsed / 3_600);
     saveOwed = unbacked !== null;
-    if (!saveOwed) post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }], owed: true });
+    if (!saveOwed) post({ type: 'store', effects: [{ op: 'write', key, value: encode(world!.state, build, stamp()) }], owed: 'autosave' });
   };
   /** After a delete in Saves, into the room it made and before the list reads it: what is owed, the autosave first. */
   const writeOwed = () => {
@@ -864,11 +864,11 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         listSlots();
       } else if (message.type === 'save-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
-        post({ type: 'store', effects: [{ op: 'write', key: slotKey(playing!.ref.id, message.slot), value: encode(world.state, build, stamp()) }] });
+        post({ type: 'store', effects: [{ op: 'write', key: slotKey(playing!.ref.id, message.slot), value: encode(world.state, build, stamp()) }], slot: message.slot });
         listSlots();
       } else if (message.type === 'delete-slot') {
         if (!SAVE_SLOTS.includes(message.slot as 1)) return post({ type: 'refused', command: message.type, reason: 'no_such_slot' });
-        post({ type: 'store', effects: [{ op: 'remove', key: slotKey(playing!.ref.id, message.slot) }] });
+        post({ type: 'store', effects: [{ op: 'remove', key: slotKey(playing!.ref.id, message.slot) }], slot: message.slot });
         writeOwed();
         listSlots();
       } else if (message.type === 'export-set-aside') {

@@ -3,15 +3,37 @@
 // game and its autosave kept. The save list (the M5 spec, item 4): each slot names its buses and when
 // it was saved, deletes after a question, and a save set aside by a new build is listed until exported
 // or deleted. A slot from an older build says so, exports, and is replaced only after a question; a
-// browser that refuses storage says once that it keeps no saves. A save file replaces a founded company
-// only after the question Load asks, one question at a time, and an older save the disk has no room to
-// set aside is never written over.
-import { expect, test } from '@playwright/test';
+// browser that refuses storage says once that it keeps no saves, and one with no room left says so,
+// with the way out. A save file replaces a founded company only after the question Load asks, one
+// question at a time, and an older save the disk has no room to set aside is never written over.
+import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { usd } from '../src/ui/format';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, fillStorage, onDepotLand, toScreen, zoomOutOnce } from './shell';
+import { build, city, fillStorage, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
+
+/** Fills the origin's localStorage with other data to the character, then frees `free` characters of it (and a key's name). */
+async function fillStore(page: Page, tag: string, free: number): Promise<void> {
+  await page.evaluate(
+    ([tag, free]) => {
+      localStorage.setItem(`another.app.${tag}.room`, 'r'.repeat(free));
+      let n = 0;
+      for (let size = 1 << 21; size >= 1; size = Math.floor(size / 2)) {
+        for (;;) {
+          try {
+            localStorage.setItem(`another.app.${tag}.${n}`, 'f'.repeat(size));
+            n++;
+          } catch {
+            break;
+          }
+        }
+      }
+      localStorage.removeItem(`another.app.${tag}.room`);
+    },
+    [tag, free] as const,
+  );
+}
 
 test.describe('saves: slots, export and import', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -277,13 +299,16 @@ test.describe('saves: slots, export and import', () => {
   // it. Here other data under the preview's origin leaves no room for the backup. Shown failing (TS-04)
   // with the start going on as if the backup had landed: the founding save wrote over the older one,
   // which was gone for good, with no row in Saves, and the only word was "This browser isn’t keeping
-  // saves", though the browser kept every other save. The notice stays until Saves is opened: a player
-  // who missed a few seconds' notice would play on unsaved. It says "see Saves", so it waits on the
-  // founding card, where no button opens Saves (shown failing with it said there); the file it exports is
-  // named as its row names it, not set aside (shown failing with "…-set-aside-older-…"); and once it is
-  // deleted, the autosave's row goes from naming it to naming this game (shown failing with "Autosave ·
-  // Empty" between the two, until Saves listed the slots again).
-  test('never writes over an older save the disk has no room to set aside, says so until Saves is opened, and offers it to export', async ({ page }) => {
+  // saves", though the browser kept every other save. On Home the notice stays until Saves is opened: a
+  // player who missed a few seconds' notice would play on unsaved. It says "see Saves", so it waits on the
+  // founding card, where no button opens Saves (shown failing with it said there). In the game the Saves
+  // chip says "Autosave off" for as long as the save is held, untimed, Saves open or not, so it keeps its
+  // name and place as Saves opens (shown failing on 029387a, where a notice of its own said it, past I13's
+  // 6% beside a full chip row, and nothing did once Saves had opened). The file it exports is named as its
+  // row names it, not set aside (shown failing with "…-set-aside-older-…"); and once it is deleted, the
+  // autosave's row goes from naming it to naming this game (shown failing with "Autosave · Empty" between
+  // the two, until Saves listed the slots again), and the chip reads "Saves" again.
+  test('never writes over an older save the disk has no room to set aside, says so while it is held, and offers it to export', async ({ page }) => {
     test.setTimeout(90_000);
     const older = JSON.stringify({ format: SAVE_FORMAT - 1, build: { sha: '0'.repeat(40), version: '0.0.0' }, data: { company: { name: 'Old Line Co' } }, pad: 'p'.repeat(300_000) });
     await page.addInitScript(fillStorage, older);
@@ -307,15 +332,26 @@ test.describe('saves: slots, export and import', () => {
     await expect(page.getByTestId('founding-card')).toBeVisible();
     await expect(notice).toHaveCount(0);
     await foundCompany(page, 'New Line Co');
-    await expect(notice).toHaveText('Not autosaving: see Saves');
-    // Not timed: still said half a second past a notice's 6 s (NOTICE_MS in Notices.tsx) since it showed
-    // again, while the game saves nothing.
-    const shownFor = await page.evaluate(() => performance.now() - (window as unknown as { said: Said }).said.at(-1)!.at);
-    await page.waitForTimeout(Math.max(0, 6_500 - shownFor));
-    await expect(notice).toHaveText('Not autosaving: see Saves');
-    await page.getByRole('button', { name: 'Saves' }).click();
-    await expect(page.getByTestId('saves')).toBeVisible();
+    const chip = page.getByTestId('saves-chip');
+    await expect(chip).toHaveText('Autosave off');
+    await expect(chip).toHaveAccessibleName('Saves: autosave off');
     await expect(notice).toHaveCount(0);
+    // Not timed: still said half a second past a notice's 6 s (NOTICE_MS in Notices.tsx), while the game saves nothing.
+    await page.waitForTimeout(6_500);
+    await expect(chip).toHaveText('Autosave off');
+    await page.getByRole('button', { name: 'Saves' }).click();
+    const saves = page.getByTestId('saves');
+    await expect(saves).toBeVisible();
+    await expect(notice).toHaveCount(0);
+    const at = await chip.boundingBox();
+    await expect(chip).toHaveText('Autosave off');
+    await expect(chip).toHaveAccessibleName('Saves: autosave off');
+    // Closed again and opened from the same place: the chip has not moved under the pointer.
+    await saves.getByRole('button', { name: 'Close' }).click();
+    await expect(chip).toHaveText('Autosave off');
+    expect(await chip.boundingBox()).toEqual(at);
+    await chip.click();
+    await expect(saves).toBeVisible();
     expect(await live()).toBe(older);
     // One failure, one word: this browser does keep saves (the quarter's, the slots), so neither the
     // notice nor Saves says it keeps none.
@@ -339,10 +375,12 @@ test.describe('saves: slots, export and import', () => {
     await expect(row).toContainText('Autosave · Year 1, Q1, Day 1, 05:00 · New Line Co');
     expect((await page.evaluate(() => (window as unknown as { rowSeen: string[] }).rowSeen)).filter((t) => !t.includes('not set aside') && !t.includes('New Line Co'))).toEqual([]);
     await expect(row.getByRole('button')).toHaveCount(0);
+    await saves.getByRole('button', { name: 'Close' }).click();
+    await expect(chip).toHaveText('Saves');
     await expect.poll(async () => (JSON.parse((await live()) ?? 'null') as { data: { company: { name: string } } } | null)?.data.company.name).toBe('New Line Co');
-    // Said on Home and once founded, never on the founding card; never said to be set aside, and never
-    // that the browser keeps no saves.
-    expect((await said()).map(({ text }) => text)).toEqual(['Not autosaving: see Saves', '', 'Not autosaving: see Saves', '']);
+    // Said by a notice on Home, never on the founding card nor in the game, where the chip says it; never said to be set aside,
+    // and never that the browser keeps no saves.
+    expect((await said()).map(({ text }) => text)).toEqual(['Not autosaving: see Saves', '']);
   });
 
   // Site data refused: here the localStorage getter throws a SecurityError. Shown failing (TS-04) with
@@ -364,12 +402,91 @@ test.describe('saves: slots, export and import', () => {
     await expect(notice).toHaveCount(0, { timeout: 10_000 });
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
+    // The game is not saving itself, and the Saves chip says so while it lasts.
+    await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
     await page.getByRole('button', { name: 'Saves' }).click();
     await expect(page.getByTestId('saves-refused')).toHaveText('This browser isn’t keeping saves. Export this game to keep it.');
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
     await expect(page.getByTestId('slot-1')).toContainText('Slot 1 · Empty');
+    await expect(page.getByTestId('slot-1-refused')).toHaveText('Not kept: this browser isn’t keeping saves');
     // Said once: the saves refused after it bring no second notice.
     await page.waitForTimeout(1_000);
     await expect(notice).toHaveCount(0);
+  });
+
+  // The audit's long game, in small: the game's own saves fill the origin's room (here, other data under the origin fills it,
+  // and Slot 2 holds a save this game can't read). Its Save here refused, a slot's row says so, though the autosave is kept at
+  // 5,400× meanwhile and nothing else on screen speaks; the autosave refused, the notice and Saves' line say there is no room
+  // and how to make some, never that this browser keeps no saves, and the Saves chip says the game isn't autosaving; a delete
+  // makes room, the game saves again and the slot's row stops telling the player to make some. Shown failing (TS-04) on
+  // 029387a, whose slot rows said nothing: the first refused Save here read "This browser isn’t keeping saves", the next
+  // autosave kept took Saves' line down, and a second left the slot Empty with nothing said (the systems audit's third round).
+  test('says a full store is full, with the way out, and a refused Save here on its slot’s row until a delete makes room', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await zoomOutOnce(page);
+    const panel = page.getByTestId('sim-panel');
+    await build(page, 'Place a depot');
+    const [dx, dy] = await toScreen(page, onDepotLand());
+    await page.mouse.click(dx, dy);
+    await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
+    await page.keyboard.press('Escape');
+    const live = await page.evaluate(() => localStorage.getItem('interbus.save.boston')!.length);
+    // Room for the autosave to grow by a few hours, not for another copy of it.
+    await page.evaluate(() => localStorage.setItem('interbus.slot.boston.2', 'x'.repeat(50_000)));
+    await fillStore(page, 'a', Math.min(2_000, Math.floor(live / 2)));
+    const notice = page.getByTestId('notice');
+    const saves = page.getByTestId('saves');
+    const [one, two] = [saves.getByTestId('slot-1'), saves.getByTestId('slot-2')];
+    const words = saves.getByTestId('slot-1-refused');
+    await page.getByRole('button', { name: 'Saves' }).click();
+    await expect(two).toContainText('Slot 2 · A save this game can’t read');
+    await one.getByRole('button', { name: 'Save here' }).click();
+    await expect(words).toHaveText('Didn’t fit: delete a save to make room');
+    await expect(one).toContainText('Slot 1 · Empty');
+    // The autosave kept at 5,400×, as on the audit's run: the row still says so, and says so again at a second press.
+    const elapsed = async () => Number(await panel.getAttribute('data-elapsed'));
+    const from = await elapsed();
+    await setSpeed(page, '5,400×');
+    await expect.poll(elapsed, { timeout: 15_000 }).toBeGreaterThan(from + 2 * 3_600); // an autosave each game hour
+    await page.getByTestId('play').click();
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    await expect(words).toHaveText('Didn’t fit: delete a save to make room');
+    await one.getByRole('button', { name: 'Save here' }).click();
+    await page.waitForTimeout(500);
+    await expect(words).toHaveText('Didn’t fit: delete a save to make room');
+    await expect(one).toContainText('Slot 1 · Empty');
+    await expect(notice).toHaveCount(0);
+    await expect(saves.getByTestId('saves-refused')).toHaveCount(0);
+    // No room at all: the stop placed grows the autosave past it.
+    await saves.getByRole('button', { name: 'Close' }).click();
+    await fillStore(page, 'b', 0);
+    const cash = Number(await panel.getAttribute('data-cash'));
+    await build(page, 'Place a stop');
+    const [sx, sy] = await toScreen(page, DEBUG_STOPS[0]!.at);
+    await page.mouse.click(sx, sy);
+    await expect(panel).toHaveAttribute('data-cash', String(cash - 400_000));
+    await page.keyboard.press('Escape');
+    await expect(notice).toHaveText('No room for saves: see Saves');
+    const chip = page.getByTestId('saves-chip');
+    await expect(chip).toHaveText('Autosave off');
+    await expect(chip).toHaveAccessibleName('Saves: autosave off');
+    await chip.click();
+    await expect(saves.getByTestId('saves-refused')).toHaveText('No room to save this game. Delete a save, or export this game to keep it.');
+    await expect(chip).toHaveText('Autosave off');
+    // Slot 2 deleted makes room: the autosave the game owes is written at once, Saves' line goes and the chip says Saves again;
+    // Slot 1's row no longer tells the player to make room, and its Save here is kept.
+    await two.getByRole('button', { name: 'Delete', exact: true }).click();
+    await two.getByRole('button', { name: 'Delete Slot 2' }).click();
+    await expect(saves.getByTestId('saves-refused')).toHaveCount(0);
+    await expect(chip).toHaveText('Saves');
+    await expect(words).toHaveCount(0);
+    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('interbus.save.boston')))!).data.stops).toHaveLength(1);
+    await one.getByRole('button', { name: 'Save here' }).click();
+    await expect(page.getByTestId('slot-1-when')).toBeVisible();
+    await expect(words).toHaveCount(0);
+    await expect(one).toContainText('Slot 1 · Year 1, Q1, Day 1');
   });
 });

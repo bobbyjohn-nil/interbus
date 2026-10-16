@@ -1,6 +1,7 @@
 // Refusals in words (the M2 spec, item 3; UX-03): every reason code a rule or command returns, as
 // copy of 8 words or fewer, in money where money is short. Never a raw code on screen (V3 showed
 // `insufficient_funds`).
+import type { StoreRefusal } from '../platform';
 import type { LoadView, RefusalView } from '../sim/types';
 import { usd } from './format';
 
@@ -109,8 +110,27 @@ export function undoText(u: { readonly command: string; readonly subject: string
   return `Undo: ${(UNDO_COPY[u.command] ?? ((s: string) => s))(u.subject)}`;
 }
 
-/** Said once when the browser refuses to read or keep a save (blocked site data, a full disk). */
+/** Said once when the browser refuses to read or keep a save (blocked site data). */
 export const STORE_REFUSED_COPY = 'This browser isn’t keeping saves';
+
+/** Said once when the browser has no room left for a save (src/platform's `full`): where the ways out are. */
+export const STORE_FULL_COPY = 'No room for saves: see Saves';
+
+/** Saves' line while a save of the game's own is not kept, by why: what it means, and the way out. */
+export const STORE_LINE_COPY: Readonly<Record<StoreRefusal, string>> = {
+  blocked: `${STORE_REFUSED_COPY}. Export this game to keep it.`,
+  // Export too: the room may be taken by other data of the same origin, with nothing in Saves to delete.
+  full: 'No room to save this game. Delete a save, or export this game to keep it.',
+};
+
+/**
+ * A slot's row after the browser refused its Save here, below its line, until the slot is saved, any delete in Saves is kept
+ * (it made room, so the advice is followed) or another game loads: why, and the way out, in 8 words at most beside its buttons.
+ */
+export const SLOT_REFUSED_COPY: Readonly<Record<StoreRefusal, string>> = {
+  blocked: 'Not kept: this browser isn’t keeping saves',
+  full: 'Didn’t fit: delete a save to make room',
+};
 
 /** Why the game could not go on, other than a replaced build: it never started (its city's sim file or its worker unread), or its worker stopped mid-game. */
 export type GameFailure = 'start' | 'stopped';
@@ -120,8 +140,18 @@ export function failedText(failed: GameFailure, city: string): string {
   return failed === 'start' ? `${city} couldn’t be loaded` : 'The game stopped working';
 }
 
-/** Said, until the player opens Saves, when a save could not be set aside (a full disk), so the game keeps it where it is and saves nothing over it: what that means for the player, and where to look. Untimed chrome at rest, so short: I13. */
+/** Said on Home, until the player opens Saves, when a save could not be set aside (a full disk), so the game keeps it where it is and saves nothing over it: what that means for the player, and where to look. */
 export const UNBACKED_COPY = 'Not autosaving: see Saves';
+
+/**
+ * In the game, the Saves chip says the game isn't autosaving, in place of "Saves", for as long as that lasts: while that save is
+ * held, or while the browser has refused the autosave and not kept one since. 33 px wider, which the chip row gives up, so the
+ * shell at rest stays within I13 with the row full (a notice of its own took 0.63% more, past 6% beside a full row at
+ * 1152×720). Its name keeps "Saves", and its tooltip says where to see why.
+ */
+export const AUTOSAVE_OFF_CHIP = 'Autosave off';
+export const AUTOSAVE_OFF_NAME = `Saves: ${AUTOSAVE_OFF_CHIP.toLowerCase()}`;
+export const AUTOSAVE_OFF_TITLE = 'This game isn’t saving itself: open Saves to see why';
 
 /** That save's row in Saves, after its name there ("A save from an older build (format 15)"), beside Export and Delete. */
 export const unbackedRowText = (name: string): string => `${name}, not set aside · this game isn’t saving itself`;

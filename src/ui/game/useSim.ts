@@ -4,7 +4,7 @@
 // out the sim's saves in src/platform's store, one at a time in the order sent, since a worker has
 // no localStorage; the sim names every key and decides what is set aside.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, type SaveStore } from '../../platform';
+import { applyEffects, build, createWebSaveStore, downloadText, pickTextFile, readSimFile, startSimWorker, storeRefusal, type SaveStore, type StoreRefusal } from '../../platform';
 import { simOf, type City } from '../../cities';
 import type { BusModelId, DayCard, DepotSiteView, StopSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SaveAbout, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
@@ -69,14 +69,19 @@ export interface Sim {
   /** How many writes the store has kept, so the save list reads its saves again as they change. */
   readonly stored: number;
   /**
-   * Saves' line "This browser isn’t keeping saves": true while a save of the game's own (the autosave, the quarter's start)
-   * the browser refused to keep is not kept since, or after any other refusal (a Save here, a delete, a read) until a write is
-   * kept, as before. The refused keys live only in this page, not in the store: a reload forgets them, and the line with them,
-   * while the save is still not kept. A start's set-aside refused is `unbacked` instead.
+   * Saves' line, and why: set while a save of the game's own (the autosave, the quarter's start) the browser refused to keep
+   * is not kept since, or after any other refusal (a delete, a read) until a write is kept, as before. `full` when the store
+   * had no room for it ("No room to save this game"), `blocked` when it keeps nothing ("This browser isn’t keeping saves"),
+   * which wins over `full`. The refused keys live only in this page, not in the store: a reload forgets them, and the line
+   * with them, while the save is still not kept. A start's set-aside refused is `unbacked` instead, a Save here `slotsRefused`.
    */
-  readonly storeRefused: boolean;
-  /** How many of the store's jobs the browser has refused on this page, but the start's set-aside: the notice says so once, at the first. */
-  readonly storeRefusals: number;
+  readonly storeRefused: StoreRefusal | null;
+  /** Why the store first refused a job on this page, but the start's set-aside and a Save here: the notice says so once. */
+  readonly storeNotice: StoreRefusal | null;
+  /** Each slot whose last Save here the store refused, and why: said on its row until the slot is saved, a delete in Saves is kept (it made room) or another game loads. */
+  readonly slotsRefused: ReadonlyMap<number, StoreRefusal>;
+  /** Whether the store refused the autosave and has kept none since: the game is not saving itself, which the Saves chip says. */
+  readonly autosaveRefused: boolean;
   readonly loaded: { readonly from: 'slot' | 'file' | 'quarter'; readonly load: LoadView; readonly at: number } | null;
   /** Asks the player for a save file and, if they pick one, asks the sim to load it. */
   importSave(): void;
@@ -117,8 +122,10 @@ export function useSim(city: City | undefined): Sim {
   const [backup, setBackup] = useState<Sim['backup']>(null);
   const [autosave, setAutosave] = useState<Sim['autosave']>(null);
   const [stored, setStored] = useState(0);
-  const [storeRefused, setStoreRefused] = useState(false);
-  const [storeRefusals, setStoreRefusals] = useState(0);
+  const [storeRefused, setStoreRefused] = useState<Sim['storeRefused']>(null);
+  const [storeNotice, setStoreNotice] = useState<Sim['storeNotice']>(null);
+  const [slotsRefused, setSlotsRefused] = useState<Sim['slotsRefused']>(() => new Map());
+  const [autosaveRefused, setAutosaveRefused] = useState(false);
   const [loaded, setLoaded] = useState<Sim['loaded']>(null);
   const probes = useRef(new LatestAsk<ProbeDot>());
   // Only the newest answer counts: an older one arriving late is dropped.
@@ -134,26 +141,39 @@ export function useSim(city: City | undefined): Sim {
     // Saves run one after another: a set-aside's backup is written before anything replaces the key.
     let store: SaveStore | null = null;
     let queue = Promise.resolve();
-    // The keys of the game's own saves whose last write the store refused (a full disk): a kept write of the key takes it
-    // out. Saves says the browser keeps no saves while one is left, or once a read is refused (blocked site data) until a
-    // write is kept. Held only here, in the page: a reload starts with none, though the save refused is still not kept.
-    const refused = new Set<string>();
-    let blocked = false;
-    const sayRefused = () => setStoreRefused(refused.size > 0 || blocked);
+    // The keys of the game's own saves whose last write the store refused (a full disk), and why: a kept write of the key
+    // takes it out. Saves says so while one is left, or once a read or a delete is refused (`loose`: blocked site data) until
+    // a write is kept. Held only here, in the page: a reload starts with none, though the save refused is still not kept.
+    const refused = new Map<string, StoreRefusal>();
+    // Those of them an autosave left unwritten.
+    const autosaves = new Set<string>();
+    let loose: StoreRefusal | null = null;
+    const sayRefused = () => {
+      const why = [...refused.values(), loose];
+      setStoreRefused(why.includes('blocked') ? 'blocked' : why.includes('full') ? 'full' : null);
+      setAutosaveRefused(autosaves.size > 0);
+    };
     // The start's set-aside is `quiet`: if its backup is refused, the sim finds it missing and says so ('unbacked').
-    // `owed` names the keys of the game's own saves a refused job leaves unwritten; a read, a Save here or a delete owes
-    // none, and holds the line only until a write is kept.
-    const inStore = (job: (s: SaveStore) => Promise<void>, quiet = false, owed?: () => string[]) => {
+    // `owed` names the keys of the game's own saves a refused job leaves unwritten, and whether they are the autosave's; a read
+    // or a delete owes none, and holds the line only until a write is kept. `slot` names a Save here's slot: refused, it is said
+    // on that slot's row alone.
+    const inStore = (job: (s: SaveStore) => Promise<void>, quiet = false, owed?: () => { keys: string[]; autosave: boolean }, slot?: number) => {
       queue = queue
         .then(() => job((store ??= createWebSaveStore())))
         .catch((error: unknown) => {
-          // The player is told, once (Notices); Saves says so while the game's own save is not kept, which the sim owes, made once a delete frees room.
-          if (!quiet) {
-            setStoreRefusals((n) => n + 1);
-            const keys = owed?.() ?? [];
-            for (const k of keys) refused.add(k);
+          // The player is told, once (Notices), in words for why (src/platform); Saves says so while the game's own save is not
+          // kept, which the sim owes, made once a delete frees room.
+          const why = storeRefusal(error);
+          if (slot !== undefined) setSlotsRefused((r) => new Map(r).set(slot, why));
+          else if (!quiet) {
+            setStoreNotice((first) => first ?? why);
+            const { keys, autosave } = owed?.() ?? { keys: [], autosave: false };
+            for (const k of keys) {
+              refused.set(k, why);
+              if (autosave) autosaves.add(k);
+            }
             if (keys.length) worker.current?.postMessage({ type: 'store-refused', keys } satisfies ToWorker);
-            if (keys.length === 0) blocked = true;
+            if (keys.length === 0 && loose !== 'blocked') loose = why;
             sayRefused();
           }
           errors.report({ severity: 'problem', source: 'save', code: 'store-failed', detail: String(error) });
@@ -206,17 +226,21 @@ export function useSim(city: City | undefined): Sim {
             setBackup((b) => (b === 'checking' ? (m.why ? 'not-kept' : 'kept') : b));
           }
           // A new game from Home needs no notice, and takes down one still showing for the game before:
-          // its founding card says what comes next. Whatever the game was, its day card and draft go with it.
+          // its founding card says what comes next. Whatever the game was, its day card and draft go with it,
+          // and the Save here refused while it played.
           else if (m.type === 'loaded') {
             setLoaded(m.from === 'new' ? null : { from: m.from, load: m.load, at: Date.now() });
             setDayCard(null);
             setDraft(null);
+            setSlotsRefused((r) => (r.size ? new Map() : r));
           }
           // A write kept takes its key off the refused: the browser keeps saves again once every save of the game's own it
           // refused is kept, not at another save kept, nor at a delete, which a full disk never refuses. A refusal stops the
-          // job there, as applyEffects does, and its writes from there on are refused.
+          // job there, as applyEffects does, and its writes from there on are refused. A slot saved no longer says its Save here
+          // was refused, nor does any slot once a delete is kept.
           else if (m.type === 'store') {
             let done = 0;
+            const slot = m.slot;
             inStore(
               async (s) => {
                 for (const e of m.effects) {
@@ -224,14 +248,19 @@ export function useSim(city: City | undefined): Sim {
                   done++;
                   if (e.op === 'write') {
                     refused.delete(e.key);
-                    blocked = false;
+                    autosaves.delete(e.key);
+                    loose = null;
                   }
                 }
                 setStored((n) => n + 1);
                 sayRefused();
+                // A delete kept made room, so no slot's line still tells the player to make some.
+                if (m.effects.length > 0 && m.effects.every((e) => e.op === 'remove')) setSlotsRefused((r) => (r.size ? new Map() : r));
+                else if (slot !== undefined) setSlotsRefused((r) => (r.has(slot) ? new Map([...r].filter(([n]) => n !== slot)) : r));
               },
               m.setAside,
-              () => (m.owed ? m.effects.slice(done).flatMap((e) => (e.op === 'write' ? [e.key] : [])) : []),
+              () => ({ keys: m.owed ? m.effects.slice(done).flatMap((e) => (e.op === 'write' ? [e.key] : [])) : [], autosave: m.owed === 'autosave' }),
+              m.effects.some((e) => e.op === 'write') ? slot : undefined,
             );
           }
           else if (m.type === 'snapshot') setSnapshot(m.snapshot);
@@ -346,5 +375,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, storeRefusals, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, storeNotice, slotsRefused, autosaveRefused, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMemorySaveStore } from './memory/saveStore';
 import { applyEffects } from './types';
-import { createWebSaveStore } from './web/saveStore';
+import { createWebSaveStore, storeRefusal } from './web/saveStore';
 
 function fakeStorage() {
   const map = new Map<string, string>();
@@ -32,5 +32,20 @@ describe('save stores', () => {
       { op: 'remove', key: 'live' },
     ]);
     expect(Object.fromEntries(store.entries)).toEqual({ backup: 'old' });
+  });
+
+  // A store with no room left is told apart from one that keeps nothing, by the error's name, so the game can name the way
+  // out: delete a save. Shown failing (TS-04) on 029387a, which had one word for both ("This browser isn’t keeping saves").
+  it('tells a store with no room left from one that keeps nothing', async () => {
+    const full = {
+      ...fakeStorage(),
+      setItem: () => {
+        throw new DOMException("Setting the value of 'k' exceeded the quota.", 'QuotaExceededError');
+      },
+    };
+    expect(storeRefusal(await createWebSaveStore(full).write('k', 'v').catch((e: unknown) => e))).toBe('full');
+    expect(storeRefusal(new DOMException('The operation is insecure.', 'SecurityError'))).toBe('blocked');
+    expect(storeRefusal(new Error('QuotaExceededError'))).toBe('blocked'); // its name, not its words
+    expect(storeRefusal(undefined)).toBe('blocked');
   });
 });
