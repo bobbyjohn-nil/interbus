@@ -11,8 +11,11 @@
 // does a short panel that opens or is kept low (freePlace, keptWhole): shown failing on 5f4bce3, which
 // opened a 100 px panel at 532 px of 720, where growing to 160 px took it 44 px over the dock and the
 // drag's floor above would jump it 44 px up when grabbed, and kept one at 478 px of a 650 px window.
+// A control the keyboard reaches past the window's edge brings its panel in (showing; the systems audit's
+// fourth round, where Tab scrolled the whole page instead): shown failing (TS-04) on abb5f2f, which has no
+// such rule.
 import { describe, expect, it } from 'vitest';
-import { freePlace, inReach, keptWhole, roomBelow } from './Panels';
+import { freePlace, inReach, keptWhole, roomBelow, showing } from './Panels';
 
 const [W, H] = [1366, 768];
 
@@ -111,5 +114,17 @@ describe('a dragged panel’s place', () => {
     expect(inReach({ x: 2000, y: 100 }, 320, w, h)).toEqual({ x: w - 48, y: 100 });
     // A window too short for 160 px of it above the dock keeps the panel's top, its heading, on screen.
     expect(inReach({ x: 400, y: 300 }, 320, w, 200).y).toBe(0);
+  });
+
+  it('comes in as far as shows a control the keyboard reaches past the window’s edge, and stays put for one on screen', () => {
+    // At 1152 wide, Saves dragged to 1104, 48 px on screen: its Close (24 px wide, 290 px in) and its first Save here (12 px in).
+    const w = 1152;
+    expect(showing({ x: 1104, y: 56 }, { left: 1394, right: 1418 }, w)).toEqual({ x: 1104 - 278, y: 56 });
+    expect(showing({ x: 1104, y: 56 }, { left: 1116, right: 1200 }, w)).toEqual({ x: 1104 - 60, y: 56 });
+    // Dragged past the left edge, 48 px on screen: a control at its left comes in to 12 px from the edge.
+    expect(showing({ x: 48 - 320, y: 300 }, { left: -260, right: -180 }, w)).toEqual({ x: 48 - 320 + 272, y: 300 });
+    // On screen, if only just: nothing moves.
+    expect(showing({ x: 900, y: 56 }, { left: 1000, right: w }, w)).toBeNull();
+    expect(showing({ x: -20, y: 56 }, { left: 0, right: 80 }, w)).toBeNull();
   });
 });

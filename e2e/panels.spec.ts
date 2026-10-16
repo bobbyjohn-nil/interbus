@@ -7,7 +7,8 @@
 // replaced Finance. The systems audit's (D26) two below were shown failing on the layer before their
 // fix: Contracts opened past the bottom of a 720 px window, over the dock and the map's credit, and behind
 // Lines, pressed before it opened; and a narrower window left a panel dragged near the right edge out
-// of sight and cut off one that opened in a free place.
+// of sight and cut off one that opened in a free place. The systems audit's fourth round: Tab into a
+// panel dragged past the window's edge scrolls nothing (shown failing below).
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { LINE_COLOURS } from '../src/sim/config/lines';
@@ -169,6 +170,48 @@ test.describe('movable panels', () => {
     expect(await onTop(saves.getByRole('heading', { name: 'Saves' })), 'its heading under a press').toBe(true);
     await saves.evaluate((el) => void (el.scrollTop = el.scrollHeight));
     expect(await onTop(saves.getByRole('button', { name: 'Back to Home' })), 'Back to Home under a press').toBe(true);
+  });
+
+  // Tab into the part of Saves dragged past the right edge scrolled the whole page 272 px left, the top bar, the map and
+  // the dock with it, and Finance then opened 272 px left of its place and jumped 272 px from the pointer when dragged.
+  // The page never scrolls (the panel layer clips what hangs past the window, app.css), and a control the focus reaches
+  // there brings its panel in as far as shows it (Panels.tsx). Shown failing (TS-04) on abb5f2f: html's scrollLeft read
+  // 272 once Saves' Close had the focus.
+  test('Tab into a panel dragged past the right edge scrolls nothing: the panel comes in to show the control, and panels open and drag where they should', async ({ page }) => {
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const saves = page.getByTestId('saves');
+    const finance = page.getByTestId('finance');
+    const bar = (await page.getByTestId('sim-panel').boundingBox())!;
+    const scrolled = () => page.evaluate(() => [document.documentElement.scrollLeft, document.body.scrollLeft, document.querySelector('.app')!.scrollLeft]);
+    await page.getByTestId('saves-chip').click();
+    await dragBy(page, saves, 'Saves', 900, 0);
+    expect((await saves.boundingBox())!.x).toBe(1152 - 48);
+    // Tab from Play reaches Saves' Close, at its top right, past the window's edge.
+    const close = saves.getByRole('button', { name: 'Close' });
+    await page.getByTestId('play').focus();
+    for (let i = 0; i < 6 && !(await close.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press('Tab');
+    await expect(close).toBeFocused();
+    expect(await scrolled()).toEqual([0, 0, 0]);
+    expect((await page.getByTestId('sim-panel').boundingBox())!.x).toBe(bar.x);
+    const c = (await close.boundingBox())!;
+    expect(c.x).toBeGreaterThanOrEqual(0);
+    expect(c.x + c.width).toBeLessThanOrEqual(1152);
+    // On through Saves to the dock: nothing scrolls.
+    for (let i = 0; i < 8; i++) await page.keyboard.press('Tab');
+    expect(await scrolled()).toEqual([0, 0, 0]);
+    // Finance opens whole inside the window, and follows the pointer when dragged.
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const f = (await finance.boundingBox())!;
+    expect(f.x).toBeGreaterThanOrEqual(12);
+    expect(f.x + f.width).toBeLessThanOrEqual(1152 - 12);
+    await dragBy(page, finance, 'Finance', 0, 100);
+    const g = (await finance.boundingBox())!;
+    expect(Math.round(g.x - f.x)).toBe(0);
+    expect(Math.round(g.y - f.y)).toBe(100);
+    expect(await scrolled()).toEqual([0, 0, 0]);
   });
 
   test('keep panels in reach when the window narrows: a dragged one’s heading, open or opened again, and one in a free place whole', async ({ page }) => {
