@@ -434,6 +434,59 @@ describe('another tab’s save', () => {
     expect(takes()).toHaveLength(1);
   });
 
+  // A Load, a New game or Restart this quarter asked for from Home brings its own game: a take posted after it replaced that
+  // game with the other tab's (7 Loads in 25 with a tab saving every 0.67 s). None goes until the ask is refused or Home goes,
+  // which it does once that game comes. Shown failing (TS-04) on 8d3d85f, which took up A1 over each (the review of #133).
+  it('takes up no other tab’s save while a game Home asked for is on its way, and follows again once it is refused', async () => {
+    for (const ask of [{ type: 'load-slot', slot: 1 }, { type: 'new-game' }, { type: 'restart-quarter' }] as const) {
+      page.reset();
+      await opened('A0');
+      sim().followNewest(true);
+      await settle();
+      sim().send(ask);
+      page.otherTab(LIVE, 'A1');
+      await settle();
+      expect(takes(), ask.type).toEqual([]);
+      // The game came; Home goes as it shows, a moment after: still none.
+      from({ type: 'loaded', from: ask.type === 'load-slot' ? 'slot' : ask.type === 'new-game' ? 'new' : 'quarter', load: 'ok' } as unknown as FromWorker);
+      page.otherTab(LIVE, 'A2');
+      await settle();
+      expect(takes(), ask.type).toEqual([]);
+      sim().followNewest(false);
+    }
+    page.reset();
+    await opened('A0');
+    sim().followNewest(true);
+    await settle();
+    sim().send({ type: 'load-slot', slot: 2 });
+    page.otherTab(LIVE, 'A1');
+    await settle();
+    expect(takes()).toEqual([]);
+    from({ type: 'refused', command: 'load-slot', reason: 'empty_slot' } as unknown as FromWorker);
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }]);
+  });
+
+  // While Home stands, another tab's save is said only if Home cannot take it up: said at once, Saves' line and the GPU
+  // cards' words came and went at each of the other tab's saves, every 0.67 s, and the slots' rows jumped 44 px under the
+  // pointer. Shown failing (TS-04) on 8d3d85f, where `newer` turned true at once (the review of #133).
+  it('says nothing of another tab’s save while Home takes it up, and says it if the take fails', async () => {
+    await opened('A0');
+    sim().followNewest(true);
+    await settle();
+    page.otherTab(LIVE, 'A1');
+    expect(sim().newer).toBe(false);
+    await settle();
+    expect(takes()).toEqual([{ type: 'take-save', text: 'A1' }]);
+    expect(sim().newer).toBe(false);
+    from({ type: 'took-save', ok: true });
+    expect(sim().newer).toBe(false);
+    page.otherTab(LIVE, 'C1');
+    await settle();
+    from({ type: 'took-save', ok: false });
+    expect(sim().newer).toBe(true);
+  });
+
   // Saves lists again when the browser's autosave changes, so its row names the game Continue names; and a take, as a load,
   // drops the replaced game's refused Save here.
   it('has Saves list again at another tab’s change, and drops a refused Save here with the game a take replaces', async () => {

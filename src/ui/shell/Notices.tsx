@@ -10,8 +10,9 @@ const NOTICE_MS = 6_000;
  * seconds; once, when the game starts, a save it set aside (D12), or, on Home until the player opens
  * Saves, one it could not set aside (in the game the Saves chip says so itself, App); once, that the
  * browser keeps no saves or has no room for one, if it refuses one (a Save here is said on its slot's
- * row instead, Saves); in the game, each time another tab is found to have changed the autosave
- * (Home takes that game up instead, useSim); and a slot or a file that became the game. `home` is
+ * row instead, Saves); in the game, once each time another tab is found to have changed the autosave
+ * since this one last read or wrote it (Home takes that game up instead, useSim); and a slot or a
+ * file that became the game. `home` is
  * whether Home is on screen, whose Saves button the held save's notice points at, and `savesOpen`
  * whether the Saves panel is open.
  */
@@ -38,7 +39,7 @@ export function Notices({ sim, home, savesOpen = false }: { sim: Sim; home: bool
   const [savesSeen, setSavesSeen] = useState(false);
   if (savesOpen && sim.unbacked && !savesSeen) setSavesSeen(true);
   const heldShows = Boolean(sim.unbacked) && sim.status === 'ready' && home && !savesSeen && !(refusal && refusal !== expired);
-  // Said each time another tab is found to have changed the autosave, for a few seconds; the Saves chip says it while it lasts.
+  // Said once each time this tab is left behind, for a few seconds; the Saves chip says it while it lasts.
   const [newerDone, setNewerDone] = useState(false);
   if (!sim.newer && newerDone) setNewerDone(false);
   const newerShows = sim.newer && !home && !newerDone && !(refusal && refusal !== expired) && !heldShows;

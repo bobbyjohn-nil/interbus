@@ -107,6 +107,9 @@ export interface Sim {
   followNewest(on: boolean): void;
 }
 
+/** The commands that bring another game in its place: while one is on its way, Home takes up no other tab's save. */
+const LOADS: ReadonlySet<string> = new Set(['load-slot', 'import', 'new-game', 'restart-quarter'] satisfies ToWorker['type'][]);
+
 export function useSim(city: City | undefined): Sim {
   const worker = useRef<Worker | null>(null);
   const [status, setStatus] = useState<SimStatus>(city && simOf(city) ? 'loading' : 'none');
@@ -138,6 +141,7 @@ export function useSim(city: City | undefined): Sim {
   const [newer, setNewer] = useState(false);
   const [loaded, setLoaded] = useState<Sim['loaded']>(null);
   const follow = useRef<(on: boolean) => void>(() => undefined);
+  const loading = useRef<() => void>(() => undefined);
   const probes = useRef(new LatestAsk<ProbeDot>());
   // Only the newest answer counts: an older one arriving late is dropped.
   const asked = useRef({ site: 0, draft: 0, band: 0, next: 1 });
@@ -172,7 +176,12 @@ export function useSim(city: City | undefined): Sim {
     let live: { key: string; text: string | null; holds: string | null } | null = null;
     let unwatch: (() => void) | undefined;
     const sayNewer = () => setNewer(live !== null && live.holds !== live.text);
-    let following = false;
+    // Home stands, and has asked for no game (a slot, a file, a new game, the quarter's start), which a take posted after it
+    // would replace: on a Load from Home with another tab saving every 0.67 s, 7 loads in 25 ended on the other tab's game
+    // (the review of the fifth round). The ask holds until it is refused or Home goes, which it does once that game comes.
+    let homeUp = false;
+    let asking = false;
+    const following = () => homeUp && !asking;
     // One take at a time: another tab's saves come every 0.67 s at 5,400×, and the next take reads whatever the key holds then.
     // Each reads the key first, so Home finds a save the page was told nothing of (a page back from the browser's cache), and
     // none goes once Home is gone: the game is never replaced in play.
@@ -185,7 +194,7 @@ export function useSim(city: City | undefined): Sim {
       const take: { text: string | null } = (taking = { text: l.text });
       inStore(async (s) => void (take.text = l.holds = await s.read(l.key)));
       queue = queue.then(() => {
-        if (following && take.text !== l.text && worker.current) return worker.current.postMessage({ type: 'take-save', text: take.text } satisfies ToWorker);
+        if (following() && take.text !== l.text && worker.current) return worker.current.postMessage({ type: 'take-save', text: take.text } satisfies ToWorker);
         taken();
       });
     };
@@ -193,14 +202,24 @@ export function useSim(city: City | undefined): Sim {
     const taken = () => {
       taking = null;
       sayNewer();
-      const again = takeAgain && following;
+      const again = takeAgain && following();
       takeAgain = false;
       if (again) takeNewest();
     };
     follow.current = (on) => {
-      following = on;
+      homeUp = on;
+      asking = false;
       if (on) takeNewest();
       else takeAgain = false;
+    };
+    loading.current = () => {
+      asking = true;
+      takeAgain = false;
+    };
+    /** The game asked for was refused: Home, if it still stands, follows the browser's game again. */
+    const refusedLoad = () => {
+      asking = false;
+      if (following()) takeNewest();
     };
     // The start's set-aside is `quiet`: if its backup is refused, the sim finds it missing and says so ('unbacked').
     // `owed` names the keys of the game's own saves a refused job leaves unwritten, and whether they are the autosave's; a read
@@ -265,10 +284,12 @@ export function useSim(city: City | undefined): Sim {
             unwatch ??= onOtherTabWrite(m.key, (text) => {
               if (!live) return;
               live.holds = text;
-              sayNewer();
               // Saves lists the browser's autosave again, as for a write of this page's.
               setStored((n) => n + 1);
-              if (following) takeNewest();
+              // While Home stands the take says it, once answered: said first, Saves' line and the GPU cards' words came and
+              // went at each of the other tab's saves, and the slots' rows jumped 44 px under the pointer.
+              if (following()) takeNewest();
+              else sayNewer();
             });
           } else if (m.type === 'read-keys') {
             // After every store effect before it, as read-save: a slot just written reads back.
@@ -379,6 +400,7 @@ export function useSim(city: City | undefined): Sim {
             setUndos((u) => ({ ...u, done }));
           } else if (m.type === 'refused') {
             if (m.command === 'undo') undoAnswers++;
+            if (LOADS.has(m.command)) refusedLoad();
             setRefusal({ ...m, command: m.command });
             if (m.command === 'set-route') setRouteRefusals((n) => n + 1);
             if (m.command === 'create-line') setCreateRefusals((n) => n + 1);
@@ -406,6 +428,7 @@ export function useSim(city: City | undefined): Sim {
     if (message.type !== 'slots') setRefusal(null);
     // Counted only when it reaches the sim, so each undo sent has its answer.
     if (message.type === 'undo' && worker.current) setUndos((u) => ({ ...u, sent: u.sent + 1 }));
+    if (LOADS.has(message.type)) loading.current();
     worker.current?.postMessage(message);
   }, []);
   const probeAt = useCallback((dot: ProbeDot | null) => {
@@ -461,6 +484,7 @@ export function useSim(city: City | undefined): Sim {
     void pickTextFile().then((text) => {
       if (text === null) return;
       setRefusal(null); // as send() does, so an older refusal does not hide what the import brings
+      loading.current();
       worker.current?.postMessage({ type: 'import', text } satisfies ToWorker);
     });
   }, []);
