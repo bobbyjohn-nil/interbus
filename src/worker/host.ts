@@ -21,6 +21,7 @@ import { takeDownStop } from '../sim/commands/takeDownStop';
 import { checkExtend, checkInsert } from '../sim/rules/route';
 import { checkPlaceStop } from '../sim/rules/stop';
 import { BUS_MODELS, type BusModelId } from '../sim/config/fleet';
+import type { Path } from '../sim/city/route';
 import { loadCity, type City } from '../sim/city/simfile';
 import { MAX_WALK_M } from '../sim/config/demand';
 import { FOUNDING_HEADWAYS } from '../sim/config/lines';
@@ -49,7 +50,7 @@ import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/s
 import { simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
 import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
-import { createWorld, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
+import { createWorld, depotDrive, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
 import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
 import { SPEED_RATES } from '../sim/rules/speed';
 
@@ -103,10 +104,10 @@ const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set([
   'undo',
 ]);
 
-/** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points. */
-function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[]): void {
+/** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points, routed by `drive` (the router's own by default). */
+function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[], drive = (a: number, b: number): Path | null => world.router.route(a, b)): void {
   const { city } = world;
-  const path = from === null || to === null ? null : world.router.route(from, to);
+  const path = from === null || to === null ? null : drive(from, to);
   path?.edges.forEach((e, i) => {
     const street = city.streets[e]!;
     // Edge i of a path leaves path.nodes[i]; the street's points run from edgeA to edgeB.
@@ -126,10 +127,10 @@ function routeOf(world: World, stops: readonly XY[]): { route: LngLatPair[]; sto
   return { route, stopAt };
 }
 
-/** The drive between a depot's node and a stop, as [lon, lat] points; empty when there is none. */
+/** The drive between a depot's node and a stop, as [lon, lat] points; empty when there is none. The line's own is the one its costs were timed with, not routed again (world.ts depotDrive; I14). */
 function driveOf(world: World, from: number | null, to: number | null): LngLatPair[] {
   const out: LngLatPair[] = [];
-  appendPath(world, from, to, out);
+  appendPath(world, from, to, out, (a, b) => depotDrive(world, a, b));
   return out.length > 1 ? out : [];
 }
 

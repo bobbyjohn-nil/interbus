@@ -4,7 +4,7 @@ import { buildCommuters, centre, type Commuters } from './demand/commuters';
 import { assign, type Assignment, type LinePlan } from './demand/assign';
 import { distXY, SpatialGrid, toLngLat, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
-import { createRouter, type Router } from './city/route';
+import { createRouter, type Path, type Router } from './city/route';
 import { DEPOT_CAPACITY, DEPOT_STREET_REACH_M } from './config/depots';
 import { BUSES_KEEP_ONE_WAY, NO_STOP_CLASSES } from './config/lines';
 import { BUS_MODELS, LAYOVER_SECONDS, type BusModelId } from './config/fleet';
@@ -255,6 +255,24 @@ export function depotSiteContext(world: Pick<World, 'nodes' | 'city' | 'state'>)
   };
 }
 
+/**
+ * The drives between depots and first stops each world's lines were last timed with, by their two
+ * street nodes, carried from one lineServices to the next only while a line still needs them (as the
+ * worker carries a kept version's streets). A drive changes only with its depot or its line's first
+ * stop, yet routing every line from every depot at each recompute cost ten corridors and five depots
+ * on Inner Boston about 60 searches, 110-150 ms, and a building command 230-350 ms, past I14 (the
+ * systems audit's fourth round). A router's paths depend only on its streets (roadworks and snow
+ * slow a drive but never move it), so a kept one is the same path routed again.
+ */
+const drives = new WeakMap<Router, Map<string, Path | null>>();
+
+/** The drive from street node `from` to `to`, as lineServices last timed it, or routed now: the depot drives the vehicle layer draws (src/worker/host.ts). */
+export function depotDrive(world: Pick<World, 'router'>, from: number, to: number): Path | null {
+  const kept = drives.get(world.router);
+  const key = `${from} ${to}`;
+  return kept?.has(key) ? (kept.get(key) ?? null) : world.router.route(from, to);
+}
+
 /** Each line's timetable, depot and costs, in line order; buses fill the nearest depot with room first. */
 export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 'state'>): Map<LineId, LineService> {
   const { city, state } = world;
@@ -262,6 +280,15 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     const at = toXY(city.frame, [d.lon, d.lat]);
     return { id: d.id, node: world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at), room: DEPOT_CAPACITY };
   });
+  const kept = drives.get(world.router);
+  const used = new Map<string, Path | null>();
+  const drive = (from: number, to: number): Path | null => {
+    const key = `${from} ${to}`;
+    const path = used.has(key) ? used.get(key) : kept?.has(key) ? kept.get(key) : world.router.route(from, to);
+    used.set(key, path ?? null);
+    return path ?? null;
+  };
+  drives.set(world.router, used);
   const services = new Map<LineId, LineService>();
   const snow = snowToday(state);
   for (const line of state.lines) {
@@ -281,7 +308,7 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
     let pullInM = 0;
     if (first !== null && line.buses > 0) {
       const options = depots
-        .map((d) => ({ d, out: d.node === null ? null : world.router.route(d.node, first) }))
+        .map((d) => ({ d, out: d.node === null ? null : drive(d.node, first) }))
         .filter((o) => o.out !== null)
         .sort((a, b) => Number(b.d.room >= line.buses) - Number(a.d.room >= line.buses) || a.out!.cs - b.out!.cs || a.d.id - b.d.id);
       const pick = options[0];
@@ -290,7 +317,7 @@ export function lineServices(world: Pick<World, 'city' | 'router' | 'nodes' | 's
         depot.room -= line.buses;
         pullOutM = pick.out!.dm / 10;
         // Every round trip ends back at the first stop, so a bus goes home from there.
-        pullInM = (world.router.route(first, pick.d.node!)?.dm ?? pick.out!.dm) / 10;
+        pullInM = (drive(first, pick.d.node!)?.dm ?? pick.out!.dm) / 10;
       }
     }
     const day = dayPlan({

@@ -4,7 +4,8 @@
 // and runs it in Node; never part of the PR checks. Times the demand model's whole recompute
 // (assign: every catchment, every pair, all three periods) on the fixture with three lines, on a
 // synthetic Inner-Boston-sized grid with T03's network, and, once `node tools/bake/sim.mjs boston
-// inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors.
+// inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
+// whole recompute there with five depots.
 // Results go to .cache/bench/recompute.json.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
@@ -12,11 +13,12 @@ import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity } from '../src/sim/city/simfile';
 import { toCalendarTime } from '../src/sim/core/calendar';
 import { toLngLat } from '../src/sim/core/geo';
-import type { LineId } from '../src/sim/core/ids';
+import { mint, type LineId } from '../src/sim/core/ids';
 import { assign, type LinePlan } from '../src/sim/demand/assign';
 import { buildCommuters } from '../src/sim/demand/commuters';
+import { depotNear } from '../src/sim/pacing';
 import { newGame } from '../src/sim/state';
-import { commutersToday, createWorld, planLine } from '../src/sim/world';
+import { commutersToday, createWorld, planLine, recompute } from '../src/sim/world';
 import { innerBoston } from './inner';
 import { syntheticCity, t03Network } from './synthetic';
 
@@ -73,6 +75,22 @@ if (inner) {
   const day = toCalendarTime(boston.state.elapsed).day;
   const state = { ...boston.state, event: { kind: 'festival' as const, startDay: day, endDay: day, street: '', edges: [], at: { lon: at[0], lat: at[1] } } };
   time(`Inner Boston on a festival's first day, 3 periods`, () => assign(boston.city, commutersToday({ city: boston.city, commuters: { ...boston.commuters }, state }), bostonPlans));
+  // The whole recompute as a building command runs it, with the company's depots as players have them:
+  // the five Inner Boston allows (MAX_DEPOTS), each on the depot land nearest the middle of every other
+  // corridor, and every line at three Sparrows every 20 minutes, the 30 buses they hold. Each line's
+  // drives to and from its depot are routed once, in the warm-up, and read again in the timed runs, as a
+  // command that leaves the first stops and depots as they were reads them (the systems audit's fourth
+  // round: routing every line from every depot at each recompute took it to 190-240 ms at p50). A
+  // command that moves a first stop or adds a depot routes its own new drives once, untimed here.
+  for (const line of boston.state.lines) Object.assign(line, { buses: 3, headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
+  for (const n of [0, 2, 4, 6, 8]) {
+    const stops = bostonPlans[n]!.stops;
+    const [lon, lat] = depotNear(boston.city, stops[Math.floor(stops.length / 2)]!);
+    const [id, next] = mint(boston.state.nextIds, 'depot');
+    boston.state.nextIds = next;
+    boston.state.depots.push({ id, lon, lat });
+  }
+  time(`Inner Boston's whole recompute, ${boston.state.lines.length} lines of 3 Sparrows and ${boston.state.depots.length} depots`, () => recompute(boston));
 }
 
 mkdirSync('.cache/bench', { recursive: true });

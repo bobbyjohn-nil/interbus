@@ -9,12 +9,18 @@ import type { LngLat } from '../core/geo';
 import { mint, type LineId, type StopId } from '../core/ids';
 import { post } from '../economy/ledger';
 import { toSaveData } from '../save/save';
-import { gameWithDepot } from '../testing';
+import { busesNeeded } from '../rules/cycle';
+import { depotRoom } from '../rules/line';
+import { gameWithDepot, KENMORE } from '../testing';
 import { before, newUndo, remember, undo } from '../undo';
-import { recompute, type World } from '../world';
+import { fleetContext, recompute, type World } from '../world';
+import { createLine } from './createLine';
 import { addDebugLine, DEBUG_STOPS } from './debugLine';
+import { extendLine } from './extendLine';
+import { insertStop } from './insertStop';
 import { placeStop } from './placeStop';
 import { routeVerdict, setRoute } from './setRoute';
+import { setHeadways } from './setHeadways';
 
 /** On Huntington Avenue between Symphony and the MFA, more than 250 m from each. */
 const ON_HUNTINGTON: LngLat = [-71.0903, 42.33995];
@@ -135,5 +141,78 @@ describe('setting a line’s route (D25)', () => {
     setRoute(world, line.id, [COPLEY, ON_HUNTINGTON, MFA, LONGWOOD]);
     expect(undo(world, stack)).toMatchObject({ ok: true, undone: { command: 'set-route' } });
     expect(toSaveData(world.state)).toEqual(was);
+  });
+});
+
+// The room a route edit names is the depots' own (the systems audit's fourth round): the line rule runs
+// with the line's own buses set aside, so it counted them free, and with every depot full the editor
+// asked for "2 more Sparrows" beside "Depots have room for 2 more" while the headway card said "Your
+// depots are full" (GD-05). Shown failing (TS-04) with the line's own two buses in the room named.
+describe('a route edit that needs more buses than the depots hold', () => {
+  /** Beyond Longwood, and on towards Kenmore and back to Copley: three stops that need three more buses every 15 minutes. */
+  const BEYOND: LngLat[] = [
+    [-71.11123, 42.33412],
+    [-71.10529, 42.35502],
+    [-71.07479, 42.35481],
+  ];
+  /** By the leg from the MFA to Longwood. */
+  const BESIDE: LngLat = [-71.098, 42.334];
+
+  /** The debug line every 15 minutes on its two Sparrows, and a line from Copley to Kenmore every `kenmore` minutes, with the one depot's six places. */
+  function company(kenmore: number): World {
+    const world = running();
+    const line = world.state.lines[0]!;
+    line.headways = { peak: 900, offpeak: 900, overnight: null };
+    recompute(world);
+    line.buses = busesNeeded(world.services.get(line.id)!.timing.cycles!, line.headways);
+    recompute(world);
+    expect(line.buses).toBe(2);
+    expect(createLine(world, [COPLEY, KENMORE], { peak: kenmore * 60, offpeak: kenmore * 60, overnight: null }).ok).toBe(true);
+    return world;
+  }
+
+  /** Each edit of the debug line: its verdict as the editor's card reads it, and the buses it needs beyond the line's own. */
+  function edits(world: World) {
+    const line = world.state.lines[0]!;
+    const route = (points: readonly LngLat[]) => routeVerdict(world, line.id, points)!;
+    return {
+      'add a stop': route([COPLEY, SYMPHONY, MFA, LONGWOOD, BEYOND[0]!]),
+      'add three stops': route([COPLEY, SYMPHONY, MFA, LONGWOOD, ...BEYOND]),
+      'remove a stop': route([COPLEY, MFA, LONGWOOD]),
+      'reverse it': route([LONGWOOD, MFA, SYMPHONY, COPLEY]),
+      'reorder it': route([COPLEY, MFA, SYMPHONY, LONGWOOD]),
+      'insert a stop': route([COPLEY, SYMPHONY, MFA, BESIDE, LONGWOOD]),
+    };
+  }
+
+  it('names no room with every depot full, as the headway card does, and lets an edit that needs no bus through', () => {
+    const world = company(5);
+    const line = world.state.lines[0]!;
+    expect(depotRoom(fleetContext(world))).toBe(0);
+    expect(setHeadways(world, line.id, { peak: 600, offpeak: 600, overnight: null })).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+    const v = edits(world);
+    for (const name of ['add a stop', 'add three stops', 'reorder it', 'insert a stop'] as const) {
+      expect(v[name], name).toMatchObject({ ok: false, reason: 'depot_full', room: 0 });
+      expect(v[name].extraBuses, name).toBeGreaterThan(0);
+    }
+    expect(v['add three stops'].extraBuses).toBe(3);
+    for (const name of ['remove a stop', 'reverse it'] as const) expect(v[name], name).toMatchObject({ ok: true, extraBuses: 0 });
+    // The commands refuse as the card does, extensions and an insertion included.
+    expect(setRoute(world, line.id, [COPLEY, SYMPHONY, MFA, LONGWOOD, ...BEYOND])).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+    expect(extendLine(world, line.id, 'end', [BEYOND[0]!])).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+    expect(extendLine(world, line.id, 'start', [BEYOND[2]!])).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+    expect(insertStop(world, line.id, BESIDE)).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+  });
+
+  it('names the room there is when an edit needs more, and lets an edit that fits through', () => {
+    const world = company(10);
+    const line = world.state.lines[0]!;
+    const room = depotRoom(fleetContext(world));
+    expect(room).toBe(2);
+    const v = edits(world);
+    expect(v['add three stops']).toMatchObject({ ok: false, reason: 'depot_full', room, extraBuses: 3 });
+    expect(extendLine(world, line.id, 'end', BEYOND)).toEqual({ ok: false, reason: 'depot_full', room });
+    for (const name of ['add a stop', 'reorder it', 'insert a stop', 'remove a stop', 'reverse it'] as const) expect(v[name], name).toMatchObject({ ok: true });
+    expect(insertStop(world, line.id, BESIDE)).toMatchObject({ ok: true, extraBuses: 1 });
   });
 });
