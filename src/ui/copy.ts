@@ -113,14 +113,17 @@ export function undoText(u: { readonly command: string; readonly subject: string
 /** Said once when the browser refuses to read or keep a save (blocked site data). */
 export const STORE_REFUSED_COPY = 'This browser isn’t keeping saves';
 
-/** Said once when the browser has no room left for a save (src/platform's `full`): where the ways out are. */
-export const STORE_FULL_COPY = 'No room for saves: see Saves';
+/**
+ * Said once when the browser has no room left for a save (src/platform's `full`), with the way out. It names no control: the
+ * Saves chip may read "Autosave off" by then (App), and Saves' line names Export too.
+ */
+export const STORE_FULL_COPY = 'No room for saves: delete a save';
 
 /** Saves' line while a save of the game's own is not kept, by why: what it means, and the way out. */
 export const STORE_LINE_COPY: Readonly<Record<StoreRefusal, string>> = {
   blocked: `${STORE_REFUSED_COPY}. Export this game to keep it.`,
   // Export too: the room may be taken by other data of the same origin, with nothing in Saves to delete.
-  full: 'No room to save this game. Delete a save, or export this game to keep it.',
+  full: 'No room for saves. Delete a save, or export this game to keep it.',
 };
 
 /**

@@ -76,7 +76,7 @@ describe('the save list', () => {
   // where a store the game's own saves had filled read "This browser isn’t keeping saves. Export this game to keep it."
   it('says when there is no room to save this game, and how to make some', () => {
     const html = render([{ slot: 1, about: null, readable: true }], [], { storeRefused: 'full' });
-    expect(html).toContain('data-testid="saves-refused">No room to save this game. Delete a save, or export this game to keep it.</p>');
+    expect(html).toContain('data-testid="saves-refused">No room for saves. Delete a save, or export this game to keep it.</p>');
     expect(html).not.toContain('This browser isn’t keeping saves');
   });
 

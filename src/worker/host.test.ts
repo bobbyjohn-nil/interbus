@@ -783,7 +783,7 @@ describe('save slots, export and import', () => {
   // of the quarter before (here, where a file was loaded on its last evening) though the autosave was written.
   it('writes the quarter’s start a full store refused at the close once a delete makes room, with the autosave', () => {
     const room = { full: false };
-    const { send, tick, last, store } = withStore(undefined, room);
+    const { send, tick, last, store, out } = withStore(undefined, room);
     const elapsedIn = (key: string) => (JSON.parse(store.get(key)!) as { data: { clock: { elapsed: number } } }).data.clock.elapsed;
     send({ type: 'save-slot', slot: 1 });
     // This game as a file, at 23:50 on day 8, the quarter's last close ten minutes off: loaded, it is the quarter's start.
@@ -803,6 +803,10 @@ describe('save slots, export and import', () => {
     send({ type: 'delete-slot', slot: 1 });
     expect(elapsedIn(KEY)).toBe(last('snapshot')!.snapshot.elapsed);
     expect(elapsedIn('interbus.quarter.boston')).toBe(midnight);
+    // Each of the game's own writes says which save it is, so the page's Saves chip says "Autosave off" for the autosave alone,
+    // and a slot's Save here names its slot. Shown failing (TS-04) with the quarter's start marked as the autosave.
+    const marked = new Set(out.flatMap((m) => (m.type === 'store' ? m.effects.map((e) => `${e.key} ${m.owed ?? '-'} ${m.slot ?? '-'}`) : [])));
+    expect(marked).toEqual(new Set([`${KEY} autosave -`, 'interbus.quarter.boston quarter -', 'interbus.slot.boston.1 - 1']));
   });
 
   // Owed by key. A slot's Save here refused owes nothing: the slot stays as it was until the player saves or deletes it. At a

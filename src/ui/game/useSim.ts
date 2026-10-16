@@ -71,7 +71,7 @@ export interface Sim {
   /**
    * Saves' line, and why: set while a save of the game's own (the autosave, the quarter's start) the browser refused to keep
    * is not kept since, or after any other refusal (a delete, a read) until a write is kept, as before. `full` when the store
-   * had no room for it ("No room to save this game"), `blocked` when it keeps nothing ("This browser isn’t keeping saves"),
+   * had no room for it ("No room for saves"), `blocked` when it keeps nothing ("This browser isn’t keeping saves"),
    * which wins over `full`. The refused keys live only in this page, not in the store: a reload forgets them, and the line
    * with them, while the save is still not kept. A start's set-aside refused is `unbacked` instead, a Save here `slotsRefused`.
    */

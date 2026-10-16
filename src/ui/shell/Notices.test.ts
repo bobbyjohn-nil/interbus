@@ -22,7 +22,7 @@ describe('notices', () => {
   // A store with no room left (src/platform's `full`) is said as full, with the way out. Shown failing (TS-04) on 029387a, where
   // it read "This browser isn’t keeping saves" though the browser kept saves: the game's own copies had filled it.
   it('says a full store has no room, and how to make some', () => {
-    expect(render({ storeNotice: 'full' })).toContain('>No room for saves: see Saves<');
+    expect(render({ storeNotice: 'full' })).toContain('>No room for saves: delete a save<');
     expect(render({ storeNotice: 'full' })).not.toContain('This browser isn’t keeping saves');
   });
 

@@ -469,12 +469,12 @@ test.describe('saves: slots, export and import', () => {
     await page.mouse.click(sx, sy);
     await expect(panel).toHaveAttribute('data-cash', String(cash - 400_000));
     await page.keyboard.press('Escape');
-    await expect(notice).toHaveText('No room for saves: see Saves');
+    await expect(notice).toHaveText('No room for saves: delete a save');
     const chip = page.getByTestId('saves-chip');
     await expect(chip).toHaveText('Autosave off');
     await expect(chip).toHaveAccessibleName('Saves: autosave off');
     await chip.click();
-    await expect(saves.getByTestId('saves-refused')).toHaveText('No room to save this game. Delete a save, or export this game to keep it.');
+    await expect(saves.getByTestId('saves-refused')).toHaveText('No room for saves. Delete a save, or export this game to keep it.');
     await expect(chip).toHaveText('Autosave off');
     // Slot 2 deleted makes room: the autosave the game owes is written at once, Saves' line goes and the chip says Saves again;
     // Slot 1's row no longer tells the player to make room, and its Save here is kept.

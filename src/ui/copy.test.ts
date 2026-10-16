@@ -68,9 +68,9 @@ describe('the copy convention in the word tables', () => {
   it('says a full store apart from storage that keeps nothing, with the way out', () => {
     for (const text of [STORE_FULL_COPY, ...Object.values(SLOT_REFUSED_COPY)]) expect(text.split(/\s+/).length, text).toBeLessThanOrEqual(8);
     expect(STORE_LINE_COPY.full).not.toBe(STORE_LINE_COPY.blocked);
-    for (const text of [STORE_LINE_COPY.full, SLOT_REFUSED_COPY.full]) expect(text, text).toMatch(/[Dd]elete a save/);
+    for (const text of [STORE_FULL_COPY, STORE_LINE_COPY.full, SLOT_REFUSED_COPY.full]) expect(text, text).toMatch(/[Dd]elete a save/);
     for (const text of Object.values(STORE_LINE_COPY)) expect(text, text).toMatch(/[Ee]xport this game/);
-    expect(STORE_FULL_COPY).toMatch(/see Saves$/);
+    expect(STORE_FULL_COPY).toMatch(/delete a save$/);
     expect(AUTOSAVE_OFF_NAME.toLowerCase()).toContain(AUTOSAVE_OFF_CHIP.toLowerCase()); // its name holds its words (WCAG 2.5.3)
     expect(AUTOSAVE_OFF_NAME).toMatch(/^Saves/);
   });
