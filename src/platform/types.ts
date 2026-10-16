@@ -10,6 +10,12 @@ export interface SaveStore {
   remove(key: string): Promise<void>;
 }
 
+/**
+ * Why a store refused a job: `full` when it had no room left for the write (a delete in Saves may make room, unless other
+ * data of the same origin takes it), `blocked` when it keeps nothing at all (blocked site data).
+ */
+export type StoreRefusal = 'full' | 'blocked';
+
 /** A write or removal the sim's save decoder asks for (a backup before a refusal, say). */
 export type StoreEffect = { readonly op: 'write'; readonly key: string; readonly value: string } | { readonly op: 'remove'; readonly key: string };
 

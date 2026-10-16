@@ -10,7 +10,7 @@ import { savedWhen } from '../format';
 import { Saves } from './Saves';
 
 function render(slots: readonly SlotView[], setAside: readonly SetAsideWhy[], more: Partial<Sim> = {}): string {
-  const sim = { snapshot: { day: 3, hour: 9, minute: 30, company: { name: 'Back Bay Transit' } } as unknown as Snapshot, slots, setAside, send: () => undefined, ...more } as unknown as Sim;
+  const sim = { snapshot: { day: 3, hour: 9, minute: 30, company: { name: 'Back Bay Transit' } } as unknown as Snapshot, slots, setAside, slotsRefused: new Map(), send: () => undefined, ...more } as unknown as Sim;
   return renderToStaticMarkup(createElement(Saves, { sim, onClose: () => undefined }));
 }
 
@@ -68,8 +68,37 @@ describe('the save list', () => {
 
   // Shown failing (TS-04) with the panel saying the game saves itself as it plays, though nothing was kept.
   it('says when the browser is keeping no saves, and how to keep this game', () => {
-    const html = render([{ slot: 1, about: null, readable: true }], [], { storeRefused: true });
+    const html = render([{ slot: 1, about: null, readable: true }], [], { storeRefused: 'blocked' });
     expect(html).toContain('This browser isn’t keeping saves. Export this game to keep it.');
+  });
+
+  // A store with no room left says so, and the way out, not that the browser keeps no saves. Shown failing (TS-04) on 029387a,
+  // where a store the game's own saves had filled read "This browser isn’t keeping saves. Export this game to keep it."
+  it('says when there is no room to save this game, and how to make some', () => {
+    const html = render([{ slot: 1, about: null, readable: true }], [], { storeRefused: 'full' });
+    expect(html).toContain('data-testid="saves-refused">No room for saves. Delete a save, or export this game to keep it.</p>');
+    expect(html).not.toContain('This browser isn’t keeping saves');
+  });
+
+  // A Save here the browser refused, on its slot's row below its line, with the way out, the slot's own save kept if it held one;
+  // the other rows say nothing. Shown failing (TS-04) on 029387a, whose rows said nothing: the row read "Slot 3 · Empty" as before.
+  it('says on a slot’s row that its Save here was refused, and why', () => {
+    const slotsRefused = new Map([
+      [2, 'full'],
+      [3, 'blocked'],
+    ] as const);
+    const html = render(
+      [
+        { slot: 1, about: null, readable: true },
+        { slot: 2, about: { day: 12, hour: 7, minute: 5, company: 'Back Bay Transit', cashCents: 100, lines: 1, buses: 2, savedAt: null }, readable: true },
+        { slot: 3, about: null, readable: true },
+      ],
+      [],
+      { slotsRefused },
+    );
+    expect(html).toMatch(/data-testid="slot-2"[^>]*><span>Slot 2 · Year 1, Q2, Day 4, 07:05 · Back Bay Transit[^<]*<\/span><p class="refusal" role="status" data-testid="slot-2-refused">Didn’t fit: delete a save to make room<\/p><span class="controls">/);
+    expect(html).toContain('data-testid="slot-3-refused">Not kept: this browser isn’t keeping saves</p>');
+    expect(html).not.toContain('slot-1-refused');
   });
 
   // A save the start could not set aside (a full disk refused its backup) holds the autosave's place, the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { failedText, LOAD_COPY, REFUSAL_COPY, refusalText, STORE_REFUSED_COPY, UNBACKED_COPY, UNBACKED_ROW_TITLE, unbackedRowText, undoText } from './copy';
+import { failedText, LOAD_COPY, REFUSAL_COPY, refusalText, SLOT_REFUSED_COPY, STORE_FULL_COPY, STORE_LINE_COPY, STORE_REFUSED_COPY, AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, UNBACKED_COPY, UNBACKED_ROW_TITLE, unbackedRowText, undoText } from './copy';
 import { copyProblems } from './copyRules';
 import { eventNewsText, MEDAL_NAMES, medalNewsText, ROW_NAMES, SPEED_HINTS } from './format';
 import { CHECKLIST } from './game/checklist';
@@ -56,10 +56,23 @@ describe('refusal copy (UX-03)', () => {
 describe('the copy convention in the word tables', () => {
   it('holds for every refusal, set-aside line, ledger row, checklist step, speed and medal', () => {
     const refusals = CODES.map((reason) => refusalText({ reason, limitM: 150, nearestM: 80, room: 2, shortCents: 2_380_000, limit: 32 }));
-    const tables = [...refusals, ...Object.values(LOAD_COPY).filter((t): t is string => t !== null), STORE_REFUSED_COPY, UNBACKED_COPY, unbackedRowText('A save from an older build (format 15)'), UNBACKED_ROW_TITLE, failedText('start', 'Boston'), failedText('stopped', 'Boston'), ...Object.values(ROW_NAMES), ...CHECKLIST, ...Object.values(SPEED_HINTS), ...Object.values(MEDAL_NAMES)];
+    const tables = [...refusals, ...Object.values(LOAD_COPY).filter((t): t is string => t !== null), STORE_REFUSED_COPY, STORE_FULL_COPY, ...Object.values(STORE_LINE_COPY), ...Object.values(SLOT_REFUSED_COPY), UNBACKED_COPY, AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, unbackedRowText('A save from an older build (format 15)'), UNBACKED_ROW_TITLE, failedText('start', 'Boston'), failedText('stopped', 'Boston'), ...Object.values(ROW_NAMES), ...CHECKLIST, ...Object.values(SPEED_HINTS), ...Object.values(MEDAL_NAMES)];
     for (const kind of ['roadworks', 'festival', 'snow'] as const) for (const news of ['tomorrow', 'over'] as const) tables.push(eventNewsText({ kind, street: 'Huntington Avenue', days: 2, news }));
     for (const m of ['bronze', 'silver', 'gold'] as const) tables.push(medalNewsText(m));
     expect(copyProblems(tables)).toEqual([]);
+  });
+
+  // A full store and blocked storage in words of their own, each with its way out, and the notice and a slot's line as short as
+  // a refusal's (8 words or fewer, UX-03). Saves' line for a full store names Export too, since the room may be taken by other
+  // data of the same origin with nothing in Saves to delete. Shown failing (TS-04) on 029387a, which had one line for both.
+  it('says a full store apart from storage that keeps nothing, with the way out', () => {
+    for (const text of [STORE_FULL_COPY, ...Object.values(SLOT_REFUSED_COPY)]) expect(text.split(/\s+/).length, text).toBeLessThanOrEqual(8);
+    expect(STORE_LINE_COPY.full).not.toBe(STORE_LINE_COPY.blocked);
+    for (const text of [STORE_FULL_COPY, STORE_LINE_COPY.full, SLOT_REFUSED_COPY.full]) expect(text, text).toMatch(/[Dd]elete a save/);
+    for (const text of Object.values(STORE_LINE_COPY)) expect(text, text).toMatch(/[Ee]xport this game/);
+    expect(STORE_FULL_COPY).toMatch(/delete a save$/);
+    expect(AUTOSAVE_OFF_NAME.toLowerCase()).toContain(AUTOSAVE_OFF_CHIP.toLowerCase()); // its name holds its words (WCAG 2.5.3)
+    expect(AUTOSAVE_OFF_NAME).toMatch(/^Saves/);
   });
 
   it('finishes its sentences, and counts a name in characters', () => {

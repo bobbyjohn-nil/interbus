@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { STORE_REFUSED_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
+import { SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
 import { clock, dateText, savedWhen, usd } from '../format';
 import type { SaveAbout, SetAsideWhy } from '../../sim/types';
 import type { Sim } from '../game/useSim';
@@ -41,7 +41,8 @@ function When({ about, testId }: { about: SaveAbout | null; testId: string }) {
  * play, keeping this game and its autosave. A slot this game cannot load says why and can be
  * exported, and a save set aside by a new build is listed until the player exports or deletes it, so
  * none is lost unseen (D12); so is one the game could not set aside, which it saves nothing over
- * meanwhile. Export session hands over this session for a bug report (the M3 spec, item 12).
+ * meanwhile. A Save here the browser refused says so on its slot's row, with the way out, until the
+ * slot is saved or a delete makes room. Export session hands over this session for a bug report (the M3 spec, item 12).
  */
 export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void; onHome?: () => void }) {
   const { send } = sim;
@@ -116,7 +117,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
       <h2>Saves</h2>
       {sim.storeRefused ? (
         <p className="hint" data-testid="saves-refused">
-          {STORE_REFUSED_COPY}. Export this game to keep it.
+          {STORE_LINE_COPY[sim.storeRefused]}
         </p>
       ) : null}
       <ul className="slots">
@@ -136,6 +137,11 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
               Slot {slot} · {about ? aboutText(about) : readable ? 'Empty' : setAsideName(why ?? 'unreadable')}
               <When about={about} testId={`slot-${slot}-when`} />
             </span>
+            {sim.slotsRefused.has(slot) ? (
+              <p className="refusal" role="status" data-testid={`slot-${slot}-refused`}>
+                {SLOT_REFUSED_COPY[sim.slotsRefused.get(slot)!]}
+              </p>
+            ) : null}
             {/* One rule for a row's question, as for Import's: while it is open the row's other buttons hide, so the row never wraps (I13); only Export stays beside Replace. */}
             <span className="controls">
               {replacing === slot ? (

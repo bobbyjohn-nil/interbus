@@ -718,15 +718,19 @@ describe('save slots, export and import', () => {
   });
 
   // The save list (the M5 spec, item 4). Shown failing (TS-04) with the slot written without the
-  // page's clock, with delete-slot ignored, and with the set-aside keys left unread.
+  // page's clock, with delete-slot ignored, and with the set-aside keys left unread. Each job names its
+  // slot, so the page says a Save here the browser refused on that slot's row until the slot is saved
+  // or deleted: shown failing (TS-04) on 029387a, whose jobs named none.
   it('names each slot’s buses and when it was saved, and deletes a slot', () => {
     const at = Date.UTC(2026, 9, 13, 20, 41);
     const { send, last, store } = withStore(() => at);
     send({ type: 'create-line', clicks: CLICKS });
     send({ type: 'save-slot', slot: 2 });
+    expect(last('store')).toMatchObject({ effects: [{ op: 'write', key: 'interbus.slot.boston.2' }], slot: 2 });
     expect(last('slots')!.slots[1]).toMatchObject({ slot: 2, about: { lines: 1, buses: 2, savedAt: at }, readable: true });
     expect(JSON.parse(store.get(KEY)!).savedAt).toBe(at); // the autosave is stamped too
     send({ type: 'delete-slot', slot: 2 });
+    expect(last('store')).toEqual({ type: 'store', effects: [{ op: 'remove', key: 'interbus.slot.boston.2' }], slot: 2 });
     expect(store.has('interbus.slot.boston.2')).toBe(false);
     expect(last('slots')!.slots[1]).toEqual({ slot: 2, about: null, readable: true });
     send({ type: 'delete-slot', slot: 7 });
@@ -779,7 +783,7 @@ describe('save slots, export and import', () => {
   // of the quarter before (here, where a file was loaded on its last evening) though the autosave was written.
   it('writes the quarter’s start a full store refused at the close once a delete makes room, with the autosave', () => {
     const room = { full: false };
-    const { send, tick, last, store } = withStore(undefined, room);
+    const { send, tick, last, store, out } = withStore(undefined, room);
     const elapsedIn = (key: string) => (JSON.parse(store.get(key)!) as { data: { clock: { elapsed: number } } }).data.clock.elapsed;
     send({ type: 'save-slot', slot: 1 });
     // This game as a file, at 23:50 on day 8, the quarter's last close ten minutes off: loaded, it is the quarter's start.
@@ -799,6 +803,10 @@ describe('save slots, export and import', () => {
     send({ type: 'delete-slot', slot: 1 });
     expect(elapsedIn(KEY)).toBe(last('snapshot')!.snapshot.elapsed);
     expect(elapsedIn('interbus.quarter.boston')).toBe(midnight);
+    // Each of the game's own writes says which save it is, so the page's Saves chip says "Autosave off" for the autosave alone,
+    // and a slot's Save here names its slot. Shown failing (TS-04) with the quarter's start marked as the autosave.
+    const marked = new Set(out.flatMap((m) => (m.type === 'store' ? m.effects.map((e) => `${e.key} ${m.owed ?? '-'} ${m.slot ?? '-'}`) : [])));
+    expect(marked).toEqual(new Set([`${KEY} autosave -`, 'interbus.quarter.boston quarter -', 'interbus.slot.boston.1 - 1']));
   });
 
   // Owed by key. A slot's Save here refused owes nothing: the slot stays as it was until the player saves or deletes it. At a

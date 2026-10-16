@@ -5,9 +5,9 @@ export { onReplaced, reportReplaced, watchChunkFailures, reload, type ReplacedRe
 export { assetUrl, assetBase, assetGone } from './web/assets';
 export { openCityFile, type CityFile } from './web/cityFile';
 export { externalLink, ALLOWED_LINKS, type ExternalLinkProps } from './web/links';
-export { createWebSaveStore } from './web/saveStore';
+export { createWebSaveStore, storeRefusal } from './web/saveStore';
 export { createMemorySaveStore } from './memory/saveStore';
-export { applyEffects, type SaveStore, type StoreEffect } from './types';
+export { applyEffects, type SaveStore, type StoreEffect, type StoreRefusal } from './types';
 export { readSimFile, startSimWorker } from './web/simFile';
 export { downloadText, pickTextFile } from './web/files';
 export { fpsSwitch, gpuSwitch, type GpuSwitch } from './web/switches';

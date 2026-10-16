@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LOAD_COPY, loadedText, refusalText, STORE_REFUSED_COPY, UNBACKED_COPY } from '../copy';
+import { LOAD_COPY, loadedText, refusalText, STORE_FULL_COPY, STORE_REFUSED_COPY, UNBACKED_COPY } from '../copy';
 import type { Sim } from '../game/useSim';
 
 /** How long a notice stays, in milliseconds. */
@@ -7,12 +7,13 @@ const NOTICE_MS = 6_000;
 
 /**
  * Notices in one corner (PLAN §8, UX-05): the last thing the sim refused, in words, for a few
- * seconds; once, when the game starts, a save it set aside (D12), or, until the player opens Saves, one
- * it could not set aside; once, that the browser keeps no saves, if it refuses one; and a slot or a
- * file that became the game. `savesButton` is whether a button on screen opens Saves (Home's, or the
- * game's once a company is founded), and `savesOpen` whether the Saves panel is open.
+ * seconds; once, when the game starts, a save it set aside (D12), or, on Home until the player opens
+ * Saves, one it could not set aside (in the game the Saves chip says so itself, App); once, that the
+ * browser keeps no saves or has no room for one, if it refuses one (a Save here is said on its slot's
+ * row instead, Saves); and a slot or a file that became the game. `home` is whether Home is on screen,
+ * whose Saves button the held save's notice points at, and `savesOpen` whether the Saves panel is open.
  */
-export function Notices({ sim, savesButton, savesOpen = false }: { sim: Sim; savesButton: boolean; savesOpen?: boolean }) {
+export function Notices({ sim, home, savesOpen = false }: { sim: Sim; home: boolean; savesOpen?: boolean }) {
   const refusal = sim.refusal;
   // The refusal whose time is up; a newer one shows until its own time is.
   const [expired, setExpired] = useState<typeof refusal>(null);
@@ -31,14 +32,15 @@ export function Notices({ sim, savesButton, savesOpen = false }: { sim: Sim; sav
   }, [setAside]);
   // A save the game could not set aside comes first, and is not timed: the game saves nothing over it
   // meanwhile, so it is said until the player opens Saves, where its row is, or deletes it there. It
-  // says "see Saves", so it waits while no button opens Saves (the founding card after New game).
+  // says "see Saves", so it is said on Home, beside its Saves button; in the game the Saves chip says it.
   const [savesSeen, setSavesSeen] = useState(false);
   if (savesOpen && sim.unbacked && !savesSeen) setSavesSeen(true);
-  const heldShows = Boolean(sim.unbacked) && sim.status === 'ready' && savesButton && !savesSeen && !(refusal && refusal !== expired);
+  const heldShows = Boolean(sim.unbacked) && sim.status === 'ready' && home && !savesSeen && !(refusal && refusal !== expired);
   // Said once the game is on screen, so it is said when someone can see it, and timed only while it
-  // shows: a refusal on screen first holds it back without using up its few seconds. Any refused save
-  // says it, a slot's Save here too, though Saves' own line waits only on the game's (useSim).
-  const unsaved = sim.storeRefusals > 0 && sim.status === 'ready';
+  // shows: a refusal on screen first holds it back without using up its few seconds. In the words for
+  // why the store first refused (a full one names the way out), though Saves' own line waits only on the
+  // game's saves (useSim).
+  const unsaved = sim.storeNotice !== null && sim.status === 'ready';
   const [unsavedDone, setUnsavedDone] = useState(false);
   const unsavedShows = unsaved && !unsavedDone && !(refusal && refusal !== expired) && !heldShows;
   useEffect(() => {
@@ -59,7 +61,9 @@ export function Notices({ sim, savesButton, savesOpen = false }: { sim: Sim; sav
       : heldShows
         ? UNBACKED_COPY
         : unsaved && !unsavedDone
-          ? STORE_REFUSED_COPY
+          ? sim.storeNotice === 'full'
+            ? STORE_FULL_COPY
+            : STORE_REFUSED_COPY
           : loaded && loaded !== loadedDone
             ? loadedText(loaded)
             : setAside && !setAsideDone

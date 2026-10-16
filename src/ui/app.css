@@ -141,6 +141,12 @@ body,
   font-size: 14px;
 }
 
+/* While the Saves chip says "Autosave off" (App.tsx), 33 px wider than "Saves" (105 px, from 72), the row keeps as much
+   farther from it: with the row full, the undo gives that room up, so the shell takes no more of the screen than before (I13). */
+.app:has(> .saves-chip.off) > .top-bar {
+  right: 137px;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -468,6 +474,14 @@ button.chip.checklist,
 .chip.saves-chip svg {
   width: 14px;
   height: 14px;
+}
+
+/* "Autosave off": the game is not saving itself (a save held, or the autosave refused), said as the countdown says its days,
+   in the chip row's 14 px rather than the Saves chip's own larger type, so the row gives up as little room as it can. */
+.chip.saves-chip.off {
+  color: #a3271b;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .chip.saves-chip[aria-pressed='true'] {

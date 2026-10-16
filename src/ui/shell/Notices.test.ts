@@ -7,16 +7,23 @@ import { describe, expect, it } from 'vitest';
 import type { Sim } from '../game/useSim';
 import { Notices } from './Notices';
 
-/** Notices over `more`, with a button on screen that opens Saves unless `savesButton` is false. */
-const render = (more: Partial<Sim>, savesOpen = false, savesButton = true) =>
-  renderToStaticMarkup(createElement(Notices, { sim: { status: 'ready', refusal: null, load: 'none', loaded: null, storeRefused: false, storeRefusals: 0, unbacked: null, backup: null, ...more } as unknown as Sim, savesButton, savesOpen }));
+/** Notices over `more`, on Home (whose Saves button the held save's notice points at) unless `home` is false. */
+const render = (more: Partial<Sim>, savesOpen = false, home = true) =>
+  renderToStaticMarkup(createElement(Notices, { sim: { status: 'ready', refusal: null, load: 'none', loaded: null, storeRefused: null, storeNotice: null, unbacked: null, backup: null, ...more } as unknown as Sim, home, savesOpen }));
 
 describe('notices', () => {
-  // Any save refused says so, a slot's Save here too, though only the game's own hold Saves' line (storeRefused).
+  // Any save refused says so but a Save here, said on its slot's row, though only the game's own hold Saves' line (storeRefused).
   it('says the browser is keeping no saves once the game is ready', () => {
-    expect(render({ storeRefusals: 1 })).toContain('This browser isn’t keeping saves');
-    expect(render({ storeRefusals: 1, storeRefused: true, status: 'loading' })).toBe('');
+    expect(render({ storeNotice: 'blocked' })).toContain('This browser isn’t keeping saves');
+    expect(render({ storeNotice: 'blocked', storeRefused: 'blocked', status: 'loading' })).toBe('');
     expect(render({})).toBe('');
+  });
+
+  // A store with no room left (src/platform's `full`) is said as full, with the way out. Shown failing (TS-04) on 029387a, where
+  // it read "This browser isn’t keeping saves" though the browser kept saves: the game's own copies had filled it.
+  it('says a full store has no room, and how to make some', () => {
+    expect(render({ storeNotice: 'full' })).toContain('>No room for saves: delete a save<');
+    expect(render({ storeNotice: 'full' })).not.toContain('This browser isn’t keeping saves');
   });
 
   // A save the start could not set aside (a full disk refused its backup) stays under the live key: it
@@ -45,9 +52,11 @@ describe('notices', () => {
     expect(render({ load: 'older', backup: 'not-kept', unbacked: 'older-15' }, true)).toBe('');
   });
 
-  // It says "see Saves", so only where a button opens Saves: on Home, and in the game once a company is
-  // founded, not on the founding card after New game. Shown failing (TS-04) with it said there too.
-  it('says a save could not be set aside only while a button on screen opens Saves', () => {
+  // It says "see Saves", so only on Home, beside its Saves button: not on the founding card after New
+  // game, where none is (shown failing, TS-04, with it said there too), nor in the game, where the Saves
+  // chip says so itself (App; e2e/saves.spec.ts and e2e/i13.spec.ts, where on 029387a the notice took the
+  // shell at rest past I13's 6%).
+  it('says a save could not be set aside only on Home', () => {
     expect(render({ load: 'older', backup: 'not-kept', unbacked: 'older-15' }, false, false)).toBe('');
     expect(render({ load: 'older', backup: 'not-kept', unbacked: 'older-15' }, false, true)).toContain('Not autosaving: see Saves');
   });
@@ -56,7 +65,7 @@ describe('notices', () => {
   // the held notice alone, even beside a refusal of another write. Shown failing (TS-04) with "This
   // browser isn’t keeping saves" said for it.
   it('says a save could not be set aside, not that the browser keeps no saves, while it holds', () => {
-    const html = render({ load: 'older', backup: 'not-kept', unbacked: 'older-15', storeRefused: true, storeRefusals: 1 });
+    const html = render({ load: 'older', backup: 'not-kept', unbacked: 'older-15', storeRefused: 'full', storeNotice: 'full' });
     expect(html).toContain('Not autosaving: see Saves');
     expect(html).not.toContain('This browser isn’t keeping saves');
   });
