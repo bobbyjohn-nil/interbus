@@ -71,11 +71,7 @@ export const inputsAt = (m: Pick<MergedPlan, 'breaks' | 'versions'>, t: number):
 export function planInEffect(current: PlanInputs, earlier: readonly Earlier[]): PlanInEffect {
   const periodic = dayPlan(current);
   if (earlier.length === 0) return { periodic, merged: null };
-  let was = asMerged(dayPlan(earlier[0]!.inputs));
-  earlier.forEach((e, k) => {
-    was = merge(was, earlier[k + 1]?.inputs ?? current, e, k === earlier.length - 1 ? periodic : dayPlan(earlier[k + 1]!.inputs));
-  });
-  return { periodic, merged: was };
+  return { periodic, merged: fold([...earlier.map((e) => e.inputs), current], earlier, periodic).plan! };
 }
 
 /**
@@ -84,13 +80,105 @@ export function planInEffect(current: PlanInputs, earlier: readonly Earlier[]): 
  * is the same without the versions before it, so a close may let them go (world.ts settle()).
  */
 export function settledOnto(earlier: readonly Earlier[]): number {
-  let was = asMerged(dayPlan(earlier[0]!.inputs));
+  // Each plan's handover, of the versions up to k: before version k changed, the plan had handed over to it.
+  const { handovers } = fold(earlier.map((e) => e.inputs), earlier, null);
   let onto = 0;
   earlier.forEach((e, k) => {
-    if (was.handover <= e.until) onto = k;
-    if (k + 1 < earlier.length) was = merge(was, earlier[k + 1]!.inputs, e, dayPlan(earlier[k + 1]!.inputs));
+    if (handovers[k]! <= e.until) onto = k;
   });
   return onto;
+}
+
+/**
+ * Each step of the folds lately taken, by its parent step's id and its own key, and the merged plans of
+ * the steps used last (`fold`), at most so many of each, the least recently used let go first. A fold
+ * keeps two plans, and a command folds a changed line twice (world.ts recomputeInService's frame before
+ * and after), so 256 plans keep about 64 settling lines' at once, past Inner Boston's 29-line busy scene;
+ * beyond it each fold starts again from the first version, as every fold did before (the review of the
+ * sixth round: 64 plans held 16 lines).
+ */
+const STEPS_KEPT = 4_096;
+const PLANS_KEPT = 256;
+const steps = new Map<string, { readonly id: number; readonly handover: number }>();
+const plans = new Map<number, MergedPlan>();
+let stepsTaken = 0;
+
+/** Marks `key` of `kept` used last, putting `value` there, and lets go of the least recently used past `most`; returns what it let go. */
+function markUsed<K, V>(kept: Map<K, V>, key: K, value: V, most: number): V | undefined {
+  kept.delete(key);
+  kept.set(key, value);
+  if (kept.size <= most) return undefined;
+  const [oldest, gone] = kept.entries().next().value!;
+  kept.delete(oldest);
+  return gone;
+}
+
+/** A plan's inputs or a change as a key: every number exactly as it reads, -0, NaN and the infinities apart from 0 and null. */
+const keyOf = (v: unknown): string => JSON.stringify(v, (_, x: unknown) => (typeof x === 'number' && (!Number.isFinite(x) || Object.is(x, -0)) ? (Object.is(x, -0) ? '-0' : String(x)) : x));
+
+/**
+ * The merged plans of `versions` folded in order, `versions[k - 1]` changed by `changes[k - 1]` to
+ * `versions[k]`: the k-th the plan of the first k + 1 (the first, its own day plan as run), with
+ * `own`, the last version's day plan, given when the last plan is wanted. Each plan's handover, and the last
+ * plan, or null when `own` is null and every step was taken before.
+ *
+ * A line changed every 10 minutes through a day keeps over a hundred versions until the close, and
+ * every recompute in service folded them all, twice, and the map's Fleet once more, a merge each:
+ * on Inner Boston's longest corridor 300–650 ms a change by the evening, past I14's 150 ms (the
+ * systems audit's sixth round; `npm run bench versions`). A plan depends only on the versions up to
+ * it and the changes between them, never on those after (merge() reads its `was`, the next version's
+ * inputs, the change and that version's own day plan), so each step is kept under its parent's id and
+ * everything it merges from, and a fold walks the steps it has taken before and merges only from the
+ * last plan kept: a change made in the frame's day merges once, and an undo or a recompute with nothing
+ * changed not at all. A change on a new day merges every version again, each change's second of the
+ * new frame moved by the day; so does a close that lets only a line's first versions go (its chain
+ * starts again from the first kept), and a fresh worker or page. Exactly the plain fold's plans, which
+ * hold nothing mutable.
+ */
+function fold(versions: readonly PlanInputs[], changes: readonly Earlier[], own: DayPlan | null): { readonly handovers: readonly number[]; readonly plan: MergedPlan | null } {
+  const last = versions.length - 1;
+  const keyAt = (k: number, parent: number) => `${parent}\n${keyOf(k === 0 ? versions[0] : [changes[k - 1]!.until, changes[k - 1]!.sameModel, changes[k - 1]!.sameStart, versions[k]])}`;
+  const ids: number[] = [];
+  const handovers: number[] = [];
+  // The steps taken before, and the last of them whose plan is kept.
+  let from = -1;
+  for (let k = 0; k <= last; k++) {
+    const key = keyAt(k, ids[k - 1] ?? 0);
+    const step = steps.get(key);
+    if (!step) break;
+    markUsed(steps, key, step, STEPS_KEPT);
+    ids.push(step.id);
+    handovers.push(step.handover);
+    if (plans.has(step.id)) from = k;
+  }
+  // The last plan and the one before stay kept, so the next change, or a recompute of what the last change replaced, merges once.
+  const keep = (k: number, plan: MergedPlan) => markUsed(plans, ids[k]!, plan, PLANS_KEPT);
+  if (ids.length > last && (own === null || from === last)) {
+    if (last > 0 && plans.has(ids[last - 1]!)) keep(last - 1, plans.get(ids[last - 1]!)!);
+    if (from === last) keep(last, plans.get(ids[last]!)!);
+    return { handovers, plan: own === null ? null : plans.get(ids[last]!)! };
+  }
+  // A line changed back and forth runs on a few versions many times over: each one's day plan is laid once.
+  const days = new Map<string, DayPlan>();
+  const dayOf = (v: PlanInputs) => {
+    const key = keyOf(v);
+    let plan = days.get(key);
+    if (!plan) days.set(key, (plan = dayPlan(v)));
+    return plan;
+  };
+  let was = from < 0 ? null : plans.get(ids[from]!)!;
+  for (let k = from + 1; k <= last; k++) {
+    was = k === 0 ? asMerged(dayOf(versions[0]!)) : merge(was!, versions[k]!, changes[k - 1]!, k === last && own ? own : dayOf(versions[k]!));
+    if (k >= ids.length) {
+      const id = ++stepsTaken;
+      const gone = markUsed(steps, keyAt(k, ids[k - 1] ?? 0), { id, handover: was.handover }, STEPS_KEPT);
+      if (gone) plans.delete(gone.id);
+      ids.push(id);
+      handovers.push(was.handover);
+    }
+    if (k >= last - 1) keep(k, was);
+  }
+  return { handovers, plan: was };
 }
 
 function asMerged(plan: DayPlan): MergedPlan {
@@ -242,34 +330,57 @@ function parkSpares(open: OpenBus[], ownOpen: readonly OpenBus[], own: DayPlan, 
  * running overnight reaches one only by parking its spares (parkSpares): keeping them out, it matched
  * only where both plans wound down at the window's end, which its day plan read on its middle day does
  * not, so a bus driving home jumped 456 m back to its first stop (the systems audit's fifth round).
+ * Each candidate moment compares what the two plans' buses do then as counted words. Writing out every
+ * stint's whole day afresh at each of them, and sorting the words, took four fifths of a merge (the
+ * systems audit's sixth round); a stint not yet out reads the same at every moment, and one out the same
+ * from each of its trips on, so each is written once.
  */
 function handoverOf(m: Omit<MergedPlan, 'handover'>, own: DayPlan, at: number): number {
   const last = m.breaks.length;
+  const whole = new Map<Stint, string>();
+  const tails = new Map<Stint, string[]>();
   const sign = (s: Stint, x: number, merged: boolean): string | null => {
     if (s.arriveDepot <= x) return null;
-    if (s.leaveDepot >= x) return `${s.leaveDepot}|${s.trips.join(',')}|${s.lastArrival}|${s.arriveDepot}`;
-    // Out at x: where it is depends on its drive out, its trip under way, and what comes after.
+    if (s.leaveDepot >= x) {
+      let v = whole.get(s);
+      if (v === undefined) whole.set(s, (v = `${s.leaveDepot}|${s.trips.join(',')}|${s.lastArrival}|${s.arriveDepot}`));
+      return v;
+    }
+    // Out at x: where it is depends on its drive out, its trip under way (the last begun: a stint's trips are in order), and what comes after.
     const pulling = s.leaveDepot + (merged ? inputsAt(m, s.leaveDepot) : own.inputs).pullOutS > x ? String(s.leaveDepot) : '-';
-    let under = '-';
-    for (const t of s.trips) if (t <= x) under = String(t);
-    if (merged && under !== '-' && versionAt(m, Number(under)) < last) return 'earlier';
+    const next = sortedIndex(s.trips, x);
+    const under = next === 0 ? '-' : String(s.trips[next - 1]);
+    if (merged && next > 0 && versionAt(m, s.trips[next - 1]!) < last) return 'earlier';
     if (merged && pulling !== '-' && versionAt(m, s.leaveDepot) < last) return 'earlier';
     const home = s.lastArrival <= x && merged && versionAt(m, s.trips[s.trips.length - 1] ?? s.leaveDepot) < last ? 'earlier' : '';
-    return `${pulling}|${under}|${s.trips.filter((t) => t > x).join(',')}|${s.lastArrival}|${s.arriveDepot}${home}`;
+    let after = tails.get(s);
+    if (!after) tails.set(s, (after = []));
+    return `${pulling}|${under}|${(after[next] ??= s.trips.slice(next).join(','))}|${s.lastArrival}|${s.arriveDepot}${home}`;
   };
-  const signs = (stints: readonly Stint[], x: number, merged: boolean) =>
-    stints
-      .map((s) => sign(s, x, merged))
-      .filter((v): v is string => v !== null)
-      .sort();
   // Each on a whole second, so the costs split an hour there exactly (costs.ts): at a drive out's own fractional
   // second, the day plan's middle day put it a float's width before the split, and neither part billed it.
   const candidates = [...new Set([at, ...own.trips.filter((t) => t > at), ...own.stints.map((s) => Math.floor(s.leaveDepot)).filter((t) => t > at)])].sort((a, b) => a - b);
-  for (const x of candidates) {
-    const a = signs(m.stints, x, true);
-    if (a.some((v) => v.startsWith('earlier') || v.endsWith('earlier'))) continue;
-    const b = signs(own.stints, x, false);
-    if (a.length === b.length && a.every((v, i) => v === b[i])) return x;
+  // The merged plan's words counted up and the day plan's counted off: the same words, as many of each, leave nothing.
+  const count = new Map<string, number>();
+  moment: for (const x of candidates) {
+    count.clear();
+    let left = 0;
+    for (const s of m.stints) {
+      const v = sign(s, x, true);
+      if (v === null) continue;
+      if (v.startsWith('earlier') || v.endsWith('earlier')) continue moment;
+      count.set(v, (count.get(v) ?? 0) + 1);
+      left++;
+    }
+    for (const s of own.stints) {
+      const v = sign(s, x, false);
+      if (v === null) continue;
+      const n = count.get(v);
+      if (!n) continue moment;
+      count.set(v, n - 1);
+      left--;
+    }
+    if (left === 0) return x;
   }
   return 2 * SECONDS_PER_DAY;
 }
