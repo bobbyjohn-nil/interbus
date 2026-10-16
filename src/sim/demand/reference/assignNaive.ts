@@ -149,9 +149,10 @@ export function assignNaive(
     const rideKm = Math.abs(plans[line]!.stopDistM[b]! - plans[line]!.stopDistM[a]!) / 1000;
     return Math.max(0.5, rideMin(line, a, b, k) + fareMin[line]! * fareSensitivity(rideKm));
   };
-  // In a period, each first line's quickest way: the line it changes onto, or -1 for none.
+  // In a period, each first line's quickest ways: the lines it changes onto, or -1 for none, every
+  // one that ties exactly (a change onto either of twin lines), which split its riders evenly.
   const periodBase = new Float64Array(lines);
-  const periodSecond = new Int32Array(lines);
+  const periodWays = plans.map(() => [] as number[]);
   for (let i = 0; i < n; i++) {
     const origins = homes[i]!;
     if (origins.length === 0) continue;
@@ -199,7 +200,9 @@ export function assignNaive(
               lineHeadway[line] = headway[line]![period];
               // The stops the day's average picked, ridden at this period's traffic.
               periodBase[line] = lineBase[line] === Infinity ? Infinity : lineWalk[line]! + oneSeat(line, lineFrom[line]!, lineTo[line]!, k);
-              periodSecond[line] = -1;
+              const ways = periodWays[line]!;
+              ways.length = 0;
+              ways.push(-1);
               for (let second = 0; second < lines; second++) {
                 // A second line that does not run this period carries nobody (waitMin would cap its wait).
                 if (headway[second]![period] === Infinity) continue;
@@ -210,8 +213,9 @@ export function assignNaive(
                 const base = changeWalk[pair]! + rides + perceivedWaitMin(waitMin(headway[second]![period]));
                 if (base < periodBase[line]!) {
                   periodBase[line] = base;
-                  periodSecond[line] = second;
-                }
+                  ways.length = 0;
+                  ways.push(second);
+                } else if (base === periodBase[line]) ways.push(second);
               }
             }
             const minutes = commonLines(periodBase, lineHeadway, lines, share, order);
@@ -221,16 +225,19 @@ export function assignNaive(
               const r = riders * share[line]!;
               if (r === 0) continue;
               paidByPeriod[line]![period] += r;
-              const second = periodSecond[line]!;
-              if (second < 0) {
-                ride(line, k, lineFrom[line]!, lineTo[line]!, r);
-                continue;
+              const ways = periodWays[line]!;
+              for (const second of ways) {
+                const each = r / ways.length;
+                if (second < 0) {
+                  ride(line, k, lineFrom[line]!, lineTo[line]!, each);
+                  continue;
+                }
+                const pair = line * lines + second;
+                const [board, from, to, alight] = changeStops.subarray(4 * pair, 4 * pair + 4);
+                ride(line, k, board!, from!, each);
+                ride(second, k, to!, alight!, each);
+                stopEnds[second]!.change[k * plans[second]!.stops.length + to!]! += each;
               }
-              const pair = line * lines + second;
-              const [board, from, to, alight] = changeStops.subarray(4 * pair, 4 * pair + 4);
-              ride(line, k, board!, from!, r);
-              ride(second, k, to!, alight!, r);
-              stopEnds[second]!.change[k * plans[second]!.stops.length + to!]! += r;
             }
           });
         }

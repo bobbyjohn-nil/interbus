@@ -49,6 +49,10 @@ describe('contracts on the page', () => {
     expect(riders).toContain('400 boardings a day at Copley Square');
     expect(riders).toContain('Today: 254 boardings a day');
     expect(riders).toContain('data-kind="ridership"');
+    // Two 20-minute lines at Copley, one a second slower in snow (the round 5 audit): short of the
+    // 10-minute ask by a quarter of a second, and its figure says so, as RIDERSHIP's floor does.
+    const snow = panel(sim({ contracts: [{ ...offer, landmark: 'Copley Square', ask: 600, figure: 600.2499, met: false }] }));
+    expect(snow).toContain('<span class="short">Today: every 10 min 1 s</span>');
   });
 });
 

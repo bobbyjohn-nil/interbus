@@ -29,7 +29,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             <span>
               {c.daysNeeded} days in a row · {usd(c.rewardCents)}
             </span>
-            <span className={c.met ? 'met' : 'short'}>Today: {figureText(c.kind, c.figure)}</span>
+            <span className={c.met ? 'met' : 'short'}>Today: {figureText(c.kind, c.figure, c.ask)}</span>
             {c.held ? (
               <span>
                 {c.daysMet} of {c.daysNeeded} days · {c.daysLeft} {c.daysLeft === 1 ? 'day' : 'days'} left{c.onTrack ? '' : ' · missed today'}

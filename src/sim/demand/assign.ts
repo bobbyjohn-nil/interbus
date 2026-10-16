@@ -662,7 +662,8 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     shareAlone(optLine[q]!, optSecond[q]!, optBase[q]!, optLead[q]!, k, walkMin, optionRush(q, k), rushy ? rushTable[optRoute[q]!]![optCell[q]! + 3 + k]! : 1);
   // Scratch for several routes: each sub-point's options as a bitmask, the sets of options pairs of
   // sub-points share (at most 64 pairs) and their shares of the cell pair, and one set's options
-  // (a pair has at most one per route), and the quickest of them on each first line.
+  // (a pair has at most one per route), and the quickest of them on each first line, with how many
+  // tie it exactly.
   const homeWord = new Int32Array(8);
   const workWord = new Int32Array(8);
   let homeMask = new Int32Array(16);
@@ -672,6 +673,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   const setWeight = new Float64Array(64);
   let members = new Int32Array(Math.max(lineCount, 32));
   let picked = new Int32Array(members.length);
+  let tied = new Int32Array(members.length);
   let memberBase = new Float64Array(members.length);
   let memberHeadway = new Float64Array(members.length);
   let memberShare = new Float64Array(members.length);
@@ -693,7 +695,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     }
     for (let k = 0; k < 3; k++) {
       // A change and a one-seat ride starting on the same line take the same first bus, so each
-      // first line running this period offers its quickest, with the second line's wait.
+      // first line running this period offers its quickest, with the second line's wait; ways that
+      // tie exactly (a change onto either of twin lines) are counted in `tied` and split evenly
+      // below, so no order the lines were drawn in picks one (EC-02; the reference does the same).
       let lines = 0;
       for (let m = 0; m < n; m++) {
         const q = set[m]!;
@@ -706,12 +710,14 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         while (at < lines && optLine[picked[at]!] !== line) at++;
         if (at === lines) {
           picked[lines] = q;
+          tied[lines] = 1;
           memberBase[lines] = base;
           memberHeadway[lines++] = headway[line * 3 + k]!;
         } else if (base < memberBase[at]!) {
           picked[at] = q;
+          tied[at] = 1;
           memberBase[at] = base;
-        }
+        } else if (base === memberBase[at]) tied[at]!++;
       }
       if (lines === 0) continue;
       // One first line is its own wait (commonLines would give the same, a few ulps apart).
@@ -720,7 +726,21 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       if (minutes === Infinity) continue;
       const r = pairTrips * weight * shareGiven(minutes, Math.exp((minutes - pairCar) / MODE_TAU_MIN), pairWalk);
       if (r === 0) continue;
-      for (let m = 0; m < lines; m++) optRide[picked[m]! * 3 + k]! += r * memberShare[m]!;
+      for (let m = 0; m < lines; m++) {
+        if (tied[m] === 1) {
+          optRide[picked[m]! * 3 + k]! += r * memberShare[m]!;
+          continue;
+        }
+        // The ways that tie it, found again as above.
+        const line = optLine[picked[m]!]!;
+        const each = (r * memberShare[m]!) / tied[m]!;
+        for (let p = 0; p < n; p++) {
+          const q = set[p]!;
+          if (optLine[q] !== line) continue;
+          const second = optSecond[q]!;
+          if ((second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!) + optionRush(q, k) === memberBase[m]) optRide[q * 3 + k]! += each;
+        }
+      }
     }
   };
   /** Carries what rideScanning() put on each of the pair's `count` options, once each, and clears it. */
@@ -946,6 +966,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       if (members.length < routes) {
         members = new Int32Array(2 * routes);
         picked = new Int32Array(2 * routes);
+        tied = new Int32Array(2 * routes);
         memberBase = new Float64Array(2 * routes);
         memberHeadway = new Float64Array(2 * routes);
         memberShare = new Float64Array(2 * routes);
