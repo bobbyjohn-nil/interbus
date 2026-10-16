@@ -10,9 +10,15 @@ import { loadCity, type City, type Street } from './city/simfile';
 import { BUSES_KEEP_ONE_WAY } from './config/lines';
 import { distXY, frameFor, SpatialGrid, toXY, type LngLat, type XY } from './core/geo';
 import { createRng, seedFor } from './core/rng';
+import { addDebugLine, DEBUG_STOPS } from './commands/debugLine';
+import { placeDepot } from './commands/placeDepot';
+import { removeStop } from './commands/removeStop';
+import { DEPOT_STREET_REACH_M } from './config/depots';
+import { depotNear } from './pacing';
 import { checkStopSite } from './rules/stop';
 import { newGame } from './state';
-import { createWorld, depotSiteContext, lineDraftContext, nearestNode, stopNode } from './world';
+import { gameWithDepot } from './testing';
+import { createWorld, depotDrive, depotSiteContext, lineDraftContext, nearestNode, recompute, stopNode } from './world';
 
 /** A residential street along y = 0 and a one-way motorway along y = 30 above it, joined by ramps at both ends. */
 function besideAMotorway(): City {
@@ -57,6 +63,56 @@ describe('a stop never stands on a motorway', () => {
     expect(lineDraftContext(world).nearestNode(click, 150)?.node).toBe(1);
     expect(checkStopSite(lineDraftContext(world), click)).toMatchObject({ ok: true, kind: 'new', node: 1 });
     expect(depotSiteContext(world).nearestNode(click, 150)?.node).toBe(1);
+  });
+});
+
+// I14 with depots (the systems audit's fourth round): with five depots, ten lines on Inner Boston made
+// 60 more searches at each recompute, every line from every depot and its pull-in, 110-150 ms of a
+// building command's 230-350 ms. Shown failing (TS-04) with the drives routed afresh at each one: two
+// recomputes searched the depot's pull-out and pull-in twice each, where now they search neither.
+describe('the drives to and from the depots (I14)', () => {
+  it('routes each once for its depot and the line’s first stop, not at every recompute, and times the line as a fresh world does', () => {
+    const world = gameWithDepot();
+    if (!addDebugLine(world).ok) throw new Error('no line');
+    const line = world.state.lines[0]!;
+    const route = world.router.route;
+    const searches: string[] = [];
+    world.router.route = (from, to, turnCost) => {
+      searches.push(`${from} ${to}`);
+      return route(from, to, turnCost);
+    };
+    const depotNodes = () =>
+      new Set(
+        world.state.depots.map((d) => {
+          const at = toXY(world.city.frame, [d.lon, d.lat]);
+          return world.nodes.nearest(at, DEPOT_STREET_REACH_M)?.item ?? nearestNode(world, at);
+        }),
+      );
+    const drives = () => searches.filter((key) => key.split(' ').some((n) => depotNodes().has(Number(n))));
+    recompute(world);
+    recompute(world);
+    expect(drives()).toEqual([]);
+    // A second depot, by Longwood: the command times the line twice (world.ts recomputeInService), each new drive routed once.
+    expect(placeDepot(world, depotNear(world.city, toXY(world.city.frame, DEBUG_STOPS[3]!.at))).ok).toBe(true);
+    recompute(world);
+    const afterDepot = drives();
+    expect(afterDepot.length).toBeGreaterThanOrEqual(1);
+    expect(new Set(afterDepot).size).toBe(afterDepot.length);
+    // A new first stop: from each depot to it, and home from it, each once.
+    expect(removeStop(world, line.id, line.stopIds[0]!).ok).toBe(true);
+    recompute(world);
+    const afterStop = drives().slice(afterDepot.length);
+    expect(afterStop).toHaveLength(3);
+    expect(new Set(drives()).size).toBe(drives().length);
+    const fresh = createWorld(world.city, world.state);
+    const [now, then] = [world.services.get(line.id)!, fresh.services.get(line.id)!];
+    expect([now.depotId, now.depotNode, now.costs.pullOutM, now.costs.pullInM, now.day.inputs]).toEqual([then.depotId, then.depotNode, then.costs.pullOutM, then.costs.pullInM, then.day.inputs]);
+    // The worker draws the drives the line was timed with, without routing them again.
+    const searched = searches.length;
+    const first = nearestNode(world, now.plan.stops[0]!)!;
+    expect(depotDrive(world, now.depotNode!, first)!.dm / 10).toBe(now.costs.pullOutM);
+    expect(depotDrive(world, first, now.depotNode!)!.dm / 10).toBe(now.costs.pullInM);
+    expect(searches).toHaveLength(searched);
   });
 });
 

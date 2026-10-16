@@ -5,7 +5,8 @@
 // deadhead; economy/costs.ts), and each depot its upkeep; at 24:00 the day closes, its rows merge
 // by kind and line, and they are the day card (I1). A quarter's last day closes with its report card
 // (economy/reportCard.ts), whose payout or fine is one of that day's rows. A day that closes owing
-// pays the lender's interest, and a close below the credit floor counts toward the end (D10). Held
+// pays the lender's interest, before the card that grades it, and a close below the credit floor
+// counts toward the end (D10). Held
 // contracts are checked at each service hour's end and graded at the close, which then rolls the
 // next day's offers (economy/contracts.ts) and may roll an event for the day after (events/roll.ts);
 // a close where an event starts or ends times every line's round trip and assigns the riders again. Each close awards the
@@ -87,17 +88,20 @@ export function simStep(world: World): readonly SimEvent[] {
   bankHour(world, ended.hour, ended.day);
   checkHour(world, ended.hour);
   if (sinceMidnightOfDay1 % SECONDS_PER_DAY !== 0) return QUIET;
-  const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
-  if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
   const contracts = closeContracts(world, ended.day);
-  const trips = state.tripsToday;
-  const medals = medalsEarned(state.medals, { card, tripsCarried: state.tripsCarried, tripsToday: trips });
-  for (const m of medals) state.medals = { ...state.medals, [m]: ended.day };
-  state.tripsToday = 0;
+  // The interest is a running cost the quarter's card grades with the rest, so it is charged before the
+  // card, on what is owed before its grant or fine: graded after it, the quarter's last day of interest
+  // was graded in no quarter (the systems audit's fourth round).
   if (state.ledger.cashCents < 0) {
     const interest = Math.round((-state.ledger.cashCents * INTEREST_PER_DAY_PPM) / 1_000_000);
     if (interest > 0) post(state.ledger, { day: ended.day, kind: 'interest', amountCents: -interest });
   }
+  const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
+  if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
+  const trips = state.tripsToday;
+  const medals = medalsEarned(state.medals, { card, tripsCarried: state.tripsCarried, tripsToday: trips });
+  for (const m of medals) state.medals = { ...state.medals, [m]: ended.day };
+  state.tripsToday = 0;
   state.closesBelowFloor = belowFloor(state.ledger.cashCents) ? state.closesBelowFloor + 1 : 0;
   closeDay(state.ledger, ended.day);
   const rows = rowsOfDay(state.ledger, ended.day);

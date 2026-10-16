@@ -83,9 +83,8 @@ describe('a long game’s save', () => {
       for (const e of playDay(world, () => atLargest.push(measure(`day ${day} at 23:00`)))) {
         if (e.kind !== 'day-closed') continue;
         closed.push(...e.rows);
-        // The report card graded its quarter's rows, all there at its close, before the close's interest (step.ts).
-        const graded = closed.filter((r) => !(r.day === e.day && r.kind === 'interest'));
-        if (e.card) expect(e.card.money, `quarter ending day ${e.day}`).toBe(moneyGrade(unfolded(world, graded), e.day - DAYS_PER_QUARTER + 1, e.day));
+        // The report card graded its quarter's rows, all there at its close, the close's interest included (step.ts).
+        if (e.card) expect(e.card.money, `quarter ending day ${e.day}`).toBe(moneyGrade(unfolded(world, closed), e.day - DAYS_PER_QUARTER + 1, e.day));
       }
       measure(`day ${day + 1} at 05:00`);
     }

@@ -8,6 +8,7 @@ import { addDebugLine } from '../commands/debugLine';
 import { setStopTier } from '../commands/setStopTier';
 import { SECONDS_PER_DAY } from '../config/time';
 import { mint } from '../core/ids';
+import { post } from './ledger';
 import { dayDepartures } from '../rules/schedule';
 import { advance } from '../step';
 import { gameWithDepot } from '../testing';
@@ -76,6 +77,25 @@ describe('the report card', () => {
     const world = game();
     for (const id of world.state.lines[0]!.stopIds) expect(setStopTier(world, id, 3).ok).toBe(true);
     expect(comfortGrade(world)).toBeCloseTo(90, 6);
+  });
+
+  // The close charges the day's interest before it grades the quarter (the systems audit's fourth round):
+  // graded first, the card left the quarter's last day of interest out of Money, and the next quarter
+  // grades from its own first day, so one day of interest in eight was graded in no quarter. Shown
+  // failing (TS-04) with the card graded before the interest: Money 73.50, the quarter's rows 73.37.
+  it('grades every day of the quarter’s interest while owing, the last day’s charged on what is owed before the grant', () => {
+    const world = game();
+    // Owe $150k from day 1, the most the credit line allows, as a purchase would.
+    post(world.state.ledger, { day: 1, kind: 'buses', amountCents: -(world.state.ledger.cashCents + 15_000_000) });
+    const close = advance(world, 8 * SECONDS_PER_DAY)[7]!;
+    const card = close.card!;
+    const interest = close.rows.find((r) => r.kind === 'interest')!;
+    expect(interest.amountCents).toBeLessThan(0);
+    expect(card.money).toBe(moneyGrade(world, 1, 8));
+    expect(card.money).toBeLessThan(moneyGrade({ ...world, state: { ...world.state, ledger: { ...world.state.ledger, rows: world.state.ledger.rows.filter((r) => r !== interest) } } }, 1, 8));
+    const owed = -(close.cashAfterCents - card.payoutCents - interest.amountCents);
+    expect(card.payoutCents).toBeGreaterThan(0);
+    expect(interest.amountCents).toBe(-Math.round(owed * 0.0006));
   });
 
   it('leaves capital out of Money: a purchase on day 5 moves nothing', () => {

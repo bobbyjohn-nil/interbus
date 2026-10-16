@@ -22,7 +22,7 @@ import { STOP_TIER_IDS, STOP_TIERS, type StopTier } from '../config/stops';
 import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';
 import { shortfallCents } from './credit';
-import { checkLineDraft, type LineDraft, type LineDraftContext, type LineRefusal } from './line';
+import { checkLineDraft, depotRoom, type FleetContext, type LineDraft, type LineDraftContext, type LineRefusal, type LineVerdict } from './line';
 import type { Headways } from './periods';
 import { checkStopSite } from './stop';
 
@@ -63,6 +63,18 @@ export type ExtendVerdict = Result<
 >;
 
 /**
+ * The line rule's refusal details for a whole line as an edit runs it. The rule runs with the line's own
+ * buses set aside, so it asks only for the buses beyond them, and its room counts them free; the room
+ * named is the depots' own, which those extra buses must fit (the systems audit's fourth round: "2 more
+ * Sparrows" beside "Depots have room for 2 more" with every depot full, the headway card saying so).
+ */
+function editRefusal(ctx: FleetContext, whole: Extract<LineVerdict, { ok: false }>): { at?: number; limitM?: number; limitSeconds?: number; room?: number } {
+  const { at, limitM, limitSeconds } = whole;
+  const room = whole.room === undefined ? undefined : depotRoom(ctx);
+  return Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined));
+}
+
+/**
  * A line extended from `end` by `clicks` (frame metres), the first click nearest the line. Each
  * stop of the line joins itself, so the line rule sees the whole line; its room check counts the
  * buses beyond the line's own, and the cash check what the extension costs.
@@ -80,8 +92,7 @@ export function checkExtend(
   const draft: LineDraft = { ...whole.draft, busesCents, priceCents: whole.draft.stopsCents + busesCents };
   const extension = { draft, extraBuses };
   if (!whole.ok) {
-    const { at, limitM, limitSeconds, room } = whole;
-    return refuse(whole.reason, { ...extension, ...Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined)) });
+    return refuse(whole.reason, { ...extension, ...editRefusal(ctx, whole) });
   }
   if (clicks.length === 0) return refuse('no_new_stops', extension);
   const short = shortfallCents(draft.priceCents, ctx.cashCents);
@@ -150,8 +161,7 @@ export function checkInsert(
   const insertion: LineInsertion = { draft, extraBuses, leg: near ? leg : -1, detourM, detourShare, warn: detourShare > DETOUR_WARN_SHARE };
   if (!near) return refuse('no_leg_near', { ...insertion, limitM: INSERT_REACH_M });
   if (!whole.ok) {
-    const { at, limitM, limitSeconds, room } = whole;
-    return refuse(whole.reason, { ...insertion, ...Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined)) });
+    return refuse(whole.reason, { ...insertion, ...editRefusal(ctx, whole) });
   }
   const short = shortfallCents(draft.priceCents, ctx.cashCents);
   if (short > 0) return refuse('insufficient_funds', { ...insertion, shortCents: short });
@@ -217,8 +227,7 @@ export function checkRoute(
   const refundCents = removed.reduce((s, r) => s + r.refundCents, 0);
   const edit: RouteEdit = { draft, extraBuses, removed, refundCents };
   if (!whole.ok) {
-    const { at, limitM, limitSeconds, room } = whole;
-    return refuse(whole.reason, { ...edit, ...Object.fromEntries(Object.entries({ at, limitM, limitSeconds, room }).filter(([, v]) => v !== undefined)) });
+    return refuse(whole.reason, { ...edit, ...editRefusal(ctx, whole) });
   }
   const same = whole.draft.stops.length === line.stopIds.length && whole.draft.stops.every((s, k) => s.kind === 'join' && s.stopId === line.stopIds[k]);
   if (same) return refuse('no_change', edit);
