@@ -45,7 +45,11 @@ export interface Line {
   /** Buses the line owns, all of its one model; with fewer than its headways need, it runs every cycle ÷ buses. */
   buses: number;
   model: BusModelId;
-  /** Its versions from before a change made in service (or, just drawn, one that ran no bus), oldest first, until it settles onto its own day plan (rules/transition.ts), and on the day it was drawn every one since until that day's close; none or empty when it has not changed. */
+  /**
+   * Its versions from before a change made in service (or, just drawn, one that ran no bus), oldest first: every one it ran on
+   * the day of a change until that day's close (world.ts), which lets go of them all once it has settled onto its own day plan
+   * (rules/transition.ts) and otherwise of those before the last it had settled onto; none or empty when it has not changed.
+   */
   earlier?: EarlierRun[];
 }
 
@@ -53,8 +57,8 @@ export interface Line {
  * A line as it ran before a change made in service (the M4 spec, item 4): its places, model and
  * drives, and the plan its trips under way keep to, so each finishes on the route and the times it
  * began with. A line just drawn settles from a version that ran no bus (its plan's buses 0), so its
- * buses pull out of the depot for their first departures, and keeps it until that day's close, so the
- * day's costs and fares count from the draw. Kept as numbers because nothing else holds them once the
+ * buses pull out of the depot for their first departures; like every version of a day, it is kept until
+ * that day's close, so the day's costs count what ran (and its fares from the draw). Kept as numbers because nothing else holds them once the
  * line has changed.
  */
 export interface EarlierRun {

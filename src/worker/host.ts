@@ -181,8 +181,8 @@ type RoutedRun = Pick<SettlingView['earlier'][number], 'route' | 'stopAt' | 'sto
 
 /**
  * Each kept version's streets by its stops and depot, carried from one refresh of the line views to
- * the next only while a line still keeps a version on them. A line changed through the day it was
- * drawn keeps every version since (world.ts recomputeInService), most on the same streets; routing
+ * the next only while a line still keeps a version on them. A line changed through a day keeps every
+ * version it ran that day (world.ts recomputeInService), most on the same streets; routing
  * each afresh at every refresh made each change on Inner Boston about 5 ms slower than the last, past
  * I14's 150 ms by the 24th (`npm run bench jumps`).
  */

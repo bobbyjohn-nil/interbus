@@ -20,7 +20,7 @@ import { festivalOn, snowOn, worksOn } from './rules/event';
 import type { FleetContext, Leg, LineDraftContext } from './rules/line';
 import { dayPlan, type DayPlan } from './rules/schedule';
 import { runningHeadwayIn, type Timing } from './rules/timetable';
-import { planInEffect, type Earlier, type PlanInEffect } from './rules/transition';
+import { planInEffect, settledOnto, type Earlier, type PlanInEffect } from './rules/transition';
 import type { EarlierRun, Line, SimState } from './state';
 import { classRush } from './traffic/congestion';
 
@@ -351,11 +351,13 @@ export function recomputeInService(world: World): void {
     const was = before.get(line.id);
     const now = after.get(line.id);
     if (!now || (was && sameRun(was, now))) continue;
-    // Settled already, it needs nothing earlier; but through the day it was drawn it keeps every version
-    // since, so its plan before the draw stays empty and that day's costs and fares count from then.
-    const drawn = drawnAt(line);
-    const today = drawn !== null && toCalendarTime(drawn).day === toCalendarTime(at).day;
-    const settled = !today && (!was?.effect.merged || frameSecond(was.settling, at) >= was.effect.merged.handover);
+    // Settled onto its own day plan by midnight, it needs nothing earlier. Otherwise it keeps every version
+    // until a close lets go of those it no longer needs (settle()), so its plan from midnight is what its
+    // buses did and the day's costs bill that (I1, I6), and through the day it was drawn its plan before
+    // the draw stays empty, so that day's costs and fares count from then. Letting them go at a change once
+    // handed over billed the hours before an earlier change that day at that change's version (the systems
+    // audit's fourth round).
+    const settled = !was?.effect.merged || frameSecond(was.settling, at) - toCalendarTime(at).secondOfDay >= was.effect.merged.handover;
     line.earlier = [...(settled ? [] : (line.earlier ?? [])), was ? runOf(world, was, at) : runOf(world, now, at, 0)];
   }
   recompute(world);
@@ -396,15 +398,21 @@ function runOf(world: Pick<World, 'city' | 'state'>, s: LineService, at: number,
   };
 }
 
-/** Lets go of the earlier versions of every line past its handover, and says whether any did: from there its day plan holds alone. */
+/**
+ * At a close, lets go of the earlier versions each line no longer needs, and says whether any did: all
+ * of them past its handover, its day plan holding alone from there; before it, those older than the
+ * last version it had settled onto before it changed again, so a change late in the evening carries
+ * into the next day only what its plan from midnight needs, not the whole day's versions.
+ */
 export function settle(world: World): boolean {
   let any = false;
   for (const line of world.state.lines) {
     const s = world.services.get(line.id);
-    if (!line.earlier?.length || !s) continue;
+    if (!line.earlier?.length || !s?.settling) continue;
     const m = s.effect.merged;
-    if (m && frameSecond(s.settling, world.state.elapsed) < m.handover) continue;
-    line.earlier = [];
+    const gone = !m || frameSecond(s.settling, world.state.elapsed) >= m.handover ? line.earlier.length : settledOnto(s.settling.earlier);
+    if (gone === 0) continue;
+    line.earlier = line.earlier.slice(gone);
     any = true;
   }
   if (any) world.services = lineServices(world);

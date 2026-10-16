@@ -75,6 +75,21 @@ export function planInEffect(current: PlanInputs, earlier: readonly Earlier[]): 
   return { periodic, merged: was };
 }
 
+/**
+ * The latest of a line's `earlier` versions it had settled onto, its plan handed over to that version's
+ * own day plan before it changed again, as an index (0 with none): from that handover on the merged plan
+ * is the same without the versions before it, so a close may let them go (world.ts settle()).
+ */
+export function settledOnto(earlier: readonly Earlier[]): number {
+  let was = asMerged(dayPlan(earlier[0]!.inputs));
+  let onto = 0;
+  earlier.forEach((e, k) => {
+    if (was.handover <= e.until) onto = k;
+    if (k + 1 < earlier.length) was = merge(was, earlier[k + 1]!.inputs, e, dayPlan(earlier[k + 1]!.inputs));
+  });
+  return onto;
+}
+
 function asMerged(plan: DayPlan): MergedPlan {
   return { versions: [plan.inputs], breaks: [], sameModel: [true], carriesOn: [true], trips: plan.trips, stints: plan.stints, handover: Infinity };
 }
