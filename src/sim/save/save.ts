@@ -8,6 +8,7 @@
 //   backup key with a fresh start, never migrated (D12);
 // - the envelope names the build (SHA and version) instead of a typed version string (PR-15).
 import { CONTRACT_ASKS } from '../config/contracts';
+import { SECONDS_PER_DAY } from '../config/time';
 import { STOP_TIER_IDS, type StopTier } from '../config/stops';
 import { ID_KINDS, type ContractId, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
 import { toCalendarTime } from '../core/calendar';
@@ -197,8 +198,11 @@ export function integrityProblem(data: SaveData): string | null {
     if (line.fareCents < 0) return `line ${line.id} has a negative fare`;
     if (line.boardedMilli < 0) return `line ${line.id} has negative boardings`;
     if (line.buses < 0) return `line ${line.id} has negative buses`;
+    // Headways are whole seconds and no round trip takes a day, so no timetable runs more buses than a day has seconds: a file
+    // claiming a billion ran the page out of memory merging a settling line's versions (the systems audit's seventh round).
+    if (line.buses > SECONDS_PER_DAY) return `line ${line.id} has more buses than a day has departures`;
     if (!checkHeadways(line.headways).ok) return `line ${line.id} breaks the headway rules`;
-    if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0 || !checkHeadways(e.plan.headways).ok)) return `line ${line.id} has an impossible earlier version`;
+    if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0 || e.plan.buses > SECONDS_PER_DAY || !checkHeadways(e.plan.headways).ok)) return `line ${line.id} has an impossible earlier version`;
   }
   if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with the starting cash';
   if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one starting cash row';
@@ -220,6 +224,9 @@ export function integrityProblem(data: SaveData): string | null {
  * spec, item 8, which replaces M2's setting it aside). The game saves under the live key as it plays, so anything it refuses is kept
  * under a backup key first, never overwritten (D12).
  */
+/** The latest time a JavaScript Date holds (ECMA-262, Time Values): Saves' When cannot show one past it. */
+const LATEST_TIME_MS = 8.64e15;
+
 export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT): { result: LoadOutcome; effects: StoreEffect[] } {
   if (raw === null) return { result: { outcome: 'none' }, effects: [] };
   const setAside = (why: SetAsideWhy): StoreEffect[] => [
@@ -249,7 +256,7 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   const buildProblem = check({ object: { sha: 'string', version: 'string' } }, build, 'build');
   if (buildProblem) return unreadable(buildProblem);
   const savedAt = (parsed as { savedAt?: unknown }).savedAt;
-  if (savedAt !== undefined && !(typeof savedAt === 'number' && Number.isFinite(savedAt) && savedAt >= 0)) return unreadable('savedAt is not a time');
+  if (savedAt !== undefined && !(typeof savedAt === 'number' && Number.isFinite(savedAt) && savedAt >= 0 && savedAt <= LATEST_TIME_MS)) return unreadable('savedAt is not a time');
   const data = (parsed as { data?: unknown }).data;
   const problem = check(SAVE_SCHEMA, data);
   if (problem) return unreadable(problem);

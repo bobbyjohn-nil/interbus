@@ -266,6 +266,11 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a ledger out of day order', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 2, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
     ['a ledger row from a day not yet played', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 5, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
     ['a saved time that is no time', (e) => void (e.savedAt = 'yesterday'), /savedAt is not a time/],
+    // Saves' When could not show a time past what a Date holds, and the whole page went blank (the systems audit's seventh round).
+    ['a saved time past what a date holds', (e) => void (e.savedAt = 1e16), /savedAt is not a time/],
+    // A billion buses ran the page out of memory merging a settling line's versions, one entry a bus (the same round).
+    ['a line with a billion buses', (e) => void ((dataOf(e).lines as { buses: number }[])[0]!.buses = 1e9), /more buses than a day has departures/],
+    ['a kept version with a billion buses', (e) => void ((dataOf(e).lines as { earlier: unknown[] }[])[0]!.earlier = [{ until: 0, stops: [{ lon: -71.077, lat: 42.3499 }, { lon: -71.095, lat: 42.3375 }], depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, plan: { cycle: 1_500, cycles: { peak: 1_500, offpeak: 1_500, overnight: 1_500 }, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, buses: 1e9, oneWayS: 600, pullOutS: 0, pullInS: 0 } }]), /impossible earlier version/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {
