@@ -251,6 +251,8 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['no starting cash first', (e) => void (dataOf(e).ledger as unknown[]).shift(), /starting cash/],
     ['a field not in the schema', (e) => void (dataOf(e).camera = { zoom: 14 }), /camera: not in the schema/],
     ['a night-only line', (e) => void ((dataOf(e).lines as { headways: { overnight: number } }[])[0]!.headways.overnight = 60), /headway rules/],
+    // A kept version every 0 seconds made the day's departures loop for ever: the worker hung on import, and held as the autosave every load failed (the systems audit's seventh round).
+    ['a kept version every 0 seconds', (e) => void ((dataOf(e).lines as { earlier: unknown[] }[])[0]!.earlier = [{ until: 0, stops: [{ lon: -71.077, lat: 42.3499 }, { lon: -71.095, lat: 42.3375 }], depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, plan: { cycle: 0, cycles: { peak: 0, offpeak: 0, overnight: 0 }, headways: { peak: 0, offpeak: 0, overnight: null }, buses: 2, oneWayS: 0, pullOutS: 0, pullInS: 0 } }]), /impossible earlier version/],
     ['a stop of no tier', (e) => void ((dataOf(e).stops as { tier: number }[])[0]!.tier = 7), /a stop of no tier/],
     ['a contract at its counter', (e) => void ((dataOf(e).contracts as { id: number }[])[0]!.id = 3), /contract id at or above its counter/],
     ['a contract taken before its offer', (e) => void ((dataOf(e).contracts as { acceptedDay: number }[])[0]!.acceptedDay = 0), /taken before it was offered/],

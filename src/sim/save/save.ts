@@ -198,7 +198,7 @@ export function integrityProblem(data: SaveData): string | null {
     if (line.boardedMilli < 0) return `line ${line.id} has negative boardings`;
     if (line.buses < 0) return `line ${line.id} has negative buses`;
     if (!checkHeadways(line.headways).ok) return `line ${line.id} breaks the headway rules`;
-    if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0)) return `line ${line.id} has an impossible earlier version`;
+    if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0 || !checkHeadways(e.plan.headways).ok)) return `line ${line.id} has an impossible earlier version`;
   }
   if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with the starting cash';
   if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one starting cash row';
