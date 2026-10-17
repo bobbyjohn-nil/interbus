@@ -395,6 +395,23 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **Why:** the owner's priority. A value tuned on a system that does not work yet is tuned against a bug, as the Coverage grade was until #102.
 - **How to reverse:** the owner says the values come first again; the gold measurement picks up where it stopped.
 
+### D27 · Fewer tokens a session: no stage a stronger model makes redundant
+
+- **Decided:** 2026-10-17, by the owner: "can you find parts of the current workflow that is unproductive or redundant and remove or adjust them, we want to decrease the token usage", then "are there any major systems that are redundant due to the advanced nature of models? remove it if not needed".
+- **What it means:**
+  - **STATUS holds only what is live, waiting, in progress and next.** It had grown to 92,726 bytes (347 lines), about 60 KB of it finished work already in git, `CHANGELOG.md`, this file and the merged pull requests, and every check-in read it whole; it is now about 15 KB. Its long form stays at `git show a5c0ccd:docs/STATUS.md`, and the preview's feature list is `CHANGELOG.md`'s Unreleased, not a second copy.
+  - **The session-start hook prints STATUS only at a start or a clear**, not on a resume (the conversation already holds it) or a compaction (its summary carries what is in flight): each restart of a session's worker had added another copy.
+  - **A session searches this file** (318,778 bytes) for the decisions its task touches rather than reading it whole.
+  - **The check-in fires every two hours, not hourly, with a fast path:** when `main` has not moved, no pull request is open and the next item is blocked, it fetches, answers in one line and reads nothing else, and firings queued together get one answer. Seven firings queued in P0's freeze, each asking for the whole file.
+  - **No pull request only to cite a deploy:** the live check is cited in the next pull request's STATUS. #137 was a pull request, a CI run and a deploy for one line.
+  - **CI is waited on through the pull request's events**, not by polling it.
+  - **The audit loses its separate verifier.** One agent per finding reproduced it before the fixer reproduced it again as its failing-first test (TS-04); 16 of 157 findings were refuted, all as the recorded design or already known, which a fix checks in this file anyway. A fix sets aside, with its reason, a finding that does not reproduce or is the recorded design. Rounds still find bugs (40, 29, 18, 14 and 12 confirmed in rounds 1–5), so the audit stays, at most three lanes a round aimed at the newest code (the seventh round started six).
+  - **The session fixes findings itself**, one small pull request at a time, in place of a fixer agent per batch that rebuilt context the session already had.
+  - **A pull request that changes code has one independent reviewer** with both lenses (correctness, then the repo's rules and on-screen text), in place of two; a docs-only one has none. Fresh eyes still pay: the reviews of rounds 5 and 6 caught a take that blocked a Load, words untrue on screen and a cache with no bound.
+  - **Nothing else runs as a workflow** (the owner, 2026-10-17: "if you think multi agent workflows are inefficient and turning them off will be the same quality of work then turn it off or at least tune it down"): docs, investigations, measurements and small changes are the session's own work. The owner's earlier "run more parallel agents" gives way to this.
+- **Why:** the owner's priority. Each of these stages caught misses a session's own checks now catch, or rebuilt context a session reads from git. What guards the owner's say stays: versions only by `/ship`, the playtest freeze, the deploy's live check, TS-04's failing test and the review before a merge.
+- **How to reverse:** the owner says so; the check-in goes back to hourly, workflows go back to every task, and STATUS's long form is in git.
+
 ### CL · Versions only on the owner's say
 
 - **Decided:** 2026-10-12, by the owner: "create a changelog that will only make versions with my say."
