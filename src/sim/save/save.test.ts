@@ -159,6 +159,7 @@ describe('I7: create, delete, save and load never reuse an id', () => {
         const gone = state.rng.pick(state.stops).id;
         state.stops = state.stops.filter((s) => s.id !== gone);
         for (const line of state.lines) line.stopIds = line.stopIds.filter((id) => id !== gone);
+        state.lines = state.lines.filter((l) => l.stopIds.length >= 2); // as the game does: no line calls at fewer than two stops
       } else if (roll < 0.7 && state.lines.length > 0) {
         const gone = state.rng.pick(state.lines).id;
         state.lines = state.lines.filter((l) => l.id !== gone);
@@ -270,6 +271,13 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a saved time past what a date holds', (e) => void (e.savedAt = 1e16), /savedAt is not a time/],
     // A billion buses ran the page out of memory merging a settling line's versions, one entry a bus (the same round).
     ['a line with a billion buses', (e) => void ((dataOf(e).lines as { buses: number }[])[0]!.buses = 1e9), /more buses than a day has departures/],
+    // The line rule never draws these, and the page listed such a line with buses but no route (the seventh round).
+    ['a line with one stop', (e) => void ((dataOf(e).lines as { stopIds: number[] }[])[0]!.stopIds = [1]), /a line the line rule never draws/],
+    ['a line calling at a stop twice', (e) => void ((dataOf(e).lines as { stopIds: number[] }[])[0]!.stopIds = [1, 2, 1]), /a line the line rule never draws/],
+    // Play carried counters this near past the largest whole number, and the autosave it wrote then read as unreadable (the same round).
+    ['trips carried near the largest whole number', (e) => void (dataOf(e).tripsCarried = Number.MAX_SAFE_INTEGER - 10), /too near the largest whole number/],
+    ['an id counter near the largest whole number', (e) => void ((dataOf(e).nextIds as { stop: number }).stop = Number.MAX_SAFE_INTEGER), /too near the largest whole number/],
+    ['amounts near the largest whole number', (e) => void ((dataOf(e).ledger as { amountCents: number }[])[1]!.amountCents = Number.MAX_SAFE_INTEGER - 1), /too near the largest whole number/],
     ['a kept version with a billion buses', (e) => void ((dataOf(e).lines as { earlier: unknown[] }[])[0]!.earlier = [{ until: 0, stops: [{ lon: -71.077, lat: 42.3499 }, { lon: -71.095, lat: 42.3375 }], depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, plan: { cycle: 1_500, cycles: { peak: 1_500, offpeak: 1_500, overnight: 1_500 }, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, buses: 1e9, oneWayS: 600, pullOutS: 0, pullInS: 0 } }]), /impossible earlier version/],
   ];
   for (const [what, mutate, problem] of corrupt) {

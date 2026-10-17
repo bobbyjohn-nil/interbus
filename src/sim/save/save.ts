@@ -8,6 +8,7 @@
 //   backup key with a fresh start, never migrated (D12);
 // - the envelope names the build (SHA and version) instead of a typed version string (PR-15).
 import { CONTRACT_ASKS } from '../config/contracts';
+import { MIN_LINE_STOPS } from '../config/lines';
 import { SECONDS_PER_DAY } from '../config/time';
 import { STOP_TIER_IDS, type StopTier } from '../config/stops';
 import { ID_KINDS, type ContractId, type DepotId, type IdKind, type LineId, type NextIds, type StopId } from '../core/ids';
@@ -195,6 +196,7 @@ export function integrityProblem(data: SaveData): string | null {
   const stops = new Set(data.stops.map((s) => s.id));
   for (const line of data.lines) {
     if (line.stopIds.some((id) => !stops.has(id))) return `line ${line.id} names a missing stop`;
+    if (line.stopIds.length < MIN_LINE_STOPS || new Set(line.stopIds).size !== line.stopIds.length) return `line ${line.id} is a line the line rule never draws`;
     if (line.fareCents < 0) return `line ${line.id} has a negative fare`;
     if (line.boardedMilli < 0) return `line ${line.id} has negative boardings`;
     if (line.buses < 0) return `line ${line.id} has negative buses`;
@@ -213,6 +215,10 @@ export function integrityProblem(data: SaveData): string | null {
   if (data.ledger.some((r, i) => r.day > today || (i > 0 && r.day < data.ledger[i - 1]!.day))) return 'a ledger out of day order';
   // A row may name a line since deleted, never one not yet made.
   if (data.ledger.some((r) => r.lineId !== null && (r.lineId < 1 || r.lineId >= data.nextIds.line))) return 'a ledger row names a line never made';
+  // Play adds to these (trips, ids, a close's merged rows), so a file this near the largest whole number played on into an autosave
+  // its own reader refused; an eighth of it is room no game comes near.
+  const room = Number.MAX_SAFE_INTEGER / 8;
+  if (data.tripsCarried > room || Object.values(data.nextIds).some((n) => n > room) || data.ledger.reduce((sum, r) => sum + Math.abs(r.amountCents), 0) > room) return 'a counter too near the largest whole number';
   return null;
 }
 
