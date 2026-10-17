@@ -65,7 +65,7 @@ clipped to Back Bay–Longwood, committed so tests never wait for the full bake.
 
 | Document | What it is | Read it when |
 |---|---|---|
-| [docs/STATUS.md](docs/STATUS.md) | The handoff between Claude sessions: what is live, in progress, waiting on the owner and next, and the hourly check-in protocol that carries work through usage-limit pauses | To see where things stand |
+| [docs/STATUS.md](docs/STATUS.md) | The handoff between Claude sessions: what is live, in progress, waiting on the owner and next, and the check-in protocol (every two hours) that carries work through usage-limit pauses | To see where things stand |
 | [PLAN.md](PLAN.md) | The plan the studio works from: the decisions still open (at the top), scope, stack, calendar and cut list. Its §0 is a one-page summary | First |
 | [docs/SCOPE.md](docs/SCOPE.md) | What v1.0 is on one page: what is in, what is out, the milestones and what is never cut | When deciding whether something belongs in v1.0 |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | The open questions with their deadlines (first), then every decision the owner has made (what, why, when, how to reverse it) | Before changing scope, look or platform |

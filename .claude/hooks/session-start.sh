@@ -1,8 +1,9 @@
 #!/bin/bash
 # Session start for interbus. In a cloud session it installs what the checks need (npm packages,
 # the pinned pyosmium for the bake, the fonts and the city files) and exports the paths the tests
-# read. In every session it prints docs/STATUS.md, so a new session or a compacted context starts
-# from the handoff (CLAUDE.md "How sessions work"). Idempotent; a failed optional step warns.
+# read. At a start or a clear it prints docs/STATUS.md, so a new session starts from the handoff
+# (CLAUDE.md "How sessions work"); a resume already holds it and a compaction's summary carries what
+# is in flight, so neither prints it again (D27). Idempotent; a failed optional step warns.
 set -uo pipefail
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" || exit 0
 
@@ -45,7 +46,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ "$source_kind" != "compact" ] && 
   fi
 fi
 
-if [ -f docs/STATUS.md ]; then
+if [ -f docs/STATUS.md ] && [ "$source_kind" != "compact" ] && [ "$source_kind" != "resume" ]; then
   echo "interbus: the session handoff follows (docs/STATUS.md). Read CLAUDE.md's rules, then work from it."
   echo
   cat docs/STATUS.md
