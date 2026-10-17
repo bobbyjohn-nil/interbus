@@ -46,7 +46,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - minor: the reader accepts lines the line rule never allows (no stops, one stop, a stop twice, a stop off every street);
   - minor: a file with five closes below the credit floor but cash well above it loads as an ended run.
 
-  Next: these six as fixes on branches, each one's failing test its reproduction (D27); the other five lanes as finders once the limit resets; every fix merging, each a small pull request, after P0's notes are committed.
+  Next: the session fixes these six on branches, each one's failing test its reproduction (D27); once the limit resets, three of the other five lanes run as finders (the edges of the fifth and sixth rounds' fixes, determinism and Export session's replay, the 200-day game); every fix merging, each a small pull request, after P0's notes are committed.
 
 ## Next
 
