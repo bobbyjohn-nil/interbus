@@ -19,7 +19,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 
 ## Waiting on the owner
 
-- [ ] **P0, by Fri Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
+- [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare **day 2's** card with Finance's Day forecast on day 2, a whole day on both. On day 1 the forecast counts the line from its buses' first drive out, as day 1's card does, but the depot's and stops' upkeep for a whole day where the card has 19 hours of 24 (day 1 opens at 05:00).
@@ -46,7 +46,9 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - minor: the reader accepts lines the line rule never allows (no stops, one stop, a stop twice, a stop off every street);
   - minor: a file with five closes below the credit floor but cash well above it loads as an ended run.
 
-  Next: the session fixes these six on branches, each one's failing test its reproduction (D27); once the limit resets, three of the other five lanes run as finders (the edges of the fifth and sixth rounds' fixes, determinism and Export session's replay, the 200-day game); every fix merging, each a small pull request, after P0's notes are committed.
+  The first is fixed on a local branch (the reader now holds each kept version to the headway rule), waiting for this pull request to merge before its own.
+
+  Next: the session fixes the other five on branches, each one's failing test its reproduction (D27); once the limit resets, three of the other five lanes run as finders (the edges of the fifth and sixth rounds' fixes, determinism and Export session's replay, the 200-day game); every fix merging, each a small pull request, after P0's notes are committed.
 
 ## Next
 
