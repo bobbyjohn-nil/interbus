@@ -131,15 +131,22 @@ test('with blocked site data, the map card that cannot start and the replaced bu
   const download = page.waitForEvent('download');
   await card.getByRole('button', { name: 'Export this game' }).click();
   expect((await download).suggestedFilename()).toBe('interbus-boston-day-1.json');
-  // A lazy chunk of this build gone (Vite's preloadError): the replaced build's card, the map's own card gone, says the same.
+  // Day 1 closes, its card waiting for an answer at the board's top; then a lazy chunk of this build is gone (Vite's
+  // preloadError). The replaced build's card, the map's own card gone, says the same, its words over its buttons, at the
+  // board's foot while the day card is up, so neither hides the other. Shown failing (TS-04) with the card at the top, where
+  // it hid the day card's heading (the review of the seventh round's fixes).
+  await setSpeed(page, '5,400×');
+  const dayCard = page.getByTestId('day-card');
+  await expect(dayCard).toBeVisible({ timeout: 30_000 });
   await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
   const replaced = page.getByTestId('replaced-card');
   await expect(replaced).toHaveText('This build was replaced. This game isn’t saving itself: export it before you reload.Export this gameReload');
+  await expect(replaced).toHaveAccessibleName('This build was replaced. This game isn’t saving itself: export it before you reload.');
   await expect(card).toHaveCount(0);
-  expect(await inFront(replaced)).toBe(true);
+  expect({ card: await inFront(replaced), heading: await inFront(dayCard.locator('h2')), continue: await inFront(dayCard.getByRole('button', { name: 'Continue' })) }).toEqual({ card: true, heading: true, continue: true });
   const again = page.waitForEvent('download');
   await replaced.getByRole('button', { name: 'Export this game' }).click();
-  expect((await again).suggestedFilename()).toBe('interbus-boston-day-1.json');
+  expect((await again).suggestedFilename()).toMatch(/^interbus-boston-day-\d+\.json$/);
 });
 
 // The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on

@@ -16,7 +16,7 @@ export function ReplacedCard({ failed = null, unsaved = null }: { failed?: strin
   if (!words) return null;
   const keep = shown ? unsaved : null;
   return (
-    <div className={keep ? 'replaced unsaved' : 'replaced'} role="alertdialog" aria-label={words} data-testid={shown ? 'replaced-card' : 'failed-card'}>
+    <div className={keep ? 'replaced unsaved' : 'replaced'} role="alertdialog" aria-label={keep ? `${words}. ${keep.words}` : words} data-testid={shown ? 'replaced-card' : 'failed-card'}>
       <span>{keep ? `${words}. ${keep.words}` : words}</span>
       {keep ? (
         <button type="button" onClick={keep.onKeep}>

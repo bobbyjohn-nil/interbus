@@ -21,7 +21,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 
 - [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
-- [ ] **I14 on a hub of lines, by Sun Nov 1** (DECISIONS, Open): a late game's 8 to 15 lines out of one stop take 0.12–0.36 s a command at p50 against I14's 150 ms at p95. Hold I14 on the reference network and on hubs of up to 6 lines, and make the assignment faster for larger hubs once a playtest or the pacing run builds one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines.
+- [ ] **I14 on a hub of lines, by Sun Nov 1** (DECISIONS, Open): a late game's 10 to 15 lines out of one stop take 0.11–0.24 s a command at p50 (0.15–0.30 s at p95) against I14's 150 ms at p95. Hold I14 on the reference network and on hubs of up to 8 spokes, and make the assignment faster for larger hubs once a playtest or the pacing run builds one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines.
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare **day 2's** card with Finance's Day forecast on day 2, a whole day on both. On day 1 the forecast counts the line from its buses' first drive out, as day 1's card does, but the depot's and stops' upkeep for a whole day where the card has 19 hours of 24 (day 1 opens at 05:00).
 - [ ] **M3's exit check, on the preview** ([`m3-money-loop.md`](specs/m3-money-loop.md)): the checklist to a profitable day and a contract in about 8 minutes; the report card; overspending to the countdown and Restart this quarter.
@@ -56,13 +56,13 @@ Systems that work first, the real values later (D26): an audit finds what does n
 
   Three more lanes ran as finders on Oct 19:
   - determinism and Export session's replay: nothing;
-  - the 200-day game: one minor, I14 on a hub of lines (Waiting on the owner). `npm run bench recompute` now times hubs, holds the 6-line one to I14, and takes p95 from 100 runs: from 30, the nightly's I14 step was red on Oct 17 and 18 (Inner Boston's assignment p95 170.8 ms against a p50 of 77.3);
+  - the 200-day game: one minor, I14 on a hub of lines (Waiting on the owner). `npm run bench recompute` now times hubs of spokes out of Copley, holds those of up to 8 to I14, and takes p95 from 100 runs: from 30, the nightly's I14 step was red on Oct 17 and 18 (Inner Boston's assignment p95 170.8 ms against a p50 of 77.3);
   - the edges of the fifth and sixth rounds' fixes: three, fixed here with failing-first tests:
     - (blocker) with two tabs, Saves listed its slots again only at the autosave's changes, so a row read Empty over a game the other tab had kept there, and Save here wrote over it unasked;
     - (major) the map's start-failure card and the replaced build's card offered Reload alone while the game wasn't saving itself;
     - (minor) the day card and the lender's card hid the start-failure card.
 
-  The independent review of the edges fixes is running. Left open:
+  The independent review of the edges fixes found three minors and three nits, all fixed: the stacked replaced card drops below a day card as the map's cards do, the bench's hubs are real spokes (the finder's lines ran Copley and then four stops 1.5–6 km away), DECISIONS states Saves' 2 s window, an emptied slot under Load's question gets Save here back, the replaced card's name carries its warning, and a unit test claims only what it checks. Left open:
   - the floor count: the failure-floor tests' saves must first be rebuilt to count only closed days;
   - a stop off every street;
   - 1 s headways are legal: the review estimates seconds a recompute for a file with a few thousand buses (not measured);

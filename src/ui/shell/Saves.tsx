@@ -203,7 +203,7 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                     Keep it
                   </button>
                 </>
-              ) : confirm === slot || deleting === slot ? null : (
+              ) : (confirm === slot && about) || deleting === slot ? null : (
                 <button
                   type="button"
                   onClick={(e) => {

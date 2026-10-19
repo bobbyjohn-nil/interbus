@@ -21,10 +21,11 @@ import { mint, type LineId } from '../src/sim/core/ids';
 import { foundLedger } from '../src/sim/economy/ledger';
 import { assign, type LinePlan } from '../src/sim/demand/assign';
 import { buildCommuters } from '../src/sim/demand/commuters';
-import { corridorCandidates, depotNear } from '../src/sim/pacing';
+import { depotNear } from '../src/sim/pacing';
+import { corridorStops } from '../src/sim/sweep';
 import { newGame } from '../src/sim/state';
 import { commutersToday, createWorld, planLine, recompute } from '../src/sim/world';
-import { CORRIDORS, innerBoston } from './inner';
+import { innerBoston } from './inner';
 import { syntheticCity, t03Network } from './synthetic';
 
 // 100 runs a case: at 30, p95 was the second-slowest run, and one or two slow runs decided it. On the nightly of
@@ -100,28 +101,33 @@ if (inner) {
   }
   time(`Inner Boston's whole recompute, ${boston.state.lines.length} lines of 3 Sparrows and ${boston.state.depots.length} depots`, () => recompute(boston));
 
-  // Hubs (the systems audit's seventh round): lines out of Copley Square along each corridor's nearer half, Copley and its
-  // first four stops, one or two Sparrows each at 30 minutes in the peaks and hourly off-peak, drawn as Create draws them,
-  // with a depot placed whenever the last is full. Every spoke changes onto every other at Copley, so the cell pairs riders
-  // can make grow with the square of the lines, and the recompute with them. A hub of 6 lines is held to I14; at 8 lines and
-  // more it is over (DECISIONS, Open: I14 on a hub of lines), so they are timed without failing the run until the assignment is made faster
-  // for them or the owner settles what I14 holds.
+  // Hubs (the systems audit's seventh round): spokes out of Copley Square, each Copley and the next four stops along the
+  // streets toward a bearing 3 km out, about 600 m apart (corridorStops), drawn as Create draws them with one Sparrow at
+  // 30 minutes in the peaks and hourly off-peak, the five depots placed first round Copley. A bearing whose stops the line
+  // rule refuses (a stop twice, or none near a street) gives way to the next. Every spoke changes onto every other near
+  // Copley, so the cell pairs riders can make grow with the square of the lines, and the recompute with them. Hubs of 6 and
+  // 8 lines are held to I14; at 10 lines and more it is over (DECISIONS, Open: I14 on a hub of lines), so they are timed
+  // without failing the run until the assignment is made faster for them or the owner settles what I14 holds.
   const COPLEY: [number, number] = [-71.077, 42.3499];
+  const toward = (bearing: number, m: number): [number, number] => {
+    const b = (bearing * Math.PI) / 180;
+    return [COPLEY[0] + (Math.sin(b) * m) / (111_320 * Math.cos((COPLEY[1] * Math.PI) / 180)), COPLEY[1] + (Math.cos(b) * m) / 110_540];
+  };
+  const bearings = [...Array(32).keys()].map((k) => (k < 16 ? k * 22.5 : 11.25 + (k - 16) * 22.5));
   for (const size of [6, 8, 10, 15]) {
     const hub = createWorld(boston.city, { ...newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: '', colour: '#2471a3' }, 1), ledger: foundLedger(2_000_000_000) });
     found(hub, 'Back Bay Transit', '#2471a3');
-    for (const c of corridorCandidates(hub, CORRIDORS).filter((c) => c.name.includes('from'))) {
+    for (const at of [COPLEY, toward(0, 1_000), toward(90, 1_000), toward(180, 1_000), toward(270, 1_000), toward(45, 1_500), toward(225, 1_500)]) {
+      if (hub.state.depots.length < 5) placeDepot(hub, depotNear(hub.city, toXY(hub.city.frame, at)));
+    }
+    for (const bearing of bearings) {
       if (hub.state.lines.length >= size) break;
-      const stops = [COPLEY, ...c.stops.slice(0, 4)];
-      let made = hub.state.depots.length ? createLine(hub, stops, { peak: 1_800, offpeak: 3_600, overnight: null }) : null;
-      if ((!made || (!made.ok && made.reason === 'depot_full')) && hub.state.depots.length < 5) {
-        if (!placeDepot(hub, depotNear(hub.city, toXY(hub.city.frame, hub.state.depots.length ? stops[2]! : COPLEY))).ok) throw new Error('bench: a depot for the hub was refused');
-        made = createLine(hub, stops, { peak: 1_800, offpeak: 3_600, overnight: null });
-      }
+      const along = corridorStops(hub, COPLEY, toward(bearing, 3_000), 600);
+      if (along && along.length >= 5) createLine(hub, along.slice(0, 5), { peak: 1_800, offpeak: 3_600, overnight: null });
     }
     if (hub.state.lines.length !== size) throw new Error(`bench: the hub has ${hub.state.lines.length} lines, not ${size}`);
     const buses = hub.state.lines.reduce((n, l) => n + l.buses, 0);
-    time(`Inner Boston's whole recompute, a hub of ${size} lines out of Copley Square, ${buses} buses`, () => recompute(hub), size <= 6);
+    time(`Inner Boston's whole recompute, a hub of ${size} spokes out of Copley Square, ${buses} buses`, () => recompute(hub), size <= 8);
   }
 }
 

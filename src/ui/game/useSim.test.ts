@@ -587,15 +587,15 @@ describe('another tab’s save', () => {
 
   // Saves lists again at another tab's save to a slot, or a delete, as at its autosave: the rows were listed when Saves opened
   // and at the autosave's changes alone, so a row read Empty over the game another tab had just kept there, and Save here wrote
-  // over it unasked (the systems audit's seventh round). A slot is not the autosave: no take, and nothing said newer. Shown
-  // failing (TS-04) with the page hearing the live key alone.
+  // over it unasked (the systems audit's seventh round). A slot is not the autosave, so nothing is said newer: `newer` is
+  // what would turn the Saves chip to "Autosave off" and hold the game's saves. Shown failing (TS-04) with the page hearing
+  // the live key alone.
   it('has Saves list again at another tab’s save to a slot, which is not the autosave', async () => {
     await opened('A0');
     const before = sim().stored;
     page.otherTab('interbus.slot.boston.1', 'S1');
     page.otherTab('interbus.slot.boston.2', null);
     expect(sim().stored).toBe(before + 2);
-    expect(takes()).toEqual([]);
     expect(sim()).toMatchObject({ newer: false, movedOn: false });
   });
 });

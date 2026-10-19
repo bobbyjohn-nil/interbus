@@ -216,5 +216,18 @@ test.describe('Home', () => {
     await expect(slotA).toHaveAttribute('data-empty', 'no');
     await slotA.getByRole('button', { name: 'Save here' }).click();
     await expect(slotA.getByRole('button', { name: 'Replace Slot 1' })).toBeVisible();
+
+    // A asks to load slot 1, and B deletes it meanwhile: A's row reads Empty, with its Save here back. Shown failing (TS-04)
+    // with Load's question open still, which left the row with no button at all (the review of the seventh round's fixes).
+    await slotA.getByRole('button', { name: 'Keep it' }).click();
+    await slotA.getByRole('button', { name: 'Load' }).click();
+    await expect(slotA.getByRole('button', { name: 'Replace this game' })).toBeVisible();
+    await b.bringToFront();
+    await b.getByTestId('slot-1').getByRole('button', { name: 'Delete' }).click();
+    await b.getByTestId('slot-1').getByRole('button', { name: 'Delete Slot 1' }).click();
+    await expect(b.getByTestId('slot-1')).toHaveAttribute('data-empty', 'yes');
+    await a.bringToFront();
+    await expect(slotA).toHaveAttribute('data-empty', 'yes');
+    await expect(slotA.getByRole('button', { name: 'Save here' })).toBeVisible();
   });
 });

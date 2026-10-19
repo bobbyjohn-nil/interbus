@@ -130,6 +130,14 @@ body,
   flex-basis: 100%;
 }
 
+/* Stacked, it reached 118 px, over the heading and first row of a day card or the lender's card at 60 px (the review of the
+   seventh round's fixes), so while one is up it drops to the board's foot as the map's cards do. One row, it ends at 66 px,
+   clear of their headings. */
+.app:has(.day-card) .replaced.unsaved {
+  top: auto;
+  bottom: 80px;
+}
+
 .replaced button,
 .map-notice button {
   font: inherit;
