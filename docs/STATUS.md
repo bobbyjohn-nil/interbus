@@ -2,7 +2,7 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-19, at `main` a5c0ccd, in P0's playtest freeze, with the sessions' token use cut (D27) and the seventh audit round going again since the owner reset the usage limit.
+**Updated:** 2026-10-19, at `main` a5c0ccd, in P0's playtest freeze, with the sessions' token use cut (D27) and the seventh audit round's fixes on this pull request.
 
 ## Live now
 
@@ -21,6 +21,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 
 - [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
+- [ ] **I14 on a hub of lines, by Sun Nov 1** (DECISIONS, Open): a late game's 8 to 15 lines out of one stop take 0.12–0.36 s a command at p50 against I14's 150 ms at p95. Hold I14 on the reference network and on hubs of up to 6 lines, and make the assignment faster for larger hubs once a playtest or the pacing run builds one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines.
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare **day 2's** card with Finance's Day forecast on day 2, a whole day on both. On day 1 the forecast counts the line from its buses' first drive out, as day 1's card does, but the depot's and stops' upkeep for a whole day where the card has 19 hours of 24 (day 1 opens at 05:00).
 - [ ] **M3's exit check, on the preview** ([`m3-money-loop.md`](specs/m3-money-loop.md)): the checklist to a profitable day and a contract in about 8 minutes; the report card; overspending to the countdown and Restart this quarter.
@@ -46,9 +47,28 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - minor: the reader accepts lines the line rule never allows (no stops, one stop, a stop twice, a stop off every street);
   - minor: a file with five closes below the credit floor but cash well above it loads as an ended run.
 
-  Five are fixed on a local branch, each with its failing-first test, all but the floor count and a stop off every street: the reader now holds kept versions to the headway rule, a line and its kept versions to 86,400 buses (no timetable runs more), a saved time to what a date holds, a line to two stops or more with none twice, and the counters to an eighth of the largest whole number. They wait for this pull request to merge before their own, with one independent review.
+  Five are fixed on this pull request, each with its failing-first test; the floor count and a stop off every street are not. The reader now holds:
+  - kept versions to the headway rule;
+  - a line and its kept versions to 86,400 buses (no timetable runs more);
+  - a saved time to what a date holds;
+  - a line to two stops or more, with none twice;
+  - the counters to half the largest whole number in the game's own saves and an eighth in an imported file (the independent review's change, with kept versions' distances).
 
-  Next: three of the other five lanes run as finders (the edges of the fifth and sixth rounds' fixes, determinism and Export session's replay, the 200-day game), and their findings are fixed the same way (D27); every fix merging, each a small pull request, after P0's notes are committed. The floor count needs the failure-floor tests' saves rebuilt to count only closed days first.
+  Three more lanes ran as finders on Oct 19:
+  - determinism and Export session's replay: nothing;
+  - the 200-day game: one minor, I14 on a hub of lines (Waiting on the owner). `npm run bench recompute` now times hubs, holds the 6-line one to I14, and takes p95 from 100 runs: from 30, the nightly's I14 step was red on Oct 17 and 18 (Inner Boston's assignment p95 170.8 ms against a p50 of 77.3);
+  - the edges of the fifth and sixth rounds' fixes: three, fixed here with failing-first tests:
+    - (blocker) with two tabs, Saves listed its slots again only at the autosave's changes, so a row read Empty over a game the other tab had kept there, and Save here wrote over it unasked;
+    - (major) the map's start-failure card and the replaced build's card offered Reload alone while the game wasn't saving itself;
+    - (minor) the day card and the lender's card hid the start-failure card.
+
+  The independent review of the edges fixes is running. Left open:
+  - the floor count: the failure-floor tests' saves must first be rebuilt to count only closed days;
+  - a stop off every street;
+  - 1 s headways are legal: the review estimates seconds a recompute for a file with a few thousand buses (not measured);
+  - a Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.
+
+  Next: the other two lanes (the screens with many lines; window sizes, zoom and resizes) as finders after Oct 22, fixed the same way (D27).
 
 ## Next
 
@@ -61,7 +81,7 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M5, Prototype, by Sun D
 ## Autonomy protocol (the owner's request, 2026-10-13; D27)
 
 - **The check-in.** A Routine named "interbus check-in" fires every three hours (hourly until D27, then every two hours until the owner asked for three on 2026-10-19) into the session that owns `main`. Each firing:
-  1. fetches and lists open pull requests; if `main` has not moved since the last check-in, no pull request of the session's needs anything (red, conflicted, newly reviewed, or green and free to merge) and the next item is blocked (a playtest freeze, a usage limit or the owner), it answers in one line and reads nothing else, and firings queued together get one answer;
+  1. fetches, lists open pull requests and reads the latest Nightly run's result; if `main` has not moved since the last check-in, no pull request of the session's needs anything (red, conflicted, newly reviewed, or green and free to merge), the latest Nightly is green or its failure is already in this file (its I14 step went red on Oct 17 and 18 unseen), and the next item is blocked (a playtest freeze, a usage limit or the owner), it answers in one line and reads nothing else, and firings queued together get one answer;
   2. otherwise reads this file and checks `main`'s CI and deploy;
   3. fixes a red or reviewed pull request first;
   4. otherwise continues the first unblocked item under In progress or Next, in small committed and pushed steps.
