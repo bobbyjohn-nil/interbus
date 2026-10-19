@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mint, type LineId, type StopId } from '../core/ids';
 import { post } from '../economy/ledger';
 import { newGame, type CityRef, type SimState } from '../state';
-import { aboutSave, backupKey, decode, encode, fromSaveData, SAVE_FORMAT, saveKey, SET_ASIDE, stateHash, toSaveData } from './save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, IMPORT_COUNTER_LIMIT, SAVE_FORMAT, SAVED_COUNTER_LIMIT, saveKey, SET_ASIDE, stateHash, toSaveData } from './save';
 import type { SetAsideWhy } from '../types';
 import { CALENDAR, schemaHash, SAVE_SCHEMA, type Field } from './schema';
 import lock from './schema.lock.json';
@@ -53,6 +53,12 @@ const raw = (state: SimState, mutate?: (envelope: Record<string, unknown>) => vo
   return JSON.stringify(envelope);
 };
 const dataOf = (envelope: Record<string, unknown>) => envelope.data as Record<string, unknown>;
+/** Line 1 keeping a version from before a change, as a settling line does: a sound one, with `plan` and `rest` over it. */
+const keep = (envelope: Record<string, unknown>, plan: Record<string, unknown> = {}, rest: Record<string, unknown> = {}) => {
+  const stops = [{ lon: -71.077, lat: 42.3499 }, { lon: -71.095, lat: 42.3375 }];
+  const sound = { cycle: 1_500, cycles: { peak: 1_500, offpeak: 1_500, overnight: 1_500 }, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, buses: 2, oneWayS: 600, pullOutS: 0, pullInS: 0 };
+  (dataOf(envelope).lines as { earlier: unknown[] }[])[0]!.earlier = [{ until: 0, stops, depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, ...rest, plan: { ...sound, ...plan } }];
+};
 
 describe('saves', () => {
   it('round-trips a played game, and save-load-save is identical (I8)', () => {
@@ -159,7 +165,8 @@ describe('I7: create, delete, save and load never reuse an id', () => {
         const gone = state.rng.pick(state.stops).id;
         state.stops = state.stops.filter((s) => s.id !== gone);
         for (const line of state.lines) line.stopIds = line.stopIds.filter((id) => id !== gone);
-        state.lines = state.lines.filter((l) => l.stopIds.length >= 2); // as the game does: no line calls at fewer than two stops
+        // The game never leaves a line under two stops (route.ts refuses it: line_keeps_two), so one cut short here goes too.
+        state.lines = state.lines.filter((l) => l.stopIds.length >= 2);
       } else if (roll < 0.7 && state.lines.length > 0) {
         const gone = state.rng.pick(state.lines).id;
         state.lines = state.lines.filter((l) => l.id !== gone);
@@ -241,6 +248,7 @@ describe('refusals (first failure wins; the live key is never overwritten by one
 
   // Each of these V3 read as something: V3 defaulted a missing nextIds to 0 (reissuing live ids),
   // a corrupt cash to $500,000 and a null clock to minute 0 (read.ts:71-77, 182, 187-195).
+  const overHalf = Math.floor(SAVED_COUNTER_LIMIT / 2) + 1; // two of these pass the bound, neither alone
   const corrupt: [string, (e: Record<string, unknown>) => void, RegExp][] = [
     ['a missing nextIds', (e) => void delete dataOf(e).nextIds, /nextIds: missing/],
     ['a counter at a live id', (e) => void ((dataOf(e).nextIds as { stop: number }).stop = 3), /stop id at or above its counter/],
@@ -252,8 +260,6 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['no starting cash first', (e) => void (dataOf(e).ledger as unknown[]).shift(), /starting cash/],
     ['a field not in the schema', (e) => void (dataOf(e).camera = { zoom: 14 }), /camera: not in the schema/],
     ['a night-only line', (e) => void ((dataOf(e).lines as { headways: { overnight: number } }[])[0]!.headways.overnight = 60), /headway rules/],
-    // A kept version every 0 seconds made the day's departures loop for ever: the worker hung on import, and held as the autosave every load failed (the systems audit's seventh round).
-    ['a kept version every 0 seconds', (e) => void ((dataOf(e).lines as { earlier: unknown[] }[])[0]!.earlier = [{ until: 0, stops: [{ lon: -71.077, lat: 42.3499 }, { lon: -71.095, lat: 42.3375 }], depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, plan: { cycle: 0, cycles: { peak: 0, offpeak: 0, overnight: 0 }, headways: { peak: 0, offpeak: 0, overnight: null }, buses: 2, oneWayS: 0, pullOutS: 0, pullInS: 0 } }]), /impossible earlier version/],
     ['a stop of no tier', (e) => void ((dataOf(e).stops as { tier: number }[])[0]!.tier = 7), /a stop of no tier/],
     ['a contract at its counter', (e) => void ((dataOf(e).contracts as { id: number }[])[0]!.id = 3), /contract id at or above its counter/],
     ['a contract taken before its offer', (e) => void ((dataOf(e).contracts as { acceptedDay: number }[])[0]!.acceptedDay = 0), /taken before it was offered/],
@@ -267,18 +273,29 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a ledger out of day order', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 2, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
     ['a ledger row from a day not yet played', (e) => void (dataOf(e).ledger as unknown[]).push({ day: 5, kind: 'fares', amountCents: 100, lineId: 1 }), /a ledger out of day order/],
     ['a saved time that is no time', (e) => void (e.savedAt = 'yesterday'), /savedAt is not a time/],
-    // Saves' When could not show a time past what a Date holds, and the whole page went blank (the systems audit's seventh round).
-    ['a saved time past what a date holds', (e) => void (e.savedAt = 1e16), /savedAt is not a time/],
-    // A billion buses ran the page out of memory merging a settling line's versions, one entry a bus (the same round).
+    // The systems audit's seventh round. A kept version as a settling line keeps one, but impossible: every 0 seconds its day's
+    // departures looped for ever (the worker hung on import, and held as the autosave every load failed); a billion buses ran the
+    // page out of memory merging its versions; a route of 1e300 m billed its hour a non-number and stopped the game.
+    ['a kept version every 0 seconds', (e) => keep(e, { cycle: 0, cycles: { peak: 0, offpeak: 0, overnight: 0 }, headways: { peak: 0, offpeak: 0, overnight: null }, oneWayS: 0 }), /impossible earlier version/],
+    ['a kept version with a billion buses', (e) => keep(e, { buses: 1e9 }), /impossible earlier version/],
+    ['a kept version 1e300 m long', (e) => keep(e, {}, { routeM: 1e300 }), /impossible earlier version/],
+    ['a kept version a week each way', (e) => keep(e, { oneWayS: 7 * 86_400 }), /impossible earlier version/],
+    // A line itself with a billion buses: no timetable runs more buses than a day has seconds.
     ['a line with a billion buses', (e) => void ((dataOf(e).lines as { buses: number }[])[0]!.buses = 1e9), /more buses than a day has departures/],
-    // The line rule never draws these, and the page listed such a line with buses but no route (the seventh round).
+    // The line rule never draws these; the page listed a line of one stop with buses but no route.
     ['a line with one stop', (e) => void ((dataOf(e).lines as { stopIds: number[] }[])[0]!.stopIds = [1]), /a line the line rule never draws/],
     ['a line calling at a stop twice', (e) => void ((dataOf(e).lines as { stopIds: number[] }[])[0]!.stopIds = [1, 2, 1]), /a line the line rule never draws/],
-    // Play carried counters this near past the largest whole number, and the autosave it wrote then read as unreadable (the same round).
+    // Saves' When could not show a time past what a Date holds, and the whole page went blank.
+    ['a saved time past what a date holds', (e) => void (e.savedAt = 1e16), /savedAt is not a time/],
+    ['a contract missing more hours today than a day has', (e) => void ((dataOf(e).contracts as { hoursMissedToday: number }[])[0]!.hoursMissedToday = 25), /more hours missed today than a day has/],
+    // Play adds to these, so near the largest whole number it carried them past it, into an autosave its own reader refused.
     ['trips carried near the largest whole number', (e) => void (dataOf(e).tripsCarried = Number.MAX_SAFE_INTEGER - 10), /too near the largest whole number/],
     ['an id counter near the largest whole number', (e) => void ((dataOf(e).nextIds as { stop: number }).stop = Number.MAX_SAFE_INTEGER), /too near the largest whole number/],
+    ['the clock past the bound', (e) => void ((dataOf(e).clock as { elapsed: number }).elapsed = Math.ceil(SAVED_COUNTER_LIMIT)), /too near the largest whole number/],
+    ['boardings near the largest whole number', (e) => void ((dataOf(e).lines as { boardedMilli: number }[])[0]!.boardedMilli = Number.MAX_SAFE_INTEGER - 1), /too near the largest whole number/],
     ['amounts near the largest whole number', (e) => void ((dataOf(e).ledger as { amountCents: number }[])[1]!.amountCents = Number.MAX_SAFE_INTEGER - 1), /too near the largest whole number/],
-    ['a kept version with a billion buses', (e) => void ((dataOf(e).lines as { earlier: unknown[] }[])[0]!.earlier = [{ until: 0, stops: [{ lon: -71.077, lat: 42.3499 }, { lon: -71.095, lat: 42.3375 }], depot: null, model: 'sparrow', routeM: 3_000, pullOutM: 0, pullInM: 0, plan: { cycle: 1_500, cycles: { peak: 1_500, offpeak: 1_500, overnight: 1_500 }, headways: { peak: 1_200, offpeak: 1_200, overnight: null }, buses: 1e9, oneWayS: 600, pullOutS: 0, pullInS: 0 } }]), /impossible earlier version/],
+    ['two amounts each under the bound', (e) => void (dataOf(e).ledger as unknown[]).push(...[1, 2].map(() => ({ day: 3, kind: 'fares', amountCents: overHalf, lineId: 1 }))), /too near the largest whole number/],
+    ['a contract reward past the bound', (e) => void ((dataOf(e).contracts as { rewardCents: number }[])[0]!.rewardCents = Math.ceil(SAVED_COUNTER_LIMIT)), /too near the largest whole number/],
   ];
   for (const [what, mutate, problem] of corrupt) {
     it(`sets aside ${what} as unreadable`, () => {
@@ -289,6 +306,23 @@ describe('refusals (first failure wins; the live key is never overwritten by one
       expect(effects).toEqual(setAside('unreadable', text));
     });
   }
+
+  it('reads a settling line’s sound kept version', () => {
+    expect(decode(raw(state, (e) => keep(e)), CITY).result.outcome).toBe('ok');
+  });
+
+  // A file is read to a lower bound on its counters than the game’s own saves (SAVED_COUNTER_LIMIT), so play from one at the bound
+  // writes an autosave the reader still takes. Shown failing (TS-04) with one bound for both, where the autosave read as unreadable.
+  it('takes a file at the import bound, and still reads the game’s own autosave once play has added to it', () => {
+    const atBound = playedGame();
+    atBound.tripsCarried = Math.floor(IMPORT_COUNTER_LIMIT);
+    atBound.nextIds = { ...atBound.nextIds, stop: Math.floor(IMPORT_COUNTER_LIMIT) };
+    expect(decode(encode(atBound, BUILD), CITY, SAVE_FORMAT, IMPORT_COUNTER_LIMIT).result.outcome).toBe('ok');
+    expect(decode(encode({ ...atBound, tripsCarried: atBound.tripsCarried + 1 }, BUILD), CITY, SAVE_FORMAT, IMPORT_COUNTER_LIMIT).result.outcome).toBe('unreadable');
+    addStop(atBound, -71.1, 42.34); // a stop placed takes the id at the bound
+    atBound.tripsCarried += 1_234;
+    expect(decode(encode(atBound, BUILD), CITY).result.outcome).toBe('ok');
+  });
 });
 
 it('a new game starts at founding with one row and fresh counters', () => {

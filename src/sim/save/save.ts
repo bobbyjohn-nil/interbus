@@ -164,8 +164,35 @@ export function stateHash(state: SimState): string {
   return hex(hashString(`a${text}`)) + hex(hashString(`b${text}`));
 }
 
-/** What only a whole file can show: references, duplicates, counters and the ledger's shape. */
-export function integrityProblem(data: SaveData): string | null {
+/**
+ * The most a counter may hold in a save: trips carried, each id counter, the clock, each line's boardings, and the ledger's amounts
+ * with every contract's reward, summed. Play adds to all of them, so a game read at the edge would write an autosave its own reader
+ * refuses: the game's own saves may reach half the largest whole number, a file imported only an eighth (worker/host.ts loadText),
+ * which leaves play three eighths of it to add (the systems audit's seventh round).
+ */
+export const SAVED_COUNTER_LIMIT = Number.MAX_SAFE_INTEGER / 2;
+export const IMPORT_COUNTER_LIMIT = Number.MAX_SAFE_INTEGER / 8;
+/** No line on a city's streets runs a thousand kilometres: a kept version of 1e300 m billed its hour a non-number and stopped the game. */
+const KEPT_METRES_LIMIT = 1_000_000;
+
+type Kept = SaveData['lines'][number]['earlier'][number];
+
+/**
+ * Whether a line's kept version is one the game could have kept: from before now and in order, on two stops or more, its timetable
+ * within the headway rule (a headway of 0 looped the day's departures for ever), no more buses than a day has seconds (a billion ran
+ * the page out of memory merging the versions), and its distances and times those of a line on a city's streets (the seventh round).
+ */
+function keptVersionOk(e: Kept, before: Kept | undefined, elapsed: number): boolean {
+  const { plan } = e;
+  const metres = [e.routeM, e.pullOutM, e.pullInM];
+  const seconds = [plan.cycle, plan.cycles.peak, plan.cycles.offpeak, plan.cycles.overnight, plan.oneWayS, plan.pullOutS, plan.pullInS];
+  if (e.until < 0 || e.until > elapsed || (before !== undefined && e.until < before.until) || e.stops.length < 2) return false;
+  if (plan.buses < 0 || plan.buses > SECONDS_PER_DAY || !checkHeadways(plan.headways).ok) return false;
+  return metres.every((m) => m >= 0 && m <= KEPT_METRES_LIMIT) && seconds.every((s) => s >= 0 && s <= SECONDS_PER_DAY);
+}
+
+/** What only a whole file can show: references, duplicates, counters and the ledger's shape; `counterLimit` as above. */
+export function integrityProblem(data: SaveData, counterLimit = SAVED_COUNTER_LIMIT): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
   if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
   if (data.tripsToday < 0 || data.tripsCarried < data.tripsToday) return 'more trips today than since founding';
@@ -174,6 +201,8 @@ export function integrityProblem(data: SaveData): string | null {
   for (const c of data.contracts) {
     if (c.daysMet < 0 || c.hoursMissedToday < 0 || c.ask <= 0 || c.rewardCents < 0) return `contract ${c.id}: a negative count or amount`;
     if (c.acceptedDay !== null && c.acceptedDay < c.offeredDay) return `contract ${c.id}: taken before it was offered`;
+    // An hour missed counts once and the close clears the count, so no day has more (economy/contracts.ts).
+    if (c.hoursMissedToday > SECONDS_PER_DAY / 3_600) return `contract ${c.id}: more hours missed today than a day has`;
   }
   if (data.contractDeck.some((k) => CONTRACT_ASKS[k] === undefined)) return 'a contract deck card that is no ask';
   const e = data.event;
@@ -204,7 +233,7 @@ export function integrityProblem(data: SaveData): string | null {
     // claiming a billion ran the page out of memory merging a settling line's versions (the systems audit's seventh round).
     if (line.buses > SECONDS_PER_DAY) return `line ${line.id} has more buses than a day has departures`;
     if (!checkHeadways(line.headways).ok) return `line ${line.id} breaks the headway rules`;
-    if (line.earlier.some((e, k) => e.until < 0 || e.until > data.clock.elapsed || (k > 0 && e.until < line.earlier[k - 1]!.until) || e.stops.length < 2 || e.plan.buses < 0 || e.plan.buses > SECONDS_PER_DAY || !checkHeadways(e.plan.headways).ok)) return `line ${line.id} has an impossible earlier version`;
+    if (line.earlier.some((e, k) => !keptVersionOk(e, line.earlier[k - 1], data.clock.elapsed))) return `line ${line.id} has an impossible earlier version`;
   }
   if (data.ledger[0]?.kind !== 'founding') return 'the ledger does not start with the starting cash';
   if (data.ledger.filter((r) => r.kind === 'founding').length !== 1) return 'more than one starting cash row';
@@ -215,12 +244,15 @@ export function integrityProblem(data: SaveData): string | null {
   if (data.ledger.some((r, i) => r.day > today || (i > 0 && r.day < data.ledger[i - 1]!.day))) return 'a ledger out of day order';
   // A row may name a line since deleted, never one not yet made.
   if (data.ledger.some((r) => r.lineId !== null && (r.lineId < 1 || r.lineId >= data.nextIds.line))) return 'a ledger row names a line never made';
-  // Play adds to these (trips, ids, a close's merged rows), so a file this near the largest whole number played on into an autosave
-  // its own reader refused; an eighth of it is room no game comes near.
-  const room = Number.MAX_SAFE_INTEGER / 8;
-  if (data.tripsCarried > room || Object.values(data.nextIds).some((n) => n > room) || data.ledger.reduce((sum, r) => sum + Math.abs(r.amountCents), 0) > room) return 'a counter too near the largest whole number';
+  // Play adds to these, so near the largest whole number it carried them past it, into an autosave its own reader refused.
+  const counters = [data.tripsCarried, data.clock.elapsed, ...Object.values(data.nextIds), ...data.lines.map((l) => l.boardedMilli)];
+  const amounts = data.ledger.reduce((sum, r) => sum + Math.abs(r.amountCents), 0) + data.contracts.reduce((sum, c) => sum + c.rewardCents, 0);
+  if (counters.some((n) => n > counterLimit) || amounts > counterLimit) return 'a counter too near the largest whole number';
   return null;
 }
+
+/** The latest time a JavaScript Date holds (ECMA-262, Time Values): Saves' When cannot show one past it. */
+const LATEST_TIME_MS = 8.64e15;
 
 /**
  * Reads a raw save for `city`, first failure wins (V3's order): nothing → none; not JSON or the
@@ -228,12 +260,9 @@ export function integrityProblem(data: SaveData): string | null {
  * aside (D12); another city → set aside too, never read into this one; then field and integrity
  * checks; another bake of this city → read, for its stops to be put on this bake's streets (the M3
  * spec, item 8, which replaces M2's setting it aside). The game saves under the live key as it plays, so anything it refuses is kept
- * under a backup key first, never overwritten (D12).
+ * under a backup key first, never overwritten (D12). `counterLimit` is SAVED_COUNTER_LIMIT but for a file imported.
  */
-/** The latest time a JavaScript Date holds (ECMA-262, Time Values): Saves' When cannot show one past it. */
-const LATEST_TIME_MS = 8.64e15;
-
-export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT): { result: LoadOutcome; effects: StoreEffect[] } {
+export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT, counterLimit = SAVED_COUNTER_LIMIT): { result: LoadOutcome; effects: StoreEffect[] } {
   if (raw === null) return { result: { outcome: 'none' }, effects: [] };
   const setAside = (why: SetAsideWhy): StoreEffect[] => [
     { op: 'write', key: backupKey(city.id, why), value: raw },
@@ -268,7 +297,7 @@ export function decode(raw: string | null, city: CityRef, current = SAVE_FORMAT)
   if (problem) return unreadable(problem);
   const typed = data as SaveData;
   if (typed.city.id !== city.id) return { result: { outcome: 'other-city', city: typed.city }, effects: setAside('other-city') };
-  const broken = integrityProblem(typed);
+  const broken = integrityProblem(typed, counterLimit);
   if (broken) return unreadable(broken);
   const envelope: SaveEnvelope = { format: SAVE_FORMAT, build: build as BuildRef, ...(savedAt === undefined ? {} : { savedAt: savedAt as number }), data: typed };
   if (typed.city.revision !== city.revision || typed.city.hash !== city.hash) return { result: { outcome: 'rebaked', envelope, from: typed.city }, effects: [] };

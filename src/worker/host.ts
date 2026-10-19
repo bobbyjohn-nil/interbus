@@ -39,7 +39,7 @@ import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { checkLineDraft, type LineDraft } from '../sim/rules/line';
 import { rebase } from '../sim/save/rebase';
-import { aboutSave, backupKey, decode, encode, fromSaveData, quarterKey, SAVE_SLOTS, saveKey, SET_ASIDE, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
+import { aboutSave, backupKey, decode, encode, fromSaveData, IMPORT_COUNTER_LIMIT, quarterKey, SAVE_FORMAT, SAVE_SLOTS, SAVED_COUNTER_LIMIT, saveKey, SET_ASIDE, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { acceptContract } from '../sim/commands/acceptContract';
 import { CONTRACT_DAYS, CONTRACT_REACH_M } from '../sim/config/contracts';
@@ -489,7 +489,9 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   const loadText = (text: string | null, from: 'slot' | 'file' | 'quarter') => {
     const command = from === 'slot' ? 'load-slot' : from === 'file' ? 'import' : 'restart-quarter';
     if (!playing || text === null) return post({ type: 'refused', command, reason: from === 'quarter' ? 'no_quarter_save' : 'empty_slot' });
-    const { result } = decode(text, playing.ref);
+    // A file comes from outside the game, so its counters are held under a lower bound than the game's own saves: a game imported at
+    // the bound plays on into an autosave the reader still takes (sim/save/save.ts SAVED_COUNTER_LIMIT).
+    const { result } = decode(text, playing.ref, SAVE_FORMAT, from === 'file' ? IMPORT_COUNTER_LIMIT : SAVED_COUNTER_LIMIT);
     // The quarter's save is whichever game wrote it last, and loading an ended game writes none, so it
     // may be another company's: Restart reopens it only for the company that wrote it, by name and colour.
     if (from === 'quarter' && (result.outcome === 'ok' || result.outcome === 'rebaked')) {
