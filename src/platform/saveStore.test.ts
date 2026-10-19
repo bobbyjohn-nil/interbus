@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMemorySaveStore } from './memory/saveStore';
 import { applyEffects } from './types';
-import { createWebSaveStore, onOtherTabWrite, storeRefusal } from './web/saveStore';
+import { createWebSaveStore, onOtherTabWrites, storeRefusal } from './web/saveStore';
 
 function fakeStorage() {
   const map = new Map<string, string>();
@@ -49,19 +49,25 @@ describe('save stores', () => {
     expect(storeRefusal(undefined)).toBe('blocked');
   });
 
-  // Another tab's save, as the window's 'storage' event tells it (the systems audit's fifth round: two tabs of the game): the
-  // key's new text, null once it is removed or the store is cleared; other keys are not said, and nothing once stopped.
-  it('says what another tab put under a key, until stopped', () => {
+  // Another tab's save, as the window's 'storage' event tells it (the systems audit's fifth round: two tabs of the game): each
+  // key and its new text, null once it is removed, both null once the store is cleared, and nothing once stopped. A slot's key is
+  // said too, so Saves lists a save another tab kept there (the seventh round).
+  it('says what another tab put under each key, until stopped', () => {
     const target = new EventTarget() as unknown as Window;
-    const said: (string | null)[] = [];
-    const stop = onOtherTabWrite('interbus.save.boston', (text) => said.push(text), target);
+    const said: [string | null, string | null][] = [];
+    const stop = onOtherTabWrites((key, text) => said.push([key, text]), target);
     const storage = (key: string | null, newValue: string | null) => target.dispatchEvent(Object.assign(new Event('storage'), { key, newValue }));
     storage('interbus.save.boston', 'A1');
     storage('interbus.slot.boston.1', 'S1');
     storage('interbus.save.boston', null);
-    storage(null, null);
+    storage(null, 'stale');
     stop();
     storage('interbus.save.boston', 'A2');
-    expect(said).toEqual(['A1', null, null]);
+    expect(said).toEqual([
+      ['interbus.save.boston', 'A1'],
+      ['interbus.slot.boston.1', 'S1'],
+      ['interbus.save.boston', null],
+      [null, null],
+    ]);
   });
 });

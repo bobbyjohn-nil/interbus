@@ -196,5 +196,25 @@ test.describe('Home', () => {
     await expect(a.getByTestId('saves-chip')).toHaveText('Saves');
     await setSpeed(a, '600×');
     await expect.poll(async () => (await live(a)).data.clock.elapsed, { timeout: 10_000 }).toBeGreaterThan(fromB.data.clock.elapsed);
+
+    // A pauses, its last save kept, and opens Saves: slot 1 is empty. B, left behind in its turn, keeps its game there, saving
+    // nothing else, and A's row names that save, so A's Save here asks before replacing it. Shown failing (TS-04) with the page
+    // hearing the autosave's key alone: A's row read Empty, and its Save here wrote over B's game unasked (the systems audit's
+    // seventh round).
+    await a.getByTestId('play').click();
+    await expect(a.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await expect.poll(async () => (await live(a)).data.clock.elapsed).toBe(await elapsed(a));
+    await a.getByTestId('saves-chip').click();
+    const slotA = a.getByTestId('slot-1');
+    await expect(slotA).toHaveAttribute('data-empty', 'yes');
+    await b.bringToFront();
+    await expect(b.getByTestId('saves-chip')).toHaveText('Autosave off');
+    await b.getByTestId('saves-chip').click();
+    await b.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
+    await expect(b.getByTestId('slot-1')).toHaveAttribute('data-empty', 'no');
+    await a.bringToFront();
+    await expect(slotA).toHaveAttribute('data-empty', 'no');
+    await slotA.getByRole('button', { name: 'Save here' }).click();
+    await expect(slotA.getByRole('button', { name: 'Replace Slot 1' })).toBeVisible();
   });
 });
