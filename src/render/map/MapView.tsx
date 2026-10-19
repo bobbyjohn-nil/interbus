@@ -26,7 +26,7 @@ const MESSAGES: Record<Exclude<Status, 'loading' | 'ready' | 'replaced'>, string
   lost: 'The browser took the map’s graphics away. Reload to bring them back.',
 };
 
-/** What the GPU ladder's cards say of the game's saves while it saves itself; while it does not, App's words take their place (`unsaved`). */
+/** What the GPU ladder's cards say of the game's saves while it saves itself; while it does not, App's words are on every card (`unsaved`). */
 const SAVED: Partial<Record<Status, string>> = {
   'no-gpu': 'Your game is saved, and Saves and Export still work.',
   lost: 'Your game is saved.',
@@ -63,8 +63,8 @@ export interface MapViewProps {
   /** The game's own card says it cannot go on (App's failed card), so the map adds no card of its own beside it (D12: one card). */
   readonly quiet?: boolean;
   /**
-   * Set while the game isn't saving itself (App): the GPU ladder's cards say so in these words where they say the game is saved
-   * otherwise, with `keep`'s button (Export this game) before the lost card's Reload, so a reload never loses unsaved play unsaid.
+   * Set while the game isn't saving itself (App): every card says so in these words, where the GPU ladder's cards say the game is
+   * saved otherwise, with `keep`'s button (Export this game) before its Reload, so a reload never loses unsaved play unsaid.
    */
   readonly unsaved?: { readonly words: string; readonly keep: string; readonly onKeep: () => void } | null;
 }
@@ -314,8 +314,10 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
     if (clockSecond !== null) mountedRef.current?.setClock(clockSecond, clockRate, clockDay);
   }, [clockSecond, clockRate, clockDay]);
 
-  // A GPU card's word on the game's saves: true of them, as the Saves chip is.
-  const saves = status in SAVED ? (unsaved ? unsaved.words : SAVED[status]) : undefined;
+  // A card's word on the game's saves, true of them as the Saves chip is: while the game isn't saving itself every card says so, the
+  // map's start failures' too, which offered Reload alone and so lost the company with blocked site data (the systems audit's
+  // seventh round); while it is, the GPU ladder's cards say it is saved.
+  const saves = unsaved ? unsaved.words : SAVED[status];
 
   return (
     <div
@@ -340,10 +342,10 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
       data-fps={fps ? Math.round(fps.fps) : ''}
     >
       {status in MESSAGES && !quiet ? (
-        // The GPU ladder's cards drop to the board's foot while a day card or the run's end is up (app.css), so neither hides the other.
-        <div className={status === 'no-gpu' || status === 'lost' ? 'map-notice top gpu' : 'map-notice top'} role="alert" data-testid={status === 'no-gpu' || status === 'lost' ? 'gpu-card' : 'map-card'}>
+        // Every card drops to the board's foot while a day card or the run's end is up (app.css), so neither hides the other.
+        <div className="map-notice top card" role="alert" data-testid={status === 'no-gpu' || status === 'lost' ? 'gpu-card' : 'map-card'}>
           <p>{saves ? `${MESSAGES[status as keyof typeof MESSAGES]} ${saves}` : MESSAGES[status as keyof typeof MESSAGES]}</p>
-          {saves && unsaved ? (
+          {unsaved ? (
             <button type="button" onClick={unsaved.onKeep}>
               {unsaved.keep}
             </button>

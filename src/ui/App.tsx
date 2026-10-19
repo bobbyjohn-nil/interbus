@@ -533,7 +533,7 @@ export function App() {
         <Panels key="panels" items={[]} front={front} />
         <Notices key="notices" sim={sim} home savesOpen={open.includes("saves")} />
         <Corner key="corner" />
-        <ReplacedCard key="replaced" />
+        <ReplacedCard key="replaced" unsaved={mapUnsaved} />
       </main>
     );
   return (
@@ -615,7 +615,8 @@ export function App() {
       {stopped ? null : <DayCard sim={sim} />}
       {stopped ? null : <FailureCard sim={sim} />}
       <Corner key="corner" />
-      <ReplacedCard key="replaced" failed={sim.status === "failed" ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} />
+      {/* A failed game's worker is gone, and Export with it: its card offers Reload alone. */}
+      <ReplacedCard key="replaced" failed={stopped ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} unsaved={stopped ? null : mapUnsaved} />
     </main>
   );
 }
