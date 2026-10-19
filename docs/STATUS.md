@@ -2,7 +2,7 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-17, at `main` a5c0ccd, in P0's playtest freeze, with the seventh audit round stopped by the weekly usage limit and the sessions' token use cut (D27).
+**Updated:** 2026-10-19, at `main` a5c0ccd, in P0's playtest freeze, with the sessions' token use cut (D27) and the seventh audit round going again since the owner reset the usage limit.
 
 ## Live now
 
@@ -38,7 +38,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
 - [ ] **Held for a save format:** the checklist coming back as "5/5 Take a contract" when a taken contract lapses needs a saved flag, so it waits to share one format change with any other finding that needs one.
 - [ ] **Left open by #134 and #136:** across a chain of changes a parked bus may be home when a later change's departure needs it (47 departures in 2,500 chains); the first change on a new day merges a line's kept versions again once, 104–176 ms.
 - [ ] **For P0:** a save made before #134 while a line was settling shows Finance's Day forecast off on the day it loads (the next day agrees), so a playtest starts from a fresh game or a settled one.
-- [ ] **The seventh round** (on `main` 3e22fd6): six lanes (hostile and malformed save files, determinism and Export session's replay, a 200-day game, the screens with many lines, the edges of the fifth and sixth rounds' fixes, and window sizes, zoom and resizes), each told the 157 known findings. The weekly usage limit (until Thu Oct 22, 06:00 UTC) stopped it after the save-files lane, whose six findings are not yet reproduced a second time:
+- [ ] **The seventh round** (on `main` 3e22fd6): six lanes (hostile and malformed save files, determinism and Export session's replay, a 200-day game, the screens with many lines, the edges of the fifth and sixth rounds' fixes, and window sizes, zoom and resizes), each told the 157 known findings. The weekly usage limit stopped it after the save-files lane, whose six findings follow; the owner reset the limit on Oct 19:
   - major: a save whose settling line keeps a version with a zero headway and a zero round trip stops the game when imported (`dayDepartures` never moves on; the reader checks a line's plan but not its kept versions', `src/sim/save/save.ts`), and held as the autosave it makes every load fail with "Boston couldn’t be loaded";
   - major: a save whose settling line owns a billion buses runs the tab out of memory when imported;
   - major: a slot or autosave stamped with a saved time past the Date range blanks the page when Saves opens, after every reload;
@@ -46,9 +46,9 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - minor: the reader accepts lines the line rule never allows (no stops, one stop, a stop twice, a stop off every street);
   - minor: a file with five closes below the credit floor but cash well above it loads as an ended run.
 
-  The first is fixed on a local branch (the reader now holds each kept version to the headway rule), waiting for this pull request to merge before its own.
+  Five are fixed on a local branch, each with its failing-first test, all but the floor count and a stop off every street: the reader now holds kept versions to the headway rule, a line and its kept versions to 86,400 buses (no timetable runs more), a saved time to what a date holds, a line to two stops or more with none twice, and the counters to an eighth of the largest whole number. They wait for this pull request to merge before their own, with one independent review.
 
-  Next: the session fixes the other five on branches, each one's failing test its reproduction (D27); once the limit resets, three of the other five lanes run as finders (the edges of the fifth and sixth rounds' fixes, determinism and Export session's replay, the 200-day game); every fix merging, each a small pull request, after P0's notes are committed.
+  Next: three of the other five lanes run as finders (the edges of the fifth and sixth rounds' fixes, determinism and Export session's replay, the 200-day game), and their findings are fixed the same way (D27); every fix merging, each a small pull request, after P0's notes are committed. The floor count needs the failure-floor tests' saves rebuilt to count only closed days first.
 
 ## Next
 
@@ -60,7 +60,7 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M5, Prototype, by Sun D
 
 ## Autonomy protocol (the owner's request, 2026-10-13; D27)
 
-- **The check-in.** A Routine named "interbus check-in" fires every two hours (hourly until D27) into the session that owns `main`. Each firing:
+- **The check-in.** A Routine named "interbus check-in" fires every three hours (hourly until D27, then every two hours until the owner asked for three on 2026-10-19) into the session that owns `main`. Each firing:
   1. fetches and lists open pull requests; if `main` has not moved since the last check-in, no pull request of the session's needs anything (red, conflicted, newly reviewed, or green and free to merge) and the next item is blocked (a playtest freeze, a usage limit or the owner), it answers in one line and reads nothing else, and firings queued together get one answer;
   2. otherwise reads this file and checks `main`'s CI and deploy;
   3. fixes a red or reviewed pull request first;
