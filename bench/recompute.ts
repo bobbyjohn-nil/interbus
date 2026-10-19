@@ -5,7 +5,7 @@
 // (assign: every catchment, every pair, all three periods) on the fixture with three lines, on a
 // synthetic Inner-Boston-sized grid with T03's network, and, once `node tools/bake/sim.mjs boston
 // inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
-// whole recompute there with five depots.
+// whole recompute there with five depots, and on hubs of lines out of one stop.
 // Results go to .cache/bench/recompute.json.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
@@ -13,21 +13,29 @@ import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity } from '../src/sim/city/simfile';
 import { toCalendarTime } from '../src/sim/core/calendar';
 import { toLngLat } from '../src/sim/core/geo';
+import { createLine } from '../src/sim/commands/createLine';
+import { found } from '../src/sim/commands/found';
+import { placeDepot } from '../src/sim/commands/placeDepot';
+import { toXY } from '../src/sim/core/geo';
 import { mint, type LineId } from '../src/sim/core/ids';
+import { foundLedger } from '../src/sim/economy/ledger';
 import { assign, type LinePlan } from '../src/sim/demand/assign';
 import { buildCommuters } from '../src/sim/demand/commuters';
-import { depotNear } from '../src/sim/pacing';
+import { corridorCandidates, depotNear } from '../src/sim/pacing';
 import { newGame } from '../src/sim/state';
 import { commutersToday, createWorld, planLine, recompute } from '../src/sim/world';
-import { innerBoston } from './inner';
+import { CORRIDORS, innerBoston } from './inner';
 import { syntheticCity, t03Network } from './synthetic';
 
-const RUNS = 30;
+// 100 runs a case: at 30, p95 was the second-slowest run, and one or two slow runs decided it. On the nightly of
+// 2026-10-18, Inner Boston's assignment read p95 170.8 ms against a p50 of 77.3; the whole recompute, which runs it, read
+// p95 95.4 the same night. On a shared 4-CPU machine, 100 runs a case give p95s of 1.5–1.6× their p50s, run after run.
+const RUNS = 100;
 /** I14's budget on Boston; R2 (D11) needs ≤100 ms. */
 const BUDGET_MS = 150;
 const results: Record<string, unknown> = {};
 
-function time(name: string, run: () => void): { p50: number; p95: number } {
+function time(name: string, run: () => void, gate = true): { p50: number; p95: number } {
   for (let k = 0; k < 3; k++) run(); // warm the JIT
   const ms: number[] = [];
   for (let k = 0; k < RUNS; k++) {
@@ -37,9 +45,9 @@ function time(name: string, run: () => void): { p50: number; p95: number } {
   }
   ms.sort((a, b) => a - b);
   const out = { p50: ms[Math.floor(RUNS * 0.5)]!, p95: ms[Math.ceil(RUNS * 0.95) - 1]! };
-  results[name] = { ...out, runs: RUNS };
-  console.log(`bench: ${name}: p50 ${out.p50.toFixed(1)} ms, p95 ${out.p95.toFixed(1)} ms over ${RUNS} runs`);
-  if (out.p95 > BUDGET_MS) {
+  results[name] = { ...out, runs: RUNS, gate };
+  console.log(`bench: ${name}: p50 ${out.p50.toFixed(1)} ms, p95 ${out.p95.toFixed(1)} ms over ${RUNS} runs${gate ? '' : ' (timed, not held to I14)'}`);
+  if (gate && out.p95 > BUDGET_MS) {
     console.error(`bench: ${name} is over I14's ${BUDGET_MS} ms`);
     process.exitCode = 1;
   }
@@ -91,6 +99,30 @@ if (inner) {
     boston.state.depots.push({ id, lon, lat });
   }
   time(`Inner Boston's whole recompute, ${boston.state.lines.length} lines of 3 Sparrows and ${boston.state.depots.length} depots`, () => recompute(boston));
+
+  // Hubs (the systems audit's seventh round): lines out of Copley Square along each corridor's nearer half, Copley and its
+  // first four stops, one or two Sparrows each at 30 minutes in the peaks and hourly off-peak, drawn as Create draws them,
+  // with a depot placed whenever the last is full. Every spoke changes onto every other at Copley, so the cell pairs riders
+  // can make grow with the square of the lines, and the recompute with them. A hub of 6 lines is held to I14; at 8 lines and
+  // more it is over (DECISIONS, Open: I14 on a hub of lines), so they are timed without failing the run until the assignment is made faster
+  // for them or the owner settles what I14 holds.
+  const COPLEY: [number, number] = [-71.077, 42.3499];
+  for (const size of [6, 8, 10, 15]) {
+    const hub = createWorld(boston.city, { ...newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: '', colour: '#2471a3' }, 1), ledger: foundLedger(2_000_000_000) });
+    found(hub, 'Back Bay Transit', '#2471a3');
+    for (const c of corridorCandidates(hub, CORRIDORS).filter((c) => c.name.includes('from'))) {
+      if (hub.state.lines.length >= size) break;
+      const stops = [COPLEY, ...c.stops.slice(0, 4)];
+      let made = hub.state.depots.length ? createLine(hub, stops, { peak: 1_800, offpeak: 3_600, overnight: null }) : null;
+      if ((!made || (!made.ok && made.reason === 'depot_full')) && hub.state.depots.length < 5) {
+        if (!placeDepot(hub, depotNear(hub.city, toXY(hub.city.frame, hub.state.depots.length ? stops[2]! : COPLEY))).ok) throw new Error('bench: a depot for the hub was refused');
+        made = createLine(hub, stops, { peak: 1_800, offpeak: 3_600, overnight: null });
+      }
+    }
+    if (hub.state.lines.length !== size) throw new Error(`bench: the hub has ${hub.state.lines.length} lines, not ${size}`);
+    const buses = hub.state.lines.reduce((n, l) => n + l.buses, 0);
+    time(`Inner Boston's whole recompute, a hub of ${size} lines out of Copley Square, ${buses} buses`, () => recompute(hub), size <= 6);
+  }
 }
 
 mkdirSync('.cache/bench', { recursive: true });
