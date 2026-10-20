@@ -80,7 +80,7 @@ The spec is [`docs/specs/current.md`](specs/current.md) (M5, Prototype, by Sun D
 
 ## Autonomy protocol (the owner's request, 2026-10-13; D27)
 
-- **The check-in.** A Routine named "interbus check-in" fires every three hours (hourly until D27, then every two hours until the owner asked for three on 2026-10-19) into the session that owns `main`. Each firing:
+- **The check-in.** A Routine named "interbus check-in" fires every six hours (hourly until D27, every two hours from 2026-10-17, every three from 2026-10-19, and every six from the owner's ask on 2026-10-20) into the session that owns `main`. Each firing:
   1. fetches, lists open pull requests and reads the latest Nightly run's result; if `main` has not moved since the last check-in, no pull request of the session's needs anything (red, conflicted, newly reviewed, or green and free to merge), the latest Nightly is green or its failure is already in this file (its I14 step went red on Oct 17 and 18 unseen), and the next item is blocked (a playtest freeze, a usage limit or the owner), it answers in one line and reads nothing else, and firings queued together get one answer;
   2. otherwise reads this file and checks `main`'s CI and deploy;
   3. fixes a red or reviewed pull request first;
