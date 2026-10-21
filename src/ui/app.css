@@ -1167,7 +1167,8 @@ button.chip.checklist,
 
 .day-card {
   position: absolute;
-  /* Over the movable panels and the menus: the day's close, and the run's end, wait for an answer. */
+  /* Over the movable panels and the menus: the day's close waits for an answer. The run's end has its card on the panel
+     layer instead (App.tsx), as it stays until Restart this quarter. */
   z-index: var(--layer-cards);
   top: 60px;
   left: 50%;
@@ -1617,9 +1618,19 @@ button.chip.checklist,
   max-height: min(var(--room, calc(100vh - 128px)), 69vh);
 }
 
-.movable .panel h2 {
+.movable .panel h2,
+.movable .day-card h2 {
   cursor: grab;
   user-select: none;
+}
+
+/* The lender's card on the panel layer (App.tsx), placed by the layer as a panel is, and as tall as its place allows. */
+.movable > .day-card {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  max-height: min(var(--room, calc(100vh - 128px)), 52vh);
 }
 
 .movable.dragging .panel {

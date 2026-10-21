@@ -3,7 +3,7 @@
 // quarter reopens the game where it began (here, where the file was loaded). The game is a save file
 // edited to owe $200k at 23:50 with four closes already behind it, so the run ends within seconds;
 // its closing day's card is read first, then the failure card shows.
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { foundCompany, STARTING_CENTS } from './found';
 import { city, setSpeed, withDebugLine } from './shell';
 
@@ -62,6 +62,57 @@ test.describe('the failure floor', () => {
     await expect(page.getByTestId('notice')).toContainText('Back to the start of the quarter');
     await expect(panel).toHaveAttribute('data-cash', '-20000000');
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');
+  });
+
+  // The lender's card stays until Restart this quarter, and stood at the window's top centre over the panels: with Contracts,
+  // Lines and Finance opened in turn, Finance's views and Close were under it at 1152×720 to 1440×900, and a press on its Lines
+  // view landed on the card (the review of #142). It takes a free place on the panel layer now, so the panels open beside it,
+  // and it beside a panel open as the run ends. Shown failing (TS-04) with the card where it was.
+  test('the lender’s card keeps clear of the panels, open before it or after', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page, (d) => {
+      d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60;
+      (d as unknown as { closesBelowFloor: number }).closesBelowFloor = 4;
+      d.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
+    });
+    /** Whether a press at the middle of `l` lands on it, not on something over it. */
+    const onTop = (l: Locator) =>
+      l.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      });
+    const apart = async (a: Locator, b: Locator) => {
+      const [p, q] = [(await a.boundingBox())!, (await b.boundingBox())!];
+      return p.x + p.width <= q.x || q.x + q.width <= p.x || p.y + p.height <= q.y || q.y + q.height <= p.y;
+    };
+    const finance = page.getByTestId('finance');
+    const failure = page.getByTestId('failure-card');
+    // Saves open as the run ends: the card opens beside it.
+    await page.getByTestId('saves-chip').click();
+    const saves = page.getByTestId('saves');
+    await expect(saves).toBeVisible();
+    await setSpeed(page, '5,400×');
+    const dayCard = page.getByTestId('day-card');
+    await expect(dayCard).toBeVisible({ timeout: 30_000 });
+    await dayCard.getByRole('button', { name: 'Continue' }).click();
+    await expect(failure).toBeVisible();
+    expect(await apart(failure, saves)).toBe(true);
+    await saves.getByRole('button', { name: 'Close' }).click();
+
+    // Contracts, Lines and Finance opened in turn after it: each beside it, and Finance's views and Close in reach.
+    await page.getByTestId('contracts-chip').click();
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    for (const id of ['contracts', 'inspector', 'finance']) expect(await apart(failure, page.getByTestId(id)), id).toBe(true);
+    for (const id of ['finance-overview', 'finance-breakdown', 'finance-lines']) expect(await onTop(finance.getByTestId(id)), id).toBe(true);
+    expect(await onTop(finance.getByRole('button', { name: 'Close' }))).toBe(true);
+    await finance.getByTestId('finance-lines').click();
+    await expect(finance).toHaveAttribute('data-view', 'lines');
+    expect(await onTop(failure.getByRole('button', { name: 'Restart this quarter' }))).toBe(true);
   });
 
   // Once the lender has ended the run the host refuses every change (D10), and the page offered them all the same, each press

@@ -527,6 +527,10 @@ export function App() {
         ),
       });
   }
+  // The lender's card, which stays until Restart this quarter, takes a free place on the panel layer as the panels do, so it
+  // covers none open beside it and they open beside it: at the window's top centre, it hid the Close and views of a panel
+  // opened third (the review of #142). It shows once the closing day's card is read (FailureCard).
+  if (over && !sim.dayCard) panelItems.push({ id: "lender", node: <FailureCard sim={sim} /> });
 
   if (atHome)
     return (
@@ -653,7 +657,6 @@ export function App() {
         }}
       />
       {stopped ? null : <DayCard sim={sim} />}
-      {stopped ? null : <FailureCard sim={sim} />}
       <Corner key="corner" />
       {/* A failed game's worker is gone, and Export with it: its card offers Reload alone. */}
       <ReplacedCard key="replaced" failed={stopped ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} unsaved={stopped ? null : mapUnsaved} />
