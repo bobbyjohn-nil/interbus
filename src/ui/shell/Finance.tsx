@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../../sim/rules/money';
 import type { FinanceView } from '../../sim/types';
@@ -6,6 +6,7 @@ import { Dropdown } from '../Dropdown';
 import { about, GROUP_NAMES, quarterText, ROW_HINTS, rowName, usd } from '../format';
 import { bandText } from '../game/LineCard';
 import type { Sim } from '../game/useSim';
+import { showWhole } from '../showWhole';
 import { FinanceChart } from './FinanceChart';
 
 /** Kinds the forecast models from riders rather than knows from the day plan. */
@@ -175,8 +176,18 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
     fareBandFor(open);
     return () => fareBandFor(null);
   }, [fareBandFor, open, version]);
-  if (!lines.length) return <p className="hint">No lines yet: draw one to see its money here.</p>;
   const band = sim.fareBand && sim.fareBand.lineId === open ? sim.fareBand.band : null;
+  // Opened on a line (the line card's "Fare and money in Finance"), the panel shows that line's row and its money, and again
+  // once its fare band comes: a low line's were below the panel's foot, and the link seemed to do nothing (the systems audit's
+  // seventh round).
+  const askedRow = useRef<HTMLTableRowElement>(null);
+  const banded = band !== null;
+  useLayoutEffect(() => {
+    const row = askedRow.current;
+    const panel = row?.closest<HTMLElement>('.panel');
+    if (row && panel && open === asked) showWhole(panel, row, row.nextElementSibling ?? row);
+  }, [asked, open, banded]);
+  if (!lines.length) return <p className="hint">No lines yet: draw one to see its money here.</p>;
   return (
     <table className="lines-money">
       <thead>
@@ -201,7 +212,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
           const income = money?.incomeCents ?? 0;
           return (
             <Fragment key={line.id}>
-              <tr data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(income, c)} className={expanded ? 'open' : undefined}>
+              <tr ref={line.id === asked ? askedRow : undefined} data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(income, c)} className={expanded ? 'open' : undefined}>
                 <th scope="row">
                   <button type="button" className="line-name" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : line.id)}>
                     <span className="swatch" style={{ background: line.colour }} /> {line.name}

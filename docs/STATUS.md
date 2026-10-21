@@ -47,7 +47,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - minor: the reader accepts lines the line rule never allows (no stops, one stop, a stop twice, a stop off every street);
   - minor: a file with five closes below the credit floor but cash well above it loads as an ended run.
 
-  Five are fixed in #138, each with its failing-first test, and a stop off every street on this pull request; the floor count is left as it is (below). The reader now holds:
+  Five are fixed in #138, each with its failing-first test, and a stop off every street in #139; the floor count is left as it is (below). The reader now holds:
   - kept versions to the headway rule;
   - a line and its kept versions to 86,400 buses (no timetable runs more);
   - a saved time to what a date holds;
@@ -74,15 +74,15 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - window sizes, zoom and resizes: two, fixed on this pull request with failing-first tests:
     - (major) in full graphics, buses kept the old screen's sizing after the window moved to a screen of another density (Sparrows 11–12 px from 2x to 1x, against I12's 20, and 42–43 px back, the map blurry), and drew at 26–28 px on a 5K window, whose canvas MapLibre caps at 4,096 px: the vehicle layer now sizes by the ratio the canvas is drawn at, and the map resizes at each change of density;
     - (minor) an open dropdown stayed where it opened when the window changed size, off the window and holding the keyboard: it now closes, the keyboard back on its button;
-  - the screens with many lines, on a late game of up to 30 lines (`src/sim/scene.ts` lateScene): six.
+  - the screens with many lines, on a late game of up to 30 lines (`src/sim/scene.ts` lateScene): six, three fixed on this pull request with failing-first tests:
     - (major) Finance's Lines held the game up while it worked out the open line's fare band, up to 1.1–1.3 s with 30 lines, at each line opened there and each change of the network: fixed on this pull request, the band worked out a step at a time between the worker's ticks, at most 37–163 ms a step (`npm run bench fares`);
     - (minor) I14 on a late game with no hub, over from 20 lines: added to the I14 question (Waiting on the owner), and `npm run bench recompute` times it;
-    - (minor) the line card's "Fare and money in Finance" opens a low line's money below the panel's foot, out of view;
-    - (minor) with 30 lines, Lines' tabs take no arrow keys, and a low line's Run it is cut off at the panel's foot;
+    - (minor) the line card's "Fare and money in Finance" opened a low line's money below the panel's foot, out of view: Finance now scrolls to it, and again once its fare band comes;
+    - (minor) with 30 lines, Lines' tabs took no arrow keys, and a low line's Run it was cut off at the panel's foot: the arrows, Home and End move along the tabs, one Tab goes on to the card, and a change's card scrolls into view (`e2e/many.spec.ts`, on the fixture's late game of 18 lines);
     - (minor) 30 lines share 8 colours, and nothing changes a line's colour;
     - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.
 
-  Next: Finance's link and Lines' tabs, fixed the same way (D27). The colours and the shared streets are look work PLAN §10 does not schedule, so they wait for the owner's call.
+  The colours and the shared streets are look work PLAN §10 does not schedule, so they wait for the owner's call.
 
 ## Next
 

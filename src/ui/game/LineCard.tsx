@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { cyclesOf } from '../../sim/rules/cycle';
 import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, type FleetContext } from '../../sim/rules/line';
@@ -7,6 +7,7 @@ import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
 import { Dropdown } from '../Dropdown';
+import { showWhole } from '../showWhole';
 import { about, busCount, clock, duration, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
@@ -88,6 +89,14 @@ export function LineHeading({ line }: { line: LineView }) {
 export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
   const [wanted, setWanted] = useState<HeadwayPick | null>(null);
   const [modelPick, setModelPick] = useState<ModelPick | null>(null);
+  // A change picked shows its card whole, Run it and all: a low line's, under many lines' tabs, was below the panel's foot,
+  // and nothing scrolled to it (the systems audit's seventh round).
+  const changeCard = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const card = changeCard.current;
+    const panel = card?.closest<HTMLElement>('.panel');
+    if (card && panel) showWhole(panel, card);
+  }, [wanted]);
   const s = sim.snapshot;
   if (!s) return null;
   const game = sim.loaded?.at ?? null;
@@ -193,7 +202,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
         ))}
       </div>
       {change ? (
-        <div className="change" data-testid="headway-change" data-ok={change.ok ? 'yes' : 'no'}>
+        <div className="change" ref={changeCard} data-testid="headway-change" data-ok={change.ok ? 'yes' : 'no'}>
           {change.ok ? (
             <p>{change.extra > 0 ? `Needs ${change.needed} buses (you have ${line.buses}) · ${usdK(change.priceCents)}` : `Runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}</p>
           ) : (
