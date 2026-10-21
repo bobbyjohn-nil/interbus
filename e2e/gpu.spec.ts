@@ -184,7 +184,7 @@ test.describe('the GPU ladder', () => {
 
   // The systems audit's seventh round: MapLibre resizes its canvas only when the container's box changes, so a window moved from a
   // 2x screen to a 1x one kept its 2x canvas, and one moved the other way a 1x canvas, blurry on the sharper screen. The map
-  // resizes at each change of density now. Shown failing (TS-04) without the watch, when the canvas stayed at 2.
+  // resizes at each change of density now, read each second. Shown failing (TS-04) without the watch, when the canvas stayed at 2.
   test('in full graphics the map follows the window to a screen of another density', async ({ browser }) => {
     test.setTimeout(90_000);
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 });
@@ -200,8 +200,10 @@ test.describe('the GPU ladder', () => {
     expect(await drawnAt()).toBe(2);
     const cdp = await context.newCDPSession(page);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1366, height: 768, deviceScaleFactor: 1, mobile: false });
+    await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(1);
     await expect.poll(drawnAt).toBe(1);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1366, height: 768, deviceScaleFactor: 2, mobile: false });
+    await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(2);
     await expect.poll(drawnAt).toBe(2);
     await context.close();
   });
