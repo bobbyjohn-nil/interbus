@@ -6,8 +6,9 @@
 // - every line's bigger bus;
 // - every line's peak and off-peak one step more often (config/lines.ts HEADWAY_MINUTES), with the buses that takes.
 // Each prints its price, what it changes in the next day's operating net and in the card's overall, and, for those that pay, the
-// days they take to. `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default); it
-// reports and always exits 0.
+// days they take to. `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default); with
+// PACING_CARD_CENTS and PACING_CANDIDATES=wide it plays the card-building player instead, whose 30 buses fill by day 144 (to day
+// 152 about 80 minutes). It reports and always exits 0.
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { setHeadways } from '../src/sim/commands/setHeadways';
 import { setModel } from '../src/sim/commands/setModel';
@@ -28,21 +29,27 @@ import { newGame } from '../src/sim/state';
 import { advance } from '../src/sim/step';
 import { before } from '../src/sim/undo';
 import { createWorld, recompute, type World } from '../src/sim/world';
+import { denseCandidates } from './dense';
 import { CORRIDORS, innerBostonCity } from './inner';
 
 const city = innerBostonCity();
 if (!city) throw new Error('lategame: no Inner Boston; bake it with node tools/bake/sim.mjs boston inner-boston, or npm run cities');
 const seed = Number(process.env.PACING_SEED ?? 1);
 const maxDays = Number(process.env.PACING_DAYS ?? 200);
+const cardCentsPerPoint = Number(process.env.PACING_CARD_CENTS ?? 0);
+const wide = process.env.PACING_CANDIDATES === 'wide';
 const t0 = performance.now();
 
 const world = createWorld(city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'Back Bay Transit', colour: '#2471a3' }, seed));
-const run = playScripted(world, { name: 'the founding recipe', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, corridorCandidates(world, CORRIDORS), {
+const candidates = [...corridorCandidates(world, CORRIDORS), ...(wide ? denseCandidates(world) : [])];
+const run = playScripted(world, { name: 'the founding recipe', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, candidates, {
   rateOn: (day) => (day === 1 ? SPEED_RATES[3] : SPEED_RATES[4]),
   player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 },
   reserveCents: 0,
   maxDays,
+  cardCentsPerPoint,
 });
+const who = cardCentsPerPoint > 0 ? `the card-building player's (a point at ${`$${cardCentsPerPoint / 100}`} a day${wide ? ', wide candidates' : ''})` : "the profit-only player's";
 
 const usd = (cents: number) => `${cents < 0 ? '-' : ''}$${Math.round(Math.abs(cents) / 100).toLocaleString('en-US')}`;
 const net = (w: World, day: number) =>
@@ -121,7 +128,7 @@ for (const line of [...world.state.lines]) {
 
 const buses = world.state.lines.reduce((s, l) => s + l.buses, 0);
 console.log(
-  `lategame on Inner Boston, seed ${seed}: the profit-only player's company on day ${day}: ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${buses} buses, ${world.state.stops.length} stops; cash ${usd(world.state.ledger.cashCents)}; the next day's operating net ${usd(baseNet)}, its card ${baseCard.toFixed(1)}`,
+  `lategame on Inner Boston, seed ${seed}: ${who} company on day ${day}: ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${buses} buses, ${world.state.stops.length} stops; cash ${usd(world.state.ledger.cashCents)}; the next day's operating net ${usd(baseNet)}, its card ${baseCard.toFixed(1)}`,
 );
 for (const kind of ['stop', 'bus', 'more often']) {
   const all = tried.filter((t) => t.kind === kind);
