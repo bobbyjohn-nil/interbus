@@ -67,10 +67,14 @@ test.describe('the failure floor', () => {
   // The lender's card stays until Restart this quarter, and stood at the window's top centre over the panels: with Contracts,
   // Lines and Finance opened in turn, Finance's views and Close were under it at 1152×720 to 1440×900, and a press on its Lines
   // view landed on the card (the review of #142). It takes a free place on the panel layer now, so the panels open beside it,
-  // and it beside a panel open as the run ends. Shown failing (TS-04) with the card where it was.
+  // and it beside a panel open as the run ends. No panel covers it either: at 1152×720, I13's tightest window, Finance found no
+  // free place and fell back over it, hiding Restart this quarter (the review of the ninth round); it falls back below it, and
+  // the card is drawn above every panel. And a narrower window keeps it whole at its width, as a panel is kept: it was squeezed
+  // to 304 px, flush with the window's edge. Shown failing (TS-04) with the card where it was, with the fallback as before, with
+  // the card raised as the panels are, and with its width unset.
   test('the lender’s card keeps clear of the panels, open before it or after', async ({ page }) => {
     test.setTimeout(90_000);
-    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.setViewportSize({ width: 1152, height: 720 });
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
@@ -91,28 +95,49 @@ test.describe('the failure floor', () => {
     };
     const finance = page.getByTestId('finance');
     const failure = page.getByTestId('failure-card');
-    // Saves open as the run ends: the card opens beside it.
-    await page.getByTestId('saves-chip').click();
-    const saves = page.getByTestId('saves');
-    await expect(saves).toBeVisible();
-    await setSpeed(page, '5,400×');
+    const restart = failure.getByRole('button', { name: 'Restart this quarter' });
     const dayCard = page.getByTestId('day-card');
-    await expect(dayCard).toBeVisible({ timeout: 30_000 });
-    await dayCard.getByRole('button', { name: 'Continue' }).click();
-    await expect(failure).toBeVisible();
-    expect(await apart(failure, saves)).toBe(true);
-    await saves.getByRole('button', { name: 'Close' }).click();
+    /** Time to the fifth close, then the closing day's card read. Restart this quarter goes back to where the file loaded. */
+    const endTheRun = async () => {
+      await setSpeed(page, '5,400×');
+      await expect(dayCard).toBeVisible({ timeout: 30_000 });
+      await dayCard.getByRole('button', { name: 'Continue' }).click();
+      await expect(failure).toBeVisible();
+    };
 
-    // Contracts, Lines and Finance opened in turn after it: each beside it, and Finance's views and Close in reach.
+    // Nothing open as the run ends, then Contracts, Lines and Finance opened in turn: none over the card, and Finance's views
+    // and Close in reach.
+    await endTheRun();
     await page.getByTestId('contracts-chip').click();
     await page.getByRole('button', { name: 'Lines', exact: true }).click();
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     for (const id of ['contracts', 'inspector', 'finance']) expect(await apart(failure, page.getByTestId(id)), id).toBe(true);
+    expect(await onTop(restart)).toBe(true);
     for (const id of ['finance-overview', 'finance-breakdown', 'finance-lines']) expect(await onTop(finance.getByTestId(id)), id).toBe(true);
     expect(await onTop(finance.getByRole('button', { name: 'Close' }))).toBe(true);
     await finance.getByTestId('finance-lines').click();
     await expect(finance).toHaveAttribute('data-view', 'lines');
-    expect(await onTop(failure.getByRole('button', { name: 'Restart this quarter' }))).toBe(true);
+
+    // A narrower window: the card stays 380 px wide, 12 px inside its edge, and above the panels it now meets (Contracts, kept
+    // whole where it was, covered its Restart).
+    await page.setViewportSize({ width: 1000, height: 600 });
+    await expect.poll(async () => (await failure.boundingBox())!.x).toBeLessThan(760);
+    const card = (await failure.boundingBox())!;
+    expect(Math.round(card.width)).toBe(380);
+    expect(card.x + card.width).toBeLessThanOrEqual(1000 - 12);
+    expect(await onTop(restart)).toBe(true);
+    await page.setViewportSize({ width: 1152, height: 720 });
+
+    // Saves open as the run ends again: the card opens beside it.
+    await restart.click();
+    await expect(failure).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.getByTestId('saves-chip').click();
+    const saves = page.getByTestId('saves');
+    await expect(saves).toBeVisible();
+    await endTheRun();
+    expect(await apart(failure, saves)).toBe(true);
+    expect(await onTop(restart)).toBe(true);
   });
 
   // Once the lender has ended the run the host refuses every change (D10), and the page offered them all the same, each press
@@ -220,13 +245,19 @@ test.describe('the failure floor', () => {
     await page.getByRole('button', { name: 'Lines', exact: true }).click();
     await expect(lines.getByTestId('headway-peak')).toBeEnabled();
 
-    // The route editor out as the run ends: it goes down, and its line shows again in the panel it stood in for.
-    await lines.getByRole('button', { name: 'Edit route' }).click();
+    // The route editor out as the run ends, opened from the keyboard: it goes down, and its line shows again in the panel it
+    // stood in for, which takes no focus, as the game brought it back, not the player: the closing day's Continue takes it (the
+    // review of the ninth round: brought back as the player's, the line's panel kept the focus from Continue).
+    const editRoute = lines.getByRole('button', { name: 'Edit route' });
+    for (let k = 0; k < 60 && !(await editRoute.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(editRoute).toBeFocused();
+    await page.keyboard.press('Enter');
     await expect(page.getByTestId('route-editor')).toBeVisible();
     await expect(lines).toHaveCount(0);
     await endTheRun();
     await expect(page.getByTestId('route-editor')).toHaveCount(0);
     await expect(lines).toBeVisible();
+    await expect(dayCard.getByRole('button', { name: 'Continue' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(restart).toBeFocused();
     await restart.click();

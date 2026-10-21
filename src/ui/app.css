@@ -28,8 +28,9 @@
      among themselves inside a layer of their own (shell/Panels.tsx), so however many are raised they
      stay under the next; the menus (the dock with Build's, the demand menu, every dropdown's list) and
      the cards beside the pointer, so a press on a menu's item never lands on a panel under it (the
-     systems audit, D26); the cards that wait for an answer (the founding card, the day's close and the
-     run's end); and the replaced build's card. */
+     systems audit, D26); the cards that wait for an answer (the founding card and the day's close); and
+     the replaced build's card. The run's end has its card on the panels' layer, in a free place beside
+     them, as it stays until Restart this quarter (App.tsx). */
   --layer-panels: 10;
   --layer-menus: 20;
   --layer-cards: 100;
@@ -132,7 +133,7 @@ body,
 
 /* Stacked, it reached 118 px, over the heading and first row of a day card or the lender's card at 60 px (the review of the
    seventh round's fixes), so while one is up it drops to the board's foot as the map's cards do. One row, it ends at 66 px,
-   clear of their headings. */
+   clear of their headings. The lender's card is on the panels' layer now, in a free place from 56 px down, and the same holds. */
 .app:has(.day-card) .replaced.unsaved {
   top: auto;
   bottom: 80px;
@@ -1424,7 +1425,8 @@ button.chip.checklist,
 
 /* While a card that waits for an answer is up at top 60 px (the day's close, the run's end), the map's
    cards drop to the board's foot, above the dock, which such a card leaves clear (at most 52vh below
-   its 60 px: its foot at 458 px of 720). High on the board, the lender's card, which has no close, hid
+   its 60 px: its foot at 458 px of 720). The run's end has its card on the panels' layer now, in a
+   free place from 56 px down, as tall as its place allows; the map's cards drop for it as before. High on the board, the lender's card, which has no close, hid
    the lost card's words and Reload, and a day card its words (the systems audit's fifth round), and so
    the map's start failures' (the seventh); lifted over the cards instead, the lost card hid a short day
    card's Continue and Finance's tabs. */
@@ -1624,12 +1626,15 @@ button.chip.checklist,
   user-select: none;
 }
 
-/* The lender's card on the panel layer (App.tsx), placed by the layer as a panel is, and as tall as its place allows. */
+/* The lender's card on the panel layer (App.tsx), placed by the layer as a panel is, and as tall as its place allows. As wide
+   as its widest, 380 px with its padding, as the panels are: a narrowing window squeezed it instead (to 304 px, flush with the
+   window's edge), as the layer measures it to keep it whole. */
 .movable > .day-card {
   position: relative;
   top: auto;
   left: auto;
   transform: none;
+  width: 348px;
   max-height: min(var(--room, calc(100vh - 128px)), 52vh);
 }
 

@@ -101,8 +101,14 @@ Systems that work first, the real values later (D26): an audit finds what does n
 - [x] **The ninth round** (on a17e9ca, 2026-10-21; this pull request): two lanes (D27), each told the known findings. The route editor and the Build tab with many stops: nothing. Undo across systems: nothing, exact across every kind of command. Play by keyboard alone: three minors, two fixed here with failing-first tests, with a fourth from #142's review:
   - a panel opened from the keyboard left the focus in the dock, its first control 11 Tabs on: it takes the focus now (the route editor from Edit route too), and one the mouse opens leaves it where it was;
   - Finance's views took no arrow keys and were three Tab stops: they are tabs as Lines' are (`src/ui/tablist.ts`);
-  - (from #142's review, older than it) the lender's card, which stays until Restart this quarter, covered panels opened beside others: with Contracts, Lines and Finance opened in turn, Finance's views and Close sat under it at 1152×720 to 1440×900. It takes a free place on the panel layer now, beside the panels open as it shows, and those opened after it open beside it;
+  - (from #142's review, older than it) the lender's card, which stays until Restart this quarter, covered panels opened beside others: with Contracts, Lines and Finance opened in turn, Finance's views and Close sat under it at 1152×720 to 1440×900. It takes a free place on the panel layer now, beside the panels open as it shows, and those opened after it open beside it or below it, never over it;
   - left for the accessibility pass: no key opens a stop's card (its riders, upgrade and Take it down), only a click on the map.
+
+  The independent review found one major, two minors and three nits, all fixed here with failing-first tests:
+  - (major) at 1152×720, I13's tightest window, Finance opened third after the end found no free place and fell back over the lender's card, hiding Restart this quarter. A panel with no free place now falls back below a card no panel may cover (`clear`), and that card is drawn above them all, so a narrowing window cannot move one over it;
+  - every panel's box took the focus from a press on its text, so the arrows no longer scrolled the panel, and the run's end then gave Continue no focus. A box is focusable now only while the keyboard holds it;
+  - nothing tested that the line's panel, brought back at the run's end, takes no focus from Continue;
+  - the nits: the changelog's keyboard wording, the card's width on a narrowing window (380 px now, kept whole 12 px in) and the docs on its new layer.
 
   Next: D26's values pass (prices, rates, the pacing minutes and the medal bars), the default until the owner answers (Waiting on the owner: when the values pass starts).
 

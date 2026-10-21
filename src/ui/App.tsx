@@ -529,8 +529,9 @@ export function App() {
   }
   // The lender's card, which stays until Restart this quarter, takes a free place on the panel layer as the panels do, so it
   // covers none open beside it and they open beside it: at the window's top centre, it hid the Close and views of a panel
-  // opened third (the review of #142). It shows once the closing day's card is read (FailureCard).
-  if (over && !sim.dayCard) panelItems.push({ id: "lender", node: <FailureCard sim={sim} /> });
+  // opened third (the review of #142). No panel opened after it covers it, even with no free place left (clear), as it holds
+  // the run's one way on. It shows once the closing day's card is read (FailureCard).
+  if (over && !sim.dayCard) panelItems.push({ id: "lender", node: <FailureCard sim={sim} />, clear: true });
 
   if (atHome)
     return (

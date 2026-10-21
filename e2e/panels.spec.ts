@@ -274,6 +274,25 @@ test.describe('the panels by keyboard', () => {
     throw new Error('Tab never reached it');
   };
 
+  // The box holds the focus only while the keyboard put it there: always focusable, it took the focus from a press on a panel's
+  // text, so the arrows no longer scrolled the panel (the review of the ninth round: Contracts 0 px where it scrolled 158).
+  // Shown failing (TS-04) with every box focusable.
+  test('a press on a panel’s text leaves the arrows scrolling the panel', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 480 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByTestId('checklist').click();
+    const contracts = page.getByTestId('contracts');
+    await expect(contracts).toBeVisible();
+    expect(await contracts.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await contracts.locator('[data-testid=contract] strong').first().click();
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowDown');
+    await expect.poll(() => contracts.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  });
+
   test('a panel opened from the keyboard takes the focus, and Finance’s views take the arrows as one Tab stop', async ({ page }) => {
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });

@@ -85,6 +85,19 @@ describe('a panel’s free place', () => {
     expect(at.y + roomBelow(at.y, 300)).toBe(300 - 72);
   });
 
+  // The review of the ninth audit round, at 1152×720: the run ended with no panel open, its card took the top right, and
+  // Contracts and Lines opened beside it; Finance, 440 px wide, found no row and fell back over the card, hiding Restart this
+  // quarter. It falls back below a card it may not cover (`clear`) now. Shown failing (TS-04) with the fallback as before.
+  it('with room in no row, opens below a card it may not cover', () => {
+    const card = { x: 760, y: 56, w: 380, h: 138 };
+    const taken = [card, { x: 448, y: 56, w: 300, h: 510 }, { x: 156, y: 56, w: 280, h: 400 }];
+    expect(freePlace(440, 500, taken, 1152, 720)).toEqual({ x: 700, y: 56 + 3 * 28 });
+    const at = freePlace(440, 500, taken, 1152, 720, [card]);
+    expect(at).toEqual({ x: 700, y: card.y + card.h + 12 });
+    // As low as leaves 160 px above the dock, however tall the card.
+    expect(freePlace(440, 500, taken, 1152, 720, [{ ...card, h: 600 }])).toEqual({ x: 700, y: 720 - 72 - 160 });
+  });
+
   it('keeps a panel whole when the window changes size, and above the dock', () => {
     // Finance, 440 px wide, opened at the top right of a 1366 px window: the window narrows to 1152.
     expect(keptWhole({ x: 914, y: 56 }, 440, 1152, 720)).toEqual({ x: 1152 - 12 - 440, y: 56 });
