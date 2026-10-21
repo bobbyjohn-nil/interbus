@@ -4,6 +4,12 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 export interface PanelItem {
   readonly id: string;
   readonly node: ReactNode;
+  /**
+   * Never covered by a panel: one opened after it, with no free place left, falls back clear of it, and it is drawn above them
+   * all, so a window that narrows and keeps the panels whole cannot move one over it either. The lender's card, whose Restart
+   * this quarter is the run's one way on.
+   */
+  readonly clear?: boolean;
 }
 
 interface Rect {
@@ -73,9 +79,11 @@ export const showing = (at: { x: number; y: number }, control: { left: number; r
  * the rest scrolls inside it). No row starts lower than MIN_ROOM above the dock, however short the
  * panel, so it can grow to MIN_ROOM without covering the dock and a drag does not jump it up (inReach).
  * With room in none, it opens at the top right, a step down for each panel open, as far as leaves it
- * MIN_ROOM above the dock.
+ * MIN_ROOM above the dock, and below any of `clear` it would cover there (the review of the ninth audit
+ * round: at 1152×720 Finance, opened third after the run ended, fell back over the lender's card and hid
+ * Restart this quarter).
  */
-export function freePlace(w: number, h: number, taken: readonly Rect[], width: number, height: number): { x: number; y: number } {
+export function freePlace(w: number, h: number, taken: readonly Rect[], width: number, height: number, clear: readonly Rect[] = []): { x: number; y: number } {
   const rows = [...new Set([TOP, ...taken.map((t) => t.y + t.h + GAP)])].filter((y) => y + MIN_ROOM <= height - BOTTOM).sort((a, b) => a - b);
   for (const y of rows) {
     let x = width - GAP - w;
@@ -86,7 +94,11 @@ export function freePlace(w: number, h: number, taken: readonly Rect[], width: n
       x = Math.min(...inTheWay.map((t) => t.x)) - GAP - w;
     }
   }
-  return { x: Math.max(GAP, width - GAP - w), y: Math.max(TOP, Math.min(TOP + taken.length * ROW_STEP, height - BOTTOM - MIN_ROOM)) };
+  const x = Math.max(GAP, width - GAP - w);
+  let y = Math.max(TOP, Math.min(TOP + taken.length * ROW_STEP, height - BOTTOM - MIN_ROOM));
+  for (const c of [...clear].sort((a, b) => a.y - b.y))
+    if (overlaps({ x, y, w, h: Math.min(h, roomBelow(y, height)) }, c)) y = Math.max(y, Math.min(c.y + c.h + GAP, height - BOTTOM - MIN_ROOM));
+  return { x, y };
 }
 
 /** Puts a panel's box at `at`, no taller than roomBelow allows there (app.css reads --room). */
@@ -109,11 +121,24 @@ export interface PanelFront {
  * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
  * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
  * free place whole, and a dragged one's heading in reach. A tool's card is a panel like the others.
+ * One the keyboard opened takes the focus (`focus`), as a dialog does, so Tab goes on inside it.
  * Places live on the elements, not in React state, so a drag re-renders nothing. The panels are raised
  * among themselves on a layer of their own, under the menus and the cards beside the pointer however
  * many are raised (app.css's --layer-panels).
  */
-export function Panels({ items, front = null }: { items: readonly PanelItem[]; front?: PanelFront | null }) {
+export function Panels({
+  items,
+  front = null,
+  focus = null,
+  takesFocus = () => false,
+}: {
+  items: readonly PanelItem[];
+  front?: PanelFront | null;
+  /** The panel the player opened or showed last. */
+  focus?: PanelFront | null;
+  /** Whether that panel takes the focus: when the keyboard opened it (App's focusSource). */
+  takesFocus?: () => boolean;
+}) {
   const [raised, setRaised] = useState<readonly string[]>([]);
   // A panel not open at the last render has just opened, and `front` names one shown again: the
   // player's newest act, in front of those pressed before (React's pattern for state that follows a prop).
@@ -142,12 +167,33 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
         const r = boxes.current.get(other)?.getBoundingClientRect();
         return r ? [{ x: r.left, y: r.top, w: r.width, h: r.height }] : [];
       });
+      // Items placed already that no panel may cover (PanelItem.clear).
+      const clear = items.filter((i) => i.clear && placed.current.has(i.id)).flatMap(({ id: other }) => {
+        const r = boxes.current.get(other)?.getBoundingClientRect();
+        return r ? [{ x: r.left, y: r.top, w: r.width, h: r.height }] : [];
+      });
       // Where it was dragged to, kept in reach of a window narrower since.
       const was = dragged.current.get(id);
-      put(box, was ? inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight) : freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight));
+      put(box, was ? inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight) : freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight, clear));
       placed.current.add(id);
     }
   });
+
+  // The panel the keyboard opened or showed (`focus`, App) takes the focus once placed, so the next Tab is its first control.
+  // Asked as the effect runs, after the press that opened it, never during a render. The box can hold the focus only until it
+  // leaves: always focusable, it took the focus from a press on a panel's text, so the keys no longer scrolled the panel and
+  // the run's end found the focus held, not lost, and gave Continue none (the review of the ninth audit round).
+  const takes = useRef(takesFocus);
+  useLayoutEffect(() => {
+    takes.current = takesFocus;
+  });
+  useLayoutEffect(() => {
+    const box = focus && takes.current() ? boxes.current.get(focus.id) : undefined;
+    if (!box) return;
+    box.tabIndex = -1;
+    box.addEventListener("blur", () => box.removeAttribute("tabindex"), { once: true });
+    box.focus();
+  }, [focus]);
 
   // A window that changes size keeps a panel in a free place whole, and a dragged one in reach, as a drag does.
   useEffect(() => {
@@ -201,7 +247,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
 
   return (
     <div className="panel-layer">
-      {items.map(({ id, node }, k) => {
+      {items.map(({ id, node, clear }, k) => {
         const lift = raised.indexOf(id);
         return (
           <div
@@ -212,7 +258,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
               if (el) boxes.current.set(id, el);
               else boxes.current.delete(id);
             }}
-            style={{ zIndex: 1 + (lift >= 0 ? items.length + lift : k) }}
+            style={{ zIndex: 1 + (clear ? 2 * items.length : lift >= 0 ? items.length + lift : k) }}
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
             onFocus={(e) => reveal(e.currentTarget, e.target, id)}

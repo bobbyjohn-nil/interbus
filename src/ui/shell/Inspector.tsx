@@ -2,6 +2,7 @@ import type { KeyboardEvent } from "react";
 import { runOver } from "../game/runOver";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
+import { tabTo } from "../tablist";
 
 /**
  * The line inspector (the M2 spec, item 7): one line's card and its headways. Its money and its fare
@@ -34,13 +35,11 @@ export function Inspector({
   // the focus reaches it; only the chosen tab is in the Tab order, so one Tab goes on to the card. Before, the arrows did
   // nothing, and 30 lines took 30 presses of Tab to reach the card (the systems audit's seventh round).
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const at = lines.findIndex((l) => l.id === line.id);
-    const to = ({ ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: lines.length - 1 } as Record<string, number>)[event.key];
-    if (to === undefined) return;
+    const next = tabTo(event.key, lines.map((l) => l.id), line.id);
+    if (next === undefined) return;
     event.preventDefault();
-    const next = lines[(to + lines.length) % lines.length]!;
-    onLine(next.id);
-    event.currentTarget.querySelector<HTMLElement>(`[data-line="${next.id}"]`)?.focus();
+    onLine(next);
+    event.currentTarget.querySelector<HTMLElement>(`[data-line="${next}"]`)?.focus();
   };
   return (
     <aside

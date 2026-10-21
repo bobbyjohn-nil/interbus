@@ -9,7 +9,8 @@ import type { Sim } from './useSim';
  * The end of a run (the M3 spec, item 10; D10): five day closes in a row below the credit line's
  * floor, and the lender calls in the loan. Time stays stopped; Restart this quarter reopens the save
  * written as the quarter began. It shows once the day card of the close that ended the run is read
- * and closed, rather than over it in the same spot, hiding its rows.
+ * and closed, rather than over it in the same spot, hiding its rows, and takes a free place on the panel
+ * layer as a panel does (App.tsx), clear of those open beside it.
  */
 export function FailureCard({ sim }: { sim: Sim }) {
   const shown = runOver(sim) && !sim.dayCard;

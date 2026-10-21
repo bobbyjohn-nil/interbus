@@ -82,7 +82,9 @@ describe('Finance’s views', () => {
   it('opens on the Overview: cash, a chart from Day 0, its days and what each bought', () => {
     const html = render(base, 'overview');
     expect(html).toContain('data-view="overview"');
-    expect(html).toContain('aria-selected="true" data-testid="finance-overview"');
+    // Only the chosen view is in the Tab order, as Lines' chosen tab is (the systems audit's ninth round).
+    expect(html).toContain('aria-selected="true" tabindex="0" data-testid="finance-overview"');
+    expect(html).toContain('aria-selected="false" tabindex="-1" data-testid="finance-breakdown"');
     expect(html).toContain('data-testid="finance-chart" data-days="3"');
     expect(html).toContain('<title>Day 0: starting cash $427,200</title>');
     expect(html.match(/<g class="day[^"]*"/g)).toHaveLength(3);
