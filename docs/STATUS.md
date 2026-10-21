@@ -31,11 +31,11 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 - [ ] **Sun Nov 8, the light token pick** (PLAN §8): the starting light tokens or pure V1 paper, side by side on Boston. The light style pass (M5, item 8) waits for it.
 - [ ] **P1, Nov 16–22:** the owner and the artist play the preview; notes in `docs/playtests/`. The tuning freeze (M5, item 2) starts ahead of them under the owner's clearance (D25) and takes their notes in.
 - [ ] **The medal ladder, by Sun Nov 22** (DECISIONS, Open; measured 2026-10-21). Bronze comes on day 8 and silver on day 28–29.
-  - A network planned for coverage meets every gold bar within the 30 buses a company can own: 13 lines on 28 buses, graded 80.4.
-  - A player building toward the card clears every gold bar but Coverage by 100 minutes, and stops at 59.8 at the bus ceiling.
+  - A player building toward the card gets gold on day 144, at 103 minutes, on seeds 1 and 3, about 17 minutes before PLAN's 2–4 hours; on seed 2 it fills the 30 buses a company can own at Coverage 58.6 and gets none.
+  - A network planned for coverage meets every gold bar on 28 buses, graded 80.4.
   - The profit-only player reaches 31.
 
-  The choices: keep the ladder, so gold asks for a network planned for coverage (recommended); or gold's grade floor at 55 (gold at 100 minutes for the card-building player); or keep 60 and let a company own more buses.
+  The choices: keep the ladder (recommended: a person weighs far fewer lines than the scripted player, so lands later, inside 2–4 hours); or gold's grade floor at 55 (gold on all three seeds at 96–103 minutes); or keep 60 and let a company own more buses.
 - [ ] **M5's exit check 4, your Mac's fps:** open the preview with `?fps` in stable Chrome, play at 2,700× (the old 2×, 1,800× until the tuning freeze) flat and tilted, and note the readout in P2's notes. The steps are in [`playtests/PROTOCOL.md`](playtests/PROTOCOL.md), Frame rates; the readout now names its zoom and tilt.
 
 ## In progress: the values pass (D26)
@@ -51,21 +51,21 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
 - [x] **The gold measurement** (this pull request; DECISIONS, Measured, 2026-10-21). It brings back D26's parked harness:
   - `npm run bench coverage`;
   - the pacing player's card scoring (`PACING_CARD_CENTS`) and wider candidates (`PACING_CANDIDATES=wide`);
-  - its depot fallbacks and weekly retries (`PACING_RETRY_DAYS`).
+  - its depot fallbacks, and a retry cadence (`PACING_RETRY_DAYS`), which makes another player.
 
   What it measured:
   - a network planned for coverage meets every gold bar on 28 of the 30 buses a company can own (card 80.4, Coverage 78.5);
-  - a player building toward the card clears all but Coverage by day 144 (100 minutes), then stops at 59.8 at the bus ceiling;
-  - the tuning freeze's profit-only player reaches 31.
+  - a player building toward the card gets gold on day 144, at 103 minutes, on seeds 1 and 3; on seed 2 it fills the 30 buses at Coverage 58.6 and gets none;
+  - the profit-only player reaches 31.
 
   The medal ladder goes to the owner with these numbers (Waiting on the owner).
-- [ ] **Next: the late game's cash.** Both players stop building while their cash grows: the profit-only player's to $1.2 million by day 200, and the card-building player's to $11.7 million by day 296, at the 30-bus ceiling. Measure what a late company can spend on and where the ceiling binds, then propose values with numbers.
+- [ ] **Next: the late game's cash.** Both players stop building while their cash grows: the profit-only player's to $1.2 million by day 200, and the card-building player's past $1 million a week after the 30-bus ceiling (seed 2: $1.3 million by day 152). Measure what a late company can spend on and where the ceiling binds, then propose values with numbers.
 
 Open from the audit:
 - [ ] **Held for a save format:** the checklist coming back as "5/5 Take a contract" when a taken contract lapses needs a saved flag, so it waits to share one format change with any other finding that needs one.
 - [ ] **Left open by #134 and #136:** across a chain of changes a parked bus may be home when a later change's departure needs it (47 departures in 2,500 chains), and the first change on a new day merges a line's kept versions again once, 104–176 ms.
 - [ ] **For P0:** a save made before #134 while a line was settling shows Finance's Day forecast off on the day it loads (the next day agrees), so a playtest starts from a fresh game or a settled one.
-- [ ] **Left open by #139:**
+- [ ] **Left open by #138 and #139:**
   - The floor count stays as it is. A file claiming five closes below the floor ends only its own run, and checking it means replaying the ledger's closes.
   - A Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.
 - [ ] **For the accessibility pass:** no key opens a stop's card (its riders, upgrade and Take it down), only a click on the map (the ninth round).
