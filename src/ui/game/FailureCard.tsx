@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react';
 import { CREDIT_LIMIT_CENTS, FAILURE_CLOSES } from '../../sim/rules/credit';
+import { focusLost } from '../focusLost';
 import { usdK } from '../format';
+import { runOver } from './runOver';
 import type { Sim } from './useSim';
 
 /**
@@ -9,7 +12,13 @@ import type { Sim } from './useSim';
  * and closed, rather than over it in the same spot, hiding its rows.
  */
 export function FailureCard({ sim }: { sim: Sim }) {
-  if (!sim.snapshot?.floor?.ended || sim.dayCard) return null;
+  const shown = runOver(sim) && !sim.dayCard;
+  // Shown as the day card's Continue goes, or over a control the end turned off: Restart this quarter takes the focus.
+  const restart = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (shown && focusLost()) restart.current?.focus();
+  }, [shown]);
+  if (!shown) return null;
   return (
     <section className="day-card failure" role="dialog" aria-label="The run is over" data-testid="failure-card" data-chrome="panel">
       <div className="day-card-scroll">
@@ -18,7 +27,7 @@ export function FailureCard({ sim }: { sim: Sim }) {
           {FAILURE_CLOSES} days closed below {usdK(-CREDIT_LIMIT_CENTS)}. Start this quarter again from where it began.
         </p>
       </div>
-      <button type="button" onClick={() => sim.send({ type: 'restart-quarter' })}>
+      <button ref={restart} type="button" onClick={() => sim.send({ type: 'restart-quarter' })}>
         Restart this quarter
       </button>
     </section>

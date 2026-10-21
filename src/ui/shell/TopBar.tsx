@@ -1,4 +1,5 @@
 import type { Speed } from '../../sim/types';
+import { runOver } from '../game/runOver';
 import { CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
 import { MEDAL_IDS } from '../../sim/rules/medal';
 import { calendarOfDay } from '../../sim/rules/calendar';
@@ -36,6 +37,9 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const held = s.contracts.filter((c) => c.held).length;
   const offers = held > 0 ? `${held} held` : `${s.contracts.length} on offer`;
   const medals = MEDAL_IDS.filter((m) => s.medals[m] !== null);
+  // An ended run takes nothing but Restart this quarter: no play and no step to take (runOver). It has no undo either: time
+  // ran to its end, and running clears the undos (I9).
+  const over = runOver(sim);
   const undo = s.undo ? undoText(s.undo) : null;
   return (
     <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
@@ -48,13 +52,14 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
             type="button"
             className="play"
             aria-label={s.speed === 0 ? 'Play' : 'Pause'}
-            title={s.speed === 0 ? 'Play (Space)' : 'Pause (Space)'}
+            title={over ? 'Play' : s.speed === 0 ? 'Play (Space)' : 'Pause (Space)'}
             data-testid="play"
+            disabled={over}
             onClick={() => sim.send({ type: 'speed', speed: s.speed === 0 ? playSpeed : 0 })}
           >
             <span className={s.speed === 0 ? 'icon-play' : 'icon-pause'} aria-hidden="true" />
           </button>
-          <Dropdown label="Speed" value={s.speed === 0 ? playSpeed : s.speed} options={SPEED_OPTIONS} repick testId="speed-menu" onChange={(speed) => sim.send({ type: 'speed', speed })} />
+          <Dropdown label="Speed" value={s.speed === 0 ? playSpeed : s.speed} options={SPEED_OPTIONS} repick testId="speed-menu" disabled={over} onChange={(speed) => sim.send({ type: 'speed', speed })} />
         </span>
       ) : null}
       <span className="chip">
@@ -78,17 +83,17 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
           <span className="chip-text">{undo}</span>
         </button>
       ) : null}
-      {founded && checklist && !toContracts ? (
+      {founded && checklist && !over && !toContracts ? (
         <span className="chip checklist" data-testid="checklist" title={checklist}>
           <span className="chip-text">{checklist}</span>
         </span>
       ) : null}
-      {founded && checklist && toContracts ? (
+      {founded && checklist && !over && toContracts ? (
         <button type="button" className="chip checklist" data-testid="checklist" title={checklist} onClick={onContracts}>
           <span className="chip-text">{checklist}</span>
         </button>
       ) : null}
-      {founded && !checklist ? (
+      {founded && (!checklist || over) ? (
         <button type="button" className="chip contracts" data-testid="contracts-chip" title={`Contracts ${offers}`} onClick={onContracts}>
           <span className="chip-text">
             <span className="chip-label">Contracts</span> {offers}

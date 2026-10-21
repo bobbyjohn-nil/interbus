@@ -46,8 +46,11 @@ const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly
  * of the tabs at the bottom, it can be placed at the top"). Picking a tool closes the menu; picking
  * the tool already out puts it down.
  */
-export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; panels: readonly Panel[]; hasLines: boolean; onTool: (t: Tool) => void; onPanel: (p: Exclude<Panel, 'none'>) => void }) {
+export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }: { tool: Tool; panels: readonly Panel[]; hasLines: boolean; locked?: boolean; onTool: (t: Tool) => void; onPanel: (p: Exclude<Panel, 'none'>) => void }) {
   const [open, setOpen] = useState(false);
+  // Locked while open (the run ended under it), the menu closes: Build stayed pressed and expanded, and the menu opened
+  // again by itself once Restart this quarter unlocked it. During render, as state that follows a prop.
+  if (locked && open) setOpen(false);
   const build = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   // Escape or a press anywhere else closes the menu, as the game's dropdowns do, and does nothing else:
@@ -82,7 +85,8 @@ export function Dock({ tool, panels, hasLines, onTool, onPanel }: { tool: Tool; 
           if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
         }}
       >
-        <button ref={button} type="button" aria-pressed={open || building} aria-expanded={open} data-testid="build" onClick={() => setOpen((o) => !o)}>
+        {/* An ended run builds nothing (locked: runOver). */}
+        <button ref={button} type="button" aria-pressed={open || building} aria-expanded={open} data-testid="build" disabled={locked} onClick={() => setOpen((o) => !o)}>
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>

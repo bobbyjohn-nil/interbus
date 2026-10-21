@@ -41,6 +41,7 @@ export function Dropdown<T extends string | number>({
   onChange,
   placement = 'below',
   repick = false,
+  disabled = false,
   testId,
   className,
   children,
@@ -53,6 +54,8 @@ export function Dropdown<T extends string | number>({
   readonly placement?: 'below' | 'above';
   /** Picking the option already chosen still calls onChange (the speed menu: it plays at that speed). */
   readonly repick?: boolean;
+  /** The button shows the choice and opens nothing (an ended run's, runOver). */
+  readonly disabled?: boolean;
   readonly testId?: string;
   readonly className?: string;
   /** What the button shows; the chosen option's label by default. */
@@ -68,6 +71,9 @@ export function Dropdown<T extends string | number>({
   const list = useRef<HTMLUListElement>(null);
   const listId = useId();
   const chosen = options.findIndex((o) => o.value === value);
+  // Turned off while open (the run ended under it, runOver), the list closes: it stayed open, the keyboard in it, and its pick
+  // sent what the game then refused (the review of the systems audit's eighth round). During render, as state that follows a prop.
+  if (disabled && open) setOpen(false);
 
   // Placed beside the button, below or above it, in the viewport's own pixels, once the list is drawn
   // (unseen) and its height known. Where that side has no room for it and the other has more (a panel
@@ -152,7 +158,7 @@ export function Dropdown<T extends string | number>({
     return from;
   };
   const show = () => {
-    if (open) return;
+    if (open || disabled) return;
     setActive(chosen >= 0 ? chosen : step(-1, 1));
     setAt(null);
     shownOnce.current = false;
@@ -164,7 +170,7 @@ export function Dropdown<T extends string | number>({
     reveal(list.current, i);
   };
   const pick = (i: number) => {
-    if (!enabled(i)) return;
+    if (disabled || !enabled(i)) return;
     setOpen(false);
     button.current?.focus();
     if (repick || options[i]!.value !== value) onChange(options[i]!.value);
@@ -212,6 +218,7 @@ export function Dropdown<T extends string | number>({
         aria-controls={open ? listId : undefined}
         aria-label={label}
         data-testid={testId}
+        disabled={disabled}
         onClick={() => (open ? setOpen(false) : show())}
         onKeyDown={onButtonKey}
       >

@@ -8,9 +8,10 @@ import type { Snapshot, StopView } from '../../sim/types';
 import { StopCard } from './StopCard';
 import type { Sim } from './useSim';
 
-function render(stop: Partial<StopView>, lineStops: readonly number[] = [1, 2, 3]): string {
+function render(stop: Partial<StopView>, lineStops: readonly number[] = [1, 2, 3], ended = false): string {
   const view: StopView = { id: 2, at: [-71.0857, 42.3424], tier: 1, lineIds: [1], boardings: 29.3, alightings: 8, transfers: 0, netCents: 1_234, quiet: false, loss: false, ...stop };
-  const snapshot = { stops: [view], lines: [{ id: 1, name: 'Line 1', colour: '#c0392b', stopIds: lineStops }], cashCents: 7_120_000 } as unknown as Snapshot;
+  const floor = ended ? { closesLeft: 0, ended: true } : null;
+  const snapshot = { stops: [view], lines: [{ id: 1, name: 'Line 1', colour: '#c0392b', stopIds: lineStops }], cashCents: 7_120_000, floor } as unknown as Snapshot;
   return renderToStaticMarkup(createElement(StopCard, { sim: { snapshot } as unknown as Sim, stopId: 2, onLine: () => undefined, onClose: () => undefined }));
 }
 
@@ -29,6 +30,21 @@ describe('a stop’s card', () => {
     // An Interchange needs three lines calling; this stop has one, so the step up is refused in words.
     expect(station).toMatch(/<button type="button" disabled="" title="Upkeep \$141 a day">Make it an Interchange · \$90k<\/button>/);
     expect(station).toContain('Needs 3 lines stopping here');
+  });
+
+  // Once the lender has ended the run, the host refuses every change (D10), so the card offers none: it offered each, a press
+  // answered by a notice alone (the review of the systems audit's eighth round). Shown failing (TS-04) with the buttons as before.
+  it('offers no step, no removal and no take-down once the run has ended', () => {
+    const station = render({ tier: 3 }, [1, 2, 3], true);
+    expect(station).toContain('<button type="button" disabled="">Make it a Shelter · $17.5k back</button>');
+    expect(station).toMatch(/<button type="button" disabled="">Remove from Line 1/);
+    const lone = render({ lineIds: [] }, [1, 3], true);
+    expect(lone).toMatch(/<button type="button" disabled="">Take it down/);
+    // Nor does a lone stop's card invite a line or an Edit route, both off (the review of #142).
+    expect(lone).toContain('No line stops here.</p>');
+    expect(render({ lineIds: [] }, [1, 3])).toContain('Draw a line through it');
+    // Before the end, the same buttons are on offer.
+    expect(render({ tier: 3 })).toContain('<button type="button">Make it a Shelter · $17.5k back</button>');
   });
 
   it('reads its day: who boards, who gets off, what it nets, and its lines', () => {

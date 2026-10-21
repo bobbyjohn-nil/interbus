@@ -5,7 +5,7 @@
 // its closing day's card is read first, then the failure card shows.
 import { expect, test } from '@playwright/test';
 import { foundCompany, STARTING_CENTS } from './found';
-import { city, setSpeed } from './shell';
+import { city, setSpeed, withDebugLine } from './shell';
 
 test.describe('the failure floor', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -62,5 +62,133 @@ test.describe('the failure floor', () => {
     await expect(page.getByTestId('notice')).toContainText('Back to the start of the quarter');
     await expect(panel).toHaveAttribute('data-cash', '-20000000');
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');
+  });
+
+  // Once the lender has ended the run the host refuses every change (D10), and the page offered them all the same, each press
+  // answered by a notice alone: Build's tools, play and the speed menu, the keys, Take it, a line's headways, model and Edit route,
+  // and its fare in Finance (the review of the systems audit's eighth round). Shown failing (TS-04) with the page as before. Its
+  // review (#142) found what that left: a list open as the run ended stayed open and picked, Space pressed the button the mouse
+  // pressed last, Play and the speed menu still looked live, the Build menu opened again by itself after Restart, the focus fell
+  // to the page, and the route editor took its line's panel with it. The commands are counted as the page sends them, so a key
+  // that sends one fails here before its refusal comes back.
+  test('an ended run offers nothing the lender refuses, and Restart this quarter brings it all back', async ({ page }) => {
+    test.setTimeout(90_000);
+    // The commands the page sends the sim, by type (presses.spec.ts counts them so).
+    await page.addInitScript(() => {
+      const w = window as unknown as { posted: Record<string, number> };
+      w.posted = {};
+      const post = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function (this: Worker, message: unknown, options?: StructuredSerializeOptions) {
+        const type = (message as { type?: unknown } | null)?.type;
+        if (typeof type === 'string') w.posted[type] = (w.posted[type] ?? 0) + 1;
+        post.call(this, message, options);
+      } as typeof post;
+    });
+    const posted = (type: string) => page.evaluate((t) => (window as unknown as { posted: Record<string, number> }).posted[t] ?? 0, type);
+    // A frame after a key, so what it pressed has drawn.
+    const settled = () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+    await page.goto('./');
+    const panel = page.getByTestId('sim-panel');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // The debug line, owing $199k at 23:50 on day 2 with four closes below the floor behind it. Restart this quarter goes back
+    // here, so the run can end again.
+    await withDebugLine(page, (d) => {
+      d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60;
+      (d as unknown as { closesBelowFloor: number }).closesBelowFloor = 4;
+      d.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
+    });
+    const dayCard = page.getByTestId('day-card');
+    const failure = page.getByTestId('failure-card');
+    const restart = failure.getByRole('button', { name: 'Restart this quarter' });
+    /** Time from the keys (5 is 5,400×) to the fifth close, then the closing day's card read and closed from the keyboard. */
+    const endTheRun = async () => {
+      await page.keyboard.press('5');
+      await expect(dayCard).toBeVisible({ timeout: 30_000 });
+      await expect(panel).toHaveAttribute('data-speed', '0');
+    };
+
+    // The keyboard in Finance's fare list as the run ends: the list closes, so ArrowDown and Enter pick no fare, and the focus
+    // goes to the closing day's Continue, then to Restart this quarter.
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    await finance.getByTestId('fare-1').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await endTheRun();
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await expect(dayCard.getByRole('button', { name: 'Continue' })).toBeFocused();
+    const fares = await posted('set-fare');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(failure).toBeVisible();
+    await expect(restart).toBeFocused();
+    expect(await posted('set-fare')).toBe(fares);
+
+    await expect(page.getByTestId('build')).toBeDisabled();
+    for (const id of ['play', 'speed-menu']) {
+      await expect(page.getByTestId(id)).toBeDisabled();
+      // Drawn as off, as Build is: they looked live.
+      await expect(page.getByTestId(id)).toHaveCSS('opacity', '0.4');
+    }
+    await expect(page.getByTestId('play')).toHaveAttribute('title', 'Play');
+    await expect(page.getByTestId('checklist')).toHaveCount(0);
+    await expect(finance.getByTestId('fare-1')).toBeDisabled();
+
+    // The keys send nothing: Space, 1 to 5 and Ctrl+Z. Space presses no button the mouse pressed last, either: Finance, here,
+    // which Space opened again.
+    const speeds = await posted('speed');
+    const undos = await posted('undo');
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await expect(finance).toHaveCount(0);
+    await page.keyboard.press('Space');
+    await page.keyboard.press('3');
+    await page.keyboard.press('ControlOrMeta+z');
+    await settled();
+    await expect(finance).toHaveCount(0);
+    expect(await posted('speed')).toBe(speeds);
+    expect(await posted('undo')).toBe(undos);
+
+    await page.getByTestId('contracts-chip').click();
+    const offers = page.getByTestId('contracts').getByRole('button', { name: 'Take it' });
+    expect(await offers.count()).toBeGreaterThan(0);
+    for (const take of await offers.all()) await expect(take).toBeDisabled();
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await expect(lines.getByTestId('headway-peak')).toBeDisabled();
+    await expect(lines.getByTestId('line-model')).toBeDisabled();
+    await expect(lines.getByRole('button', { name: 'Edit route' })).toBeDisabled();
+
+    await restart.click();
+    await expect(failure).toHaveCount(0);
+    await expect(page.getByTestId('build')).toBeEnabled();
+    await expect(page.getByTestId('play')).toBeEnabled();
+    await expect(page.getByTestId('play')).toHaveCSS('opacity', '1');
+    // The quarter's start is loaded, its panels closed; its line's card takes changes again.
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await expect(lines.getByTestId('headway-peak')).toBeEnabled();
+
+    // The route editor out as the run ends: it goes down, and its line shows again in the panel it stood in for.
+    await lines.getByRole('button', { name: 'Edit route' }).click();
+    await expect(page.getByTestId('route-editor')).toBeVisible();
+    await expect(lines).toHaveCount(0);
+    await endTheRun();
+    await expect(page.getByTestId('route-editor')).toHaveCount(0);
+    await expect(lines).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(restart).toBeFocused();
+    await restart.click();
+
+    // The Build menu open as the run ends: it closes, Build no longer pressed, and stays closed after Restart this quarter.
+    await page.getByTestId('build').click();
+    await expect(page.getByTestId('build-menu')).toBeVisible();
+    await endTheRun();
+    await expect(page.getByTestId('build-menu')).toHaveCount(0);
+    await expect(page.getByTestId('build')).toHaveAttribute('aria-expanded', 'false');
+    await dayCard.getByRole('button', { name: 'Continue' }).press('Enter');
+    await restart.click();
+    await expect(page.getByTestId('build')).toBeEnabled();
+    await expect(page.getByTestId('build-menu')).toHaveCount(0);
   });
 });

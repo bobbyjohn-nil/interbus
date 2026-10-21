@@ -8,6 +8,7 @@ import { Corner } from "./Corner";
 import { AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, failedText, MAP_UNSAVED_COPY } from "./copy";
 import { DayCard } from "./game/DayCard";
 import { FailureCard } from "./game/FailureCard";
+import { runOver } from "./game/runOver";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
@@ -62,10 +63,11 @@ export function App() {
   const speedNow = sim.snapshot?.speed ?? 0;
   // Kept as the game runs, during render (React's pattern for state that follows a prop).
   if (speedNow !== 0 && speedNow !== playSpeed) setPlaySpeed(speedNow);
-  const speedRef = useRef({ now: speedNow, play: playSpeed, founded: false });
+  const over = runOver(sim);
+  const speedRef = useRef({ now: speedNow, play: playSpeed, founded: false, over: false });
   useEffect(() => {
-    speedRef.current = { now: speedNow, play: playSpeed, founded: Boolean(sim.snapshot?.company.name) };
-  }, [speedNow, playSpeed, sim.snapshot?.company.name]);
+    speedRef.current = { now: speedNow, play: playSpeed, founded: Boolean(sim.snapshot?.company.name), over };
+  }, [speedNow, playSpeed, sim.snapshot?.company.name, over]);
 
   // Which kinds of demand dot show, as this viewer last chose (D25); never part of a save.
   const [dotKinds, setDotKinds] = useState<DotKinds>(() => readDotPrefs());
@@ -157,6 +159,17 @@ export function App() {
     },
     [probeAt, depotSiteAt, stopSiteAt],
   );
+  // The run ended with a tool out (the route editor, a line half drawn): it is put down, as the tools are locked (runOver),
+  // and the route editor's line shows again in the panel the editor stood in for, as after Cancel.
+  if (over && tool !== "none") {
+    if (tool === "route" && routing) {
+      setLineId(routing.lineId);
+      show("lines");
+    }
+    setTool("none");
+    setClicks([]);
+    setRouting(null);
+  }
 
   // What the tools' cards read from the game besides the pointer and the clicks: the cash, the stops and
   // lines, the depots, the day (its roadworks and snow) and the medals. A card is asked again when they
@@ -336,21 +349,23 @@ export function App() {
       // again (opening the speed menu, closing Finance, taking back one more command). A held Space
       // pauses or plays once, as a held key presses a button once (onePress.ts) and tilts once (tilt.ts), and a held 1 to 5
       // picks its speed once: their repeats send nothing (each was a command, an autosave and a stalled clock).
-      const { now, play, founded } = speedRef.current;
+      // An ended run takes no play, speed or undo from the keys either (runOver), and Space still presses no button the mouse
+      // pressed: the review of the systems audit's eighth round let it through, so it closed Finance or exported again.
+      const { now, play, founded, over: ended } = speedRef.current;
       const keeps = event.target instanceof HTMLButtonElement && focus.current.byKey;
       if (founded && event.key === " " && !keeps) {
         event.preventDefault();
-        if (!event.repeat) send({ type: "speed", speed: now === 0 ? play : 0 });
+        if (!event.repeat && !ended) send({ type: "speed", speed: now === 0 ? play : 0 });
         return;
       }
-      const pick = founded && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
+      const pick = founded && !ended && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
       if (pick !== undefined && /^[1-5]$/.test(event.key)) {
         if (!event.repeat) send({ type: "speed", speed: pick });
         return;
       }
       // Ctrl+Z or ⌘Z takes back the newest command taken while paused (I9); with Shift, the usual
       // redo, it does nothing, since there is no redo.
-      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
+      if (!ended && (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
         event.preventDefault();
         send({ type: "undo" });
         return;
@@ -577,6 +592,7 @@ export function App() {
           tool={tool}
           panels={open}
           hasLines={(sim.snapshot?.lines.length ?? 0) > 0}
+          locked={over}
           onTool={choose}
           onPanel={toggle}
         />

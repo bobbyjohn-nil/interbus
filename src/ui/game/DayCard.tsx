@@ -1,4 +1,7 @@
+import { useEffect, useRef } from 'react';
+import { focusLost } from '../focusLost';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
+import { runOver } from './runOver';
 import type { Sim } from './useSim';
 
 /**
@@ -18,6 +21,13 @@ const points = (grade: number) => Math.floor(grade);
  */
 export function DayCard({ sim }: { sim: Sim }) {
   const card = sim.dayCard;
+  // The close that ends the run turns off the control the keyboard was on: Continue takes the focus, rather than the page.
+  // Any other close leaves the focus where it is, so Space still plays and pauses as the day's card shows.
+  const over = runOver(sim);
+  const go = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (over && focusLost()) go.current?.focus();
+  }, [card?.day, over]);
   if (!card) return null;
   const byKind = new Map<string, number>();
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
@@ -89,7 +99,7 @@ export function DayCard({ sim }: { sim: Sim }) {
           </tbody>
         </table>
       </div>
-      <button type="button" onClick={sim.closeDayCard}>
+      <button ref={go} type="button" onClick={sim.closeDayCard}>
         Continue
       </button>
     </section>

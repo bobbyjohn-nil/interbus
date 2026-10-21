@@ -8,6 +8,7 @@ import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim
 import { refusalText } from '../copy';
 import { Dropdown } from '../Dropdown';
 import { showInBody } from '../showWhole';
+import { runOver } from './runOver';
 import { about, busCount, clock, duration, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
@@ -98,6 +99,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   useLayoutEffect(() => showInBody(swapCard.current), [modelPick]);
   const s = sim.snapshot;
   if (!s) return null;
+  const over = runOver(sim);
   const game = sim.loaded?.at ?? null;
   // A pick made before an undo or a load is dropped, not sent with the line as it now stands.
   const held = heldPick(wanted, line, game);
@@ -141,6 +143,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
         <Dropdown
           label="Buses"
           testId="line-model"
+          disabled={over}
           value={wantedModel ?? line.model}
           options={MODEL_IDS.map((id) => {
             const locked = modelLocked(BUS_MODELS[id], s.medals);
@@ -163,7 +166,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
           <div className="controls">
             <button
               type="button"
-              disabled={!swap.ok}
+              disabled={!swap.ok || over}
               onClick={() => {
                 sim.send({ type: 'set-model', lineId: line.id, model: wantedModel });
                 setWantedModel(null);
@@ -193,6 +196,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
             <Dropdown
               label={label}
               testId={`headway-${period}`}
+              disabled={over}
               value={next[period] === null ? 'off' : String((next[period] ?? 0) / 60)}
               options={[...(period === 'overnight' ? [{ value: 'off', label: 'Off' }] : []), ...HEADWAY_MINUTES.map((m) => ({ value: String(m), label: `Every ${m} min` }))]}
               onChange={(value) => pick(period, value)}
@@ -212,7 +216,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
           <div className="controls">
             <button
               type="button"
-              disabled={!change.ok}
+              disabled={!change.ok || over}
               onClick={() => {
                 sim.send({ type: 'set-headways', lineId: line.id, headways: next });
                 setWanted(null);

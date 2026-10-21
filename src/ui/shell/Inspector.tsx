@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { runOver } from "../game/runOver";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 
@@ -89,7 +90,7 @@ export function Inspector({
           onFinance={() => onFinance(line.id)}
         />
         <div className="controls">
-          <button type="button" onClick={() => onEditRoute(line.id)}>
+          <button type="button" disabled={runOver(sim)} onClick={() => onEditRoute(line.id)}>
             Edit route
           </button>
         </div>
