@@ -22,6 +22,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 - [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`. Merges no longer wait for them: the owner lifted P0's freeze on Oct 21 (D28).
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
 - [ ] **I14 on a hub of lines, and on many lines, by Sun Nov 1** (DECISIONS, Open): a hub of 10 to 15 lines out of one stop takes 0.11–0.24 s a command at p50 (0.15–0.30 s at p95), and a late game of 20 to 30 lines with no hub 0.14–0.21 s (0.20–0.28 s), against I14's 150 ms at p95. Hold I14 on the reference network, on hubs of up to 8 spokes and on networks of up to 15 lines, and make the assignment faster once a playtest or the pacing run builds a larger one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines (which leaves the late game over).
+- [ ] **Many lines on the map, by Sun Nov 8** (DECISIONS, Open): a late game's 30 lines share 8 colours and nothing recolours one, and lines on the same streets hide each other, a click there opening the line on top. List the lines under such a click now, and leave the palette and side-by-side drawing for the light style pass (recommended); or leave both for the pass; or do both now as unscheduled look work.
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare **day 2's** card with Finance's Day forecast on day 2, a whole day on both. On day 1 the forecast counts the line from its buses' first drive out, as day 1's card does, but the depot's and stops' upkeep for a whole day where the card has 19 hours of 24 (day 1 opens at 05:00).
 - [ ] **M3's exit check, on the preview** ([`m3-money-loop.md`](specs/m3-money-loop.md)): the checklist to a profitable day and a contract in about 8 minutes; the report card; overspending to the countdown and Restart this quarter.
@@ -82,7 +83,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
     - (minor) 30 lines share 8 colours, and nothing changes a line's colour;
     - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.
 
-  The colours and the shared streets are look work PLAN §10 does not schedule, so they wait for the owner's call.
+  The colours and the shared streets wait for the owner's call (Waiting on the owner).
 
 ## Next
 
