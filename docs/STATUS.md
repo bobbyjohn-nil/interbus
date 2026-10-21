@@ -2,7 +2,7 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-19, at `main` a5c0ccd, in P0's playtest freeze, with the sessions' token use cut (D27) and the seventh audit round's fixes on this pull request.
+**Updated:** 2026-10-21, at `main` a5c0ccd, with P0's merge freeze lifted by the owner (D28), the sessions' token use cut (D27) and the seventh audit round's fixes on this pull request.
 
 ## Live now
 
@@ -19,7 +19,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 
 ## Waiting on the owner
 
-- [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`.
+- [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`. Merges no longer wait for them: the owner lifted P0's freeze on Oct 21 (D28).
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
 - [ ] **I14 on a hub of lines, by Sun Nov 1** (DECISIONS, Open): a late game's 10 to 15 lines out of one stop take 0.11–0.24 s a command at p50 (0.15–0.30 s at p95) against I14's 150 ms at p95. Hold I14 on the reference network and on hubs of up to 8 spokes, and make the assignment faster for larger hubs once a playtest or the pacing run builds one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines.
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.

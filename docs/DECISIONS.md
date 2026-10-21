@@ -413,6 +413,11 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **Why:** the owner's priority. Each of these stages caught misses a session's own checks now catch, or rebuilt context a session reads from git. What guards the owner's say stays: versions only by `/ship`, the playtest freeze, the deploy's live check, TS-04's failing test and the review before a merge.
 - **How to reverse:** the owner says so; the check-in goes back to hourly, workflows go back to every task, and STATUS's long form is in git.
 
+### D28 · P0's merge freeze lifted before its notes
+
+- **Decided:** 2026-10-21, by the owner: "skip the playtest freeze for now".
+- **What it means:** merges to `main` resume without P0's notes. P0 plays V1, not this build, so a merge changes nothing it measures. P0 is not cancelled: its notes still go in `docs/playtests/2026-10-17-p0-v1-baseline.md` whenever they come. CLAUDE.md's freeze still holds for later playtests (P1, Nov 16–22) unless the owner says otherwise.
+
 ### CL · Versions only on the owner's say
 
 - **Decided:** 2026-10-12, by the owner: "create a changelog that will only make versions with my say."
