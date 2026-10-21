@@ -22,7 +22,7 @@ export interface FareBand {
 /**
  * The band a step at a time: the first step works out who can walk to which stop, and each after it one fare's assignment, on
  * the network and the day's riders as they stood at the first; the last returns the band. On a late game's network the
- * seventeen assignments took up to 1.1 s together, and the worker's clock and every command waited for them (the systems
+ * seventeen assignments took up to 1.3 s together, and the worker's clock and every command waited for them (the systems
  * audit's seventh round, `npm run bench fares`), so the worker takes a few steps between its ticks.
  */
 export function* fareBandSteps(world: World, lineId: LineId): Generator<void, FareBand | null, void> {

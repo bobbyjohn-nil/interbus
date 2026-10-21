@@ -63,7 +63,8 @@ export const SNAPSHOT_EVERY_MS = 100;
 export const SAVE_EVERY_MS = 30_000;
 /**
  * The real time the host spends on a fare band at a time, at its asking and at each tick, before it stops at the end of a step
- * (fareBandSteps: one fare's assignment). The fixture's whole band takes a few milliseconds; a late game's step up to tens.
+ * (fareBandSteps: one fare's assignment), so a slice holds the worker less than this and one step. The fixture's whole band takes
+ * a few milliseconds; a late game's step 37–163 ms (`npm run bench fares`, 10 to 30 lines).
  */
 export const BAND_SLICE_MS = 25;
 
@@ -1002,7 +1003,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         const t = toCalendarTime(world.state.elapsed);
         post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build, stamp()) });
       } else if (message.type === 'fare-band') {
-        band = { id: message.id, lineId: message.lineId, steps: fareBandSteps(world, message.lineId as LineId) };
+        // A band forgotten (Finance closed, or another line opened) is dropped, not worked out to the end for nobody.
+        band = message.lineId === null ? null : { id: message.id, lineId: message.lineId, steps: fareBandSteps(world, message.lineId as LineId) };
         workBand();
       } else if (message.type === 'set-headways') {
         const result = command({ command: 'set-headways', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setHeadways(world!, message.lineId as LineId, message.headways));

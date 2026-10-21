@@ -328,7 +328,7 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
   });
 
-  // The systems audit's seventh round: on a late game's network the band's seventeen assignments took up to 1.1 s together,
+  // The systems audit's seventh round: on a late game's network the band's seventeen assignments took up to 1.3 s together,
   // and the clock and every command waited for them. With the worker's clock it is worked out a slice at a time, each slice
   // ending with the step that passes BAND_SLICE_MS, here every step (each read of this clock is 30 ms on). Shown failing
   // (TS-04) with the band worked out at its asking, all at once.
@@ -358,6 +358,12 @@ describe('the sim host', () => {
     host.handle({ type: 'fare-band', id: 3, lineId: line.id });
     host.tick(0);
     host.handle({ type: 'set-fare', lineId: line.id, fareCents: 175 });
+    for (let k = 0; k < 20; k++) host.tick(0);
+    expect(bands().map((m) => (m as { id: number }).id)).toEqual([2]);
+    // Asked, then forgotten (Finance closed): the worker stops working it out, and nothing is sent.
+    // Shown failing (TS-04) with the forgetting ignored, when the band came seventeen ticks on.
+    host.handle({ type: 'fare-band', id: 4, lineId: line.id });
+    host.handle({ type: 'fare-band', id: 0, lineId: null });
     for (let k = 0; k < 20; k++) host.tick(0);
     expect(bands().map((m) => (m as { id: number }).id)).toEqual([2]);
   });
