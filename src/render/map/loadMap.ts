@@ -150,6 +150,24 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   });
   map.touchZoomRotate.disableRotation();
   map.keyboard.disableRotation();
+  // MapLibre resizes its canvas only when the container's box changes, so a window moved to a screen of another density kept the
+  // old screen's canvas, blurry on a sharper one (the systems audit's seventh round). Each change of density resizes it; Low
+  // graphics draws at 1 on every screen.
+  if (rung !== 'low') {
+    let removed = false;
+    map.once('remove', () => void (removed = true));
+    const watch = () =>
+      window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener(
+        'change',
+        () => {
+          if (removed) return;
+          map.resize();
+          watch();
+        },
+        { once: true },
+      );
+    watch();
+  }
 
   map.on('error', (event: ErrorEvent) => {
     // Tile 404s are reported by CityFetchSource, and a whole-file read reports its own; a 404 that

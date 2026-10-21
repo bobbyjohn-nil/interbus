@@ -28,8 +28,8 @@ test.afterAll(async () => server?.close());
  * axis (perspective tilts buses away from the screen's centre, so a box's height would understate
  * them) and across it.
  */
-async function measure(page: Page): Promise<{ boxes: { w: number; h: number }[]; changed: number }> {
-  const png = (await page.locator('#map').screenshot()).toString('base64');
+async function measure(page: Page, scale: 'css' | 'device' = 'device'): Promise<{ boxes: { w: number; h: number }[]; changed: number }> {
+  const png = (await page.locator('#map').screenshot({ scale })).toString('base64');
   return page.evaluate(async (data) => {
     const img = new Image();
     img.src = `data:image/png;base64,${data}`;
@@ -106,6 +106,54 @@ for (const [family, label, minPx] of FAMILIES) {
     }
   });
 }
+
+// The systems audit's seventh round: the layer sized each bus by the ratio MapLibre was asked for, the screen's, not the one the
+// canvas was drawn at. A window moved to a screen of another density keeps its canvas until the map resizes, and a canvas over
+// 4,096 device px is drawn at less, so Sparrows drew 11–12 px after a move from a 2x screen to a 1x one, 42–43 px after the move
+// back, and 26–28 px on a 5K screen at 2560×1440. Measured in CSS pixels, as a player sees them. Shown failing (TS-04) with the
+// layer sizing by map.getPixelRatio() again.
+async function sparrows(page: Page) {
+  await page.evaluate(() => window.i12Camera!(14, 0, 'sparrow'));
+  const { boxes } = await measure(page, 'css');
+  return { buses: boxes.length, shortest: Math.min(...boxes.map((b) => b.h)), longest: Math.max(...boxes.map((b) => b.h)) };
+}
+for (const [from, to] of [
+  [2, 1],
+  [1, 2],
+] as const) {
+  test(`every Sparrow keeps its size when the window moves from a ${from}x screen to a ${to}x one`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, deviceScaleFactor: from });
+    const page = await context.newPage();
+    await page.goto(server.resolvedUrls!.local[0]!);
+    await page.waitForFunction(() => window.i12Ready === true, null, { timeout: 30_000 });
+    const before = await sparrows(page);
+    // The same window on a screen of the other density: its CSS size unchanged, only the ratio, as a move between screens sets.
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1366, height: 768, deviceScaleFactor: to, mobile: false });
+    await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(to);
+    const after = await sparrows(page);
+    expect(after.buses).toBe(50);
+    expect(after.shortest, 'every Sparrow at least 20 px (I12)').toBeGreaterThanOrEqual(SPARROW_MIN_PX);
+    expect(Math.abs(after.longest - before.longest), `as long as before: ${before.longest} → ${after.longest} px`).toBeLessThanOrEqual(1);
+    await context.close();
+  });
+}
+
+test('every Sparrow keeps its size on a 2560×1440 window at 2x, a 5K screen, where MapLibre draws the canvas at 1.6', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 2560, height: 1440 }, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  await page.goto(server.resolvedUrls!.local[0]!);
+  await page.waitForFunction(() => window.i12Ready === true, null, { timeout: 30_000 });
+  const small = await sparrows(page);
+  // The harness's map fills the window, as the game's does.
+  await page.addStyleTag({ content: '#map { width: 2560px !important; height: 1440px !important; }' });
+  await expect.poll(() => page.evaluate(() => document.querySelector('canvas')!.clientWidth)).toBe(2560);
+  expect(await page.evaluate(() => document.querySelector('canvas')!.width)).toBe(4096);
+  const large = await sparrows(page);
+  expect(large.buses).toBe(50);
+  expect(Math.abs(large.longest - small.longest), `as long as on a smaller map: ${small.longest} → ${large.longest} px`).toBeLessThanOrEqual(1);
+  await context.close();
+});
 
 test('the check fails a 4 px glyph (the meta-test)', async ({ page }) => {
   await open(page, '?length=4&width=2');

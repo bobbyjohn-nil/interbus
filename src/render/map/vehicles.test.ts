@@ -37,7 +37,8 @@ function fleetOf(count: number): BusSource {
   return { frame: () => ({ count, data }), running: false };
 }
 
-const map = { getContainer: () => ({ dataset: {} }), getCenter: () => ({ lng: -71.077, lat: 42.35 }), getPixelRatio: () => 1, triggerRepaint: () => {} } as unknown as MapLibreMap;
+// The canvas as wide in CSS pixels as the stand-in's drawing buffer, so it draws at 1.
+const map = { getContainer: () => ({ dataset: {} }), getCanvas: () => ({ clientWidth: 1366 }), getCenter: () => ({ lng: -71.077, lat: 42.35 }), getPixelRatio: () => 1, triggerRepaint: () => {} } as unknown as MapLibreMap;
 const frame = { defaultProjectionData: { mainMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] } } as unknown as CustomRenderMethodInput;
 
 describe('the vehicle layer’s draw calls (PLAN §6, at most 7 a frame)', () => {
