@@ -84,7 +84,16 @@ Systems that work first, the real values later (D26): an audit finds what does n
     - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.
 
   The colours and the shared streets wait for the owner's call (Waiting on the owner).
-- [ ] **The eighth round** (on `main` 582579a, from 2026-10-21): two lanes (D27), each told the 187 known findings: the edges of the seventh round's fixes, and goals and events over several quarters of play (contracts, medals, events, the report and day cards, the checklist, and the failure floor with Restart this quarter), the systems with the fewest findings so far.
+- [ ] **The eighth round** (on `main` 582579a, 2026-10-21): two lanes (D27), each told the 187 known findings. Five minors and nothing worse, all fixed on this pull request with failing-first tests:
+  - the edges of the seventh round's fixes:
+    - the bus model's swap card was never scrolled into view, only the headway card, so in a Lines panel dragged low it opened below the panel's foot;
+    - an open dropdown stayed where it opened when the panel body under it scrolled, beside another line's row: it now goes with its button, and closes once the button leaves the view;
+    - the change card's reveal scrolled the Lines heading (the drag handle) and Close away: Lines now scrolls a body under them, as Finance does;
+  - goals and events over several quarters (contracts, medals, events, the report and day cards, the checklist, the failure floor), the systems with the fewest findings:
+    - silver's bar read "0 trips to go · unlocks the Goliath" from 25,000 trips until the day's close awarded it, the Goliath still locked;
+    - once the lender had ended the run, every command but play still ran on the ended game and saved it.
+
+  What held there: a 48-day scripted run (six contracts paid once each, a lapse at the right close, bronze on day 8 and silver on day 29, roadworks, snow and a festival as the line views say), every day card against Finance over 40 days, an export and import every seventh hour over 40 days with no change to the fingerprint, and Restart this quarter exact in quarters 2 to 6.
 
 ## Next
 
