@@ -34,21 +34,12 @@ export function Inspector({
   // nothing, and 30 lines took 30 presses of Tab to reach the card (the systems audit's seventh round).
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const at = lines.findIndex((l) => l.id === line.id);
-    const to = (
-      {
-        ArrowRight: at + 1,
-        ArrowLeft: at - 1,
-        Home: 0,
-        End: lines.length - 1,
-      } as Record<string, number>
-    )[event.key];
+    const to = ({ ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: lines.length - 1 } as Record<string, number>)[event.key];
     if (to === undefined) return;
     event.preventDefault();
     const next = lines[(to + lines.length) % lines.length]!;
     onLine(next.id);
-    event.currentTarget
-      .querySelector<HTMLElement>(`[data-line="${next.id}"]`)
-      ?.focus();
+    event.currentTarget.querySelector<HTMLElement>(`[data-line="${next.id}"]`)?.focus();
   };
   return (
     <aside

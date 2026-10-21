@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { closeOnPressAway } from './pressAway';
 
 export interface DropdownOption<T> {
@@ -95,10 +95,14 @@ export function Dropdown<T extends string | number>({
     });
   }, [open, placement, placing]);
 
-  // Opened, the list shows the option chosen.
+  // Opened, the list shows the option chosen; placed again (a scroll moved its button), the one the keyboard is on, so a scroll
+  // never takes from view the option Enter would pick (the review of the systems audit's eighth round).
+  const shownOnce = useRef(false);
   useLayoutEffect(() => {
-    if (at) reveal(list.current, chosen);
-  }, [at, chosen]);
+    if (!at) return;
+    reveal(list.current, shownOnce.current ? active : chosen);
+    shownOnce.current = true;
+  }, [at, chosen, active]);
 
   useEffect(() => {
     if (!open) return;
@@ -120,8 +124,11 @@ export function Dropdown<T extends string | number>({
       const b = button.current?.getBoundingClientRect();
       const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
       if (b && b.bottom > (view?.top ?? 0) && b.top < (view?.bottom ?? window.innerHeight)) {
-        setAt(null);
-        setPlacing((n) => n + 1);
+        // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
+        flushSync(() => {
+          setAt(null);
+          setPlacing((n) => n + 1);
+        });
         return;
       }
       const focused = Boolean(list.current?.contains(document.activeElement));
@@ -148,6 +155,7 @@ export function Dropdown<T extends string | number>({
     if (open) return;
     setActive(chosen >= 0 ? chosen : step(-1, 1));
     setAt(null);
+    shownOnce.current = false;
     setOpen(true);
   };
   // The keyboard's moves keep the option they reach in view (a press scrolls nothing for a listbox's active option).

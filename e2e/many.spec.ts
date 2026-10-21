@@ -111,6 +111,29 @@ test.describe('a late game of many lines', () => {
     await expect(fare).toContainText(`$${(first.fareCents / 100).toFixed(2)}`);
   });
 
+  // Placed again at each scroll, the list showed the chosen option again, taking from view the one the keyboard was on: End
+  // reached $5.00, a 30 px scroll hid it, and Enter set it unseen (the review of the eighth round's fixes).
+  test('a fare list placed again by a scroll keeps the keyboard’s option in view', async ({ page }) => {
+    const world = await lateGame(page);
+    const line = world.state.lines[2]!;
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const finance = page.getByTestId('finance');
+    const body = finance.getByTestId('finance-body');
+    await finance.getByTestId(`fare-${line.id}`).focus();
+    await page.keyboard.press('ArrowDown');
+    const list = page.getByRole('listbox', { name: `Fare for ${line.name}` });
+    await expect(list).toBeVisible();
+    await page.keyboard.press('End');
+    const b = (await body.boundingBox())!;
+    await page.mouse.move(b.x + 20, b.y + b.height - 20);
+    await page.mouse.wheel(0, 30);
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect(list).toBeVisible();
+    const [l, o] = [(await list.boundingBox())!, (await list.getByRole('option', { name: '$5.00', exact: true }).boundingBox())!];
+    expect(o.y >= l.y - 1 && o.y + o.height <= l.y + l.height + 1, `$5.00 at ${Math.round(o.y)}-${Math.round(o.y + o.height)} in the list's ${Math.round(l.y)}-${Math.round(l.y + l.height)}`).toBe(true);
+  });
+
   // The tabs are a tablist, so the arrow keys move along them and Tab leaves them for the card (WAI-ARIA's tabs pattern):
   // before, the arrows did nothing, and the keyboard took a Tab press a tab to reach the line card. A change picked on a low
   // line showed its Run it below the panel's foot, and nothing scrolled to it (30 lines' tabs at 1152×720).

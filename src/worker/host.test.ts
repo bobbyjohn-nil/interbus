@@ -1250,6 +1250,7 @@ describe('the failure floor', () => {
     const ended = last('snapshot')!.snapshot;
     expect(ended.floor).toEqual({ closesLeft: 0, ended: true });
     const kept = store.get(KEY);
+    const hash = host.stateHash();
     const line = ended.lines[0]!;
     const offer = ended.contracts.find((c) => !c.held)!;
     const asks: ToWorker[] = [
@@ -1264,7 +1265,7 @@ describe('the failure floor', () => {
       expect(last('refused')).toEqual({ type: 'refused', command: ask.type, reason: 'run_ended' });
     }
     expect(store.get(KEY)).toBe(kept);
-    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [{ headways: line.headways, fareCents: line.fareCents }], contracts: ended.contracts });
+    expect(host.stateHash()).toBe(hash);
   });
 
   it('never keeps an ended game as the quarter to restart: not when the run ends on the quarter’s last close, nor when one is loaded', () => {
