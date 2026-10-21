@@ -37,6 +37,8 @@ const reserveCents = Number(process.env.PACING_RESERVE_CENTS ?? 0);
 const maxDays = Number(process.env.PACING_DAYS ?? 200);
 /** The player's default is the tuning freeze's: the next day's net alone, so the measured bands below stay its. */
 const cardCentsPerPoint = Number(process.env.PACING_CARD_CENTS ?? 0);
+/** Days between tries after one that found nothing to draw: 1, the tuning freeze's player, by default. */
+const retryDays = Number(process.env.PACING_RETRY_DAYS ?? 1);
 const wide = process.env.PACING_CANDIDATES === 'wide';
 const reportOnly = process.env.PACING_REPORT_ONLY === '1';
 const progress = process.env.PACING_PROGRESS === '1';
@@ -62,13 +64,25 @@ const result = playScripted(world, { name: 'the founding recipe', stops: DEBUG_S
   reserveCents,
   maxDays,
   cardCentsPerPoint,
-  ...(progress ? { onProgress: (e) => console.log(`  … ${'card' in e ? `card on day ${e.card.day}: ${e.card.overall.toFixed(1)}` : `line on day ${e.line.day}: ${e.line.name}`} (${((performance.now() - t0) / 1000).toFixed(0)} s)`) } : {}),
+  retryDays,
+  ...(progress
+    ? {
+        onProgress: (e) =>
+          console.log(
+            `  … ${
+              'card' in e
+                ? `card on day ${e.card.day} (${e.card.minutes.toFixed(1)} min): ${e.card.overall.toFixed(1)} (coverage ${e.card.coverage.toFixed(1)}, reliability ${e.card.reliability.toFixed(1)}, comfort ${e.card.comfort.toFixed(1)}, money ${e.card.money.toFixed(1)}); ${e.card.trips} trips; ${e.card.lines} lines, ${e.card.depots} depots, ${e.card.buses} buses; cash $${Math.round(e.card.cashCents / 100).toLocaleString('en-US')}`
+                : `line on day ${e.line.day}: ${e.line.name}`
+            } (${((performance.now() - t0) / 1000).toFixed(0)} s)`,
+          ),
+      }
+    : {}),
 });
 
 const usd = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`;
 const signed = (cents: number) => `${cents < 0 ? '-' : '+'}${usd(Math.abs(cents))}`;
 console.log(
-  `pacing on Inner Boston, seed ${seed}: day 1 at 600x, then ${later.toLocaleString('en-US')}x; ${player.newGameToPlay} min to play, ${player.perLine} min a line; reserve ${usd(reserveCents)}; a card point ${usd(cardCentsPerPoint)} a day; ${corridors.length} corridor candidates${wide ? ` and ${dense.length} between dense neighbourhoods` : ''}`,
+  `pacing on Inner Boston, seed ${seed}: day 1 at 600x, then ${later.toLocaleString('en-US')}x; ${player.newGameToPlay} min to play, ${player.perLine} min a line; reserve ${usd(reserveCents)}; a card point ${usd(cardCentsPerPoint)} a day; tried again ${retryDays === 1 ? 'each day' : `every ${retryDays} days`} after nothing; ${corridors.length} corridor candidates${wide ? ` and ${dense.length} between dense neighbourhoods` : ''}`,
 );
 for (const c of result.contracts) console.log(`  day ${String(c.day).padStart(3)}: ${c.kind} ${c.ask} at ${c.landmark} paid ${usd(c.rewardCents)}`);
 for (const l of result.lines)

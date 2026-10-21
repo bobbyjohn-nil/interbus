@@ -51,6 +51,8 @@ export interface PacingOptions {
   readonly reserveCents: number;
   /** Days played before giving up on the top medal. */
   readonly maxDays: number;
+  /** After a day whose best candidate scored nothing, the days until the player tries again: 1 when left out (each day, as the tuning freeze's player did). A week cuts a long run's trials sevenfold. */
+  readonly retryDays?: number;
   /** What a point of the card's overall is worth to the player a day: 0 when left out, the next day's net alone; REPORT_GRANT_PER_POINT_PER_DAY_CENTS plays toward the card. */
   readonly cardCentsPerPoint?: number;
   /** Called with each card and each line as the run reaches it, for a long run's progress. */
@@ -252,6 +254,8 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
   // Nothing is tried until the cash could pay for the cheapest line: four stops and two Sparrows.
   const cheapest = 4 * STOP_COST_CENTS + 2 * SPARROW.priceCents;
   const centsPerPoint = o.cardCentsPerPoint ?? 0;
+  const retryDays = Math.max(1, o.retryDays ?? 1);
+  let nextTry = 0;
   const buses = () => world.state.lines.reduce((s, l) => s + l.buses, 0);
 
   for (let day = toCalendarTime(world.state.elapsed).day; day <= o.maxDays && world.state.medals.gold === null; day++) {
@@ -291,10 +295,13 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
     }
     if (world.state.closesBelowFloor >= 5) break;
     for (const c of world.state.contracts) if (c.acceptedDay === null) acceptContract(world, c.id);
-    // Draw while the cash allows and the best candidate scores above nothing.
-    while (world.state.ledger.cashCents >= o.reserveCents + cheapest) {
+    // Draw while the cash allows and the best candidate scores above nothing; a day with none tried again `retryDays` on.
+    while (day >= nextTry && world.state.ledger.cashCents >= o.reserveCents + cheapest) {
       const next = bestNextLine(world, candidates, built, o.reserveCents, centsPerPoint);
-      if (!next) break;
+      if (!next) {
+        nextTry = day + retryDays;
+        break;
+      }
       const depots = world.state.depots.length;
       if (drawCandidate(world, next) === null) break;
       built.add(next.name);
