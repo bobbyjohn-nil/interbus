@@ -107,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An open dropdown goes with its button when the panel under it scrolls, and closes once the button has scrolled out of view. Before, a wheel over Finance’s table left a fare list open beside another line’s row, where a pick changed a fare out of view.
+- In Lines, the heading and Close stay in view while the line card scrolls under them, as Finance’s do. Before, showing a headway change in a Lines panel dragged low scrolled them away, and moving or closing the panel took a scroll back up first.
+- A bus model picked in Lines shows its swap card whole, Buy and swap with it, however little of the panel shows. Before, in a Lines panel dragged low, it opened below the panel’s foot.
 - The line card’s “Fare and money in Finance” now shows that line’s money and its most profitable fares, however far down its list the line is, and Finance’s heading, Close and views stay in view while its table scrolls under them. Before, with many lines, Finance opened the line’s row below the panel’s foot, so the link seemed to do nothing.
 - In Lines, the arrow keys move between the lines’ tabs, Home and End go to the first and the last, and one press of Tab goes on to the line card. Before, the arrows did nothing, and with 30 lines it took 30 presses of Tab to reach the card.
 - A headway change picked in Lines shows its card whole, Run it and all. Before, under many lines’ tabs, a low line’s Run it could sit cut off at the panel’s foot.

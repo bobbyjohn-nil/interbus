@@ -82,6 +82,35 @@ test.describe('a late game of many lines', () => {
     expect(await shownIn(body, finance.getByTestId(`line-money-${first.id}`))).toMatchObject({ whole: true });
   });
 
+  // A dropdown's list was placed as it opened: a wheel over Finance's body scrolled its button away and left the list open beside
+  // another line's row, holding the keyboard, a pick there setting a fare out of view (the systems audit's eighth round). The
+  // list now goes with its button, and closes once the button is out of the body's view, leaving the scroll where it went.
+  test('a fare list open in Finance goes with its button as Finance’s body scrolls, and closes once the button is out of view', async ({ page }) => {
+    const world = await lateGame(page);
+    const first = world.state.lines[2]!;
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const finance = page.getByTestId('finance');
+    const body = finance.getByTestId('finance-body');
+    const fare = finance.getByTestId(`fare-${first.id}`);
+    await fare.click();
+    const list = page.getByRole('listbox', { name: `Fare for ${first.name}` });
+    await expect(list).toBeVisible();
+    const b = (await body.boundingBox())!;
+    await page.mouse.move(b.x + 20, b.y + b.height - 20);
+    // A little: the button stays in view, and the list beside it.
+    await page.mouse.wheel(0, 30);
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect(list).toBeVisible();
+    await expect.poll(async () => Math.abs((await list.boundingBox())!.y - ((await fare.boundingBox())!.y + (await fare.boundingBox())!.height))).toBeLessThan(10);
+    // Far: the button goes under the heading, the list closes, and the body stays scrolled.
+    await page.mouse.wheel(0, 600);
+    await expect(list).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(await body.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
+    await expect(fare).toContainText(`$${(first.fareCents / 100).toFixed(2)}`);
+  });
+
   // The tabs are a tablist, so the arrow keys move along them and Tab leaves them for the card (WAI-ARIA's tabs pattern):
   // before, the arrows did nothing, and the keyboard took a Tab press a tab to reach the line card. A change picked on a low
   // line showed its Run it below the panel's foot, and nothing scrolled to it (30 lines' tabs at 1152×720).

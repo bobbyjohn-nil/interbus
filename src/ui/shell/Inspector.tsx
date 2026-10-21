@@ -34,12 +34,21 @@ export function Inspector({
   // nothing, and 30 lines took 30 presses of Tab to reach the card (the systems audit's seventh round).
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const at = lines.findIndex((l) => l.id === line.id);
-    const to = ({ ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: lines.length - 1 } as Record<string, number>)[event.key];
+    const to = (
+      {
+        ArrowRight: at + 1,
+        ArrowLeft: at - 1,
+        Home: 0,
+        End: lines.length - 1,
+      } as Record<string, number>
+    )[event.key];
     if (to === undefined) return;
     event.preventDefault();
     const next = lines[(to + lines.length) % lines.length]!;
     onLine(next.id);
-    event.currentTarget.querySelector<HTMLElement>(`[data-line="${next.id}"]`)?.focus();
+    event.currentTarget
+      .querySelector<HTMLElement>(`[data-line="${next.id}"]`)
+      ?.focus();
   };
   return (
     <aside
@@ -57,29 +66,42 @@ export function Inspector({
         ×
       </button>
       <LineHeading line={line} />
-      {lines.length > 1 ? (
-        <div className="tabs" role="tablist" aria-label="Lines" onKeyDown={onTabKey}>
-          {lines.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              role="tab"
-              aria-selected={l.id === line.id}
-              tabIndex={l.id === line.id ? 0 : -1}
-              data-line={l.id}
-              onClick={() => onLine(l.id)}
-            >
-              <span className="swatch" style={{ background: l.colour }} />{" "}
-              {l.name}
-            </button>
-          ))}
+      {/* The body scrolls under the heading and Close, so they stay in reach however far it goes. */}
+      <div className="panel-body" data-testid="inspector-body">
+        {lines.length > 1 ? (
+          <div
+            className="tabs"
+            role="tablist"
+            aria-label="Lines"
+            onKeyDown={onTabKey}
+          >
+            {lines.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                role="tab"
+                aria-selected={l.id === line.id}
+                tabIndex={l.id === line.id ? 0 : -1}
+                data-line={l.id}
+                onClick={() => onLine(l.id)}
+              >
+                <span className="swatch" style={{ background: l.colour }} />{" "}
+                {l.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <LineCard
+          key={line.id}
+          sim={sim}
+          line={line}
+          onFinance={() => onFinance(line.id)}
+        />
+        <div className="controls">
+          <button type="button" onClick={() => onEditRoute(line.id)}>
+            Edit route
+          </button>
         </div>
-      ) : null}
-      <LineCard key={line.id} sim={sim} line={line} onFinance={() => onFinance(line.id)} />
-      <div className="controls">
-        <button type="button" onClick={() => onEditRoute(line.id)}>
-          Edit route
-        </button>
       </div>
     </aside>
   );

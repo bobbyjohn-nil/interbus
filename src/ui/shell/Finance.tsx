@@ -56,7 +56,7 @@ export function Finance({ sim, onClose, view: asked = 'overview', lineId = null 
         ))}
       </div>
       {/* The body scrolls under the heading, Close and views, so they stay in reach however far it goes. */}
-      <div className="finance-body" data-testid="finance-body">
+      <div className="panel-body" data-testid="finance-body">
         {view === 'overview' ? <Overview finance={f} /> : view === 'breakdown' ? <Breakdown finance={f} today={today} quarter={quarter} /> : <Lines sim={sim} finance={f} open={lineId} />}
       </div>
     </aside>
@@ -189,7 +189,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
   const banded = band !== null;
   useLayoutEffect(() => {
     const row = askedRow.current;
-    const body = row?.closest<HTMLElement>('.finance-body');
+    const body = row?.closest<HTMLElement>('.panel-body');
     if (!row || !body || open !== asked) return;
     const last = shown.current;
     if (last && (last.banded || !banded || body.scrollTop !== last.top)) return;

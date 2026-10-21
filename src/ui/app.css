@@ -828,15 +828,17 @@ button.chip.checklist,
   max-height: min(calc(100% - 128px), 52vh);
 }
 
-/* The heading, Close and views stay put while the body scrolls: a reveal of a low line's money scrolled the whole panel, its
-   heading (the drag handle), Close and views out of reach (the review of the systems audit's seventh round). */
-.panel.finance {
+/* Finance's and Lines' bodies scroll under their heading and Close, which stay put: a reveal of a low line's money, or of a
+   change's card, scrolled the whole panel, its heading (the drag handle) and Close out of reach (the systems audit's seventh and
+   eighth rounds). */
+.panel.finance,
+.panel.inspector {
   display: flex;
   flex-direction: column;
   overflow-y: hidden;
 }
 
-.finance-body {
+.panel-body {
   min-height: 0;
   overflow-y: auto;
 }
