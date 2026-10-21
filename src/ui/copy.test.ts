@@ -9,7 +9,7 @@ import { CHECKLIST } from './game/checklist';
 const CODES = [
   'depot_limit', 'not_depot_land', 'too_far_from_street', 'too_close_to_depot',
   'needs_depot', 'model_locked', 'same_model', 'no_street_near', 'stop_twice', 'no_route', 'too_few_stops',
-  'headway_not_whole_seconds', 'daytime_headway_too_long', 'overnight_more_often_than_offpeak', 'same_headways',
+  'headway_not_whole_seconds', 'headway_too_short', 'daytime_headway_too_long', 'overnight_more_often_than_offpeak', 'same_headways',
   'depot_full', 'insufficient_funds', 'no_such_line', 'not_started',
   'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
   'fare_out_of_range', 'fare_not_a_step', 'same_fare',

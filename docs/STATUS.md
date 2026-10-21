@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-21, at `main` a5c0ccd, with P0's merge freeze lifted by the owner (D28), the sessions' token use cut (D27) and the seventh audit round's fixes on this pull request.
+**Updated:** 2026-10-21, at `main` 8dc3209 ([#138](https://github.com/bobbyjohn-nil/interbus/pull/138): the sessions' token use cut, D27; the seventh audit round's fixes; P0's merge freeze lifted by the owner, D28), with the round's headway floor on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a5c0ccd (#137, this file only; the game as #136 left it). Deploy preview run 38954681077's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 8dc3209 (#138). Deploy preview run 39600671103's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -47,7 +47,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - minor: the reader accepts lines the line rule never allows (no stops, one stop, a stop twice, a stop off every street);
   - minor: a file with five closes below the credit floor but cash well above it loads as an ended run.
 
-  Five are fixed on this pull request, each with its failing-first test; the floor count and a stop off every street are not. The reader now holds:
+  Five are fixed in #138, each with its failing-first test, and a stop off every street on this pull request; the floor count is left as it is (below). The reader now holds:
   - kept versions to the headway rule;
   - a line and its kept versions to 86,400 buses (no timetable runs more);
   - a saved time to what a date holds;
@@ -57,15 +57,17 @@ Systems that work first, the real values later (D26): an audit finds what does n
   Three more lanes ran as finders on Oct 19:
   - determinism and Export session's replay: nothing;
   - the 200-day game: one minor, I14 on a hub of lines (Waiting on the owner). `npm run bench recompute` now times hubs of spokes out of Copley, holds those of up to 8 to I14, and takes p95 from 100 runs: from 30, the nightly's I14 step was red on Oct 17 and 18 (Inner Boston's assignment p95 170.8 ms against a p50 of 77.3);
-  - the edges of the fifth and sixth rounds' fixes: three, fixed here with failing-first tests:
+  - the edges of the fifth and sixth rounds' fixes: three, fixed in #138 with failing-first tests:
     - (blocker) with two tabs, Saves listed its slots again only at the autosave's changes, so a row read Empty over a game the other tab had kept there, and Save here wrote over it unasked;
     - (major) the map's start-failure card and the replaced build's card offered Reload alone while the game wasn't saving itself;
     - (minor) the day card and the lender's card hid the start-failure card.
 
+  On this pull request: no bus runs more often than once a minute (`MIN_HEADWAY_SECONDS`). A save running its line every second with 2,000 buses took 3.3–3.8 s a recompute; every minute with 86,400 buses, 5–34 ms (`npm run bench headways`). And a save of this map with a stop off every street reads as unreadable: it loaded, the stop drawn off the streets while its line routed to the nearest one.
+
+  The independent review of those two found one blocker and two minors, all fixed with failing-first tests: such a save as the autosave went unsaid at the start and the founding save wrote over it (now set aside as unreadable, with its notice); a slot holding one listed as readable and Load then refused it (now it lists as unreadable); and the reader took any longitude, so a stop at 1e308 hung the worker in the street grid's search at every load (now a place off the globe is refused).
+
   The independent review of the edges fixes found three minors and three nits, all fixed: the stacked replaced card drops below a day card as the map's cards do, the bench's hubs are real spokes (the finder's lines ran Copley and then four stops 1.5–6 km away), DECISIONS states Saves' 2 s window, an emptied slot under Load's question gets Save here back, the replaced card's name carries its warning, and a unit test claims only what it checks. Left open:
-  - the floor count: the failure-floor tests' saves must first be rebuilt to count only closed days;
-  - a stop off every street;
-  - 1 s headways are legal: the review estimates seconds a recompute for a file with a few thousand buses (not measured);
+  - the floor count, left as it is: a file claiming five closes below the floor ends only its own run, and checking it means replaying the ledger's closes;
   - a Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.
 
   Next: the other two lanes (the screens with many lines; window sizes, zoom and resizes) as finders after Oct 22, fixed the same way (D27).

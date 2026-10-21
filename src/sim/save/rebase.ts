@@ -13,6 +13,16 @@ import { recompute, type World } from '../world';
 
 export type RebaseRefusal = 'stop_off_street' | 'line_off_street';
 
+/**
+ * The first of a save's stops that finds no street of this bake within the stop rule's reach, or null. The line rule draws every
+ * stop on a street, so in a save from this very bake such a stop is damage: one loaded, drawn off the streets, while its line
+ * routed to whatever street lay nearest (the systems audit's seventh round).
+ */
+export function stopOffStreet(world: Pick<World, 'city' | 'nodes'>, stops: readonly { readonly id: number; readonly lon: number; readonly lat: number }[]): number | null {
+  for (const stop of stops) if (!world.nodes.nearest(toXY(world.city.frame, [stop.lon, stop.lat]), STOP_STREET_REACH_M)) return stop.id;
+  return null;
+}
+
 /** Puts the save's stops on this bake's streets and names the bake in the state; `moved` counts the stops that moved. */
 export function rebase(world: World, ref: CityRef): Result<{ readonly moved: number }, RebaseRefusal, { stopId?: number; lineId?: number }> {
   const { state, city } = world;

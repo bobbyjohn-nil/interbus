@@ -93,6 +93,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
 - **How to reverse:** A fixed starting cash is one config row. Before Sun Nov 8, dropping or reshaping the periods is a config and schema change of about a session; after it, a save-format bump (web saves are set aside on a bump anyway, D12).
 - **Since clarified:** 2026-10-13, measuring the debug line (3,535 m by street) with V1's cycle formula: a 3–4 km line every 20 minutes needs 2 Sparrows, not 1. So the starter recipe costs $356,000, and founding capital at k = 1.2 is $427,200 (it was $313,200). The recipe counts its buses with the game's one cycle function (K07; `src/sim/economy/starter.ts`, M2 step 1). The rule itself, k × the starter line, is unchanged.
 - **Since tuned:** 2026-10-14, the tuning freeze (Measured, below): k is 1.333, so founding capital is $474,548. With the two-Sparrow starter, I10's 1.15× clause caps k at 1.333 for a four-bus line of the starter's shape ($546,000), not "near 1.8" as above, which was the one-Sparrow starter's figure.
+- **Since clarified:** 2026-10-21, the systems audit's seventh round: no period runs a bus more often than once a minute (`MIN_HEADWAY_SECONDS`, in the same `sim/rules` predicate, refused as "Run at most once a minute"). The line card offers every 5 minutes or longer, so play never meets it; a save running a line every second with 2,000 buses took 3.3–3.8 s a recompute, at every command and every close (`npm run bench headways`). D7's other limits are unchanged.
 
 ### D8 · The look: "sleek but detailed and intricate"
 

@@ -1,7 +1,7 @@
 // D7's three headway periods, each limit one predicate shared by the cursor card, the command and
 // the drawing (GD-05). Peak runs 06:30–09:30 and 16:00–19:00, off-peak the rest of 05:00–24:00,
 // overnight 00:00–05:00.
-import { MAX_DAYTIME_HEADWAY_SECONDS, PEAK_WINDOWS, SERVICE_DAY, SECONDS_PER_DAY } from '../config/time';
+import { MAX_DAYTIME_HEADWAY_SECONDS, MIN_HEADWAY_SECONDS, PEAK_WINDOWS, SERVICE_DAY, SECONDS_PER_DAY } from '../config/time';
 import { ok, refuse, type Result } from '../core/result';
 
 /** The headways the line card offers, in minutes. */
@@ -33,15 +33,17 @@ export interface Headways {
   readonly overnight: number | null;
 }
 
-export type HeadwayRefusal = 'headway_not_whole_seconds' | 'daytime_headway_too_long' | 'overnight_more_often_than_offpeak';
+export type HeadwayRefusal = 'headway_not_whole_seconds' | 'headway_too_short' | 'daytime_headway_too_long' | 'overnight_more_often_than_offpeak';
 
 /**
- * D7's limits: peak and off-peak always run, at most an hour apart; overnight runs no more often
- * than off-peak, or not at all, so neither a night-only nor a night-mostly line exists (EC-03).
+ * D7's limits: peak and off-peak always run, at most an hour apart; no period runs a bus more often than once a minute
+ * (MIN_HEADWAY_SECONDS); overnight runs no more often than off-peak, or not at all, so neither a night-only nor a
+ * night-mostly line exists (EC-03).
  */
 export function checkHeadways(h: Headways): Result<object, HeadwayRefusal, { limitSeconds?: number }> {
   const all = [h.peak, h.offpeak, ...(h.overnight === null ? [] : [h.overnight])];
   if (!all.every((s) => Number.isSafeInteger(s) && s > 0)) return refuse('headway_not_whole_seconds');
+  if (all.some((s) => s < MIN_HEADWAY_SECONDS)) return refuse('headway_too_short', { limitSeconds: MIN_HEADWAY_SECONDS });
   if (h.peak > MAX_DAYTIME_HEADWAY_SECONDS || h.offpeak > MAX_DAYTIME_HEADWAY_SECONDS) {
     return refuse('daytime_headway_too_long', { limitSeconds: MAX_DAYTIME_HEADWAY_SECONDS });
   }

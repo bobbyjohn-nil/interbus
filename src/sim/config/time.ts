@@ -30,3 +30,9 @@ export const SERVICE_DAY: readonly [number, number] = [at(5), at(24)];
 
 /** Peak and off-peak run at least this often (D7's recommendation, a tunable). */
 export const MAX_DAYTIME_HEADWAY_SECONDS = at(1);
+/**
+ * And no period runs a bus more often than once a minute. The line card offers every 5 minutes or longer (HEADWAY_MINUTES); a
+ * save running its line every second with 2,000 buses took 3.3–3.8 s a recompute, every command and every close, where every 60 s
+ * with 86,400 buses took 5–34 ms (`npm run bench headways`; the systems audit's seventh round).
+ */
+export const MIN_HEADWAY_SECONDS = SECONDS_PER_MINUTE;

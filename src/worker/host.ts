@@ -38,7 +38,7 @@ import { jobsWithinWalk, peopleNearStops, peopleWithinWalk } from '../sim/rules/
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { checkLineDraft, type LineDraft } from '../sim/rules/line';
-import { rebase } from '../sim/save/rebase';
+import { rebase, stopOffStreet } from '../sim/save/rebase';
 import { aboutSave, backupKey, decode, encode, fromSaveData, IMPORT_COUNTER_LIMIT, quarterKey, SAVE_FORMAT, SAVE_SLOTS, SAVED_COUNTER_LIMIT, saveKey, SET_ASIDE, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { acceptContract } from '../sim/commands/acceptContract';
@@ -435,6 +435,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     if (result.outcome !== 'ok' && result.outcome !== 'rebaked') return { ok: false, reason: result.outcome };
     const read = createWorld(city, fromSaveData(result.envelope.data));
     if (result.outcome === 'rebaked' && !rebase(read, ref).ok) return { ok: false, reason: 'off-street' };
+    // A save of this very bake with a stop off its streets is damage, read as any save the game cannot read.
+    if (result.outcome === 'ok' && stopOffStreet(read, read.state.stops) !== null) return { ok: false, reason: 'unreadable' };
     return { ok: true, world: read };
   };
   /** Makes `next` the game: paused, nothing to undo, its lines drawn afresh. */
@@ -469,7 +471,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           const text = texts[k] ?? null;
           if (text === null) return { slot, about: null, readable: true };
           const { result } = decode(text, playing!.ref);
-          if (result.outcome === 'ok' || (result.outcome === 'rebaked' && playsHere(text, result))) return { slot, about: aboutSave(result.envelope), readable: true };
+          // A slot of this bake is checked against the world being played, as loading it checks it (worldFrom).
+          if ((result.outcome === 'ok' && stopOffStreet(world!, result.envelope.data.stops) === null) || (result.outcome === 'rebaked' && playsHere(text, result))) return { slot, about: aboutSave(result.envelope), readable: true };
           // Named as a set-aside save would be, so a slot from an older build, or one whose stops are off the new map, says so (D12).
           return { slot, about: null, readable: false, why: refusedAs(result) };
         });
@@ -674,9 +677,11 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           play(read.world, city, ref);
           beginSession(encode(read.world.state, build));
         } else {
-          if (read.reason === 'off-street') {
-            effects.push({ op: 'write', key: backupKey(ref.id, 'off-street'), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
-            load = 'off-street';
+          // A save decoded as playable but refused here (its stops off this bake's streets, or off them in a save of this bake) is set
+          // aside as decode sets aside any other: before, one of this bake went unsaid, and the founding save wrote over it.
+          if (result.outcome === 'ok' || result.outcome === 'rebaked') {
+            effects.push({ op: 'write', key: backupKey(ref.id, refusedAs(result)), value: message.text! }, { op: 'remove', key: saveKey(ref.id) });
+            load = read.reason;
           }
           play(createWorld(city, newGame(ref, { name: '', colour: COMPANY_COLOURS[0]! }, seed)), city, ref);
         }

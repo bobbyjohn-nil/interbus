@@ -194,6 +194,10 @@ function keptVersionOk(e: Kept, before: Kept | undefined, elapsed: number): bool
 /** What only a whole file can show: references, duplicates, counters and the ledger's shape; `counterLimit` as above. */
 export function integrityProblem(data: SaveData, counterLimit = SAVED_COUNTER_LIMIT): string | null {
   if (data.clock.elapsed < 0) return 'clock before founding';
+  // Every place a real longitude and latitude: a stop at longitude 1e308 projected to Infinity, and the search for its street
+  // never ended, hanging the worker at every load (the review of the seventh round's fixes).
+  const places = [...data.stops, ...data.depots, ...(data.event?.at ? [data.event.at] : []), ...data.lines.flatMap((l) => l.earlier.flatMap((v) => [...v.stops, ...(v.depot ? [v.depot] : [])]))];
+  if (!places.every((p) => Math.abs(p.lon) <= 180 && Math.abs(p.lat) <= 90)) return 'a place off the globe';
   if (data.closesBelowFloor < 0) return 'negative closes below the credit floor';
   if (data.tripsToday < 0 || data.tripsCarried < data.tripsToday) return 'more trips today than since founding';
   const today = toCalendarTime(data.clock.elapsed).day;
