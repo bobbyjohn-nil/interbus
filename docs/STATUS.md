@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-21, at `main` 8dc3209 ([#138](https://github.com/bobbyjohn-nil/interbus/pull/138): the sessions' token use cut, D27; the seventh audit round's fixes; P0's merge freeze lifted by the owner, D28), with the round's headway floor on this pull request.
+**Updated:** 2026-10-21, at `main` 4fb9faa ([#139](https://github.com/bobbyjohn-nil/interbus/pull/139): the seventh audit round's last save fixes), with the fixes from its last two finder lanes on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 8dc3209 (#138). Deploy preview run 39600671103's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4fb9faa (#139). Deploy preview run 39609911701's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -21,7 +21,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 
 - [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`. Merges no longer wait for them: the owner lifted P0's freeze on Oct 21 (D28).
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
-- [ ] **I14 on a hub of lines, by Sun Nov 1** (DECISIONS, Open): a late game's 10 to 15 lines out of one stop take 0.11–0.24 s a command at p50 (0.15–0.30 s at p95) against I14's 150 ms at p95. Hold I14 on the reference network and on hubs of up to 8 spokes, and make the assignment faster for larger hubs once a playtest or the pacing run builds one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines.
+- [ ] **I14 on a hub of lines, and on many lines, by Sun Nov 1** (DECISIONS, Open): a hub of 10 to 15 lines out of one stop takes 0.11–0.24 s a command at p50 (0.15–0.30 s at p95), and a late game of 20 to 30 lines with no hub 0.14–0.21 s (0.20–0.28 s), against I14's 150 ms at p95. Hold I14 on the reference network, on hubs of up to 8 spokes and on networks of up to 15 lines, and make the assignment faster once a playtest or the pacing run builds a larger one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines (which leaves the late game over).
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
 - [ ] **M2's exit check, on the preview** ([`docs/specs/m2-first-line.md`](specs/m2-first-line.md)): found, a depot, four stops from Copley to Longwood, every 20 minutes, overnight off, and cash moves as the inspector said. Compare **day 2's** card with Finance's Day forecast on day 2, a whole day on both. On day 1 the forecast counts the line from its buses' first drive out, as day 1's card does, but the depot's and stops' upkeep for a whole day where the card has 19 hours of 24 (day 1 opens at 05:00).
 - [ ] **M3's exit check, on the preview** ([`m3-money-loop.md`](specs/m3-money-loop.md)): the checklist to a profitable day and a contract in about 8 minutes; the report card; overspending to the countdown and Restart this quarter.
@@ -62,15 +62,27 @@ Systems that work first, the real values later (D26): an audit finds what does n
     - (major) the map's start-failure card and the replaced build's card offered Reload alone while the game wasn't saving itself;
     - (minor) the day card and the lender's card hid the start-failure card.
 
-  On this pull request: no bus runs more often than once a minute (`MIN_HEADWAY_SECONDS`). A save running its line every second with 2,000 buses took 3.3–3.8 s a recompute; every minute with 86,400 buses, 5–34 ms (`npm run bench headways`). And a save of this map with a stop off every street reads as unreadable: it loaded, the stop drawn off the streets while its line routed to the nearest one.
+  In [#139](https://github.com/bobbyjohn-nil/interbus/pull/139): no bus runs more often than once a minute (`MIN_HEADWAY_SECONDS`). A save running its line every second with 2,000 buses took 3.3–3.8 s a recompute; every minute with 86,400 buses, 5–34 ms (`npm run bench headways`). And a save of this map with a stop off every street reads as unreadable: it loaded, the stop drawn off the streets while its line routed to the nearest one.
 
-  The independent review of those two found one blocker and two minors, all fixed with failing-first tests: such a save as the autosave went unsaid at the start and the founding save wrote over it (now set aside as unreadable, with its notice); a slot holding one listed as readable and Load then refused it (now it lists as unreadable); and the reader took any longitude, so a stop at 1e308 hung the worker in the street grid's search at every load (now a place off the globe is refused).
+  The independent review of those two found one blocker and two minors, all fixed there with failing-first tests: such a save as the autosave went unsaid at the start and the founding save wrote over it (now set aside as unreadable, with its notice); a slot holding one listed as readable and Load then refused it (now it lists as unreadable); and the reader took any longitude, so a stop at 1e308 hung the worker in the street grid's search at every load (now a place off the globe is refused).
 
   The independent review of the edges fixes found three minors and three nits, all fixed: the stacked replaced card drops below a day card as the map's cards do, the bench's hubs are real spokes (the finder's lines ran Copley and then four stops 1.5–6 km away), DECISIONS states Saves' 2 s window, an emptied slot under Load's question gets Save here back, the replaced card's name carries its warning, and a unit test claims only what it checks. Left open:
   - the floor count, left as it is: a file claiming five closes below the floor ends only its own run, and checking it means replaying the ledger's closes;
   - a Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.
 
-  Next: the other two lanes (the screens with many lines; window sizes, zoom and resizes) as finders after Oct 22, fixed the same way (D27).
+  The last two lanes ran as finders on Oct 21:
+  - window sizes, zoom and resizes: two, fixed on this pull request with failing-first tests:
+    - (major) in full graphics, buses kept the old screen's sizing after the window moved to a screen of another density (Sparrows 11–12 px from 2x to 1x, against I12's 20, and 42–43 px back, the map blurry), and drew at 26–28 px on a 5K window, whose canvas MapLibre caps at 4,096 px: the vehicle layer now sizes by the ratio the canvas is drawn at, and the map resizes at each change of density;
+    - (minor) an open dropdown stayed where it opened when the window changed size, off the window and holding the keyboard: it now closes, the keyboard back on its button;
+  - the screens with many lines, on a late game of up to 30 lines (`src/sim/scene.ts` lateScene): six.
+    - (major) Finance's Lines held the game up while it worked out the open line's fare band, up to 1.1–1.3 s with 30 lines, at each line opened there and each change of the network: fixed on this pull request, the band worked out a step at a time between the worker's ticks, at most 37–163 ms a step (`npm run bench fares`);
+    - (minor) I14 on a late game with no hub, over from 20 lines: added to the I14 question (Waiting on the owner), and `npm run bench recompute` times it;
+    - (minor) the line card's "Fare and money in Finance" opens a low line's money below the panel's foot, out of view;
+    - (minor) with 30 lines, Lines' tabs take no arrow keys, and a low line's Run it is cut off at the panel's foot;
+    - (minor) 30 lines share 8 colours, and nothing changes a line's colour;
+    - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.
+
+  Next: Finance's link and Lines' tabs, fixed the same way (D27). The colours and the shared streets are look work PLAN §10 does not schedule, so they wait for the owner's call.
 
 ## Next
 
