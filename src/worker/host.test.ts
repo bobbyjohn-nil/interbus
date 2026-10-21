@@ -328,6 +328,40 @@ describe('the sim host', () => {
     expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ model: 'sparrow', buses: 2 });
   });
 
+  // The systems audit's seventh round: on a late game's network the band's seventeen assignments took up to 1.1 s together,
+  // and the clock and every command waited for them. With the worker's clock it is worked out a slice at a time, each slice
+  // ending with the step that passes BAND_SLICE_MS, here every step (each read of this clock is 30 ms on). Shown failing
+  // (TS-04) with the band worked out at its asking, all at once.
+  it('works out a fare band a step at a time on the worker’s clock, the same band, dropped when the network changes', () => {
+    const once = started();
+    once.host.handle({ type: 'place-depot', at: depotSpot(once.last('ready')!.depotLand as [number, number][][]) });
+    once.host.handle({ type: 'create-line', clicks: CLICKS });
+    const line = once.last('snapshot')!.snapshot.lines[0]!;
+    once.host.handle({ type: 'fare-band', id: 1, lineId: line.id });
+    const whole = once.last('fare-band')!;
+    let t = 0;
+    const out: FromWorker[] = [];
+    const host = createHost((m) => out.push(m), undefined, () => (t += 30));
+    host.handle({ type: 'init', simText: baked.text, city: CITY, seed: 1, build: BUILD });
+    host.handle({ type: 'save-text', text: null });
+    const ready = out.find((m) => m.type === 'ready')!;
+    host.handle({ type: 'place-depot', at: depotSpot((ready as Extract<FromWorker, { type: 'ready' }>).depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    const bands = () => out.filter((m) => m.type === 'fare-band');
+    host.handle({ type: 'fare-band', id: 2, lineId: line.id });
+    // The catchments at the asking, then a fare at each tick: seventeen ticks in all, the last answering.
+    for (let k = 0; k < 16; k++) host.tick(0);
+    expect(bands()).toEqual([]);
+    host.tick(0);
+    expect(bands()).toEqual([{ ...whole, id: 2 }]);
+    // Asked again, then the network changes: the band of the network gone is never sent, and the page asks anew.
+    host.handle({ type: 'fare-band', id: 3, lineId: line.id });
+    host.tick(0);
+    host.handle({ type: 'set-fare', lineId: line.id, fareCents: 175 });
+    for (let k = 0; k < 20; k++) host.tick(0);
+    expect(bands().map((m) => (m as { id: number }).id)).toEqual([2]);
+  });
+
   it('sets a line’s fare on the card’s rule and answers its fare band (the M3 spec, item 4)', () => {
     const { host, last } = started();
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });

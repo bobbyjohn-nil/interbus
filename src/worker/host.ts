@@ -29,7 +29,7 @@ import { SECONDS_PER_DAY, START_SECOND_OF_DAY, STEP_SECONDS } from '../sim/confi
 import { toCalendarTime } from '../sim/core/calendar';
 import { toLngLat, toXY, type XY } from '../sim/core/geo';
 import { FESTIVAL_RADIUS_M } from '../sim/config/events';
-import { fareBand } from '../sim/economy/fareBand';
+import { fareBandSteps, type FareBand } from '../sim/economy/fareBand';
 import { finance, runningCostsCents, type Finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
@@ -61,6 +61,11 @@ export const MAX_SLICE_MS = 250;
 export const SNAPSHOT_EVERY_MS = 100;
 /** While time runs, the game saves at each new game hour and at least this often by the real clock: at 1x a game hour is a real one (D25). */
 export const SAVE_EVERY_MS = 30_000;
+/**
+ * The real time the host spends on a fare band at a time, at its asking and at each tick, before it stops at the end of a step
+ * (fareBandSteps: one fare's assignment). The fixture's whole band takes a few milliseconds; a late game's step up to tens.
+ */
+export const BAND_SLICE_MS = 25;
 
 export interface Host {
   handle(message: ToWorker): void;
@@ -349,9 +354,11 @@ function refusedAs(result: LoadOutcome): SetAsideWhy {
 
 /**
  * `now` is the page's clock in milliseconds since 1970, which stamps each save's time for the Saves
- * panel (the M5 spec, item 4); without it saves carry no time. It never reaches the sim.
+ * panel (the M5 spec, item 4); without it saves carry no time. It never reaches the sim. `workClock` is the
+ * real clock in milliseconds that times the fare band's slices (BAND_SLICE_MS); without one, a band is
+ * worked out at its asking, all at once.
  */
-export function createHost(post: (message: FromWorker) => void, now?: () => number): Host {
+export function createHost(post: (message: FromWorker) => void, now?: () => number, workClock?: () => number): Host {
   let world: World | null = null;
   // The city loaded, waiting for the page's save.
   let pending: { city: City; ref: CityRef; seed: number } | null = null;
@@ -424,10 +431,24 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
   let lines: LineView[] = [];
   let stops: StopView[] = [];
   let linesVersion = 0;
+  // The fare band asked for last, worked out a slice at a time (workBand), so a late game's never holds up the clock or a
+  // command; dropped when the network changes, after which the page asks again for the network as it is.
+  let band: { readonly id: number; readonly lineId: number; readonly steps: Generator<void, FareBand | null, void> } | null = null;
+  const workBand = () => {
+    const start = workClock?.();
+    while (band) {
+      const step = band.steps.next();
+      if (step.done) {
+        post({ type: 'fare-band', id: band.id, lineId: band.lineId, band: step.value });
+        band = null;
+      } else if (start !== undefined && workClock!() - start >= BAND_SLICE_MS) return;
+    }
+  };
   const refreshLines = () => {
     lines = lineViews(world!);
     stops = stopViews(world!);
     linesVersion++;
+    band = null;
   };
 
   /** A world from a decoded save: as it was, or with its stops on this bake's streets; or why it cannot be played here. */
@@ -650,6 +671,29 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     return true;
   };
 
+  /** Time passing on the real clock, at the game's speed: the steps it runs, the saves and the snapshots. */
+  const run = (nowMs: number) => {
+    if (!world || speed === 0) {
+      lastMs = null;
+      return;
+    }
+    if (lastMs === null) savedAtMs = nowMs;
+    const sliceMs = lastMs === null ? 0 : Math.min(Math.max(nowMs - lastMs, 0), MAX_SLICE_MS);
+    lastMs = nowMs;
+    carrySeconds += (sliceMs / 1000) * SPEEDS[speed];
+    while (carrySeconds >= STEP_SECONDS) {
+      carrySeconds -= STEP_SECONDS;
+      if (!stepOnce()) return;
+    }
+    if (Math.floor(world.state.elapsed / 3_600) !== savedHour || nowMs - savedAtMs >= SAVE_EVERY_MS) {
+      save();
+      savedAtMs = nowMs;
+    }
+    if (nowMs - lastSnapshotMs >= SNAPSHOT_EVERY_MS) {
+      lastSnapshotMs = nowMs;
+      post({ type: 'snapshot', snapshot: snapshot() });
+    }
+  };
   return {
     handle(message) {
       if (message.type === 'init') {
@@ -958,7 +1002,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         const t = toCalendarTime(world.state.elapsed);
         post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build, stamp()) });
       } else if (message.type === 'fare-band') {
-        post({ type: 'fare-band', id: message.id, lineId: message.lineId, band: fareBand(world, message.lineId as LineId) });
+        band = { id: message.id, lineId: message.lineId, steps: fareBandSteps(world, message.lineId as LineId) };
+        workBand();
       } else if (message.type === 'set-headways') {
         const result = command({ command: 'set-headways', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setHeadways(world!, message.lineId as LineId, message.headways));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
@@ -970,26 +1015,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       }
     },
     tick(nowMs) {
-      if (!world || speed === 0) {
-        lastMs = null;
-        return;
-      }
-      if (lastMs === null) savedAtMs = nowMs;
-      const sliceMs = lastMs === null ? 0 : Math.min(Math.max(nowMs - lastMs, 0), MAX_SLICE_MS);
-      lastMs = nowMs;
-      carrySeconds += (sliceMs / 1000) * SPEEDS[speed];
-      while (carrySeconds >= STEP_SECONDS) {
-        carrySeconds -= STEP_SECONDS;
-        if (!stepOnce()) return;
-      }
-      if (Math.floor(world.state.elapsed / 3_600) !== savedHour || nowMs - savedAtMs >= SAVE_EVERY_MS) {
-        save();
-        savedAtMs = nowMs;
-      }
-      if (nowMs - lastSnapshotMs >= SNAPSHOT_EVERY_MS) {
-        lastSnapshotMs = nowMs;
-        post({ type: 'snapshot', snapshot: snapshot() });
-      }
+      run(nowMs);
+      workBand();
     },
     advanceTo(elapsed) {
       if (!world) return;
