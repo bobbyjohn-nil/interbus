@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 
@@ -28,6 +29,18 @@ export function Inspector({
   const lines = sim.snapshot?.lines ?? [];
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
   if (!line) return null;
+  // WAI-ARIA's tabs: the arrow keys move along the tabs, wrapping, and Home and End go to the first and last, each tab chosen as
+  // the focus reaches it; only the chosen tab is in the Tab order, so one Tab goes on to the card. Before, the arrows did
+  // nothing, and 30 lines took 30 presses of Tab to reach the card (the systems audit's seventh round).
+  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const at = lines.findIndex((l) => l.id === line.id);
+    const to = ({ ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: lines.length - 1 } as Record<string, number>)[event.key];
+    if (to === undefined) return;
+    event.preventDefault();
+    const next = lines[(to + lines.length) % lines.length]!;
+    onLine(next.id);
+    event.currentTarget.querySelector<HTMLElement>(`[data-line="${next.id}"]`)?.focus();
+  };
   return (
     <aside
       className="panel inspector"
@@ -45,13 +58,15 @@ export function Inspector({
       </button>
       <LineHeading line={line} />
       {lines.length > 1 ? (
-        <div className="tabs" role="tablist">
+        <div className="tabs" role="tablist" aria-label="Lines" onKeyDown={onTabKey}>
           {lines.map((l) => (
             <button
               key={l.id}
               type="button"
               role="tab"
               aria-selected={l.id === line.id}
+              tabIndex={l.id === line.id ? 0 : -1}
+              data-line={l.id}
               onClick={() => onLine(l.id)}
             >
               <span className="swatch" style={{ background: l.colour }} />{" "}

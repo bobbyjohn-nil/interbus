@@ -9,6 +9,7 @@
 // save file to import.
 import type { City } from './city/simfile';
 import { DEBUG_STOPS } from './commands/debugLine';
+import { createLine } from './commands/createLine';
 import { placeDepot } from './commands/placeDepot';
 import { REFERENCE_FARE_CENTS } from './config/economy';
 import { BUS_MODELS, type BusModelId } from './config/fleet';
@@ -93,4 +94,31 @@ export function busyScene(city: City, ref: CityRef, corridors: readonly (readonl
   advance(world, SCENE_AT - world.state.elapsed);
   if (toCalendarTime(world.state.elapsed).day !== 1) throw new Error('scene: past day 1');
   return { world, lines: world.state.lines.length, buses: count(), depots: world.state.depots.length };
+}
+
+/**
+ * A late game within the rules (the systems audit's seventh round, the screens with many lines): five depots by the corridors'
+ * first ends, then line after line along `corridors` both ways, drawn by Create's own rule (commands/createLine.ts), one
+ * Sparrow every `headway` seconds all day, until `maxLines` or the corridors run out. Founded with $50 million, as busyScene
+ * is, so cash never refuses a line. Paused at founding; on Inner Boston its 30 lines are the most a company can run (five
+ * depots of six buses). Read by the fares and recompute benches and the many-lines e2e tests.
+ */
+export function lateScene(city: City, ref: CityRef, corridors: readonly (readonly [name: string, from: LngLat, to: LngLat, ...rest: unknown[]])[], maxLines: number, headway = 3_600): World {
+  const world = createWorld(city, { ...newGame(ref, { name: 'Late Game Transit', colour: '#2471a3' }, 1), ledger: foundLedger(5_000_000_000) });
+  const seen = new Set<string>();
+  const candidates = corridorCandidates(world, corridors).filter((c) => {
+    const key = c.stops.map((s) => s.join(',')).join(' ');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  for (const c of candidates) {
+    if (world.state.depots.length >= 5) break;
+    placeDepot(world, depotNear(world.city, toXY(world.city.frame, c.stops[0]!)));
+  }
+  for (const stops of [...candidates.map((c) => c.stops), ...candidates.map((c) => [...c.stops].reverse())]) {
+    if (world.state.lines.length >= maxLines) break;
+    createLine(world, stops, { peak: headway, offpeak: headway, overnight: null }, 'sparrow');
+  }
+  return world;
 }

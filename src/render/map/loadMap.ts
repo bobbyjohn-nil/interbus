@@ -108,6 +108,8 @@ const TURN_MS = 200;
 
 /** Marks the tilt's own camera moves, so their end can be told from a drag's. */
 const TILT_MOVE = 'interbusTilt';
+/** How often full graphics reads the screen's density, so the map follows a window moved to a screen of another (mountMap). */
+const DENSITY_EVERY_MS = 1_000;
 
 /** `rung` is the GPU ladder's (gpu.ts): Low graphics draws at one pixel a pixel and the buses at most 30 times a second. */
 export async function mountMap(container: HTMLElement, city: City, rung: Exclude<GraphicsRung, 'none'> = 'full'): Promise<MountedMap> {
@@ -150,6 +152,19 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   });
   map.touchZoomRotate.disableRotation();
   map.keyboard.disableRotation();
+  // MapLibre resizes its canvas only when the container's box changes, so a window moved to a screen of another density kept the
+  // old screen's canvas, blurry on a sharper one (the systems audit's seventh round). The density is read each second, and a
+  // change resizes the map: a resolution media query's change event, the usual watch, never came in CI's browser, though
+  // devicePixelRatio had changed. Low graphics draws at 1 on every screen.
+  if (rung !== 'low') {
+    let density = window.devicePixelRatio;
+    const timer = window.setInterval(() => {
+      if (window.devicePixelRatio === density) return;
+      density = window.devicePixelRatio;
+      map.resize();
+    }, DENSITY_EVERY_MS);
+    map.once('remove', () => window.clearInterval(timer));
+  }
 
   map.on('error', (event: ErrorEvent) => {
     // Tile 404s are reported by CityFetchSource, and a whole-file read reports its own; a 404 that

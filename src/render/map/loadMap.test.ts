@@ -127,7 +127,7 @@ let page: InstanceType<typeof fake.Evented>;
 beforeEach(() => {
   page = new fake.Evented();
   // Reduced motion, so the buildings swap at once instead of over the cross-fade.
-  vi.stubGlobal('window', { addEventListener: page.addEventListener.bind(page), removeEventListener: page.removeEventListener.bind(page), setTimeout, clearTimeout, matchMedia: () => ({ matches: true }) });
+  vi.stubGlobal('window', { addEventListener: page.addEventListener.bind(page), removeEventListener: page.removeEventListener.bind(page), setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {}, devicePixelRatio: 1, matchMedia: () => ({ matches: true }) });
 });
 afterEach(() => void vi.unstubAllGlobals());
 

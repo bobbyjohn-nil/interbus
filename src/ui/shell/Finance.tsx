@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../../sim/rules/money';
 import type { FinanceView } from '../../sim/types';
@@ -6,6 +6,7 @@ import { Dropdown } from '../Dropdown';
 import { about, GROUP_NAMES, quarterText, ROW_HINTS, rowName, usd } from '../format';
 import { bandText } from '../game/LineCard';
 import type { Sim } from '../game/useSim';
+import { showWhole } from '../showWhole';
 import { FinanceChart } from './FinanceChart';
 
 /** Kinds the forecast models from riders rather than knows from the day plan. */
@@ -54,7 +55,10 @@ export function Finance({ sim, onClose, view: asked = 'overview', lineId = null 
           </button>
         ))}
       </div>
-      {view === 'overview' ? <Overview finance={f} /> : view === 'breakdown' ? <Breakdown finance={f} today={today} quarter={quarter} /> : <Lines sim={sim} finance={f} open={lineId} />}
+      {/* The body scrolls under the heading, Close and views, so they stay in reach however far it goes. */}
+      <div className="finance-body" data-testid="finance-body">
+        {view === 'overview' ? <Overview finance={f} /> : view === 'breakdown' ? <Breakdown finance={f} today={today} quarter={quarter} /> : <Lines sim={sim} finance={f} open={lineId} />}
+      </div>
     </aside>
   );
 }
@@ -175,8 +179,24 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
     fareBandFor(open);
     return () => fareBandFor(null);
   }, [fareBandFor, open, version]);
-  if (!lines.length) return <p className="hint">No lines yet: draw one to see its money here.</p>;
   const band = sim.fareBand && sim.fareBand.lineId === open ? sim.fareBand.band : null;
+  // Opened on a line (the line card's "Fare and money in Finance"), Finance shows that line's row and its money, and once more
+  // when its first fare band comes: a low line's were below the panel's foot, and the link seemed to do nothing (the systems
+  // audit's seventh round). Never after that: each change of the network asks for the band again, and the panel jumped back to
+  // the line however the player had scrolled it since (the review of the round's fixes). Nor once the player has scrolled it.
+  const askedRow = useRef<HTMLTableRowElement>(null);
+  const shown = useRef<{ readonly banded: boolean; readonly top: number } | null>(null);
+  const banded = band !== null;
+  useLayoutEffect(() => {
+    const row = askedRow.current;
+    const body = row?.closest<HTMLElement>('.finance-body');
+    if (!row || !body || open !== asked) return;
+    const last = shown.current;
+    if (last && (last.banded || !banded || body.scrollTop !== last.top)) return;
+    showWhole(body, row, row.nextElementSibling ?? row);
+    shown.current = { banded, top: body.scrollTop };
+  }, [asked, open, banded]);
+  if (!lines.length) return <p className="hint">No lines yet: draw one to see its money here.</p>;
   return (
     <table className="lines-money">
       <thead>
@@ -201,7 +221,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
           const income = money?.incomeCents ?? 0;
           return (
             <Fragment key={line.id}>
-              <tr data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(income, c)} className={expanded ? 'open' : undefined}>
+              <tr ref={line.id === asked ? askedRow : undefined} data-testid={`line-money-${line.id}`} data-line={line.id} data-running={c.running} data-net={dayNet(income, c)} className={expanded ? 'open' : undefined}>
                 <th scope="row">
                   <button type="button" className="line-name" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : line.id)}>
                     <span className="swatch" style={{ background: line.colour }} /> {line.name}

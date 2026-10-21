@@ -521,6 +521,7 @@ export function useSim(city: City | undefined): Sim {
   const fareBandFor = useCallback((lineId: number | null) => {
     if (lineId === null) {
       asked.current.band = 0;
+      worker.current?.postMessage({ type: 'fare-band', id: 0, lineId: null } satisfies ToWorker);
       return setFareBand(null);
     }
     const id = asked.current.next++;

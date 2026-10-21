@@ -5,7 +5,7 @@
 // (assign: every catchment, every pair, all three periods) on the fixture with three lines, on a
 // synthetic Inner-Boston-sized grid with T03's network, and, once `node tools/bake/sim.mjs boston
 // inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
-// whole recompute there with five depots, and on hubs of lines out of one stop.
+// whole recompute there with five depots, on hubs of lines out of one stop, and on a late game's many lines.
 // Results go to .cache/bench/recompute.json.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
@@ -23,9 +23,10 @@ import { assign, type LinePlan } from '../src/sim/demand/assign';
 import { buildCommuters } from '../src/sim/demand/commuters';
 import { depotNear } from '../src/sim/pacing';
 import { corridorStops } from '../src/sim/sweep';
+import { lateScene } from '../src/sim/scene';
 import { newGame } from '../src/sim/state';
 import { commutersToday, createWorld, planLine, recompute } from '../src/sim/world';
-import { innerBoston } from './inner';
+import { CORRIDORS, innerBoston } from './inner';
 import { syntheticCity, t03Network } from './synthetic';
 
 // 100 runs a case: at 30, p95 was the second-slowest run, and one or two slow runs decided it. On the nightly of
@@ -128,6 +129,17 @@ if (inner) {
     if (hub.state.lines.length !== size) throw new Error(`bench: the hub has ${hub.state.lines.length} lines, not ${size}`);
     const buses = hub.state.lines.reduce((n, l) => n + l.buses, 0);
     time(`Inner Boston's whole recompute, a hub of ${size} spokes out of Copley Square, ${buses} buses`, () => recompute(hub), size <= 8);
+  }
+
+  // A late game with no hub (the systems audit's seventh round, the screens with many lines; scene.ts lateScene): line after
+  // line along the corridors both ways, a Sparrow an hour each, the five depots placed first. Lines on the same streets share
+  // their catchments, so the recompute grows with them though few lines meet at any one stop. 10 and 15 lines are held to
+  // I14; at 20 and more it is over (DECISIONS, Open: I14 on a hub of lines), so they are timed without failing the run.
+  for (const n of [10, 15, 20, 30]) {
+    const late = lateScene(boston.city, { id: 'boston', revision: 'inner-boston', hash: '-' }, CORRIDORS, n);
+    const at = new Map<number, number>();
+    for (const line of late.state.lines) for (const stop of new Set(line.stopIds)) at.set(stop, (at.get(stop) ?? 0) + 1);
+    time(`Inner Boston's whole recompute, a late game of ${late.state.lines.length} lines, at most ${Math.max(...at.values())} at a stop`, () => recompute(late), n <= 15);
   }
 }
 

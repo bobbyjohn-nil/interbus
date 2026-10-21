@@ -178,7 +178,12 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
         const matrix = new Float32Array(16);
         for (let i = 0; i < 16; i++) matrix[i] = m[i]!;
         for (let i = 0; i < 4; i++) matrix[12 + i] = m[i]! * rx + m[4 + i]! * ry + m[12 + i]!;
-        const ratio = map.getPixelRatio();
+        // The ratio the canvas is drawn at, not the one asked for (map.getPixelRatio(), the screen's): a window moved to a screen of
+        // another density keeps its canvas until the map resizes, and MapLibre draws a canvas over 4,096 device px at less. Sized by
+        // the screen's, Sparrows drew 11–12 px after a move from a 2x screen to a 1x one and 26–28 px on a 5K screen at 2560×1440
+        // (the systems audit's seventh round).
+        const css = map.getCanvas().clientWidth;
+        const ratio = css > 0 ? g.drawingBufferWidth / css : map.getPixelRatio();
         g.useProgram(program);
         g.uniformMatrix4fv(where.u_matrix!, false, matrix);
         g.uniform2f(where.u_viewport!, g.drawingBufferWidth, g.drawingBufferHeight);

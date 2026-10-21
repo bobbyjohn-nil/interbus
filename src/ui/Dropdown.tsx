@@ -100,9 +100,21 @@ export function Dropdown<T extends string | number>({
   useEffect(() => {
     if (!open) return;
     const away = closeOnPressAway((target) => Boolean(root.current?.contains(target) || list.current?.contains(target)), () => setOpen(false));
+    // Its place is the window's as it opened: a window that changes size moves the panel under it, and the list stayed where it
+    // was, off the window and holding the focus (the systems audit's seventh round), so it closes, the focus back on its button,
+    // as Escape does.
+    const resized = () => {
+      const focused = Boolean(list.current?.contains(document.activeElement));
+      setOpen(false);
+      if (focused) button.current?.focus();
+    };
     window.addEventListener('pointerdown', away);
+    window.addEventListener('resize', resized);
     list.current?.focus();
-    return () => window.removeEventListener('pointerdown', away);
+    return () => {
+      window.removeEventListener('pointerdown', away);
+      window.removeEventListener('resize', resized);
+    };
   }, [open, at]);
 
   const enabled = (i: number) => options[i] !== undefined && !options[i]!.disabled;
