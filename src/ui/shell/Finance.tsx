@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { runOver } from '../game/runOver';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../../sim/rules/money';
@@ -8,6 +8,7 @@ import { about, GROUP_NAMES, quarterText, ROW_HINTS, rowName, usd } from '../for
 import { bandText } from '../game/LineCard';
 import type { Sim } from '../game/useSim';
 import { showWhole } from '../showWhole';
+import { tabTo } from '../tablist';
 import { FinanceChart } from './FinanceChart';
 
 /** Kinds the forecast models from riders rather than knows from the day plan. */
@@ -43,15 +44,24 @@ export function Finance({ sim, onClose, view: asked = 'overview', lineId = null 
   const sum = (pick: (r: FinanceView['rows'][number]) => number) => f.rows.reduce((s, r) => s + pick(r), 0);
   const today = sum((r) => r.todayCents);
   const quarter = sum((r) => r.quarterCents);
+  // The views are tabs as Lines' are (tabTo): the arrows, Home and End move along them, and only the chosen one is in the Tab
+  // order. Before, the arrows did nothing and the three views were three Tab stops (the systems audit's ninth round).
+  const onViewKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const next = tabTo(event.key, VIEWS.map(([id]) => id), view);
+    if (next === undefined) return;
+    event.preventDefault();
+    setView(next);
+    event.currentTarget.querySelector<HTMLElement>(`[data-testid="finance-${next}"]`)?.focus();
+  };
   return (
     <aside className="panel finance" aria-label="Finance" data-testid="finance" data-chrome="panel" data-view={view} data-today={today} data-quarter={quarter} data-opening={f.openingCents}>
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
         ×
       </button>
       <h2>Finance</h2>
-      <div className="segments" role="tablist" aria-label="Finance views">
+      <div className="segments" role="tablist" aria-label="Finance views" onKeyDown={onViewKey}>
         {VIEWS.map(([id, name]) => (
-          <button key={id} type="button" role="tab" aria-selected={view === id} data-testid={`finance-${id}`} onClick={() => setView(id)}>
+          <button key={id} type="button" role="tab" aria-selected={view === id} tabIndex={view === id ? 0 : -1} data-testid={`finance-${id}`} onClick={() => setView(id)}>
             {name}
           </button>
         ))}

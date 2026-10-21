@@ -41,12 +41,36 @@ export function App() {
   // and the one shown last: showing a panel already open brings it to the front.
   const [open, setOpen] = useState<readonly Exclude<Panel, "none">[]>([]);
   const [front, setFront] = useState<PanelFront | null>(null);
-  const show = useCallback((p: Exclude<Panel, "none">) => {
+  // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space and for the panels.
+  const focus = useRef(focusSource());
+  // The panel (or the tool's card) the player opened or showed last, which takes the focus once placed when the keyboard
+  // did it (Panels, takesFocus), so the next Tab is its first control. It stayed on what opened it: from the dock, the
+  // panel's first control was 11 Tabs on, past the dock's other buttons, the Saves chip, the map's credits, the map and
+  // the chips (the systems audit's ninth round).
+  const [focusAt, setFocusAt] = useState<PanelFront | null>(null);
+  const focusOn = useCallback((id: string) => setFocusAt((f) => ({ id, n: (f?.n ?? 0) + 1 })), []);
+  /** Opens a panel, or brings one open to the front, taking no focus: what the game does by itself. */
+  const bring = useCallback((p: Exclude<Panel, "none">) => {
     setOpen((o) => (o.includes(p) ? o : [...o, p]));
     setFront((f) => ({ id: p, n: (f?.n ?? 0) + 1 }));
   }, []);
+  /** The player's own opening of a panel, as bring, with the focus. */
+  const show = useCallback(
+    (p: Exclude<Panel, "none">) => {
+      bring(p);
+      focusOn(p);
+    },
+    [bring, focusOn],
+  );
   const hide = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => o.filter((x) => x !== p)), []);
-  const toggle = useCallback((p: Exclude<Panel, "none">) => setOpen((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p])), []);
+  // A panel closed this way takes no focus: Panels finds no panel by that id.
+  const toggle = useCallback(
+    (p: Exclude<Panel, "none">) => {
+      setOpen((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p]));
+      focusOn(p);
+    },
+    [focusOn],
+  );
   const [lineId, setLineId] = useState<number | null>(null);
   // The line Finance opens on, from the line panel's link to its money; null opens the Overview. Each
   // press of the link opens Finance afresh on that line, and Finance closed any way opens next on the Overview.
@@ -164,7 +188,7 @@ export function App() {
   if (over && tool !== "none") {
     if (tool === "route" && routing) {
       setLineId(routing.lineId);
-      show("lines");
+      bring("lines");
     }
     setTool("none");
     setClicks([]);
@@ -202,13 +226,15 @@ export function App() {
       if (!line) return;
       setTool("route");
       setClicks([]);
-      // The editor stands in for the line's panel while it is open; Save route and Cancel bring it back.
+      // The editor stands in for the line's panel while it is open; Save route and Cancel bring it back. Opened from the
+      // keyboard, it takes the focus the panel had.
       hide("lines");
+      focusOn("tool");
       setRouting({ lineId: id, points: routeOf(line), base: line.stopIds, saved: null });
       hoveredRef.current = null;
       probeAt(null);
     },
-    [sim.snapshot, probeAt, hide],
+    [sim.snapshot, probeAt, hide, focusOn],
   );
   // Save route lands when the line's stops change: the editor closes and the line shows, as a new
   // line does. A refusal leaves the line as it was and the editor open, its notice saying why.
@@ -312,8 +338,6 @@ export function App() {
   // or the browser keeps nothing at all (before a company is founded too), they say so and offer Export this game, which keeps it.
   const mapUnsaved = autosaveOff || sim.storeRefused === "blocked" ? { ...MAP_UNSAVED_COPY, onKeep: () => send({ type: "export" }) } : null;
 
-  // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space.
-  const focus = useRef(focusSource());
   useEffect(() => {
     const f = focus.current;
     const input = (event: PointerEvent | KeyboardEvent) => f.input(event);
@@ -586,7 +610,7 @@ export function App() {
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" && !stopped ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "stop" && !stopped ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      <Panels key="panels" items={stopped ? [] : panelItems} front={front} />
+      <Panels key="panels" items={stopped ? [] : panelItems} front={front} focus={focusAt} takesFocus={() => focus.current.byKey} />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}

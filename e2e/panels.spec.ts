@@ -255,3 +255,82 @@ test.describe('movable panels', () => {
     expect(await grabbed()).toBe('Finance');
   });
 });
+
+// Played by keyboard alone (the systems audit's ninth round). A panel the keyboard opens takes the focus, as a dialog does, so
+// the next Tab is its first control: the focus stayed on the dock, the panel's first control 11 Tabs on, past the dock's other
+// buttons, the Saves chip, the map's credits, the map and the chips. The route editor, opened from Lines by the keyboard, takes
+// it too. A panel the mouse opens leaves the focus on what was pressed. And Finance's views are tabs as Lines' are: the arrows,
+// Home and End move along them, and they are one stop in the Tab order, where they were three and took no arrow. Each shown
+// failing (TS-04) with the page as before.
+test.describe('the panels by keyboard', () => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+
+  /** Tabs on until `target` has the focus, as a player at the keyboard does. */
+  const tabTo = async (page: Page, target: Locator) => {
+    for (let k = 0; k < 60; k++) {
+      if (await target.evaluate((el) => el === document.activeElement)) return;
+      await page.keyboard.press('Tab');
+    }
+    throw new Error('Tab never reached it');
+  };
+
+  test('a panel opened from the keyboard takes the focus, and Finance’s views take the arrows as one Tab stop', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    const dock = page.getByTestId('dock');
+    const lines = page.getByTestId('inspector');
+    const finance = page.getByTestId('finance');
+
+    // Lines from the dock: the next Tab is its Close.
+    await tabTo(page, dock.getByRole('button', { name: 'Lines', exact: true }));
+    await page.keyboard.press('Enter');
+    await expect(lines).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(lines.getByRole('button', { name: 'Close' })).toBeFocused();
+    // Its Edit route: the route editor takes the focus the panel had, which fell to the page with it (Chrome's Tab went on
+    // from where the panel was, into the editor, but the focus was nowhere).
+    await tabTo(page, lines.getByRole('button', { name: 'Edit route' }));
+    await page.keyboard.press('Enter');
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-movable]')?.getAttribute('data-movable'))).toBe('tool');
+    await page.keyboard.press('Tab');
+    expect(await editor.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    await editor.getByRole('button', { name: 'Cancel' }).click();
+
+    // Finance from the dock: Close, then its views, chosen with the arrows, Home and End.
+    await tabTo(page, dock.getByRole('button', { name: 'Finance', exact: true }));
+    await page.keyboard.press('Enter');
+    await expect(finance).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(finance.getByRole('button', { name: 'Close' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    const view = (id: string) => finance.getByTestId(`finance-${id}`);
+    await expect(view('overview')).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(view('breakdown')).toBeFocused();
+    await expect(view('breakdown')).toHaveAttribute('aria-selected', 'true');
+    await expect(finance).toHaveAttribute('data-view', 'breakdown');
+    await page.keyboard.press('End');
+    await expect(view('lines')).toBeFocused();
+    await expect(finance).toHaveAttribute('data-view', 'lines');
+    await page.keyboard.press('ArrowRight');
+    await expect(view('overview')).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(view('lines')).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(view('overview')).toBeFocused();
+    // One Tab leaves the views.
+    await page.keyboard.press('Tab');
+    expect(await finance.locator('[role=tab]').evaluateAll((tabs) => tabs.some((tab) => tab === document.activeElement))).toBe(false);
+
+    // Opened with the mouse, a panel leaves the focus on what was pressed.
+    await finance.getByRole('button', { name: 'Close' }).click();
+    await dock.getByRole('button', { name: 'Finance', exact: true }).click();
+    await expect(finance).toBeVisible();
+    await expect(dock.getByRole('button', { name: 'Finance', exact: true })).toBeFocused();
+  });
+});

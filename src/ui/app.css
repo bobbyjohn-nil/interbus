@@ -1592,6 +1592,16 @@ button.chip.checklist,
   pointer-events: auto;
 }
 
+/* A panel the keyboard opened holds the focus itself (Panels.tsx), ringed as a control the keyboard reached is. */
+.movable:focus {
+  outline: none;
+}
+
+.movable:focus-visible > .panel {
+  outline: 2px solid var(--ui-ink);
+  outline-offset: 2px;
+}
+
 .movable > .panel {
   position: relative;
   top: auto;

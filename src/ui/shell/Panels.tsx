@@ -109,11 +109,24 @@ export interface PanelFront {
  * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
  * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
  * free place whole, and a dragged one's heading in reach. A tool's card is a panel like the others.
+ * One the keyboard opened takes the focus (`focus`), as a dialog does, so Tab goes on inside it.
  * Places live on the elements, not in React state, so a drag re-renders nothing. The panels are raised
  * among themselves on a layer of their own, under the menus and the cards beside the pointer however
  * many are raised (app.css's --layer-panels).
  */
-export function Panels({ items, front = null }: { items: readonly PanelItem[]; front?: PanelFront | null }) {
+export function Panels({
+  items,
+  front = null,
+  focus = null,
+  takesFocus = () => false,
+}: {
+  items: readonly PanelItem[];
+  front?: PanelFront | null;
+  /** The panel the player opened or showed last. */
+  focus?: PanelFront | null;
+  /** Whether that panel takes the focus: when the keyboard opened it (App's focusSource). */
+  takesFocus?: () => boolean;
+}) {
   const [raised, setRaised] = useState<readonly string[]>([]);
   // A panel not open at the last render has just opened, and `front` names one shown again: the
   // player's newest act, in front of those pressed before (React's pattern for state that follows a prop).
@@ -148,6 +161,16 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
       placed.current.add(id);
     }
   });
+
+  // The panel the keyboard opened or showed (`focus`, App) takes the focus once placed, so the next Tab is its first control.
+  // Asked as the effect runs, after the press that opened it, never during a render.
+  const takes = useRef(takesFocus);
+  useLayoutEffect(() => {
+    takes.current = takesFocus;
+  });
+  useLayoutEffect(() => {
+    if (focus && takes.current()) boxes.current.get(focus.id)?.focus();
+  }, [focus]);
 
   // A window that changes size keeps a panel in a free place whole, and a dragged one in reach, as a drag does.
   useEffect(() => {
@@ -208,6 +231,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
             key={id}
             className="movable"
             data-movable={id}
+            tabIndex={-1}
             ref={(el) => {
               if (el) boxes.current.set(id, el);
               else boxes.current.delete(id);
