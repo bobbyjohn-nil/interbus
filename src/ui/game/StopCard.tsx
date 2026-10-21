@@ -54,7 +54,8 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
           <p>Nets ≈{usd(stop.netCents, { cents: true })} a day</p>
         </>
       ) : (
-        <p data-testid="stop-lone">No line stops here yet. Draw a line through it, or add it in a line’s Edit route.</p>
+        // An ended run draws no line and edits no route (runOver), so its card invites neither.
+        <p data-testid="stop-lone">{runOver(sim) ? 'No line stops here.' : 'No line stops here yet. Draw a line through it, or add it in a line’s Edit route.'}</p>
       )}
       {stop.quiet ? <p className="flag">Quiet: fewer than {STOP_QUIET_BOARDINGS} boardings a day</p> : null}
       {stop.loss ? <p className="flag">Losing money: more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}

@@ -250,6 +250,12 @@ body,
   padding: 0;
 }
 
+/* Off once the run has ended (runOver), as the dock's Build is: the rule above drew them as live. */
+.chip.speed button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .chip.date {
   gap: 5px;
 }
@@ -280,7 +286,7 @@ body,
   border-color: transparent;
 }
 
-.dropdown-button:hover,
+.dropdown-button:hover:not(:disabled),
 .dropdown-button[aria-expanded='true'] {
   border-color: var(--ui-ink-soft);
 }

@@ -159,8 +159,13 @@ export function App() {
     },
     [probeAt, depotSiteAt, stopSiteAt],
   );
-  // The run ended with a tool out (the route editor, a line half drawn): it is put down, as the tools are locked (runOver).
+  // The run ended with a tool out (the route editor, a line half drawn): it is put down, as the tools are locked (runOver),
+  // and the route editor's line shows again in the panel the editor stood in for, as after Cancel.
   if (over && tool !== "none") {
+    if (tool === "route" && routing) {
+      setLineId(routing.lineId);
+      show("lines");
+    }
     setTool("none");
     setClicks([]);
     setRouting(null);
@@ -344,16 +349,16 @@ export function App() {
       // again (opening the speed menu, closing Finance, taking back one more command). A held Space
       // pauses or plays once, as a held key presses a button once (onePress.ts) and tilts once (tilt.ts), and a held 1 to 5
       // picks its speed once: their repeats send nothing (each was a command, an autosave and a stalled clock).
-      // An ended run takes no play, speed or undo from the keys either (runOver).
-      const { now, play, founded: started, over: ended } = speedRef.current;
-      const founded = started && !ended;
+      // An ended run takes no play, speed or undo from the keys either (runOver), and Space still presses no button the mouse
+      // pressed: the review of the systems audit's eighth round let it through, so it closed Finance or exported again.
+      const { now, play, founded, over: ended } = speedRef.current;
       const keeps = event.target instanceof HTMLButtonElement && focus.current.byKey;
       if (founded && event.key === " " && !keeps) {
         event.preventDefault();
-        if (!event.repeat) send({ type: "speed", speed: now === 0 ? play : 0 });
+        if (!event.repeat && !ended) send({ type: "speed", speed: now === 0 ? play : 0 });
         return;
       }
-      const pick = founded && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
+      const pick = founded && !ended && !event.ctrlKey && !event.metaKey && !event.altKey ? RUNNING_SPEEDS[Number(event.key) - 1] : undefined;
       if (pick !== undefined && /^[1-5]$/.test(event.key)) {
         if (!event.repeat) send({ type: "speed", speed: pick });
         return;

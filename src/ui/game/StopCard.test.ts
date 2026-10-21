@@ -38,7 +38,11 @@ describe('a stop’s card', () => {
     const station = render({ tier: 3 }, [1, 2, 3], true);
     expect(station).toContain('<button type="button" disabled="">Make it a Shelter · $17.5k back</button>');
     expect(station).toMatch(/<button type="button" disabled="">Remove from Line 1/);
-    expect(render({ lineIds: [] }, [1, 3], true)).toMatch(/<button type="button" disabled="">Take it down/);
+    const lone = render({ lineIds: [] }, [1, 3], true);
+    expect(lone).toMatch(/<button type="button" disabled="">Take it down/);
+    // Nor does a lone stop's card invite a line or an Edit route, both off (the review of #142).
+    expect(lone).toContain('No line stops here.</p>');
+    expect(render({ lineIds: [] }, [1, 3])).toContain('Draw a line through it');
     // Before the end, the same buttons are on offer.
     expect(render({ tier: 3 })).toContain('<button type="button">Make it a Shelter · $17.5k back</button>');
   });

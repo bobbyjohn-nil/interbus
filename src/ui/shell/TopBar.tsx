@@ -37,9 +37,10 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const held = s.contracts.filter((c) => c.held).length;
   const offers = held > 0 ? `${held} held` : `${s.contracts.length} on offer`;
   const medals = MEDAL_IDS.filter((m) => s.medals[m] !== null);
-  // An ended run takes nothing but Restart this quarter: no play, no undo, no step to take (runOver).
+  // An ended run takes nothing but Restart this quarter: no play and no step to take (runOver). It has no undo either: time
+  // ran to its end, and running clears the undos (I9).
   const over = runOver(sim);
-  const undo = s.undo && !over ? undoText(s.undo) : null;
+  const undo = s.undo ? undoText(s.undo) : null;
   return (
     <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
       <span className="chip date" title={dateText(s.day)} data-testid="date">
@@ -51,7 +52,7 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
             type="button"
             className="play"
             aria-label={s.speed === 0 ? 'Play' : 'Pause'}
-            title={s.speed === 0 ? 'Play (Space)' : 'Pause (Space)'}
+            title={over ? 'Play' : s.speed === 0 ? 'Play (Space)' : 'Pause (Space)'}
             data-testid="play"
             disabled={over}
             onClick={() => sim.send({ type: 'speed', speed: s.speed === 0 ? playSpeed : 0 })}

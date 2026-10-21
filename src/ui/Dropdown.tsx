@@ -71,6 +71,9 @@ export function Dropdown<T extends string | number>({
   const list = useRef<HTMLUListElement>(null);
   const listId = useId();
   const chosen = options.findIndex((o) => o.value === value);
+  // Turned off while open (the run ended under it, runOver), the list closes: it stayed open, the keyboard in it, and its pick
+  // sent what the game then refused (the review of the systems audit's eighth round). During render, as state that follows a prop.
+  if (disabled && open) setOpen(false);
 
   // Placed beside the button, below or above it, in the viewport's own pixels, once the list is drawn
   // (unseen) and its height known. Where that side has no room for it and the other has more (a panel
@@ -167,7 +170,7 @@ export function Dropdown<T extends string | number>({
     reveal(list.current, i);
   };
   const pick = (i: number) => {
-    if (!enabled(i)) return;
+    if (disabled || !enabled(i)) return;
     setOpen(false);
     button.current?.focus();
     if (repick || options[i]!.value !== value) onChange(options[i]!.value);

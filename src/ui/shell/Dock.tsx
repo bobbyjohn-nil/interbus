@@ -48,6 +48,9 @@ const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly
  */
 export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }: { tool: Tool; panels: readonly Panel[]; hasLines: boolean; locked?: boolean; onTool: (t: Tool) => void; onPanel: (p: Exclude<Panel, 'none'>) => void }) {
   const [open, setOpen] = useState(false);
+  // Locked while open (the run ended under it), the menu closes: Build stayed pressed and expanded, and the menu opened
+  // again by itself once Restart this quarter unlocked it. During render, as state that follows a prop.
+  if (locked && open) setOpen(false);
   const build = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   // Escape or a press anywhere else closes the menu, as the game's dropdowns do, and does nothing else:
@@ -89,7 +92,7 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
           </svg>
           Build
         </button>
-        {open && !locked ? (
+        {open ? (
           <div className="build-menu" role="group" aria-label="Build" data-testid="build-menu" data-chrome="panel">
             {BUILD.map((b) => (
               <button
