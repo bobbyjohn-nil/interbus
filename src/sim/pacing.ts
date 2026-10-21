@@ -6,12 +6,15 @@
 // The player founds, places a depot on the nearest depot land and draws its first line at the
 // founding headways and the fare its band calls best. At each close it takes every contract on offer
 // (a lapse costs nothing) and, while its cash covers the cheapest line and a reserve, draws the
-// candidate that scores best, if its score is above nothing: the company's next day's net and, when
-// `cardCentsPerPoint` is set, the change in the card's overall it brings at that much a point (a
-// day's grant a point, config/report.ts, plays toward the card; the default, 0, scores as the tuning
-// freeze's player did). Each candidate is tried on the game as it stands and taken back as an undo
-// would, with a depot of its own when none is within reach of its first stop (on the next parcel
-// along when the nearest refuses one), and another whenever the depots have no room for its buses.
+// candidate that scores best, if its score is above nothing, as often as the cash allows that day: the
+// company's next day's net and, when `cardCentsPerPoint` is set, the change in the card's overall it
+// brings at that much a point (a day's grant a point, config/report.ts, plays toward the card; the
+// default, 0, scores by the net alone, as the tuning freeze's player did). Each candidate is tried on
+// the game as it stands and taken back as an undo would, with a depot of its own when none is within
+// reach of its first stop (on the next parcel along when the nearest refuses one; at the depots there
+// are when none can be had), and another whenever the depots have no room for its buses. The tuning
+// freeze's player drew one line a day and refused a line with no depot in reach (the review of #144:
+// on Inner Boston's seed 1 it reached Coverage 31.6, this one 31.0).
 import { acceptContract } from './commands/acceptContract';
 import { createLine } from './commands/createLine';
 import { placeDepot } from './commands/placeDepot';
@@ -51,7 +54,11 @@ export interface PacingOptions {
   readonly reserveCents: number;
   /** Days played before giving up on the top medal. */
   readonly maxDays: number;
-  /** After a day whose best candidate scored nothing, the days until the player tries again: 1 when left out (each day, as the tuning freeze's player did). A week cuts a long run's trials sevenfold. */
+  /**
+   * After a day that drew nothing (no candidate scored, or none the cash or the depots allowed), the days until the player tries
+   * again: 1 when left out, each day. A larger one is another player, not only a faster run: it skips the days in between, on
+   * which the daily player may draw a line that changes the rest of its game.
+   */
   readonly retryDays?: number;
   /** What a point of the card's overall is worth to the player a day: 0 when left out, the next day's net alone; REPORT_GRANT_PER_POINT_PER_DAY_CENTS plays toward the card. */
   readonly cardCentsPerPoint?: number;
@@ -295,7 +302,7 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
     }
     if (world.state.closesBelowFloor >= 5) break;
     for (const c of world.state.contracts) if (c.acceptedDay === null) acceptContract(world, c.id);
-    // Draw while the cash allows and the best candidate scores above nothing; a day with none tried again `retryDays` on.
+    // Draw while the cash allows and the best candidate scores above nothing; after a day that drew none, try again `retryDays` on.
     while (day >= nextTry && world.state.ledger.cashCents >= o.reserveCents + cheapest) {
       const next = bestNextLine(world, candidates, built, o.reserveCents, centsPerPoint);
       if (!next) {

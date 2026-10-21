@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEBUG_STOPS } from './commands/debugLine';
 import { FOUNDING_HEADWAYS } from './config/lines';
-import { rowsOfDay } from './economy/ledger';
+import { post, rowsOfDay } from './economy/ledger';
 import { corridorCandidates, playScripted } from './pacing';
 import { isOperating } from './rules/money';
 import { SPEED_RATES } from './rules/speed';
@@ -53,6 +53,28 @@ describe('the scripted pacing run, on the fixture', () => {
     expect(day2.length).toBeGreaterThan(0);
     expect(result.secondDayNetCents).toBe(day2.reduce((s, r) => s + r.amountCents, 0));
   });
+
+  // With the cash for more than one, the player draws each candidate that scores on the same day, as a player with the money
+  // would; it drew one a day (the review of #144). The fixture's only line that earns its keep past the debug line is Copley
+  // to Kenmore, so the card's points score a second, in the South End, a third of whose residents no stop yet reaches. Shown
+  // failing (TS-04) with one a day.
+  it('draws every candidate that scores on one day when the cash allows', () => {
+    const rich = fixtureGame(7);
+    // $10 million, room for every candidate at once, as a contract's row so that each trial's restore keeps it.
+    post(rich.state.ledger, { day: 1, kind: 'contract', amountCents: 1_000_000_000 });
+    const both = playScripted(
+      rich,
+      { name: 'the debug line', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS },
+      corridorCandidates(rich, [
+        ['Copley to Kenmore', COPLEY, KENMORE],
+        ['The South End', [-71.0734, 42.34129], [-71.08271, 42.33624]],
+      ]),
+      { rateOn: () => SPEED_RATES[4], player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 }, reserveCents: 0, maxDays: 3, cardCentsPerPoint: 1_000_000 },
+    );
+    // Measured: Copley to Kenmore whole and the South End from its second end on day 2, then another Copley to Kenmore on day 3.
+    expect(both.lines.slice(0, 2).map((l) => l.name.split(',')[0])).toEqual(['Copley to Kenmore', 'The South End']);
+    expect(both.lines[1]!.day).toBe(both.lines[0]!.day);
+  }, 60_000); // three days of trials with every candidate: 3.4 s alone, past vitest's 5 s on a loaded machine
 
   it('carries 25,000 trips for silver within the first four quarters (measured: day 22; day 23 at k 1.2)', () => {
     expect(result.at.silver!.day).toBeGreaterThanOrEqual(18);

@@ -37,8 +37,13 @@ const reserveCents = Number(process.env.PACING_RESERVE_CENTS ?? 0);
 const maxDays = Number(process.env.PACING_DAYS ?? 200);
 /** The player's default is the tuning freeze's: the next day's net alone, so the measured bands below stay its. */
 const cardCentsPerPoint = Number(process.env.PACING_CARD_CENTS ?? 0);
-/** Days between tries after one that found nothing to draw: 1, the tuning freeze's player, by default. */
-const retryDays = Number(process.env.PACING_RETRY_DAYS ?? 1);
+/**
+ * Days between tries after one that drew nothing: 1, each day, by default. A larger one is another player, not only a faster
+ * run: on Inner Boston's seed 1 the card-building player that tried weekly stopped at Coverage 59.8, where the daily one got
+ * gold (DECISIONS, Measured, 2026-10-21). A value that is not a whole number of 1 or more is taken as 1.
+ */
+const retryArg = Number(process.env.PACING_RETRY_DAYS ?? 1);
+const retryDays = Number.isInteger(retryArg) && retryArg >= 1 ? retryArg : 1;
 const wide = process.env.PACING_CANDIDATES === 'wide';
 const reportOnly = process.env.PACING_REPORT_ONLY === '1';
 const progress = process.env.PACING_PROGRESS === '1';
@@ -99,7 +104,7 @@ for (const [name, [lo, hi]] of Object.entries(TARGETS)) {
 for (const medal of ['bronze', 'silver']) console.log(`  ${medal.padEnd(11)} ${result.at[medal] ? `day ${result.at[medal]!.day}, ${result.at[medal]!.minutes.toFixed(1)} min` : 'not reached'}`);
 console.log(`  ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${result.tripsADay} trips on the last day, ${result.carried} carried; cash ${usd(result.cashCents)} (${((performance.now() - t0) / 1000).toFixed(0)} s)`);
 mkdirSync('.cache/bench', { recursive: true });
-writeFileSync('.cache/bench/pacing.json', `${JSON.stringify({ seed, player, later, reserveCents, cardCentsPerPoint, candidates: wide ? 'wide' : 'corridors', ...result }, null, 2)}\n`);
+writeFileSync('.cache/bench/pacing.json', `${JSON.stringify({ seed, player, later, reserveCents, cardCentsPerPoint, retryDays, candidates: wide ? 'wide' : 'corridors', ...result }, null, 2)}\n`);
 // Read at day 2's close: by the run's end the ledger has folded it (src/sim/economy/ledger.ts DAYS_KEPT).
 const day2 = result.secondDayNetCents;
 const balance = { foundingDay2NetCents: day2, secondLineDay: result.at.secondLine?.day ?? null, firstCard: result.cards[0]?.overall ?? null };
