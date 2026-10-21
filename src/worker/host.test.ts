@@ -976,6 +976,31 @@ describe('save slots, export and import', () => {
     expect(store.get(KEY)).toBe(live);
   });
 
+  // The review of the seventh round's fixes: refused at the start, such a save went unsaid and unsaved, and the founding save
+  // wrote over it; in a slot it listed as readable and Load then refused it. It is set aside as unreadable, with the notice's
+  // check, and lists so. Shown failing (TS-04) with the start's set-aside and the slot's check taken out.
+  it('sets aside an autosave of this map whose stop stands off every street, and lists such a slot as unreadable', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'export' });
+    const file = JSON.parse(last('export')!.text) as { data: { stops: { lon: number; lat: number }[] } };
+    Object.assign(file.data.stops[1]!, { lon: -71.06, lat: 42.36 });
+    const text = JSON.stringify(file);
+    const game = started(text);
+    expect(game.out.find((m) => m.type === 'store')).toEqual({
+      type: 'store',
+      effects: [
+        { op: 'write', key: 'interbus.backup.boston.unreadable', value: text },
+        { op: 'remove', key: KEY },
+      ],
+      setAside: true,
+    });
+    expect(game.last('ready')).toMatchObject({ load: 'unreadable', checking: true, snapshot: { elapsed: 0, company: { name: '' }, lines: [] } });
+    store.set('interbus.slot.boston.1', text);
+    send({ type: 'slots' });
+    expect(last('slots')!.slots[0]).toEqual({ slot: 1, about: null, readable: false, why: 'unreadable' });
+  });
+
   // Shown failing (TS-04) with the session file's own `format: 1` read as a save's: "Saved by an older build".
   it('refuses an Export session file as no save, never as one from an older build', () => {
     const { send, last, store } = withStore();

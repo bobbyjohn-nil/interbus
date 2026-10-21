@@ -64,6 +64,8 @@ Systems that work first, the real values later (D26): an audit finds what does n
 
   On this pull request: no bus runs more often than once a minute (`MIN_HEADWAY_SECONDS`). A save running its line every second with 2,000 buses took 3.3–3.8 s a recompute; every minute with 86,400 buses, 5–34 ms (`npm run bench headways`). And a save of this map with a stop off every street reads as unreadable: it loaded, the stop drawn off the streets while its line routed to the nearest one.
 
+  The independent review of those two found one blocker and two minors, all fixed with failing-first tests: such a save as the autosave went unsaid at the start and the founding save wrote over it (now set aside as unreadable, with its notice); a slot holding one listed as readable and Load then refused it (now it lists as unreadable); and the reader took any longitude, so a stop at 1e308 hung the worker in the street grid's search at every load (now a place off the globe is refused).
+
   The independent review of the edges fixes found three minors and three nits, all fixed: the stacked replaced card drops below a day card as the map's cards do, the bench's hubs are real spokes (the finder's lines ran Copley and then four stops 1.5–6 km away), DECISIONS states Saves' 2 s window, an emptied slot under Load's question gets Save here back, the replaced card's name carries its warning, and a unit test claims only what it checks. Left open:
   - the floor count, left as it is: a file claiming five closes below the floor ends only its own run, and checking it means replaying the ledger's closes;
   - a Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.

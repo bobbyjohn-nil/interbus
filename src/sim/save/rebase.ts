@@ -18,8 +18,8 @@ export type RebaseRefusal = 'stop_off_street' | 'line_off_street';
  * stop on a street, so in a save from this very bake such a stop is damage: one loaded, drawn off the streets, while its line
  * routed to whatever street lay nearest (the systems audit's seventh round).
  */
-export function stopOffStreet(world: World): number | null {
-  for (const stop of world.state.stops) if (!world.nodes.nearest(toXY(world.city.frame, [stop.lon, stop.lat]), STOP_STREET_REACH_M)) return stop.id;
+export function stopOffStreet(world: Pick<World, 'city' | 'nodes'>, stops: readonly { readonly id: number; readonly lon: number; readonly lat: number }[]): number | null {
+  for (const stop of stops) if (!world.nodes.nearest(toXY(world.city.frame, [stop.lon, stop.lat]), STOP_STREET_REACH_M)) return stop.id;
   return null;
 }
 

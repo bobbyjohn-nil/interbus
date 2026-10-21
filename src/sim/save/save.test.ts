@@ -282,6 +282,14 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a kept version a week each way', (e) => keep(e, { oneWayS: 7 * 86_400 }), /impossible earlier version/],
     // Every second, with 2,000 buses, took 3.4 s a recompute, every command and every close (`npm run bench headways`).
     ['a kept version every second', (e) => keep(e, { headways: { peak: 1, offpeak: 1, overnight: null } }), /impossible earlier version/],
+    // A longitude past 180 projected to Infinity, and the search for its street never ended (the review of the round's fixes).
+    ['a stop off the globe', (e) => void ((dataOf(e).stops as { lon: number }[])[0]!.lon = 1e308), /a place off the globe/],
+    ['a depot off the globe', (e) => {
+      const ids = dataOf(e).nextIds as { depot: number };
+      (dataOf(e).depots as unknown[]).push({ id: ids.depot++, lon: -71.08, lat: -91 });
+    }, /a place off the globe/],
+    ['a festival off the globe', (e) => void Object.assign(dataOf(e).event as object, { kind: 'festival', edges: [], at: { lon: 181, lat: 42.35 } }), /a place off the globe/],
+    ['a kept version’s depot off the globe', (e) => keep(e, {}, { depot: { lon: -71.08, lat: 90.5 } }), /a place off the globe/],
     ['a line every second', (e) => void ((dataOf(e).lines as { headways: object }[])[0]!.headways = { peak: 1, offpeak: 1, overnight: null }), /breaks the headway rules/],
     // A line itself with a billion buses: no timetable runs more buses than a day has seconds.
     ['a line with a billion buses', (e) => void ((dataOf(e).lines as { buses: number }[])[0]!.buses = 1e9), /more buses than a day has departures/],

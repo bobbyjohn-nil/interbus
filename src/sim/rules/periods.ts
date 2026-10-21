@@ -37,8 +37,8 @@ export type HeadwayRefusal = 'headway_not_whole_seconds' | 'headway_too_short' |
 
 /**
  * D7's limits: peak and off-peak always run, at most an hour apart; no period runs a bus more often than once a minute
- * (MIN_HEADWAY_SECONDS); overnight runs no more often
- * than off-peak, or not at all, so neither a night-only nor a night-mostly line exists (EC-03).
+ * (MIN_HEADWAY_SECONDS); overnight runs no more often than off-peak, or not at all, so neither a night-only nor a
+ * night-mostly line exists (EC-03).
  */
 export function checkHeadways(h: Headways): Result<object, HeadwayRefusal, { limitSeconds?: number }> {
   const all = [h.peak, h.offpeak, ...(h.overnight === null ? [] : [h.overnight])];
