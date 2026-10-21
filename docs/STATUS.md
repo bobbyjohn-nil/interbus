@@ -78,7 +78,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - the screens with many lines, on a late game of up to 30 lines (`src/sim/scene.ts` lateScene): six, three fixed on this pull request with failing-first tests:
     - (major) Finance's Lines held the game up while it worked out the open line's fare band, up to 1.1–1.3 s with 30 lines, at each line opened there and each change of the network: fixed on this pull request, the band worked out a step at a time between the worker's ticks, each slice under 25 ms and one step (a step 37–163 ms, `npm run bench fares`), and dropped once Finance forgets it;
     - (minor) I14 on a late game with no hub, over from 20 lines: added to the I14 question (Waiting on the owner), and `npm run bench recompute` times it;
-    - (minor) the line card's "Fare and money in Finance" opened a low line's money below the panel's foot, out of view: Finance now scrolls to it, and again once its fare band comes;
+    - (minor) the line card's "Fare and money in Finance" opened a low line's money below the panel's foot, out of view: Finance's body now scrolls to it once, and once more when its first fare band comes, its heading, Close and views staying in view;
     - (minor) with 30 lines, Lines' tabs took no arrow keys, and a low line's Run it was cut off at the panel's foot: the arrows, Home and End move along the tabs, one Tab goes on to the card, and a change's card scrolls into view (`e2e/many.spec.ts`, on the fixture's late game of 18 lines);
     - (minor) 30 lines share 8 colours, and nothing changes a line's colour;
     - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.

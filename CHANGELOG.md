@@ -107,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The line card’s “Fare and money in Finance” now shows that line’s money and its most profitable fares, however far down its list the line is. Before, with many lines, Finance opened the line’s row below the panel’s foot, so the link seemed to do nothing.
+- The line card’s “Fare and money in Finance” now shows that line’s money and its most profitable fares, however far down its list the line is, and Finance’s heading, Close and views stay in view while its table scrolls under them. Before, with many lines, Finance opened the line’s row below the panel’s foot, so the link seemed to do nothing.
 - In Lines, the arrow keys move between the lines’ tabs, Home and End go to the first and the last, and one press of Tab goes on to the line card. Before, the arrows did nothing, and with 30 lines it took 30 presses of Tab to reach the card.
 - A headway change picked in Lines shows its card whole, Run it and all. Before, under many lines’ tabs, a low line’s Run it could sit cut off at the panel’s foot.
 - With many lines, Finance’s Lines no longer stops the game while it works out which fares earn a line the most. With 30 lines, the clock and the buses could stand still for over a second each time you opened a line’s money there, and each time the network changed while it was open, and a fare you picked meanwhile waited for it; now the game runs on while the hint comes.

@@ -37,8 +37,9 @@ async function shownIn(panel: Locator, el: Locator) {
 
 test.describe('a late game of many lines', () => {
   // The line card's link opened Finance's Lines on its line, the row expanded but below the panel's foot, under the lines
-  // before it, and nothing scrolled to it: the link seemed to do nothing.
-  test('the line card’s “Fare and money in Finance” shows that line’s money and fare band', async ({ page }) => {
+  // before it, and nothing scrolled to it: the link seemed to do nothing. Scrolled to it, the panel's heading (its drag handle),
+  // Close and views went out of reach with the rest (the review of the round's fixes): only the body scrolls now.
+  test('the line card’s “Fare and money in Finance” shows that line’s money and fare band, under Finance’s heading and Close', async ({ page }) => {
     const world = await lateGame(page);
     const last = world.state.lines.at(-1)!;
     expect(world.state.lines.length).toBe(18);
@@ -49,9 +50,36 @@ test.describe('a late game of many lines', () => {
     const finance = page.getByTestId('finance');
     await expect(finance.getByRole('button', { name: last.name, exact: true })).toHaveAttribute('aria-expanded', 'true');
     await expect(finance.getByTestId('fare-band')).toBeVisible();
+    const body = finance.getByTestId('finance-body');
     for (const part of [finance.getByTestId(`line-money-${last.id}`), finance.getByTestId('line-forecast'), finance.getByTestId('fare-band')]) {
+      expect(await shownIn(body, part)).toMatchObject({ whole: true });
+    }
+    for (const part of [finance.getByRole('heading', { name: 'Finance' }), finance.getByRole('button', { name: 'Close' }), finance.getByRole('tablist', { name: 'Finance views' })]) {
       expect(await shownIn(finance, part)).toMatchObject({ whole: true });
     }
+  });
+
+  // Each change of the network asks for the band again, and each band that came scrolled Finance back to the asked line, however
+  // the player had scrolled it since (the review of the round's fixes): a fare changed on the first line put its row out of view.
+  test('a fare changed in Finance after scrolling it leaves the view where the player put it', async ({ page }) => {
+    const world = await lateGame(page);
+    const [first, last] = [world.state.lines[0]!, world.state.lines.at(-1)!];
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await lines.getByRole('tab', { name: last.name, exact: true }).click();
+    await lines.getByRole('button', { name: 'Fare and money in Finance' }).click();
+    const finance = page.getByTestId('finance');
+    const body = finance.getByTestId('finance-body');
+    await expect(finance.getByTestId('fare-band')).toBeVisible();
+    await body.evaluate((el) => void (el.scrollTop = 0));
+    await finance.getByTestId(`fare-${first.id}`).click();
+    await page.getByRole('option', { name: first.fareCents === 250 ? '$2.75' : '$2.50', exact: true }).click();
+    await expect(finance.getByTestId(`fare-${first.id}`)).toContainText(first.fareCents === 250 ? '$2.75' : '$2.50');
+    // The band asked again for the network as it now is comes, and the view stays.
+    await expect(finance.getByTestId('fare-band')).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
+    expect(await shownIn(body, finance.getByTestId(`line-money-${first.id}`))).toMatchObject({ whole: true });
   });
 
   // The tabs are a tablist, so the arrow keys move along them and Tab leaves them for the card (WAI-ARIA's tabs pattern):
