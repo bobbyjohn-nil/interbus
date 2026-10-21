@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Route } from '@playwright/test';
 import { copyProblems } from '../src/ui/copyRules';
-import { foundCompany, leaveHome } from './found';
+import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
 
 // The error bus is installed at boot (V3 never registered a sink, so its reports reached only the
@@ -100,6 +100,88 @@ for (const [what, fail] of [
     await expect(card).toHaveCount(0);
   });
 }
+
+/** Site data blocked, for page.addInitScript: the localStorage getter throws a SecurityError, as e2e/gpu.spec.ts has it. */
+function blockStorage(): void {
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    get() {
+      throw new DOMException('The operation is insecure.', 'SecurityError');
+    },
+  });
+}
+
+// The systems audit's seventh round: while the game isn't saving itself (here blocked site data, so a reload loses the whole
+// company), the map's card that cannot start and the replaced build's card offered Reload alone, as the lost card did before
+// the fifth round. They say so now, and offer Export this game before Reload, which hands the game over as a file. Shown failing
+// (TS-04) on a5c0ccd, where each said only that the map couldn't be loaded, or that the build was replaced, beside Reload.
+test('with blocked site data, the map card that cannot start and the replaced build’s card say the game isn’t saving itself, with Export this game before Reload', async ({ page }) => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+  test.setTimeout(90_000);
+  await page.addInitScript(blockStorage);
+  await page.route('**/cities/*.pmtiles', (r) => r.fulfill({ status: 500, body: 'Internal Server Error' }));
+  await page.goto('./');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'failed', { timeout: 30_000 });
+  await foundCompany(page);
+  await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
+  const card = page.getByTestId('map-card');
+  await expect(card).toHaveText('Boston’s map couldn’t be loaded. This game isn’t saving itself: export it before you reload.Export this gameReload');
+  expect(copyProblems(await card.locator('p, button').allInnerTexts())).toEqual([]);
+  const download = page.waitForEvent('download');
+  await card.getByRole('button', { name: 'Export this game' }).click();
+  expect((await download).suggestedFilename()).toBe('interbus-boston-day-1.json');
+  // Day 1 closes, its card waiting for an answer at the board's top; then a lazy chunk of this build is gone (Vite's
+  // preloadError). The replaced build's card, the map's own card gone, says the same, its words over its buttons, at the
+  // board's foot while the day card is up, so neither hides the other. Shown failing (TS-04) with the card at the top, where
+  // it hid the day card's heading (the review of the seventh round's fixes).
+  await setSpeed(page, '5,400×');
+  const dayCard = page.getByTestId('day-card');
+  await expect(dayCard).toBeVisible({ timeout: 30_000 });
+  await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
+  const replaced = page.getByTestId('replaced-card');
+  await expect(replaced).toHaveText('This build was replaced. This game isn’t saving itself: export it before you reload.Export this gameReload');
+  await expect(replaced).toHaveAccessibleName('This build was replaced. This game isn’t saving itself: export it before you reload.');
+  await expect(card).toHaveCount(0);
+  expect({ card: await inFront(replaced), heading: await inFront(dayCard.locator('h2')), continue: await inFront(dayCard.getByRole('button', { name: 'Continue' })) }).toEqual({ card: true, heading: true, continue: true });
+  const again = page.waitForEvent('download');
+  await replaced.getByRole('button', { name: 'Export this game' }).click();
+  expect((await again).suggestedFilename()).toMatch(/^interbus-boston-day-\d+\.json$/);
+});
+
+// The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on
+// the board where the cards that wait for an answer sit, under them, so a day card and the lender's card hid its words and its
+// Reload. While such a card is up it drops to the board's foot now, as the GPU ladder's cards have since the fifth round
+// (DECISIONS 2026-10-16), and neither hides the other. Shown failing (TS-04) on a5c0ccd, where elementFromPoint found the day
+// card and then the lender's card over its words and Reload.
+test('the map card that cannot start is read and its Reload pressed beside a day card and the lender’s card', async ({ page }) => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1152, height: 720 });
+  await page.route('**/cities/*.pmtiles', (r) => r.fulfill({ status: 500, body: 'Internal Server Error' }));
+  await page.goto('./');
+  await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'failed', { timeout: 30_000 });
+  await foundCompany(page);
+  // Ten minutes before day 2's close owing $200k, with four closes below the floor: the close ends the run.
+  await withDebugLine(page, (d) => {
+    d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60;
+    d.closesBelowFloor = 4;
+    d.ledger.push({ day: 2, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
+  });
+  const card = page.getByTestId('map-card');
+  const [words, reload] = [card.locator('p'), card.getByRole('button', { name: 'Reload' })];
+  await setSpeed(page, '5,400×');
+  const dayCard = page.getByTestId('day-card');
+  await expect(dayCard).toBeVisible({ timeout: 30_000 });
+  expect.soft({ words: await inFront(words), reload: await inFront(reload) }, 'beside the day card').toEqual({ words: true, reload: true });
+  expect(await inFront(dayCard.getByRole('button', { name: 'Continue' }))).toBe(true);
+  await dayCard.getByRole('button', { name: 'Continue' }).click();
+  const failure = page.getByTestId('failure-card');
+  await expect(failure).toBeVisible();
+  expect({ words: await inFront(words), reload: await inFront(reload) }, 'beside the lender’s card').toEqual({ words: true, reload: true });
+  expect(await inFront(failure.getByRole('button', { name: 'Restart this quarter' }))).toBe(true);
+  await reload.click({ trial: true });
+});
 
 // The sim's worker failing mid-game (here made to throw on an undo) takes the dock and Saves with it:
 // the worker is stopped, and the card says so, with Reload, instead of nothing. Shown failing on

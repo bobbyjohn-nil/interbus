@@ -22,15 +22,12 @@ export function storeRefusal(error: unknown): StoreRefusal {
 }
 
 /**
- * Says what another tab of this origin put under `key` (null once it is removed, or the store cleared), as the window's
- * 'storage' event tells it; this page's own writes are not said (the systems audit's fifth round: two tabs of the game). Returns
- * the way to stop listening.
+ * Says what another tab of this origin put under a key (null once it is removed), or that it cleared the store (key and text
+ * null), as the window's 'storage' event tells it; this page's own writes are not said (the systems audit's fifth round: two tabs
+ * of the game). Every key is said, a slot's as the autosave's (the seventh round). Returns the way to stop listening.
  */
-export function onOtherTabWrite(key: string, then: (text: string | null) => void, target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window): () => void {
-  const heard = (event: StorageEvent) => {
-    if (event.key === null) then(null);
-    else if (event.key === key) then(event.newValue);
-  };
+export function onOtherTabWrites(then: (key: string | null, text: string | null) => void, target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window): () => void {
+  const heard = (event: StorageEvent) => then(event.key, event.key === null ? null : event.newValue);
   target.addEventListener('storage', heard);
   return () => target.removeEventListener('storage', heard);
 }

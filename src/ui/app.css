@@ -117,6 +117,27 @@ body,
   font-size: 15px;
 }
 
+/* With the words on the game's saves (the systems audit's seventh round) the card wraps, as wide as a map card at most: the
+   words above, Export this game and Reload below. In one row it took half the window at 1152 px, over the Cash chip, and
+   Export this game broke over two lines. */
+.replaced.unsaved {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 420px;
+}
+
+.replaced.unsaved span {
+  flex-basis: 100%;
+}
+
+/* Stacked, it reached 118 px, over the heading and first row of a day card or the lender's card at 60 px (the review of the
+   seventh round's fixes), so while one is up it drops to the board's foot as the map's cards do. One row, it ends at 66 px,
+   clear of their headings. */
+.app:has(.day-card) .replaced.unsaved {
+  top: auto;
+  bottom: 80px;
+}
+
 .replaced button,
 .map-notice button {
   font: inherit;
@@ -1379,13 +1400,13 @@ button.chip.checklist,
   max-width: 420px;
 }
 
-/* While a card that waits for an answer is up at top 60 px (the day's close, the run's end), the GPU
-   ladder's cards drop to the board's foot, above the dock, which such a card leaves clear (at most
-   52vh below its 60 px: its foot at 458 px of 720). High on the board, the lender's card, which has
-   no close, hid the lost card's words and Reload, and a day card its words (the systems audit's fifth
-   round); lifted over the cards instead, the lost card hid a short day card's Continue and Finance's
-   tabs. */
-.app:has(.day-card) .map-notice.top.gpu {
+/* While a card that waits for an answer is up at top 60 px (the day's close, the run's end), the map's
+   cards drop to the board's foot, above the dock, which such a card leaves clear (at most 52vh below
+   its 60 px: its foot at 458 px of 720). High on the board, the lender's card, which has no close, hid
+   the lost card's words and Reload, and a day card its words (the systems audit's fifth round), and so
+   the map's start failures' (the seventh); lifted over the cards instead, the lost card hid a short day
+   card's Continue and Finance's tabs. */
+.app:has(.day-card) .map-notice.top.card {
   top: auto;
   bottom: 80px;
 }

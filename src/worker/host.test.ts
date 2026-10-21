@@ -6,7 +6,7 @@ import { STEP_SECONDS } from '../sim/config/time';
 import { foundingCapitalCents } from '../sim/economy/ledger';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
-import { SAVE_FORMAT } from '../sim/save/save';
+import { IMPORT_COUNTER_LIMIT, SAVE_FORMAT } from '../sim/save/save';
 import { KENMORE } from '../sim/testing';
 import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
 import type { Sim } from '../ui/game/useSim';
@@ -724,7 +724,11 @@ describe('save slots, export and import', () => {
     send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     /** The keys the host has written since `from` messages, in order. */
     const writes = (from: number) => out.slice(from).flatMap((m) => (m.type === 'store' ? m.effects : [])).flatMap((e) => (e.op === 'write' ? [e.key] : []));
-    return { send, tick, last, store, out, writes };
+    const advanceTo = (elapsed: number) => {
+      host.advanceTo(elapsed);
+      pump();
+    };
+    return { send, tick, last, store, out, writes, advanceTo };
   }
 
   it('saves into a slot, lists what each slot holds, and loads it back over the game and its autosave', () => {
@@ -924,6 +928,38 @@ describe('save slots, export and import', () => {
     expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_newer' });
     expect(store.get(KEY)).toBe(live);
     expect(last('snapshot')!.snapshot).toMatchObject({ depots: [{}], cashCents: 32_454_800 });
+  });
+
+  // A file comes from outside the game, so its counters are read to a lower bound than the game's own saves are, and a game imported
+  // at the bound plays on into an autosave the game still reads (the systems audit's seventh round). Shown failing (TS-04) with one
+  // bound for both, where the same save in a slot was refused too.
+  it('refuses a file whose counters pass the import bound, though the game’s own slot may hold them', () => {
+    const { send, last, store } = withStore();
+    const save = JSON.parse(store.get(KEY)!) as { data: { tripsCarried: number } };
+    save.data.tripsCarried = Math.floor(IMPORT_COUNTER_LIMIT) + 1;
+    send({ type: 'import', text: JSON.stringify(save) });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_unreadable' });
+    store.set('interbus.slot.boston.1', JSON.stringify(save));
+    send({ type: 'load-slot', slot: 1 });
+    expect(last('loaded')).toEqual({ type: 'loaded', from: 'slot', load: 'ok' });
+  });
+
+  // A kept version's distances are billed by the hour while its trips run. Imported with its line changed at 11:30 on day 2 and
+  // saved five minutes later, a kept route of 1e300 m billed the 12:00 hour -3.6e299 cents of running, and the tick threw "running
+  // must be whole cents", stopping the game (the systems audit's seventh round). Shown failing (TS-04) without the kept version's
+  // distance check, where the file loaded.
+  it('refuses a file whose settling line kept a route no city has, which stopped the game at the next hour', () => {
+    const { send, last, advanceTo } = withStore();
+    send({ type: 'create-line', clicks: CLICKS });
+    advanceTo(86_400 + 6.5 * 3_600);
+    send({ type: 'set-headways', lineId: 1, headways: { peak: 600, offpeak: 900, overnight: null } });
+    advanceTo(86_400 + 6.5 * 3_600 + 300);
+    send({ type: 'export' });
+    const file = JSON.parse(last('export')!.text) as { data: { lines: { earlier: { routeM: number }[] }[] } };
+    expect(file.data.lines[0]!.earlier).toHaveLength(1);
+    file.data.lines[0]!.earlier[0]!.routeM = 1e300;
+    send({ type: 'import', text: JSON.stringify(file) });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_unreadable' });
   });
 
   // Shown failing (TS-04) with the session file's own `format: 1` read as a save's: "Saved by an older build".

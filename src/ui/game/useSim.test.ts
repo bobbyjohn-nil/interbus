@@ -19,8 +19,8 @@ const page = vi.hoisted(() => {
   const posted: unknown[] = [];
   const worker = { onmessage: null as ((event: { data: unknown }) => void) | null, onerror: null, postMessage: (m: unknown) => void posted.push(m), terminate: () => undefined };
   const kept = new Map<string, string>();
-  /** The window's 'storage' listeners (src/platform's onOtherTabWrite), by key. */
-  const heard = new Map<string, (text: string | null) => void>();
+  /** The window's 'storage' listeners (src/platform's onOtherTabWrites). */
+  const heard = new Set<(key: string | null, text: string | null) => void>();
   return {
     cells,
     worker,
@@ -31,7 +31,7 @@ const page = vi.hoisted(() => {
     otherTab(key: string, text: string | null) {
       if (text === null) kept.delete(key);
       else kept.set(key, text);
-      heard.get(key)?.(text);
+      for (const then of heard) then(key, text);
     },
     /** How many characters of keys and values the store has room for, as a browser's quota. */
     room: Infinity,
@@ -97,9 +97,9 @@ vi.mock('../../platform', async () => ({
       remove: async (key: string) => (blocked(), void page.kept.delete(key)),
     };
   },
-  onOtherTabWrite: (key: string, then: (text: string | null) => void) => {
-    page.heard.set(key, then);
-    return () => page.heard.delete(key);
+  onOtherTabWrites: (then: (key: string | null, text: string | null) => void) => {
+    page.heard.add(then);
+    return () => page.heard.delete(then);
   },
   downloadText: () => undefined,
   pickTextFile: async () => null,
@@ -583,6 +583,20 @@ describe('another tab’s save', () => {
     await settle();
     from({ type: 'took-save', ok: true });
     expect(sim().slotsRefused).toEqual(new Map());
+  });
+
+  // Saves lists again at another tab's save to a slot, or a delete, as at its autosave: the rows were listed when Saves opened
+  // and at the autosave's changes alone, so a row read Empty over the game another tab had just kept there, and Save here wrote
+  // over it unasked (the systems audit's seventh round). A slot is not the autosave, so nothing is said newer: `newer` is
+  // what would turn the Saves chip to "Autosave off" and hold the game's saves. Shown failing (TS-04) with the page hearing
+  // the live key alone.
+  it('has Saves list again at another tab’s save to a slot, which is not the autosave', async () => {
+    await opened('A0');
+    const before = sim().stored;
+    page.otherTab('interbus.slot.boston.1', 'S1');
+    page.otherTab('interbus.slot.boston.2', null);
+    expect(sim().stored).toBe(before + 2);
+    expect(sim()).toMatchObject({ newer: false, movedOn: false });
   });
 });
 

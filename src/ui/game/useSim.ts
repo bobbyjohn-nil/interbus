@@ -4,7 +4,7 @@
 // out the sim's saves in src/platform's store, one at a time in the order sent, since a worker has
 // no localStorage; the sim names every key and decides what is set aside.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { applyEffects, build, createWebSaveStore, downloadText, onOtherTabWrite, pickTextFile, readSimFile, startSimWorker, storeRefusal, type SaveStore, type StoreRefusal } from '../../platform';
+import { applyEffects, build, createWebSaveStore, downloadText, onOtherTabWrites, pickTextFile, readSimFile, startSimWorker, storeRefusal, type SaveStore, type StoreRefusal } from '../../platform';
 import { simOf, type City } from '../../cities';
 import type { BusModelId, DayCard, DepotSiteView, StopSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SaveAbout, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
@@ -314,11 +314,12 @@ export function useSim(city: City | undefined): Sim {
               live = { key: m.key, text, holds: text };
             });
             queue = queue.then(() => w.postMessage({ type: 'save-text', text } satisfies ToWorker));
-            unwatch ??= onOtherTabWrite(m.key, (text) => {
-              if (!live) return;
-              live.holds = text;
-              // Saves lists the browser's autosave again, as for a write of this page's.
+            unwatch ??= onOtherTabWrites((key, text) => {
+              // Saves lists again at any of another tab's saves, as for a write of this page's: a slot's too, or its row read
+              // Empty over the game another tab kept there, and Save here wrote over it unasked (the systems audit's seventh round).
               setStored((n) => n + 1);
+              if (!live || (key !== null && key !== live.key)) return;
+              live.holds = text;
               // While Home stands the take says it, once answered: said first, Saves' line and the GPU cards' words came and
               // went at each of the other tab's saves, and the slots' rows jumped 44 px under the pointer.
               if (following()) takeNewest();
