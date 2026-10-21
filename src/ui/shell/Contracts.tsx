@@ -1,4 +1,5 @@
 import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
+import { runOver } from '../game/runOver';
 import { askText, capitalise, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
@@ -36,7 +37,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
               </span>
             ) : (
               <span className="controls">
-                <button type="button" onClick={() => sim.send({ type: 'accept-contract', contractId: c.id })}>
+                <button type="button" disabled={runOver(sim)} onClick={() => sim.send({ type: 'accept-contract', contractId: c.id })}>
                   Take it
                 </button>
               </span>

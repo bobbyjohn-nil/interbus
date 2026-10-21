@@ -1,4 +1,5 @@
 import { STOP_LOSS_CENTS, STOP_QUIET_BOARDINGS } from '../../sim/rules/stopDay';
+import { runOver } from './runOver';
 import { checkRemoveStop, checkTakeDownStop } from '../../sim/rules/route';
 import { checkStopTier, STOP_TIERS, stopUpkeepCents, type StopTier } from '../../sim/rules/stopTier';
 import { refusalText } from '../copy';
@@ -59,12 +60,12 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
       {stop.loss ? <p className="flag">Losing money: more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}
       <div className="controls">
         {upTo && up ? (
-          <button type="button" disabled={!up.ok} title={`Upkeep ${usd(stopUpkeepCents(upTo))} a day`} onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: upTo })}>
+          <button type="button" disabled={!up.ok || runOver(sim)} title={`Upkeep ${usd(stopUpkeepCents(upTo))} a day`} onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: upTo })}>
             Make it {/^[AEIOU]/.test(STOP_TIERS[upTo].name) ? 'an' : 'a'} {STOP_TIERS[upTo].name} · {usdK(STOP_TIERS[upTo].upgradeCents)}
           </button>
         ) : null}
         {downTo && down?.ok ? (
-          <button type="button" onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: downTo })}>
+          <button type="button" disabled={runOver(sim)} onClick={() => sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: downTo })}>
             Make it {/^[AEIOU]/.test(STOP_TIERS[downTo].name) ? 'an' : 'a'} {STOP_TIERS[downTo].name} · {usdK(down.saleCents)} back
           </button>
         ) : null}
@@ -85,7 +86,7 @@ export function StopCard({ sim, stopId, onLine, onClose }: { sim: Sim; stopId: n
               </button>
               <button
                 type="button"
-                disabled={!removal.ok}
+                disabled={!removal.ok || runOver(sim)}
                 title={removal.ok ? undefined : refusalText(removal)}
                 onClick={() => sim.send({ type: 'remove-stop', lineId: l.id, stopId: stop.id })}
               >
@@ -106,7 +107,7 @@ function TakeDown({ sim, stopId, tier }: { sim: Sim; stopId: number; tier: StopT
   if (!verdict.ok) return null;
   return (
     <div className="controls">
-      <button type="button" onClick={() => sim.send({ type: 'take-down-stop', stopId })}>
+      <button type="button" disabled={runOver(sim)} onClick={() => sim.send({ type: 'take-down-stop', stopId })}>
         Take it down · {usdK(verdict.refundCents)} back
       </button>
     </div>

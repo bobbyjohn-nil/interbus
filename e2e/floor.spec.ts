@@ -5,7 +5,7 @@
 // its closing day's card is read first, then the failure card shows.
 import { expect, test } from '@playwright/test';
 import { foundCompany, STARTING_CENTS } from './found';
-import { city, setSpeed } from './shell';
+import { city, setSpeed, withDebugLine } from './shell';
 
 test.describe('the failure floor', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -62,5 +62,62 @@ test.describe('the failure floor', () => {
     await expect(page.getByTestId('notice')).toContainText('Back to the start of the quarter');
     await expect(panel).toHaveAttribute('data-cash', '-20000000');
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');
+  });
+
+  // Once the lender has ended the run the host refuses every change (D10), and the page offered them all the same, each press
+  // answered by a notice alone: Build's tools, play and the speed menu, the keys, Take it, a line's headways, model and Edit route,
+  // and its fare in Finance (the review of the systems audit's eighth round). Shown failing (TS-04) with the page as before.
+  test('an ended run offers nothing the lender refuses, and Restart this quarter brings it all back', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    const panel = page.getByTestId('sim-panel');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // The debug line, owing $199k at 23:50 on day 2 with four closes below the floor behind it.
+    await withDebugLine(page, (d) => {
+      d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60;
+      (d as unknown as { closesBelowFloor: number }).closesBelowFloor = 4;
+      d.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 20_000_000), lineId: null });
+    });
+    await setSpeed(page, '5,400×');
+    const dayCard = page.getByTestId('day-card');
+    await expect(dayCard).toBeVisible({ timeout: 30_000 });
+    await dayCard.getByRole('button', { name: 'Continue' }).click();
+    const failure = page.getByTestId('failure-card');
+    await expect(failure).toBeVisible();
+
+    await expect(page.getByTestId('build')).toBeDisabled();
+    await expect(page.getByTestId('play')).toBeDisabled();
+    await expect(page.getByTestId('speed-menu')).toBeDisabled();
+    await expect(page.getByTestId('undo')).toHaveCount(0);
+    await expect(page.getByTestId('checklist')).toHaveCount(0);
+    // Space and 1 to 5 play nothing.
+    await page.locator('body').press('Space');
+    await page.locator('body').press('3');
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    await expect(page.getByTestId('notice')).not.toContainText('The lender has called in the loan');
+
+    await page.getByTestId('contracts-chip').click();
+    const contracts = page.getByTestId('contracts');
+    for (const take of await contracts.getByRole('button', { name: 'Take it' }).all()) await expect(take).toBeDisabled();
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await expect(lines.getByTestId('headway-peak')).toBeDisabled();
+    await expect(lines.getByTestId('line-model')).toBeDisabled();
+    await expect(lines.getByRole('button', { name: 'Edit route' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    // The lender's card stands over Finance's views, so the keyboard picks Lines.
+    await finance.getByTestId('finance-lines').focus();
+    await page.keyboard.press('Enter');
+    await expect(finance.getByTestId('fare-1')).toBeDisabled();
+
+    await failure.getByRole('button', { name: 'Restart this quarter' }).click();
+    await expect(failure).toHaveCount(0);
+    await expect(page.getByTestId('build')).toBeEnabled();
+    await expect(page.getByTestId('play')).toBeEnabled();
+    // The quarter's start is loaded, its panels closed; its line's card takes changes again.
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await expect(lines.getByTestId('headway-peak')).toBeEnabled();
   });
 });

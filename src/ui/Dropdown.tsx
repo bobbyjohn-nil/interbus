@@ -41,6 +41,7 @@ export function Dropdown<T extends string | number>({
   onChange,
   placement = 'below',
   repick = false,
+  disabled = false,
   testId,
   className,
   children,
@@ -53,6 +54,8 @@ export function Dropdown<T extends string | number>({
   readonly placement?: 'below' | 'above';
   /** Picking the option already chosen still calls onChange (the speed menu: it plays at that speed). */
   readonly repick?: boolean;
+  /** The button shows the choice and opens nothing (an ended run's, runOver). */
+  readonly disabled?: boolean;
   readonly testId?: string;
   readonly className?: string;
   /** What the button shows; the chosen option's label by default. */
@@ -152,7 +155,7 @@ export function Dropdown<T extends string | number>({
     return from;
   };
   const show = () => {
-    if (open) return;
+    if (open || disabled) return;
     setActive(chosen >= 0 ? chosen : step(-1, 1));
     setAt(null);
     shownOnce.current = false;
@@ -212,6 +215,7 @@ export function Dropdown<T extends string | number>({
         aria-controls={open ? listId : undefined}
         aria-label={label}
         data-testid={testId}
+        disabled={disabled}
         onClick={() => (open ? setOpen(false) : show())}
         onKeyDown={onButtonKey}
       >

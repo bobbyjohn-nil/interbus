@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { runOver } from '../game/runOver';
 import { FARES_CENTS } from '../../sim/rules/fare';
 import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../../sim/rules/money';
 import type { FinanceView } from '../../sim/types';
@@ -229,7 +230,7 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
                 </th>
                 <td>{about(line.ridersPerDay)}</td>
                 <td>
-                  <Dropdown label={`Fare for ${line.name}`} value={line.fareCents} options={FARE_OPTIONS} testId={`fare-${line.id}`} onChange={(fareCents) => sim.send({ type: 'set-fare', lineId: line.id, fareCents })} />
+                  <Dropdown label={`Fare for ${line.name}`} value={line.fareCents} options={FARE_OPTIONS} testId={`fare-${line.id}`} disabled={runOver(sim)} onChange={(fareCents) => sim.send({ type: 'set-fare', lineId: line.id, fareCents })} />
                 </td>
                 <td>{f.day > 1 ? usd(yesterday) : '—'}</td>
                 <td>≈{usd(dayNet(income, c))}</td>

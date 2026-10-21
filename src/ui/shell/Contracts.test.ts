@@ -56,6 +56,16 @@ describe('contracts on the page', () => {
   });
 });
 
+// Once the lender has ended the run, the host refuses a contract taken (D10), so no offer is takeable: Take it was on offer, a press
+// answered by a notice alone (the review of the systems audit's eighth round). Shown failing (TS-04) with Take it as before.
+describe('contracts once the run has ended', () => {
+  const panel = (s: Sim) => renderToStaticMarkup(createElement(Contracts, { sim: s, onClose: () => undefined }));
+  it('lists the offers with Take it disabled', () => {
+    expect(panel(sim({}))).toContain('<button type="button">Take it</button>');
+    expect(panel(sim({ floor: { closesLeft: 0, ended: true } }))).toContain('<button type="button" disabled="">Take it</button>');
+  });
+});
+
 describe('medals on the page (the M4 spec, item 3)', () => {
   const panel = (s: Sim) => renderToStaticMarkup(createElement(Contracts, { sim: s, onClose: () => undefined }));
   it('lists the ladder under the contracts, with the trips left to silver and what it unlocks', () => {

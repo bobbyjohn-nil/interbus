@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-21, at `main` 582579a ([#140](https://github.com/bobbyjohn-nil/interbus/pull/140): the seventh audit round's last two finder lanes' fixes), with the eighth round's fixes on this pull request.
+**Updated:** 2026-10-21, at `main` e917cb5 ([#141](https://github.com/bobbyjohn-nil/interbus/pull/141): the eighth audit round's fixes), with the page following an ended run on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 582579a (#140). Deploy preview run 39619329571's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` e917cb5 (#141). Deploy preview run 39631486892's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -85,7 +85,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
     - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.
 
   The colours and the shared streets wait for the owner's call (Waiting on the owner).
-- [ ] **The eighth round** (on `main` 582579a, 2026-10-21): two lanes (D27), each told the 187 known findings. Five minors and nothing worse, all fixed on this pull request with failing-first tests:
+- [x] **The eighth round** (on `main` 582579a, 2026-10-21; #141 and this pull request): two lanes (D27), each told the 187 known findings. Five minors and nothing worse, all fixed in #141 with failing-first tests:
   - the edges of the seventh round's fixes:
     - the bus model's swap card was never scrolled into view, only the headway card, so in a Lines panel dragged low it opened below the panel's foot;
     - an open dropdown stayed where it opened when the panel body under it scrolled, beside another line's row: it now goes with its button, and closes once the button leaves the view;
@@ -94,7 +94,9 @@ Systems that work first, the real values later (D26): an audit finds what does n
     - silver's bar read "0 trips to go · unlocks the Goliath" from 25,000 trips until the day's close awarded it, the Goliath still locked;
     - once the lender had ended the run, every command but play still ran on the ended game and saved it.
 
-  The independent review found three minors and five nits, all fixed here but one minor: once the run has ended, the page still offers what the host now refuses (Take it, Run it, Buy and swap, the fare, model and headway lists, the build tools, the undo chip and the checklist's "Take a contract"), each press answered by the notice alone. Next, in its own pull request: those controls follow the run's end (`snapshot.floor.ended`, D10), one predicate, as GD-05 asks.
+  The independent review found three minors and five nits, fixed in #141 but one minor, fixed on this pull request: once the run had ended, the page still offered what the host refuses, each press answered by the notice alone. The page now reads the host's verdict (`runOver`, `snapshot.floor.ended`, D10) and offers none of it: Build, play, the speed menu and their keys, undo, Take it, a line's headways, model, Run it, Buy and swap and Edit route, a stop's changes, and the fares, until Restart this quarter.
+
+  Next: the ninth round, on what the rounds have touched least (the route editor and the Build tab with many stops, undo across systems, play by keyboard alone), unless the owner answers otherwise (Waiting on the owner: when the values pass starts).
 
   What held there: a 48-day scripted run (six contracts paid once each, a lapse at the right close, bronze on day 8 and silver on day 29, roadworks, snow and a festival as the line views say), every day card against Finance over 40 days, an export and import every seventh hour over 40 days with no change to the fingerprint, and Restart this quarter exact in quarters 2 to 6.
 
