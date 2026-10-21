@@ -107,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An open dropdown closes when the window changes size, the keyboard back on its button, so its list is never left off the window. Before, the list stayed where it opened while its panel moved to stay in the window, and it kept the keyboard until a press anywhere closed it.
 - With full graphics, buses keep their size when you move the game’s window to a screen of another sharpness, or play on a 5K screen, and the map redraws sharp on the new screen. Before, a Sparrow could shrink to about half its size or grow to twice it, or draw a quarter too large at 5K, and the map stayed blurry after a move to a sharper screen.
 - The card that says Boston's map couldn't be loaded, and the one that says this build of the game was replaced, now say so when the game isn't saving itself (the Saves chip says "Autosave off") and offer Export this game before Reload. Before, Reload was their only button, and it lost everything since the browser last kept a save, or the whole company when the browser keeps no saves at all.
 - The card that says Boston's map couldn't be loaded moves to the foot of the map while the midnight card or the lender's card is up, so you can read it and press its Reload. Before, those cards hid its words and its Reload, as they once hid the card for lost graphics.

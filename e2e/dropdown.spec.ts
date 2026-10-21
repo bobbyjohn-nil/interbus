@@ -21,6 +21,27 @@ const inView = (option: Locator) =>
   });
 
 test.describe('the game’s dropdown', () => {
+  // The systems audit's seventh round: a list is placed in the window's pixels as it opens, and when the window narrowed (1440×900
+  // to 1152×720) its panel moved 288 px left to stay whole while the list stayed at x 1201–1400, past the window's edge, holding
+  // the focus. It closes now, the focus back on its button, as Escape does. Shown failing (TS-04) with no close on a resize.
+  test('closes when the window changes size, giving the focus back to its button', async ({ page }) => {
+    test.skip(!city.sim, 'no sim file in this build yet');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Lines' }).click();
+    const button = page.getByTestId('inspector').getByRole('button', { name: 'Buses' });
+    await button.click();
+    const list = page.getByRole('listbox', { name: 'Buses' });
+    await expect(list).toBeFocused();
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await expect(list).toHaveCount(0);
+    await expect(button).toBeFocused();
+    expect(await button.evaluate((b) => b.getBoundingClientRect().right)).toBeLessThanOrEqual(1152);
+  });
+
   test.skip(!city.sim, 'no sim file in this build yet');
 
   test('keeps the keyboard’s option in view, opens on the chosen one, and opens upward with no room below', async ({ page }) => {
