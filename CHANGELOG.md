@@ -107,6 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Once the lender has called in the loan, the game takes nothing but Restart this quarter, Home and loads: a contract taken, a headway changed or a line drawn is refused, as play is. Before, only play was, and the ended game took the change and saved it.
+- The medals' silver bar says “reached · silver comes at midnight, and the Goliath with it” from the moment you carry 25,000 trips until that day’s close awards it. Before, it read “0 trips to go · unlocks the Goliath” while the Goliath stayed locked until midnight.
 - An open dropdown goes with its button when the panel under it scrolls, and closes once the button has scrolled out of view. Before, a wheel over Finance’s table left a fare list open beside another line’s row, where a pick changed a fare out of view.
 - In Lines, the heading and Close stay in view while the line card scrolls under them, as Finance’s do. Before, showing a headway change in a Lines panel dragged low scrolled them away, and moving or closing the panel took a scroll back up first.
 - A bus model picked in Lines shows its swap card whole, Buy and swap with it, however little of the panel shows. Before, in a Lines panel dragged low, it opened below the panel’s foot.

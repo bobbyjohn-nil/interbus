@@ -1237,6 +1237,36 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: 0, cashCents: -20_000_000, floor: { closesLeft: 1, ended: false } });
   });
 
+  // Play was refused once the run had ended, but every other command ran on the ended game and saved it: a contract taken and
+  // headways changed (the systems audit's eighth round). Shown failing (TS-04) with only play refused, as before.
+  it('refuses every command that would change a run the lender has ended, and saves no more of it', () => {
+    const { send, last, owing, host, store } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'import', text: owing(4) });
+    send({ type: 'speed', speed: 5 });
+    for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 600_000; t += 250) host.tick(t);
+    send({ type: 'speed', speed: 0 });
+    const ended = last('snapshot')!.snapshot;
+    expect(ended.floor).toEqual({ closesLeft: 0, ended: true });
+    const kept = store.get(KEY);
+    const line = ended.lines[0]!;
+    const offer = ended.contracts.find((c) => !c.held)!;
+    const asks: ToWorker[] = [
+      { type: 'accept-contract', contractId: offer.id },
+      { type: 'set-headways', lineId: line.id, headways: { peak: 3_600, offpeak: 3_600, overnight: null } },
+      { type: 'set-fare', lineId: line.id, fareCents: 175 },
+      { type: 'create-line', clicks: CLICKS },
+      { type: 'speed', speed: 1 },
+    ];
+    for (const ask of asks) {
+      send(ask);
+      expect(last('refused')).toEqual({ type: 'refused', command: ask.type, reason: 'run_ended' });
+    }
+    expect(store.get(KEY)).toBe(kept);
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [{ headways: line.headways, fareCents: line.fareCents }], contracts: ended.contracts });
+  });
+
   it('never keeps an ended game as the quarter to restart: not when the run ends on the quarter’s last close, nor when one is loaded', () => {
     const { send, last, owing, host } = founded();
     // Day 8 at 23:50, the quarter's last close ten minutes off, with four closes below behind it.

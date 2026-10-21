@@ -782,10 +782,14 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       // nothing is recorded, saved or sent, and the clock runs on. Its slice and part-step were dropped each time, so
       // repeats faster than the 50 ms tick stopped the clock while a key was held (the systems audit's fourth round).
       if (message.type === 'speed' && message.speed !== 0 && message.speed === speed) return;
+      // Once the run has ended, only Restart this quarter goes on (D10): every command that would change the game is refused, as
+      // play is, so an ended game is neither changed nor saved again. Only play was, and a contract taken or headways changed ran
+      // on the ended game and saved it (the systems audit's eighth round). A pause changes nothing; loads, Home and exports go on.
+      if (SESSION_COMMANDS.has(message.type) && runEnded(world.state.closesBelowFloor) && !(message.type === 'speed' && message.speed === 0)) {
+        return post({ type: 'refused', command: message.type, reason: 'run_ended' });
+      }
       if (SESSION_COMMANDS.has(message.type)) session?.commands.push({ at: world.state.elapsed, message });
       if (message.type === 'speed') {
-        // Once the run has ended, only Restart this quarter goes on (D10).
-        if (message.speed > 0 && runEnded(world.state.closesBelowFloor)) return post({ type: 'refused', command: message.type, reason: 'run_ended' });
         if (message.speed > 0) timeRuns(undoStack);
         speed = message.speed;
         lastMs = null;

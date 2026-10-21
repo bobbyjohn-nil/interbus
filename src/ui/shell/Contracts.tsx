@@ -53,7 +53,11 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
               day !== null
                 ? `Since ${dateText(day)}${m === 'silver' ? ' · the Goliath is for sale' : ''}`
                 : m === 'silver'
-                  ? `${toSilver.toLocaleString('en-US')} ${toSilver === 1 ? 'trip' : 'trips'} to go · unlocks the Goliath`
+                  ? // Silver is awarded at the day's close: from 25,000 trips until then the bar read "0 trips to go · unlocks the
+                    // Goliath" while the Goliath stayed locked (the systems audit's eighth round).
+                    toSilver > 0
+                    ? `${toSilver.toLocaleString('en-US')} ${toSilver === 1 ? 'trip' : 'trips'} to go · unlocks the Goliath`
+                    : 'reached · silver comes at midnight, and the Goliath with it'
                   : null;
             return (
               <li key={m} data-testid="medal" data-medal={m} data-held={day === null ? 'no' : 'yes'}>
