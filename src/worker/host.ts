@@ -38,7 +38,7 @@ import { jobsWithinWalk, peopleNearStops, peopleWithinWalk } from '../sim/rules/
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
 import { checkLineDraft, type LineDraft } from '../sim/rules/line';
-import { rebase } from '../sim/save/rebase';
+import { rebase, stopOffStreet } from '../sim/save/rebase';
 import { aboutSave, backupKey, decode, encode, fromSaveData, IMPORT_COUNTER_LIMIT, quarterKey, SAVE_FORMAT, SAVE_SLOTS, SAVED_COUNTER_LIMIT, saveKey, SET_ASIDE, slotKey, stateHash, type LoadOutcome } from '../sim/save/save';
 import { belowFloor, FAILURE_CLOSES, runEnded } from '../sim/rules/credit';
 import { acceptContract } from '../sim/commands/acceptContract';
@@ -435,6 +435,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     if (result.outcome !== 'ok' && result.outcome !== 'rebaked') return { ok: false, reason: result.outcome };
     const read = createWorld(city, fromSaveData(result.envelope.data));
     if (result.outcome === 'rebaked' && !rebase(read, ref).ok) return { ok: false, reason: 'off-street' };
+    // A save of this very bake with a stop off its streets is damage, read as any save the game cannot read.
+    if (result.outcome === 'ok' && stopOffStreet(read) !== null) return { ok: false, reason: 'unreadable' };
     return { ok: true, world: read };
   };
   /** Makes `next` the game: paused, nothing to undo, its lines drawn afresh. */

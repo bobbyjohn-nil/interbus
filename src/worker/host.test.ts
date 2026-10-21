@@ -962,6 +962,20 @@ describe('save slots, export and import', () => {
     expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_unreadable' });
   });
 
+  // The systems audit's seventh round: a save of this bake with a stop moved off every street loaded and played, the stop drawn
+  // in the harbour while its line routed to the nearest street. Shown failing (TS-04) with the check taken out, when it loaded.
+  it('refuses a file of this map whose stop stands off every street', () => {
+    const { send, last, store } = withStore();
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'export' });
+    const live = store.get(KEY);
+    const file = JSON.parse(last('export')!.text) as { data: { stops: { lon: number; lat: number }[] } };
+    Object.assign(file.data.stops[1]!, { lon: -71.06, lat: 42.36 });
+    send({ type: 'import', text: JSON.stringify(file) });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'import', reason: 'save_unreadable' });
+    expect(store.get(KEY)).toBe(live);
+  });
+
   // Shown failing (TS-04) with the session file's own `format: 1` read as a save's: "Saved by an older build".
   it('refuses an Export session file as no save, never as one from an older build', () => {
     const { send, last, store } = withStore();
