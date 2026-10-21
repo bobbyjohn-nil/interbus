@@ -24,6 +24,7 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   no_route: () => 'No street leads to this stop',
   too_few_stops: () => 'Add a second stop',
   headway_not_whole_seconds: () => 'Headways are whole minutes',
+  headway_too_short: () => 'Run at most once a minute',
   daytime_headway_too_long: () => 'By day, run at least hourly',
   overnight_more_often_than_offpeak: () => 'Overnight can’t run more often than off-peak',
   same_headways: () => 'The line already runs this often',

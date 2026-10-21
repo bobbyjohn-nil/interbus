@@ -280,6 +280,9 @@ describe('refusals (first failure wins; the live key is never overwritten by one
     ['a kept version with a billion buses', (e) => keep(e, { buses: 1e9 }), /impossible earlier version/],
     ['a kept version 1e300 m long', (e) => keep(e, {}, { routeM: 1e300 }), /impossible earlier version/],
     ['a kept version a week each way', (e) => keep(e, { oneWayS: 7 * 86_400 }), /impossible earlier version/],
+    // Every second, with 2,000 buses, took 3.4 s a recompute, every command and every close (`npm run bench headways`).
+    ['a kept version every second', (e) => keep(e, { headways: { peak: 1, offpeak: 1, overnight: null } }), /impossible earlier version/],
+    ['a line every second', (e) => void ((dataOf(e).lines as { headways: object }[])[0]!.headways = { peak: 1, offpeak: 1, overnight: null }), /breaks the headway rules/],
     // A line itself with a billion buses: no timetable runs more buses than a day has seconds.
     ['a line with a billion buses', (e) => void ((dataOf(e).lines as { buses: number }[])[0]!.buses = 1e9), /more buses than a day has departures/],
     // The line rule never draws these; the page listed a line of one stop with buses but no route.

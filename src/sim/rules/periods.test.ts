@@ -52,6 +52,15 @@ describe('headway limits (D7)', () => {
     for (const bad of [0, -60, 90.5]) expect(checkHeadways({ peak: bad, offpeak: twenty, overnight: null }).ok).toBe(false);
   });
 
+  // The systems audit's seventh round: every second, with 2,000 buses, a save's line took 3.4 s a recompute. Shown failing
+  // (TS-04) with the floor taken out, when every second and 59 seconds passed.
+  it('runs no bus more often than once a minute, in any period', () => {
+    for (const h of [{ peak: 1, offpeak: twenty, overnight: null }, { peak: twenty, offpeak: 59, overnight: null }, { peak: 30, offpeak: 30, overnight: 30 }]) {
+      expect(checkHeadways(h)).toMatchObject({ ok: false, reason: 'headway_too_short', limitSeconds: 60 });
+    }
+    expect(checkHeadways({ peak: 60, offpeak: 60, overnight: 60 }).ok).toBe(true);
+  });
+
   it('runs no overnight service when overnight is off', () => {
     const h = { peak: twenty, offpeak: twenty, overnight: null };
     expect(runsIn(h, 'overnight')).toBe(false);
