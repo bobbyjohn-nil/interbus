@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-21, at `main` 4fb9faa ([#139](https://github.com/bobbyjohn-nil/interbus/pull/139): the seventh audit round's last save fixes), with the fixes from its last two finder lanes on this pull request.
+**Updated:** 2026-10-21, at `main` 582579a ([#140](https://github.com/bobbyjohn-nil/interbus/pull/140): the seventh audit round's last two finder lanes' fixes), with the eighth round's fixes on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 4fb9faa (#139). Deploy preview run 39609911701's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 582579a (#140). Deploy preview run 39619329571's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -40,7 +40,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
 - [ ] **Held for a save format:** the checklist coming back as "5/5 Take a contract" when a taken contract lapses needs a saved flag, so it waits to share one format change with any other finding that needs one.
 - [ ] **Left open by #134 and #136:** across a chain of changes a parked bus may be home when a later change's departure needs it (47 departures in 2,500 chains); the first change on a new day merges a line's kept versions again once, 104–176 ms.
 - [ ] **For P0:** a save made before #134 while a line was settling shows Finance's Day forecast off on the day it loads (the next day agrees), so a playtest starts from a fresh game or a settled one.
-- [ ] **The seventh round** (on `main` 3e22fd6): six lanes (hostile and malformed save files, determinism and Export session's replay, a 200-day game, the screens with many lines, the edges of the fifth and sixth rounds' fixes, and window sizes, zoom and resizes), each told the 157 known findings. The weekly usage limit stopped it after the save-files lane, whose six findings follow; the owner reset the limit on Oct 19:
+- [x] **The seventh round** (2026-10-19 to 2026-10-21, on `main` 3e22fd6; #138–#140; its open items below): six lanes (hostile and malformed save files, determinism and Export session's replay, a 200-day game, the screens with many lines, the edges of the fifth and sixth rounds' fixes, and window sizes, zoom and resizes), each told the 157 known findings. The weekly usage limit stopped it after the save-files lane, whose six findings follow; the owner reset the limit on Oct 19:
   - major: a save whose settling line keeps a version with a zero headway and a zero round trip stops the game when imported (`dayDepartures` never moves on; the reader checks a line's plan but not its kept versions', `src/sim/save/save.ts`), and held as the autosave it makes every load fail with "Boston couldn’t be loaded";
   - major: a save whose settling line owns a billion buses runs the tab out of memory when imported;
   - major: a slot or autosave stamped with a saved time past the Date range blanks the page when Saves opens, after every reload;
@@ -72,11 +72,11 @@ Systems that work first, the real values later (D26): an audit finds what does n
   - a Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.
 
   The last two lanes ran as finders on Oct 21:
-  - window sizes, zoom and resizes: two, fixed on this pull request with failing-first tests:
+  - window sizes, zoom and resizes: two, fixed in #140 with failing-first tests:
     - (major) in full graphics, buses kept the old screen's sizing after the window moved to a screen of another density (Sparrows 11–12 px from 2x to 1x, against I12's 20, and 42–43 px back, the map blurry), and drew at 26–28 px on a 5K window, whose canvas MapLibre caps at 4,096 px: the vehicle layer now sizes by the ratio the canvas is drawn at, and the map resizes at each change of density;
     - (minor) an open dropdown stayed where it opened when the window changed size, off the window and holding the keyboard: it now closes, the keyboard back on its button;
-  - the screens with many lines, on a late game of up to 30 lines (`src/sim/scene.ts` lateScene): six, three fixed on this pull request with failing-first tests:
-    - (major) Finance's Lines held the game up while it worked out the open line's fare band, up to 1.1–1.3 s with 30 lines, at each line opened there and each change of the network: fixed on this pull request, the band worked out a step at a time between the worker's ticks, each slice under 25 ms and one step (a step 37–163 ms, `npm run bench fares`), and dropped once Finance forgets it;
+  - the screens with many lines, on a late game of up to 30 lines (`src/sim/scene.ts` lateScene): six, three fixed in #140 with failing-first tests:
+    - (major) Finance's Lines held the game up while it worked out the open line's fare band, up to 1.1–1.3 s with 30 lines, at each line opened there and each change of the network: fixed in #140, the band worked out a step at a time between the worker's ticks, each slice under 25 ms and one step (a step 37–163 ms, `npm run bench fares`), and dropped once Finance forgets it;
     - (minor) I14 on a late game with no hub, over from 20 lines: added to the I14 question (Waiting on the owner), and `npm run bench recompute` times it;
     - (minor) the line card's "Fare and money in Finance" opened a low line's money below the panel's foot, out of view: Finance's body now scrolls to it once, and once more when its first fare band comes, its heading, Close and views staying in view;
     - (minor) with 30 lines, Lines' tabs took no arrow keys, and a low line's Run it was cut off at the panel's foot: the arrows, Home and End move along the tabs, one Tab goes on to the card, and a change's card scrolls into view (`e2e/many.spec.ts`, on the fixture's late game of 18 lines);
@@ -84,6 +84,7 @@ Systems that work first, the real values later (D26): an audit finds what does n
     - (minor) lines on the same streets hide each other on the map, and a click there opens the line on top.
 
   The colours and the shared streets wait for the owner's call (Waiting on the owner).
+- [ ] **The eighth round** (on `main` 582579a, from 2026-10-21): two lanes (D27), each told the 187 known findings: the edges of the seventh round's fixes, and goals and events over several quarters of play (contracts, medals, events, the report and day cards, the checklist, and the failure floor with Restart this quarter), the systems with the fewest findings so far.
 
 ## Next
 
