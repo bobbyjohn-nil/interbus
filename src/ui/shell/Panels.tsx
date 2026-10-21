@@ -166,7 +166,7 @@ export function Panels({ items, front = null }: { items: readonly PanelItem[]; f
   // A control the keyboard focuses past the window's edge brings its panel in as far as shows it (showing), and the panel
   // stays there, as if dragged there. Only the keyboard's focus moves it (:focus-visible): a press focuses what is under
   // the pointer, on screen already, though a Saves row it focuses may run on past the edge. A dropdown's open list is
-  // portaled to the page with its place fixed as it opened (React's focus still bubbles here), so it moves no panel.
+  // portaled to the page, placed beside its button (React's focus still bubbles here), so it moves no panel.
   const reveal = (box: HTMLDivElement, target: EventTarget, id: string) => {
     if (!(target instanceof Element) || !box.contains(target) || !target.matches(":focus-visible")) return;
     const b = box.getBoundingClientRect();

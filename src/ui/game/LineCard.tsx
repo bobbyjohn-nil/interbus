@@ -7,7 +7,7 @@ import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
 import { Dropdown } from '../Dropdown';
-import { showWhole } from '../showWhole';
+import { showInBody } from '../showWhole';
 import { about, busCount, clock, duration, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
@@ -89,14 +89,13 @@ export function LineHeading({ line }: { line: LineView }) {
 export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
   const [wanted, setWanted] = useState<HeadwayPick | null>(null);
   const [modelPick, setModelPick] = useState<ModelPick | null>(null);
-  // A change picked shows its card whole, Run it and all: a low line's, under many lines' tabs, was below the panel's foot,
-  // and nothing scrolled to it (the systems audit's seventh round).
+  // A change picked, of headways or of model, shows its card whole, its Run it or Buy and swap with it: a low line's, under many
+  // lines' tabs, or in a panel dragged low, was below the panel's foot, and nothing scrolled to it (the systems audit's seventh
+  // and eighth rounds). The panel's body scrolls, never its heading and Close.
   const changeCard = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const card = changeCard.current;
-    const panel = card?.closest<HTMLElement>('.panel');
-    if (card && panel) showWhole(panel, card);
-  }, [wanted]);
+  const swapCard = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => showInBody(changeCard.current), [wanted]);
+  useLayoutEffect(() => showInBody(swapCard.current), [modelPick]);
   const s = sim.snapshot;
   if (!s) return null;
   const game = sim.loaded?.at ?? null;
@@ -151,7 +150,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
         />
       </div>
       {swap && wantedModel ? (
-        <div className="change" data-testid="model-change" data-ok={swap.ok ? 'yes' : 'no'}>
+        <div className="change" ref={swapCard} data-testid="model-change" data-ok={swap.ok ? 'yes' : 'no'}>
           {swap.ok ? (
             <p>
               {busCount(swap.needed, BUS_MODELS[wantedModel].name)} · {usdK(swap.buyCents)}, {usdK(swap.saleCents)} back for the {busCount(line.buses, model.name).replace(/^\d+ /, '')}

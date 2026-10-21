@@ -64,6 +64,11 @@ describe('medals on the page (the M4 spec, item 3)', () => {
     expect(html).toContain('<strong>Bronze</strong>: a quarter graded 55 or better');
     expect(html).toContain('<strong>Silver</strong>: 25,000 trips carried<span class="status"> · 6,550 trips to go · unlocks the Goliath</span>');
     expect(html).toContain('<strong>Gold</strong>: a quarter graded 75 or better, no grade under 60, on a day of 5,000 trips');
+    // Silver comes at the day's close: from 25,000 trips until then it read "0 trips to go · unlocks the Goliath" while the
+    // Goliath stayed locked (the systems audit's eighth round). Shown failing (TS-04) with the old words.
+    const reached = panel(sim({ tripsCarried: 25_160 }));
+    expect(reached).toContain('<strong>Silver</strong>: 25,000 trips carried<span class="status"> · reached · silver comes at midnight, and the Goliath with it</span>');
+    expect(reached).not.toContain('trips to go');
     const held = panel(sim({ tripsCarried: 25_030, medals: { bronze: 8, silver: 41, gold: null } }));
     expect(held).toContain('Since Year 1, Q1, Day 8');
     expect(held).toContain('Since Year 2, Q2, Day 1 · the Goliath is for sale');

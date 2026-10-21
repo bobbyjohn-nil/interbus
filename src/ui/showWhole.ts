@@ -9,3 +9,9 @@ export function showWhole(scroller: HTMLElement, from: Element, to: Element = fr
   if (bottom > view.bottom) scroller.scrollTop += Math.min(bottom - view.bottom, top - view.top);
   else if (top < view.top) scroller.scrollTop -= view.top - top;
 }
+
+/** Shows `el` whole in the panel body it sits in (`.panel-body`, under the panel's heading and Close), if it is in one. */
+export function showInBody(el: Element | null): void {
+  const body = el?.closest<HTMLElement>('.panel-body');
+  if (el && body) showWhole(body, el);
+}

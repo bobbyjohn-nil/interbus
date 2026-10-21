@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { closeOnPressAway } from './pressAway';
 
 export interface DropdownOption<T> {
@@ -30,7 +30,8 @@ function reveal(list: HTMLUListElement | null, i: number): void {
  * without picking, and Tab closes it and goes on to the control after its button (Shift+Tab, before
  * it); the option it is on stays in view. Escape stops there, so it never also closes the panel the
  * dropdown sits in, and the click elsewhere does nothing more, so it never also uses the tool on the
- * map (pressAway.ts). The list is drawn over the page beside its button, so a panel that scrolls never
+ * map (pressAway.ts). A resize of the window closes it as Escape does; a scroll of what holds its button
+ * moves the list with the button, and closes it once the button is out of view. The list is drawn over the page beside its button, so a panel that scrolls never
  * clips it, over every panel, and above or below its button within the window's top and bottom.
  */
 export function Dropdown<T extends string | number>({
@@ -60,6 +61,8 @@ export function Dropdown<T extends string | number>({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [at, setAt] = useState<{ readonly side: 'below' | 'above'; readonly style: CSSProperties } | null>(null);
+  // Bumped to place the list again beside its button, once a scroll has moved the button.
+  const [placing, setPlacing] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -90,12 +93,16 @@ export function Dropdown<T extends string | number>({
         ...(h > room[side] ? { maxHeight: room[side] - pad } : {}),
       },
     });
-  }, [open, placement]);
+  }, [open, placement, placing]);
 
-  // Opened, the list shows the option chosen.
+  // Opened, the list shows the option chosen; placed again (a scroll moved its button), the one the keyboard is on, so a scroll
+  // never takes from view the option Enter would pick (the review of the systems audit's eighth round).
+  const shownOnce = useRef(false);
   useLayoutEffect(() => {
-    if (at) reveal(list.current, chosen);
-  }, [at, chosen]);
+    if (!at) return;
+    reveal(list.current, shownOnce.current ? active : chosen);
+    shownOnce.current = true;
+  }, [at, chosen, active]);
 
   useEffect(() => {
     if (!open) return;
@@ -108,12 +115,34 @@ export function Dropdown<T extends string | number>({
       setOpen(false);
       if (focused) button.current?.focus();
     };
+    // A scroll of the panel body its button sits in (Finance's, by a wheel over it) moved the button and not the list, which held
+    // the focus beside another line's row, a pick there setting a fare out of view (the systems audit's eighth round). The list
+    // now goes with its button, placed again, and closes once the button has left the body's view, the focus back on the button
+    // where it is, so the scroll stands. A scroll does not bubble, so the window hears it on the way down; the list's own is its.
+    const scrolled = (event: Event) => {
+      if (event.target instanceof Node && list.current?.contains(event.target)) return;
+      const b = button.current?.getBoundingClientRect();
+      const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
+      if (b && b.bottom > (view?.top ?? 0) && b.top < (view?.bottom ?? window.innerHeight)) {
+        // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
+        flushSync(() => {
+          setAt(null);
+          setPlacing((n) => n + 1);
+        });
+        return;
+      }
+      const focused = Boolean(list.current?.contains(document.activeElement));
+      setOpen(false);
+      if (focused) button.current?.focus({ preventScroll: true });
+    };
     window.addEventListener('pointerdown', away);
     window.addEventListener('resize', resized);
+    window.addEventListener('scroll', scrolled, true);
     list.current?.focus();
     return () => {
       window.removeEventListener('pointerdown', away);
       window.removeEventListener('resize', resized);
+      window.removeEventListener('scroll', scrolled, true);
     };
   }, [open, at]);
 
@@ -126,6 +155,7 @@ export function Dropdown<T extends string | number>({
     if (open) return;
     setActive(chosen >= 0 ? chosen : step(-1, 1));
     setAt(null);
+    shownOnce.current = false;
     setOpen(true);
   };
   // The keyboard's moves keep the option they reach in view (a press scrolls nothing for a listbox's active option).
