@@ -11,7 +11,8 @@
 // company plays on a day as it stands first. The bench prints the riders full buses turn away, all a bigger bus could win back,
 // then each trial's price, what it changes in that day's operating net and in the card's overall, and, for those that pay, the
 // days they take to. Trials played one at a time can count the same riders twice, so each kind's best per stop or line that
-// pays alone is also played all together.
+// pays alone is also played all together. It also sums the company's ledger from founding by group, to show where its money came
+// from and went.
 //
 // `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default; about 6 minutes). With
 // PACING_CARD_CENTS and PACING_CANDIDATES=wide it plays the card-building player instead, which stops at gold (day 144 on seed 1,
@@ -33,7 +34,7 @@ import { rowsOfDay } from '../src/sim/economy/ledger';
 import { comfortGrade, coverageGrade, moneyGrade, reliabilityGrade } from '../src/sim/economy/reportCard';
 import { corridorCandidates, playScripted } from '../src/sim/pacing';
 import { eventPhase } from '../src/sim/rules/event';
-import { isOperating } from '../src/sim/rules/money';
+import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../src/sim/rules/money';
 import { SPEED_RATES } from '../src/sim/rules/speed';
 import { fromSaveData, toSaveData } from '../src/sim/save/save';
 import type { SaveData } from '../src/sim/save/schema';
@@ -223,6 +224,33 @@ const most = [...shed].sort((a, b) => b.d!.shedPerDay - a.d!.shedPerDay)[0];
 console.log(
   `  full buses turn away ${Math.round(shedPerDay)} riders a day of ${Math.round(offered)} (${offered > 0 ? ((100 * shedPerDay) / offered).toFixed(1) : '0.0'}%)${most && most.d!.shedPerDay > 0 ? `, the most on ${most.name} (${Math.round(most.d!.shedPerDay)})` : ''}`,
 );
+// Where its money came from and went, from founding to the day the trials play: the ledger's rows by kind (rules/money.ts ROW_GROUP).
+const NAMES: Readonly<Record<RowKind, string>> = {
+  founding: 'founding',
+  fares: 'fares',
+  subsidy: 'subsidy',
+  contract: 'contracts',
+  card: 'card grants',
+  running: 'cost a km',
+  wages: 'wages',
+  deadhead: 'dead-heading',
+  upkeep: 'depot upkeep',
+  stopUpkeep: 'stop upkeep',
+  interest: 'interest',
+  buses: 'buses',
+  busSales: 'buses sold',
+  stops: 'stops',
+  stopUpgrades: 'stop upgrades',
+  stopSales: 'stops sold',
+  depots: 'depots',
+};
+const sums = new Map<RowKind, number>();
+for (const r of world.state.ledger.rows) sums.set(r.kind, (sums.get(r.kind) ?? 0) + r.amountCents);
+const group = (g: RowGroup) => {
+  const kinds = [...sums].filter(([k]) => ROW_GROUP[k] === g).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  return `${usd(kinds.reduce((s, [, v]) => s + v, 0))} (${kinds.map(([k, v]) => `${NAMES[k]} ${usd(v)}`).join(', ')})`;
+};
+console.log(`  its money to day ${day - 1}: income ${group('income')}; rewards ${group('reward')}; running ${group('running')}; bought and sold ${group('capital')}; ${group('opening')}`);
 const frees = (p: Played) => (p.freed > 0 ? `, frees ${p.freed} bus place${p.freed === 1 ? '' : 's'}` : '');
 const told = (p: Played) =>
   `${usd(p.priceCents)}, ${usd(p.gainCents)} a day${p.gainCents > 0 ? ` (${Math.round(p.priceCents / p.gainCents)} days)` : ''}, card ${p.points >= 0 ? '+' : ''}${p.points.toFixed(2)}${frees(p)}`;
