@@ -702,7 +702,8 @@ button.chip.checklist,
   cursor: pointer;
 }
 
-.panel button:disabled {
+.panel button:disabled,
+.panel button[aria-disabled='true'] {
   cursor: default;
   opacity: 0.5;
 }

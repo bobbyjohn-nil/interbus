@@ -330,3 +330,77 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(page.getByTestId('saves')).toHaveCount(0);
   });
 });
+
+// A panel the keyboard opened hands the focus back to what opened it as it closes, by its Close or Escape, as a dialog does;
+// and a stop's step up to the top its lines allow keeps the focus, refused in words. Both dropped it to the page (the reviews
+// of the hand-back and the stop card's keys). Shown failing (TS-04) without the openers kept and with the step disabled.
+test.describe('the focus as a panel closes, and on a step up to the top', () => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+
+  /** The debug line's game, past Home, with nothing open. */
+  async function game(page: Page, edit?: (data: SaveData) => void) {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await leaveHome(page);
+    await foundCompany(page);
+    await withDebugLine(page, edit);
+  }
+
+  /** Puts the keyboard on `button` as Tab would, so a panel it opens takes the focus (focusSource). */
+  async function tabOnto(page: Page, button: Locator) {
+    await button.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(button).toBeFocused();
+  }
+
+  test('Escape and a keyboard Close hand the focus back to the dock’s button; a mouse-opened panel’s Close leaves it on the page', async ({ page }) => {
+    await game(page);
+    const dock = page.getByTestId('dock');
+    const dockLines = dock.getByRole('button', { name: 'Lines', exact: true });
+    const lines = page.getByTestId('inspector');
+    await tabOnto(page, dockLines);
+    await page.keyboard.press('Enter');
+    await expect(lines).toBeVisible();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Escape');
+    await expect(lines).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+
+    const dockFinance = dock.getByRole('button', { name: 'Finance', exact: true });
+    const finance = page.getByTestId('finance');
+    await tabOnto(page, dockFinance);
+    await page.keyboard.press('Enter');
+    await expect(finance).toBeVisible();
+    await press(page, finance.getByRole('button', { name: 'Close', exact: true }));
+    await expect(finance).toHaveCount(0);
+    await expect(dockFinance).toBeFocused();
+
+    // By the mouse: nothing to go back to, so the page keeps it and Space plays.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await dockLines.click();
+    await expect(lines).toBeVisible();
+    await lines.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(lines).toHaveCount(0);
+    await expect(dockLines).not.toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
+  });
+
+  test('a step up to the top its lines allow keeps the focus on the step, now refused in words', async ({ page }) => {
+    // Stop 2 a Shelter on one line, so a Station is its top.
+    await game(page, (d) => void ((d.stops as { id: number; tier: number }[]).find((s) => s.id === 2)!.tier = 2));
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByTestId('line-stops').getByRole('button', { name: 'Stop 2', exact: true }).click();
+    const card = page.getByTestId('stop-card');
+    await press(page, card.getByRole('button', { name: /^Make it a Station/ }));
+    await expect(card).toHaveAttribute('data-tier', '3');
+    const step = card.getByRole('button', { name: /^Make it an Interchange/ });
+    await expect(step).toHaveAttribute('aria-disabled', 'true');
+    await expect(step).toBeFocused();
+    await expect(card).toContainText('Needs 3 lines stopping here');
+    // A press on it does nothing.
+    await page.keyboard.press('Enter');
+    await expect(card).toHaveAttribute('data-tier', '3');
+  });
+});

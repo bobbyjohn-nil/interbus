@@ -89,11 +89,16 @@ export function StopCard({
       {stop.loss ? <p className="flag">Losing money: more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}
       <div className="controls tiers">
         {upTo && up ? (
+          // A step its rule refuses (the lines a tier needs, the cash) is aria-disabled, not disabled: a press up to the top step
+          // the stop's lines allow turned it off under the focus, and Chrome dropped the focus to the page (the review of the
+          // stop card's keys). The run's end still turns it off, so Continue and Restart this quarter take the focus.
           <button
             type="button"
-            disabled={!up.ok || runOver(sim)}
+            disabled={runOver(sim)}
+            aria-disabled={up.ok ? undefined : true}
             title={`Upkeep ${usd(stopUpkeepCents(upTo))} a day`}
             onClick={(e) => {
+              if (!up.ok) return;
               handBack(e.currentTarget, next('.tiers'));
               sim.send({ type: 'set-stop-tier', stopId: stop.id, tier: upTo });
             }}
