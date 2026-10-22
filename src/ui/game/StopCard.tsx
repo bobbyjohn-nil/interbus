@@ -16,16 +16,31 @@ import type { Sim } from './useSim';
  * rule the command checks (GD-05). A stop placed on its own (D25) says no line calls there yet, and
  * can be taken down for half its cost.
  */
-export function StopCard({ sim, stopId, onLine, onClose, handBack }: { sim: Sim; stopId: number; onLine: (id: number) => void; onClose: () => void; handBack: HandBack }) {
-  // A press's button can go with its press: a tier's at the top or bottom step, a line's row as the stop leaves the line, and
-  // the card itself as the stop comes down. The focus goes on to the card's next control of that kind, then its Close, and
-  // once the card has gone, to the line card's stops or Build (App holds the hand-off, as the card can close).
+export function StopCard({
+  sim,
+  stopId,
+  onLine,
+  onClose,
+  handBack,
+  backTo,
+}: {
+  sim: Sim;
+  stopId: number;
+  onLine: (id: number) => void;
+  onClose: () => void;
+  handBack: HandBack;
+  /** Where the focus goes once the card has gone with its stop: the stops it was opened from, if any (App). */
+  backTo: () => HTMLElement | null | undefined;
+}) {
+  // A press's button can go with its press: a tier's at the Transfer Hub or the Pole, a line's row as the stop leaves the line,
+  // and the card itself as the stop comes down. The focus goes on to the card's first control of that kind, then its Close,
+  // and once the card has gone, to the stops it was opened from or Build (App holds the hand-off, as the card can close).
   const root = useRef<HTMLElement>(null);
   const next = (first: string) => () =>
     root.current?.querySelector<HTMLElement>(`${first} button:not(:disabled)`) ??
     root.current?.querySelector<HTMLElement>('button:not(:disabled):not(.close)') ??
     root.current?.querySelector<HTMLElement>('button.close') ??
-    document.querySelector<HTMLElement>('[data-testid="line-stops"] button') ??
+    backTo() ??
     document.querySelector<HTMLElement>('[data-testid="build"]');
   const stop = sim.snapshot?.stops.find((s) => s.id === stopId);
   if (!stop) return null;

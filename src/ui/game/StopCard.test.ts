@@ -12,7 +12,7 @@ function render(stop: Partial<StopView>, lineStops: readonly number[] = [1, 2, 3
   const view: StopView = { id: 2, at: [-71.0857, 42.3424], tier: 1, lineIds: [1], boardings: 29.3, alightings: 8, transfers: 0, netCents: 1_234, quiet: false, loss: false, ...stop };
   const floor = ended ? { closesLeft: 0, ended: true } : null;
   const snapshot = { stops: [view], lines: [{ id: 1, name: 'Line 1', colour: '#c0392b', stopIds: lineStops }], cashCents: 7_120_000, floor } as unknown as Snapshot;
-  return renderToStaticMarkup(createElement(StopCard, { sim: { snapshot } as unknown as Sim, stopId: 2, onLine: () => undefined, onClose: () => undefined, handBack: () => undefined }));
+  return renderToStaticMarkup(createElement(StopCard, { sim: { snapshot } as unknown as Sim, stopId: 2, onLine: () => undefined, onClose: () => undefined, handBack: () => undefined, backTo: () => null }));
 }
 
 describe('a stop’s card', () => {

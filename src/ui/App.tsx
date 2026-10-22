@@ -80,6 +80,9 @@ export function App() {
   const [financeAsks, setFinanceAsks] = useState(0);
   if (financeLine !== null && !open.includes("finance")) setFinanceLine(null);
   const [stopId, setStopId] = useState<number | null>(null);
+  // The stops of the line card a stop's card was opened from, none for a press on the map: the focus goes back to them as
+  // the stop comes down, or to Build.
+  const [stopRow, setStopRow] = useState<Element | null>(null);
   // The lines a click found on the same streets, the topmost first (LinesHere).
   const [hereIds, setHereIds] = useState<readonly number[]>([]);
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
@@ -160,6 +163,7 @@ export function App() {
         setRouting((r) => (r ? { ...r, points: [...r.points, point] } : r));
       } else if (hit.stopId !== null) {
         // A click on a stop opens its card; on a line, the line's inspector.
+        setStopRow(null);
         setStopId(hit.stopId);
         show("stop");
       } else if (hit.lineIds.length > 1) {
@@ -273,6 +277,14 @@ export function App() {
   // from; a stop card's, as its stop goes or leaves a line. An undo that takes the only line leaves the focus where it was,
   // so Space still plays (the review of the hand-back: it opened Build).
   const handBack = useFocusBack();
+  const openStop = useCallback(
+    (id: number, from: HTMLElement) => {
+      setStopRow(from.closest("[data-testid='line-stops']"));
+      setStopId(id);
+      show("stop");
+    },
+    [show],
+  );
   // A stop's card closes with its stop (taken down, or an undo), so it never opens again by itself on a
   // stop that takes the same id later.
   if (stopId !== null && game && !game.stops.some((s) => s.id === stopId)) {
@@ -493,10 +505,7 @@ export function App() {
             }}
             onClose={() => hide("lines")}
             closeHandBack={handBack}
-            onStop={(id) => {
-              setStopId(id);
-              show("stop");
-            }}
+            onStop={openStop}
           />
         ),
       });
@@ -558,6 +567,7 @@ export function App() {
             sim={sim}
             stopId={stopId}
             handBack={handBack}
+            backTo={() => (stopRow?.isConnected ? stopRow.querySelector<HTMLElement>("button") : null)}
             onLine={(id) => {
               setLineId(id);
               show("lines");

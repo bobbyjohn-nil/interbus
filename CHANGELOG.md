@@ -237,7 +237,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Importing a save file whose money rows are out of day order is now refused as unreadable, with your game kept as it was, instead of stopping the game at that night's close.
 - Pressing a card's button from the keyboard keeps your place: after Keep as is, Run it, Buy and run, Buy and swap, Sell them or Keep it, the focus goes back to the control the card came from, and after Close it to the line shown next, or to Build once the last line has closed, instead of to the top of the page.
 - Pressing Sell them twice quickly sells the spare buses once, instead of also saying that the line needs every bus it has.
-- More of the buttons that go with their card keep your place on the keyboard. A stop card's Remove from a line moves the focus to the stop's next line, or back to the line's stops once the stop has come down. Take it down does the same, and a tier button at the top or bottom step moves it to the other one. Take it in Contracts moves it to the contract you took, and the day card's Continue back to where you were before the card. Before, each dropped it to the top of the page.
+- More of the buttons that go with their card keep your place on the keyboard. A stop card's Remove from a line moves the focus to the stop's first remaining line. Once the stop has come down, it goes back to the line's stops you opened the card from. Take it down moves it to Build, and a step down to a Sign or up to a Transfer Hub moves it to the other step's button. Take it in Contracts moves it to the contract you took. The day card's Continue moves it back to the control the keyboard was on when the card showed. Before, each dropped it to the top of the page.
 
 ### Removed
 

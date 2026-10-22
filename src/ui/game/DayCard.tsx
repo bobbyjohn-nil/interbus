@@ -31,9 +31,15 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
     if (over && focusLost()) go.current?.focus();
   }, [card?.day, over]);
   const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();
-  // Where the focus came into the card from, so Continue's goes back there as the card goes (App holds the hand-off); at the
-  // run's end the lender's card takes it instead.
+  // Where the keyboard had the focus as the card showed, so Continue's goes back there as the card goes (App holds the
+  // hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where the focus came
+  // into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's end the
+  // lender's card takes it instead.
   const cameFrom = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const at = document.activeElement;
+    cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? at : null;
+  }, [card?.day]);
   const heading = useId();
   if (!card) return null;
   const byKind = new Map<string, number>();
@@ -42,9 +48,6 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   return (
     <section
       key={card.day}
-      onFocus={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) cameFrom.current = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null;
-      }}
       className="day-card"
       role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
       {/* Its rows scroll inside it on a busy close, and hold nothing focusable, so while they scroll the box takes the focus
