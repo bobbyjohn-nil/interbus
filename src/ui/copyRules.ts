@@ -4,8 +4,8 @@
 // curly; and no space sits before a comma or full stop or beside another space. Text that runs on
 // after a colon or a middot stays lower case unless it is a name (Day 4, Line 2, a bus, a landmark).
 
-/** Words in capitals that are names, not shouting. */
-const CAPS_ALLOWED = new Set(['2D', '3D', 'OSM', 'ODbL', 'Q1', 'Q2', 'Q3', 'Q4']);
+/** Words in capitals that are names, not shouting: the credits' sources (credits.ts) among them. */
+const CAPS_ALLOWED = new Set(['2D', '3D', 'OSM', 'ODbL', 'Q1', 'Q2', 'Q3', 'Q4', 'TIGER', 'LEHD', 'LODES', 'USGS', 'SIL']);
 
 /** Why `text` breaks the convention, or null when it keeps it. */
 export function copyProblem(text: string): string | null {

@@ -59,7 +59,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
      - **New game**, which asks first when it would replace the autosave (V1 confirmed too);
      - **Saves**;
      - the build chip.
-   - **What waits:** settings and credits wait for week 14. Help came ahead under D25's clearance: Home's Saves and Help sit side by side, each opening beside Home's card in turn, Continue and New game close Help, and ? opens it anywhere but a field or an open list (DECISIONS, Measured).
+   - **What waits:** settings wait for week 14. Help and the credits screen came ahead under D25's clearance: Home's Saves, Help and Credits sit side by side, each opening beside Home's card in Saves' place, Credits as Help on its credits; Continue and New game close Help, and ? opens it anywhere but a field or an open list (DECISIONS, Measured).
    - **Getting back:** "Back to Home" in Saves, which saves first (in a tab another tab's saves have left behind, it asks first instead, if the game has run on since: the systems audit's sixth round), and on the founding card, so New game can be left for a slot or a file (the systems audit's fifth round).
    - **Cost:** Home is gone once a game plays, so it costs nothing in I13 at rest. Its code counts toward the menu's 200 KiB.
    - **Built so** (DECISIONS, Measured): the chip row and the dock wait for the game; New game replaces the autosave with an unnamed company at once; a slot loaded from Home's Saves goes straight into that game. Home takes 8.0% of 1152×720 and adds 0.5 KiB to the menu's 95.9 KiB.
@@ -141,6 +141,6 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
 ## Out of M5 by plan
 
 - The dark theme and the artist's models in 3D (week 13).
-- Help, settings with the theme toggle, the credits screen and close-zoom lane markings (week 14).
+- Settings with the theme toggle and close-zoom lane markings (week 14); Help and the credits screen came ahead (item 3).
 - Steam and desktop work (after v1.0, D18).
 - The demo's scope (D19: revisited Dec 20, decided by Feb 28).

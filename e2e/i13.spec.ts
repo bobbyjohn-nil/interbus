@@ -3,7 +3,7 @@
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, the compass
 // and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
 // the draft card, the inspector, the route editor, a stop's card, Finance, Saves, Help, the day card). Home's
-// Saves and Help open beside Home's card, in turn, so each is measured with it.
+// Saves, Help and Credits (Help on its credits) open beside Home's card, in turn, so each is measured with it.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
@@ -208,12 +208,16 @@ test.describe('the screen budget (I13)', () => {
       await expect(help).toBeVisible();
       await expect(saves).toHaveCount(0);
       shares.homeHelp = await chromeShare(page);
+      // Credits, Help on its credits, beside Home's card in the same place.
+      await home.getByRole('button', { name: 'Credits', exact: true }).click();
+      await expect(help).toHaveAttribute('data-view', 'credits');
+      shares.homeCredits = await chromeShare(page);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'help', 'homeContinue', 'homeSaves', 'homeSavesAsk', 'homeHelp']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'help', 'homeContinue', 'homeSaves', 'homeSavesAsk', 'homeHelp', 'homeCredits']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
 

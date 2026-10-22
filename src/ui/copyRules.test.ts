@@ -18,6 +18,9 @@ describe('the copy convention', () => {
     expect(copyProblem('QUIET · fewer than 5 boardings a day')).toBe('in capitals: QUIET');
     expect(copyProblem('Tilt to 3D (T, or double-click and hold)')).toBeNull();
     expect(copyProblem('Year 1, Q2 Day 4, 08:10')).toBeNull();
+    // The credits' sources are names (credits.ts).
+    expect(copyProblem('U.S. Census Bureau, LEHD Origin-Destination Employment Statistics (LODES 8.4, 2023)')).toBeNull();
+    expect(copyProblem('Under the SIL Open Font License 1.1')).toBeNull();
   });
 
   it('wants curly apostrophes and no space before punctuation', () => {

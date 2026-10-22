@@ -117,8 +117,12 @@ test.describe('Help', () => {
     await tabOnto(page, homeHelp);
     await page.keyboard.press('Enter');
     await expect(help).toBeVisible();
+    // Home's Credits, its last button, then Help beside it: its Close first.
+    const close = help.getByRole('button', { name: 'Close', exact: true });
     await page.keyboard.press('Tab');
-    await expect(help.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+    await expect(home.getByTestId('home-credits')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(close).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     await expect(homeHelp).toBeFocused();
@@ -149,10 +153,12 @@ test.describe('Help', () => {
     await page.keyboard.press('?');
     const help = page.getByTestId('help');
     await expect(help).toBeVisible();
-    // The panel's box has it, so the next Tab is its Close, and the one after its tables, which scroll at 720 px high.
+    // The panel's box has it, so the next Tab is its Close, then the chosen view's tab, then its tables, which scroll at 720 px high.
     await expect.poll(() => help.evaluate((el) => el.parentElement === document.activeElement)).toBe(true);
     await page.keyboard.press('Tab');
     await expect(help.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(help.getByRole('tab', { name: 'Keys and the map' })).toBeFocused();
     await page.keyboard.press('Tab');
     const tables = help.getByRole('region', { name: 'Keys and the map' });
     await expect(tables).toBeFocused();
@@ -160,5 +166,74 @@ test.describe('Help', () => {
     await expect.poll(() => tables.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
     expect(await smallThings(page)).toEqual([]);
     expect(await axeProblems(page)).toEqual([]);
+  });
+
+  // The credits screen (PLAN §10; LICENSE-DATA.md): Home's Credits opens Help on its credits, which link the map's sources
+  // through the allowlist and the build's own licence texts, both of which it serves. Shown failing (TS-04) on the build
+  // before Credits.
+  test('Home’s Credits opens Help on its credits: the tabs take the arrows, the licence texts are served, and it holds the floor', async ({ page }) => {
+    await ready(page);
+    const home = page.getByTestId('home');
+    const help = page.getByTestId('help');
+    const homeCredits = home.getByTestId('home-credits');
+    await tabOnto(page, homeCredits);
+    await page.keyboard.press('Enter');
+    await expect(help).toHaveAttribute('data-view', 'credits');
+    await expect(help.getByRole('tab', { name: 'Credits' })).toHaveAttribute('aria-selected', 'true');
+    await expect(help.getByRole('link', { name: '© OpenStreetMap contributors' })).toHaveAttribute('href', 'https://www.openstreetmap.org/copyright');
+    for (const name of ['The license', 'Their licenses']) {
+      const href = (await help.getByRole('link', { name }).getAttribute('href'))!;
+      const served = await page.request.get(new URL(href, page.url()).href);
+      expect(served.status(), href).toBe(200);
+    }
+    expect(await smallThings(page)).toEqual([]);
+    expect(await axeProblems(page)).toEqual([]);
+    // The tabs, as Finance's views: the arrows move along them and choose as the focus reaches each.
+    await help.getByRole('tab', { name: 'Credits' }).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(help).toHaveAttribute('data-view', 'keys');
+    await expect(help.getByRole('tab', { name: 'Keys and the map' })).toBeFocused();
+    // Escape hands the focus back to Home's Credits, which opened it.
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveCount(0);
+    await expect(homeCredits).toBeFocused();
+  });
+
+  // Asked for again while it shows, Help opens afresh on the view asked for. A press that leaves the focus in it, as Safari's
+  // and Firefox's on macOS do (they focus no button they press: here a pointer's press and click sent to the button), hands it
+  // to Help's Close, not the page, at Home and in the game. Shown failing (TS-04) without the hand-back, with the focus on the page (the review of the
+  // credits).
+  test('asked for again while it shows, it opens afresh on that view and keeps a focus the press left in it', async ({ page }) => {
+    await ready(page);
+    const home = page.getByTestId('home');
+    const help = page.getByTestId('help');
+    const close = help.getByRole('button', { name: 'Close', exact: true });
+    const pressWithNoFocus = async (button: Locator) => {
+      await button.dispatchEvent('pointerdown');
+      await button.dispatchEvent('click');
+    };
+    const toCredits = async () => {
+      await help.getByRole('tab', { name: 'Keys and the map' }).focus();
+      await page.keyboard.press('ArrowRight');
+      await expect(help).toHaveAttribute('data-view', 'credits');
+    };
+    await home.getByTestId('home-help').click();
+    await toCredits();
+    await pressWithNoFocus(home.getByTestId('home-help'));
+    await expect(help).toHaveAttribute('data-view', 'keys');
+    await expect(close).toBeFocused();
+
+    await leaveHome(page);
+    await foundCompany(page);
+    const saves = page.getByTestId('saves');
+    await page.getByTestId('saves-chip').click();
+    await page.keyboard.press('?');
+    await expect(help).toBeVisible();
+    await expect(saves).toBeVisible();
+    await toCredits();
+    await pressWithNoFocus(saves.getByRole('button', { name: 'Help', exact: true }));
+    await expect(saves).toHaveCount(0);
+    await expect(help).toHaveAttribute('data-view', 'keys');
+    await expect(close).toBeFocused();
   });
 });

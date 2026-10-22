@@ -4,7 +4,7 @@ export { build, makeBuildInfo, type BuildInfo } from './web/build';
 export { onReplaced, reportReplaced, watchChunkFailures, reload, type ReplacedReason } from './web/replaced';
 export { assetUrl, assetBase, assetGone } from './web/assets';
 export { openCityFile, type CityFile } from './web/cityFile';
-export { externalLink, ALLOWED_LINKS, type ExternalLinkProps } from './web/links';
+export { externalLink, ownFile, ALLOWED_LINKS, OWN_FILES, type ExternalLinkProps } from './web/links';
 export { createWebSaveStore, onOtherTabWrites, storeRefusal } from './web/saveStore';
 export { createMemorySaveStore } from './memory/saveStore';
 export { applyEffects, type SaveStore, type StoreEffect, type StoreRefusal } from './types';

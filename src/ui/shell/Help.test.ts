@@ -3,9 +3,12 @@
 // below, which a key added there must join. It keeps the copy convention, which the copy walk cannot read in a list of terms
 // (e2e/copy.spec.ts reads headings, buttons and paragraphs). Shown failing (TS-04) with N left out of the list, and with a
 // description in lower case.
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { ALLOWED_LINKS, OWN_FILES } from '../../platform';
+import { CREDITS, CREDITS_GAME } from '../credits';
 import { VIEW_KEYS } from '../../render/map/tilt';
 import { RUNNING_SPEEDS } from '../../sim/rules/speed';
 import { copyProblems } from '../copyRules';
@@ -50,5 +53,46 @@ describe('Help', () => {
   it('says that Low graphics keeps the map flat, so the view’s keys and gestures do nothing there', () => {
     expect(html).toContain(`<p class="note">${HELP_FLAT}</p>`);
     for (const key of ['T', 'Q', 'E', 'N']) expect(HELP_FLAT).toContain(key);
+  });
+});
+
+// Help's Credits (PLAN §10's credits screen; credits.ts) holds every credit LICENSE-DATA.md names: each one its city files'
+// table quotes, and the font's. Shown failing (TS-04) with the LODES credit left out, and with a link off the allowlist.
+describe('Help’s credits', () => {
+  const credits = renderToStaticMarkup(createElement(Help, { onClose: () => undefined, view: 'credits' }));
+  const text = credits.replace(/<[^>]+>/g, '');
+  const licenseData = readFileSync(new URL('../../../LICENSE-DATA.md', import.meta.url), 'utf8');
+
+  it('opens on the keys unless asked for the credits, and names both views as tabs', () => {
+    expect(html).toContain('data-view="keys"');
+    expect(credits).toContain('data-view="credits"');
+    expect(credits).toMatch(/role="tab" aria-selected="false" tabindex="-1" data-testid="help-keys">Keys and the map</);
+    expect(credits).toMatch(/role="tab" aria-selected="true" tabindex="0" data-testid="help-credits">Credits</);
+  });
+
+  it('credits everything LICENSE-DATA.md’s city files and font name, in its words', () => {
+    const table = licenseData.slice(licenseData.indexOf('## The city files'), licenseData.indexOf('## The font'));
+    const quoted = table
+      .split('\n')
+      .filter((line) => line.startsWith('| ') && !line.startsWith('| Source') && !line.startsWith('|---'))
+      .flatMap((line) => [...line.split('|').at(-2)!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!));
+    expect(quoted.length).toBeGreaterThanOrEqual(6);
+    for (const credit of quoted) expect(text).toContain(credit);
+    for (const credit of ['Afacad Flux', '© 2023 The Afacad Project Authors', 'SIL Open Font License 1.1']) expect(text).toContain(credit);
+    expect(text).toContain(CREDITS_GAME);
+  });
+
+  it('links only pages on the platform’s allowlist and the build’s own licence texts', () => {
+    const hrefs = [...credits.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+    expect(hrefs.length).toBe(CREDITS.flatMap((g) => g.rows).filter((r) => r.url || r.file).length);
+    for (const href of hrefs) expect([...ALLOWED_LINKS, ...OWN_FILES]).toContain(href);
+    expect(hrefs).toEqual(expect.arrayContaining([...OWN_FILES]));
+    expect(credits).not.toMatch(/target="_blank"(?![^>]*rel="noopener noreferrer")/);
+  });
+
+  it('keeps the copy convention in every heading, name, line and link', () => {
+    const rows = CREDITS.flatMap((g) => g.rows);
+    const words = [CREDITS_GAME, ...CREDITS.map((g) => g.heading), ...rows.flatMap((r) => [r.name, r.what, r.file?.text ?? 'None'])];
+    expect(copyProblems(words)).toEqual([]);
   });
 });
