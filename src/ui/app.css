@@ -571,7 +571,7 @@ button.chip.checklist,
 }
 
 .dock .build-menu small {
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.75;
 }
 
@@ -607,7 +607,7 @@ button.chip.checklist,
 .route-stops li::before {
   content: counter(stop);
   width: 16px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ui-ink-soft);
   text-align: right;
 }
@@ -624,8 +624,8 @@ button.chip.checklist,
 }
 
 .route-stops button {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -1016,7 +1016,7 @@ button.chip.checklist,
 
 .finance-chart text {
   fill: var(--ui-ink-soft);
-  font-size: 9px;
+  font-size: 12.5px;
 }
 
 .finance .legend {
@@ -1355,7 +1355,7 @@ button.chip.checklist,
   border-radius: 4px;
   background: var(--ui-ink);
   color: var(--ui-paper);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   vertical-align: middle;
 }

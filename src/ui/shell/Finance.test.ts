@@ -18,7 +18,7 @@ function render(money: Money, view: FinanceViewName = 'breakdown', lines: readon
 }
 
 /** The chart's axis labels, left to right. */
-const axis = (html: string) => [...html.matchAll(/<text x="[^"]*" y="146" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+const axis = (html: string) => [...html.matchAll(/<text x="[^"]*" y="[^"]*" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
 
 /** The Breakdown with every group open, as after a click on each folded heading. */
 function renderOpen(money: Money): string {
@@ -107,8 +107,8 @@ describe('Finance’s views', () => {
     expect(html).toContain('<title>Year 1, Q2, Day 2 so far: $1,101 in, $79 running costs</title>');
     expect(html).toContain('<title>Year 1, Q1, Day 8: cash $470,000</title>');
     expect(html).toContain('<title>Day 0: starting cash $474,548</title>');
-    // Today, Day 0 and Q1's first day; Q2's, beside today, would crowd it.
-    expect(axis(html)).toEqual(['Day 0', 'Q1 Day 1', 'Q2 Day 2']);
+    // Today and Day 0. At 12 px Q1's first day, 36 units beside Day 0, would crowd it, as Q2's would crowd today.
+    expect(axis(html)).toEqual(['Day 0', 'Q2 Day 2']);
     expect(html).not.toMatch(/Day (9|10)\b/);
   });
 

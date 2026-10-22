@@ -157,8 +157,12 @@ export function Dropdown<T extends string | number>({
     for (let i = from + by; i >= 0 && i < options.length; i += by) if (enabled(i)) return i;
     return from;
   };
+  // Where the list is drawn: the page's main landmark, not loose in the body, so the list a screen reader finds is in the game's
+  // landmarks (axe-core's region rule; PLAN §8). Fixed in place, it draws where it did.
+  const [host, setHost] = useState<Element | null>(null);
   const show = () => {
     if (open || disabled) return;
+    setHost(button.current?.closest('main') ?? document.body);
     setActive(chosen >= 0 ? chosen : step(-1, 1));
     setAt(null);
     shownOnce.current = false;
@@ -254,7 +258,7 @@ export function Dropdown<T extends string | number>({
                 </li>
               ))}
             </ul>,
-            document.body,
+            host ?? document.body,
           )
         : null}
     </div>
