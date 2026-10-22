@@ -888,6 +888,13 @@ button.chip.checklist,
   font-weight: 600;
 }
 
+/* The credits' links, each a target 24 px high (PLAN §8's floor), as a button is: the corner's are a line of 12 px text. */
+.help dl a {
+  display: inline-block;
+  min-height: 24px;
+  line-height: 24px;
+}
+
 .help kbd {
   font: inherit;
   font-weight: 600;
@@ -1474,13 +1481,13 @@ button.chip.checklist,
   margin: 0 0 6px;
 }
 
-/* Saves and Help side by side, so Help makes Home no taller (I13). */
-.home .pair {
+/* Saves, Help and Credits side by side, so Help and Credits make Home no taller (I13). */
+.home .more {
   display: flex;
   gap: 8px;
 }
 
-.home .pair button {
+.home .more button {
   flex: 1;
 }
 

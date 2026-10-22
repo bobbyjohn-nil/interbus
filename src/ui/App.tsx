@@ -26,7 +26,7 @@ import { Panels, type PanelFront, type PanelItem } from "./shell/Panels";
 import { Finance } from "./shell/Finance";
 import { Contracts } from "./shell/Contracts";
 import { DemandMenu } from "./shell/DemandMenu";
-import { Help } from "./shell/Help";
+import { Help, type HelpView } from "./shell/Help";
 import { Home } from "./shell/Home";
 import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
@@ -81,6 +81,9 @@ export function App() {
   const [financeLine, setFinanceLine] = useState<number | null>(null);
   const [financeAsks, setFinanceAsks] = useState(0);
   if (financeLine !== null && !open.includes("finance")) setFinanceLine(null);
+  // The view Help was asked for, its keys or its credits, and each asking, so Help opens afresh on it, as Finance does.
+  const [helpAsked, setHelpAsked] = useState<{ view: HelpView; n: number }>({ view: "keys", n: 0 });
+  const askHelp = useCallback((view: HelpView) => setHelpAsked((h) => ({ view, n: h.n + 1 })), []);
   const [stopId, setStopId] = useState<number | null>(null);
   // The stops of the line card a stop's card was opened from, none for a press on the map: the focus goes back to them as
   // the stop comes down, or to Build.
@@ -356,15 +359,15 @@ export function App() {
   const ready = sim.status === "ready";
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
   // On Home, Saves and Help stand beside Home's card, off the panel layer, so Panels' hand-back never reaches them. One that
-  // goes with the focus in it hands the focus to Home's button for it, or to the Close of the one that takes its place: Escape
-  // or Close left the focus on the page (the review of #157).
-  const homeSide = atHome ? (open.includes("saves") ? "saves" : open.includes("help") ? "help" : null) : null;
+  // goes with the focus in it hands the focus to Home's button for it (Credits for Help asked on its credits), or to the Close
+  // of the one that takes its place: Escape or Close left the focus on the page (the review of #157).
+  const homeSide = atHome ? (open.includes("saves") ? "saves" : open.includes("help") ? (helpAsked.view === "credits" ? "credits" : "help") : null) : null;
   const sideWas = useRef(homeSide);
   useEffect(() => {
     const was = sideWas.current;
     sideWas.current = homeSide;
     if (!was || was === homeSide || !focusLost()) return;
-    document.querySelector<HTMLElement>(homeSide ? `[data-testid="${homeSide}"] .close` : `[data-testid="home-${was}"]`)?.focus();
+    document.querySelector<HTMLElement>(homeSide ? `[data-testid="${homeSide === "saves" ? "saves" : "help"}"] .close` : `[data-testid="home-${was}"]`)?.focus();
   });
   // A game that stopped working (its worker failed and was stopped) shows nothing of itself to press, nor of a tool out: no
   // panel (Saves opened from Home too), no tool's card, tint or draft, no day card and no lender's card, as it shows no dock
@@ -419,6 +422,7 @@ export function App() {
         event.preventDefault();
         if (event.repeat) return;
         if (atHome) hide("saves");
+        askHelp("keys");
         toggle("help");
         return;
       }
@@ -458,7 +462,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [choose, send, atHome, removeLast, toggle, hide]);
+  }, [choose, send, atHome, removeLast, toggle, hide, askHelp]);
 
   // A tool and the panels stay out together, each on the panel layer in a place of its own: they no
   // longer cover each other (the owner's initial playtest: "when you open 2 tabs, they conflict and you
@@ -563,6 +567,7 @@ export function App() {
               // The Saves chip, which opened Saves, takes the focus first, so a Help the keyboard opened hands it back there.
               if (document.activeElement?.closest('[data-testid="saves"]')) document.querySelector<HTMLElement>('[data-testid="saves-chip"]')?.focus();
               hide("saves");
+              askHelp("keys");
               show("help");
             }}
             onHome={() => {
@@ -577,7 +582,7 @@ export function App() {
         ),
       });
     else if (p === "contracts") panelItems.push({ id: p, node: <Contracts sim={sim} onClose={() => hide("contracts")} /> });
-    else if (p === "help") panelItems.push({ id: p, node: <Help onClose={() => hide("help")} /> });
+    else if (p === "help") panelItems.push({ id: p, node: <Help key={helpAsked.n} view={helpAsked.view} onClose={() => hide("help")} /> });
     else if (p === "here")
       panelItems.push({
         id: p,
@@ -663,6 +668,12 @@ export function App() {
           }}
           onHelp={() => {
             hide("saves");
+            askHelp("keys");
+            show("help");
+          }}
+          onCredits={() => {
+            hide("saves");
+            askHelp("credits");
             show("help");
           }}
         />
@@ -670,7 +681,7 @@ export function App() {
         {open.includes("saves") ? (
           <Saves sim={sim} onClose={() => hide("saves")} />
         ) : open.includes("help") ? (
-          <Help onClose={() => hide("help")} />
+          <Help key={helpAsked.n} view={helpAsked.view} onClose={() => hide("help")} />
         ) : null}
         {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once
             and a panel dragged opens where it was dragged to again after Continue. */}

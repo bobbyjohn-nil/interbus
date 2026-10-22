@@ -30,5 +30,5 @@ The studio's own art, once it lands, is under CC BY 4.0 with the credit "Miticep
 ## Before a Steam build
 
 - Three packages ship no licence text, so the notices name only their declared licences: `pmtiles` and `@protomaps/basemaps` (BSD-3-Clause, which asks for the copyright line to be reproduced) and `murmurhash-js` (MIT). Their upstream licence files join the notices before a build leaves the preview.
-- The credits screen (PLAN §10, week 14) shows everything above in the game itself, and the store page credits OpenStreetMap.
+- The store page credits OpenStreetMap. The game itself credits everything above in Help's Credits (`src/ui/credits.ts`), which `src/ui/shell/Help.test.ts` holds to this file's table.
 - The OSMF Licensing Working Group is asked about the city files' share-alike before a paid release (PLAN §11).

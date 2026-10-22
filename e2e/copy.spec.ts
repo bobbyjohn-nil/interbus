@@ -72,6 +72,12 @@ test.describe('the copy convention and the accessibility floor', () => {
     await read('home help');
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('help')).toHaveCount(0);
+    // Credits, Help on its credits: its headings and its maker's line.
+    await page.getByTestId('home').getByRole('button', { name: 'Credits', exact: true }).click();
+    await expect(page.getByTestId('help')).toHaveAttribute('data-view', 'credits');
+    await read('home credits');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('help')).toHaveCount(0);
     await leaveHome(page);
     await expect(page.getByTestId('founding-card')).toBeVisible();
     await read('founding');
@@ -165,6 +171,6 @@ test.describe('the copy convention and the accessibility floor', () => {
     expect.soft(problems).toEqual([]);
     expect.soft([...small].flatMap(([where, things]) => things.map((t) => `${where}: ${t}`))).toEqual([]);
     expect.soft([...axe].flatMap(([where, found]) => found.map((f) => `${where}: ${f}`))).toEqual([]);
-    expect([seen.size, axe.size]).toEqual([20, AXED.size]);
+    expect([seen.size, axe.size]).toEqual([21, AXED.size]);
   });
 });

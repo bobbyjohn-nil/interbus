@@ -208,12 +208,16 @@ test.describe('the screen budget (I13)', () => {
       await expect(help).toBeVisible();
       await expect(saves).toHaveCount(0);
       shares.homeHelp = await chromeShare(page);
+      // Credits, Help on its credits, beside Home's card in the same place.
+      await home.getByRole('button', { name: 'Credits', exact: true }).click();
+      await expect(help).toHaveAttribute('data-view', 'credits');
+      shares.homeCredits = await chromeShare(page);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'help', 'homeContinue', 'homeSaves', 'homeSavesAsk', 'homeHelp']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'help', 'homeContinue', 'homeSaves', 'homeSavesAsk', 'homeHelp', 'homeCredits']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
 

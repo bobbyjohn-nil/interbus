@@ -12,3 +12,15 @@ export function externalLink(url: string): ExternalLinkProps {
   if (!ALLOWED_LINKS.includes(url)) throw new Error(`external link not on the allowlist: ${url}`);
   return { href: url, target: '_blank', rel: 'noopener noreferrer' };
 }
+
+/** The files this build ships beside itself that a page may open: the font's licence and the packages' (LICENSE-DATA.md). */
+export const OWN_FILES: readonly string[] = ['fonts/OFL.txt', 'THIRD_PARTY_NOTICES.txt'];
+
+/**
+ * One of this build's own files, opened in a tab of its own as an external link is, never in place of the game: its href is
+ * relative, so it resolves under /interbus/ and later app://, and the desktop build routes it as it routes the allowlist.
+ */
+export function ownFile(path: string): ExternalLinkProps {
+  if (!OWN_FILES.includes(path)) throw new Error(`own file not on the list: ${path}`);
+  return { href: path, target: '_blank', rel: 'noopener noreferrer' };
+}
