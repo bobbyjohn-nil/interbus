@@ -1,11 +1,21 @@
 # Playwright's Chromium and the system packages it needs, for the CI jobs that run a browser. apt
 # fetched those packages, 25.9 MB of fonts and libraries, from the runner's mirror at 52 kB/s for
 # 8 min 18 s, and the 8-minute limit cancelled the job (#152, 2026-10-22); on other runs it took
-# 1 min 39 s (#150) and 4 min 30 s. So the packages apt downloads are kept in the Actions cache and
-# put back in apt's own folder before it runs. apt still checks each one against the archive's signed
-# index, and fetches any it lacks or that is out of date. A runner image's installed packages decide
-# what apt fetches, so each image keeps its own set; an image with none yet starts from the newest set
-# of another (#153: the newest set of any held only the fonts, and apt fetched 4.9 MB of libraries).
+# 1 min 39 s (#150) and 4 min 30 s. So the packages apt downloads are kept in the Actions cache. A
+# runner image's installed packages decide what apt fetches, so each image keeps its own set; an
+# image with none yet starts from the newest set of another (#153: the newest set of any held only
+# the fonts, and apt fetched 4.9 MB of libraries).
+#
+# On an exact match, a hosted image installs its own set with dpkg and no apt-get update: apt-get
+# update reads the archive's index first, and on #156's push run the mirror stalled for 7 minutes
+# and the 8-minute limit cancelled the job before its tests began. A set holds what apt fetched and
+# what it restored that the archive still serves, so dpkg refuses any package older than the one
+# installed (-G); then Playwright's dry run (apt-get install -s, with no network) checks that every
+# package it names is in place, since a newer Playwright may name more. Nothing checks a package's
+# signature on this path: a set is trusted as the Actions cache is, which only this repository's
+# own runs write (a fork's pull request writes caches only it reads). Any other match, or a set
+# that falls short, goes through apt, which checks each package against the archive's signed index.
+# scripts/chromium-action.test.mjs runs the install step's shell through each of these ways.
 name: Install Playwright's Chromium
 description: Playwright's Chromium and its system packages, with apt's downloads kept between runs
 runs:
@@ -29,6 +39,22 @@ runs:
       run: |
         mkdir -p ~/apt-archives
         echo "apt's packages for Chromium restored: $(ls ~/apt-archives | wc -l) files, from ${{ steps.restore.outputs.cache-matched-key || 'no set' }}"
+        # Only a hosted image names its version, so only there is an exact match the image's own set.
+        if [ "${{ steps.restore.outputs.cache-hit }}" = "true" ] && [ -n "${ImageVersion:-}" ] && compgen -G "$HOME/apt-archives/*.deb" > /dev/null; then
+          if sudo dpkg -i -G ~/apt-archives/*.deb > "$RUNNER_TEMP/dpkg.log" 2>&1; then
+            if npx playwright install-deps --dry-run chromium; then
+              echo "This image's set installed with dpkg, no apt-get update: $(grep -c '^Setting up' "$RUNNER_TEMP/dpkg.log") packages set up"
+              npx playwright install chromium
+              exit 0
+            fi
+            echo "This image's set leaves out packages this Playwright names; apt from here."
+          else
+            echo "This image's set did not install with dpkg; apt from here:"
+            tail -n 20 "$RUNNER_TEMP/dpkg.log"
+            # A package left unconfigured for want of a dependency stops apt installing Playwright's list too, so apt mends it first.
+            sudo apt-get update -qq && sudo apt-get install -f -y -qq || true
+          fi
+        fi
         sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
         npx playwright install --with-deps chromium
         # Keep what the archive still serves: the set restored and what apt fetched.
