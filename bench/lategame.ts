@@ -6,7 +6,7 @@
 // - every line's bigger bus;
 // - every line's peak and off-peak one step more often (config/lines.ts HEADWAY_MINUTES), with the buses that takes.
 // Each prints its price, what it changes in the next day's operating net and in the card's overall, and, for those that pay, the
-// days they take to. `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default); with
+// days they take to. Before them it prints the riders full buses turn away, all a bigger bus could win back. `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default); with
 // PACING_CARD_CENTS and PACING_CANDIDATES=wide it plays the card-building player instead, whose 30 buses fill by day 144 (to day
 // 152 about 80 minutes). It reports and always exits 0.
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
@@ -129,6 +129,14 @@ for (const line of [...world.state.lines]) {
 const buses = world.state.lines.reduce((s, l) => s + l.buses, 0);
 console.log(
   `lategame on Inner Boston, seed ${seed}: ${who} company on day ${day}: ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${buses} buses, ${world.state.stops.length} stops; cash ${usd(world.state.ledger.cashCents)}; the next day's operating net ${usd(baseNet)}, its card ${baseCard.toFixed(1)}`,
+);
+// What a bigger bus could win back: the riders full buses turn away (K27), the line that turns away the most first.
+const shed = world.state.lines.map((l) => ({ name: l.name, d: world.assignment.lines.get(l.id) })).filter((x) => x.d);
+const shedPerDay = shed.reduce((s, x) => s + x.d!.shedPerDay, 0);
+const offered = shed.reduce((s, x) => s + x.d!.perDay + x.d!.shedPerDay, 0);
+const most = [...shed].sort((a, b) => b.d!.shedPerDay - a.d!.shedPerDay)[0];
+console.log(
+  `  full buses turn away ${Math.round(shedPerDay)} riders a day of ${Math.round(offered)} (${offered > 0 ? ((100 * shedPerDay) / offered).toFixed(1) : '0.0'}%)${most && most.d!.shedPerDay > 0 ? `, the most on ${most.name} (${Math.round(most.d!.shedPerDay)})` : ''}`,
 );
 for (const kind of ['stop', 'bus', 'more often']) {
   const all = tried.filter((t) => t.kind === kind);
