@@ -61,7 +61,7 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
 
   The medal ladder goes to the owner with these numbers (Waiting on the owner).
 - [x] **The late game's cash** (this pull request; DECISIONS, Measured, 2026-10-22). `npm run bench lategame` plays a run and, on its first day with no event on, tries each stop's next tier, each bigger bus (at its headways, and less often) and each line a step more often for a day, then each kind's best together; `LATEGAME_SAVE` keeps the company it played for later runs.
-  - The profit-only company (seed 1, day 202, 15 buses): $1.2 million and $4,182 a day more. Its buses never fill, and what pays is Shelters, $408,000 back in 222 days.
+  - The profit-only company (seed 1, day 202, 15 buses): $1.2 million and $4,182 a day more. Its buses never fill; what pays is Shelters, $408,000 back in 222 days, and two headway steps on spare buses, $355 a day.
   - The card-building company at the 30-bus ceiling (seeds 1 and 2, days 146 and 153): $47,000–50,000 a day more. Shelters pay, about $900,000 back in about 130 days; no bigger bus pays back in under 566 days; 10–11 of its 13–14 lines have no room to run more often; and freeing a bus place, by a bigger bus run less often, pays back in 926 days at best.
 
   The prices stay. The late game at the bus ceiling goes to the owner (Waiting on the owner).
