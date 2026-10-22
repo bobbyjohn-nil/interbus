@@ -3,12 +3,18 @@
 // 2026-10-21). From where it stands at the end of its run, each investment the game offers is tried on the game as it stands for
 // a day, and taken back as an undo does:
 // - every stop's next tier;
-// - every line's bigger bus;
-// - every line's peak and off-peak one step more often (config/lines.ts HEADWAY_MINUTES), with the buses that takes.
-// Each prints its price, what it changes in the next day's operating net and in the card's overall, and, for those that pay, the
-// days they take to. Before them it prints the riders full buses turn away, all a bigger bus could win back. `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default); with
-// PACING_CARD_CENTS and PACING_CANDIDATES=wide it plays the card-building player instead, whose 30 buses fill by day 144 (to day
-// 152 about 80 minutes). It reports and always exits 0.
+// - every line's bigger bus, at its headways;
+// - every line's peak and off-peak one step more often (config/lines.ts HEADWAY_MINUTES), with the buses that takes;
+// - every line's bigger bus less often, at the longest steps that keep its seats an hour, which frees bus places, the one way
+//   to free one at the 30-bus ceiling: a line's headways park its spare buses, and only a model change sells them.
+// First it prints the riders full buses turn away, all a bigger bus could win back. Then each trial's price, what it changes in
+// the next day's operating net and in the card's overall, and, for those that pay, the days they take to.
+//
+// `npm run bench lategame` (PACING_SEED and PACING_DAYS as bench/pacing.ts, 1 and 200 by default; about 6 minutes). With
+// PACING_CARD_CENTS and PACING_CANDIDATES=wide it plays the card-building player instead, which stops at gold (day 144 on seed 1,
+// about 65 minutes) or at PACING_DAYS. LATEGAME_SAVE=<file> keeps the played company in that file, and reads it from there
+// instead of playing when it exists, for the same settings. It reports and always exits 0.
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { setHeadways } from '../src/sim/commands/setHeadways';
 import { setModel } from '../src/sim/commands/setModel';
@@ -24,7 +30,8 @@ import { comfortGrade, coverageGrade, moneyGrade, reliabilityGrade } from '../sr
 import { corridorCandidates, playScripted } from '../src/sim/pacing';
 import { isOperating } from '../src/sim/rules/money';
 import { SPEED_RATES } from '../src/sim/rules/speed';
-import { fromSaveData } from '../src/sim/save/save';
+import { fromSaveData, toSaveData } from '../src/sim/save/save';
+import type { SaveData } from '../src/sim/save/schema';
 import { newGame } from '../src/sim/state';
 import { advance } from '../src/sim/step';
 import { before } from '../src/sim/undo';
@@ -38,17 +45,25 @@ const seed = Number(process.env.PACING_SEED ?? 1);
 const maxDays = Number(process.env.PACING_DAYS ?? 200);
 const cardCentsPerPoint = Number(process.env.PACING_CARD_CENTS ?? 0);
 const wide = process.env.PACING_CANDIDATES === 'wide';
+const savePath = process.env.LATEGAME_SAVE;
 const t0 = performance.now();
 
 const world = createWorld(city, newGame({ id: 'boston', revision: 'inner-boston', hash: '-' }, { name: 'Back Bay Transit', colour: '#2471a3' }, seed));
-const candidates = [...corridorCandidates(world, CORRIDORS), ...(wide ? denseCandidates(world) : [])];
-const run = playScripted(world, { name: 'the founding recipe', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, candidates, {
-  rateOn: (day) => (day === 1 ? SPEED_RATES[3] : SPEED_RATES[4]),
-  player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 },
-  reserveCents: 0,
-  maxDays,
-  cardCentsPerPoint,
-});
+const loaded = savePath !== undefined && existsSync(savePath);
+if (loaded) {
+  world.state = fromSaveData(JSON.parse(readFileSync(savePath, 'utf8')) as SaveData);
+  recompute(world);
+} else {
+  const candidates = [...corridorCandidates(world, CORRIDORS), ...(wide ? denseCandidates(world) : [])];
+  playScripted(world, { name: 'the founding recipe', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, candidates, {
+    rateOn: (day) => (day === 1 ? SPEED_RATES[3] : SPEED_RATES[4]),
+    player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 },
+    reserveCents: 0,
+    maxDays,
+    cardCentsPerPoint,
+  });
+  if (savePath !== undefined) writeFileSync(savePath, JSON.stringify(toSaveData(world.state)));
+}
 const who = cardCentsPerPoint > 0 ? `the card-building player's (a point at ${`$${cardCentsPerPoint / 100}`} a day${wide ? ', wide candidates' : ''})` : "the profit-only player's";
 
 const usd = (cents: number) => `${cents < 0 ? '-' : ''}$${Math.round(Math.abs(cents) / 100).toLocaleString('en-US')}`;
@@ -59,13 +74,15 @@ const net = (w: World, day: number) =>
 const overall = (w: World, day: number) =>
   REPORT_WEIGHTS.coverage * coverageGrade(w) + REPORT_WEIGHTS.reliability * reliabilityGrade(w) + REPORT_WEIGHTS.comfort * comfortGrade(w) + REPORT_WEIGHTS.money * moneyGrade(w, day, day);
 
-// The day the trials play, and the company's own on it.
+// The day the trials play, and the company's own on it. Each plays from the company as a save restores it, the base day too, so
+// a company read from LATEGAME_SAVE measures what the played one does.
 const kept = before(world);
 const day = toCalendarTime(world.state.elapsed).day;
 const restore = () => {
   world.state = fromSaveData(kept);
   recompute(world);
 };
+restore();
 advance(world, SECONDS_PER_DAY);
 const baseNet = net(world, day);
 const baseCard = overall(world, day);
@@ -77,42 +94,64 @@ interface Tried {
   readonly priceCents: number;
   readonly gainCents: number;
   readonly points: number;
+  /** Bus places it frees in the depots. */
+  readonly freed: number;
 }
 /** Plays `act` on the game as it stands for a day and takes it back; null when the game refuses it. */
-function tryIt(kind: string, what: string, act: () => number | null): Tried | null {
-  const priceCents = act();
-  if (priceCents === null) {
+function tryIt(kind: string, what: string, act: () => { priceCents: number; freed?: number } | null): Tried | null {
+  const done = act();
+  if (done === null) {
     restore();
     return null;
   }
   advance(world, SECONDS_PER_DAY);
-  const tried = { kind, what, priceCents, gainCents: net(world, day) - baseNet, points: overall(world, day) - baseCard };
+  const tried = { kind, what, priceCents: done.priceCents, gainCents: net(world, day) - baseNet, points: overall(world, day) - baseCard, freed: done.freed ?? 0 };
   restore();
   return tried;
 }
 
+// The company as it stands, read once: a command changes the state it acts on, and each trial is played on a restored copy.
+const stops = world.state.stops.map((s) => ({ id: s.id, tier: s.tier }));
+const lines = world.state.lines.map((l) => ({ id: l.id, name: l.name, model: l.model, buses: l.buses, headways: { ...l.headways } }));
 const tried: Tried[] = [];
 const refused = new Map<string, number>();
 const refuse = (reason: string) => refused.set(reason, (refused.get(reason) ?? 0) + 1);
-for (const stop of [...world.state.stops]) {
+for (const stop of stops) {
   const up = (stop.tier + 1) as StopTier;
   if (!STOP_TIERS[up]) continue;
   const t = tryIt('stop', `stop ${stop.id} to a ${STOP_TIERS[up].name}`, () => {
     const done = setStopTier(world, stop.id, up);
     if (!done.ok) refuse(`stop: ${done.reason}`);
-    return done.ok ? done.priceCents : null;
+    return done.ok ? { priceCents: done.priceCents } : null;
   });
   if (t) tried.push(t);
 }
-for (const line of [...world.state.lines]) {
+for (const line of lines) {
+  const seats = BUS_MODELS[line.model].seats;
   for (const model of Object.values(BUS_MODELS)) {
-    if (model.seats <= BUS_MODELS[line.model].seats) continue;
+    if (model.seats <= seats) continue;
     const t = tryIt('bus', `${line.name} on ${model.name}s`, () => {
       const done = setModel(world, line.id, model.id);
       if (!done.ok) refuse(`bus: ${done.reason}`);
-      return done.ok ? done.buyCents - done.saleCents : null;
+      return done.ok ? { priceCents: done.buyCents - done.saleCents, freed: line.buses - done.bought } : null;
     });
     if (t) tried.push(t);
+    // The longest steps at or under the seats an hour it runs now, each at least one step less often.
+    const less = (s: number) => [...HEADWAY_MINUTES].reverse().find((m) => m * 60 > s && m * 60 * seats <= s * model.seats);
+    const [lessPeak, lessOffpeak] = [less(line.headways.peak), less(line.headways.offpeak)];
+    if (lessPeak !== undefined && lessOffpeak !== undefined) {
+      const t = tryIt('bigger, less often', `${line.name} on ${model.name}s every ${lessPeak}/${lessOffpeak} min`, () => {
+        const slower = setHeadways(world, line.id, { peak: lessPeak * 60, offpeak: lessOffpeak * 60, overnight: line.headways.overnight });
+        if (!slower.ok) {
+          refuse(`bigger, less often: ${slower.reason}`);
+          return null;
+        }
+        const done = setModel(world, line.id, model.id);
+        if (!done.ok) refuse(`bigger, less often: ${done.reason}`);
+        return done.ok ? { priceCents: slower.priceCents + done.buyCents - done.saleCents, freed: line.buses - done.bought } : null;
+      });
+      if (t) tried.push(t);
+    }
   }
   const step = (s: number) => [...HEADWAY_MINUTES].reverse().find((m) => m * 60 < s);
   const [peak, offpeak] = [step(line.headways.peak), step(line.headways.offpeak)];
@@ -120,25 +159,26 @@ for (const line of [...world.state.lines]) {
     const t = tryIt('more often', `${line.name} every ${peak}/${offpeak} min`, () => {
       const done = setHeadways(world, line.id, { peak: peak * 60, offpeak: offpeak * 60, overnight: line.headways.overnight });
       if (!done.ok) refuse(`more often: ${done.reason}`);
-      return done.ok ? done.priceCents : null;
+      return done.ok ? { priceCents: done.priceCents, freed: -done.bought } : null;
     });
     if (t) tried.push(t);
   }
 }
 
-const buses = world.state.lines.reduce((s, l) => s + l.buses, 0);
+const buses = lines.reduce((s, l) => s + l.buses, 0);
 console.log(
-  `lategame on Inner Boston, seed ${seed}: ${who} company on day ${day}: ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${buses} buses, ${world.state.stops.length} stops; cash ${usd(world.state.ledger.cashCents)}; the next day's operating net ${usd(baseNet)}, its card ${baseCard.toFixed(1)}`,
+  `lategame on Inner Boston, seed ${seed}: ${who} company on day ${day}: ${lines.length} lines, ${world.state.depots.length} depots, ${buses} buses, ${stops.length} stops; cash ${usd(world.state.ledger.cashCents)}; the next day's operating net ${usd(baseNet)}, its card ${baseCard.toFixed(1)}`,
 );
 // What a bigger bus could win back: the riders full buses turn away (K27), the line that turns away the most first.
-const shed = world.state.lines.map((l) => ({ name: l.name, d: world.assignment.lines.get(l.id) })).filter((x) => x.d);
+const shed = lines.map((l) => ({ name: l.name, d: world.assignment.lines.get(l.id) })).filter((x) => x.d);
 const shedPerDay = shed.reduce((s, x) => s + x.d!.shedPerDay, 0);
 const offered = shed.reduce((s, x) => s + x.d!.perDay + x.d!.shedPerDay, 0);
 const most = [...shed].sort((a, b) => b.d!.shedPerDay - a.d!.shedPerDay)[0];
 console.log(
   `  full buses turn away ${Math.round(shedPerDay)} riders a day of ${Math.round(offered)} (${offered > 0 ? ((100 * shedPerDay) / offered).toFixed(1) : '0.0'}%)${most && most.d!.shedPerDay > 0 ? `, the most on ${most.name} (${Math.round(most.d!.shedPerDay)})` : ''}`,
 );
-for (const kind of ['stop', 'bus', 'more often']) {
+const frees = (t: Tried) => (t.freed > 0 ? `, frees ${t.freed} bus place${t.freed === 1 ? '' : 's'}` : '');
+for (const kind of ['stop', 'bus', 'more often', 'bigger, less often']) {
   const all = tried.filter((t) => t.kind === kind);
   const pay = all.filter((t) => t.gainCents > 0).sort((a, b) => a.priceCents / a.gainCents - b.priceCents / b.gainCents);
   const price = pay.reduce((s, t) => s + t.priceCents, 0);
@@ -146,7 +186,12 @@ for (const kind of ['stop', 'bus', 'more often']) {
   console.log(
     `  ${kind}: ${all.length} tried; ${pay.length} pay, for ${usd(price)}, ${usd(gain)} a day together${gain > 0 ? ` (${Math.round(price / gain)} days to pay back)` : ''}; all ${all.length} cost ${usd(all.reduce((s, t) => s + t.priceCents, 0))} and add ${all.reduce((s, t) => s + t.points, 0).toFixed(2)} card points`,
   );
-  for (const t of pay.slice(0, 5)) console.log(`    ${t.what}: ${usd(t.priceCents)}, ${usd(t.gainCents)} a day (${Math.round(t.priceCents / t.gainCents)} days), card ${t.points >= 0 ? '+' : ''}${t.points.toFixed(2)}`);
+  // A bigger bus less often is worth its loss where the places it frees run a better line, so the five that lose least show too.
+  const shown = kind === 'bigger, less often' ? [...all].sort((a, b) => b.gainCents - a.gainCents).slice(0, 5) : pay.slice(0, 5);
+  for (const t of shown) {
+    const days = t.gainCents > 0 ? ` (${Math.round(t.priceCents / t.gainCents)} days)` : '';
+    console.log(`    ${t.what}: ${usd(t.priceCents)}, ${usd(t.gainCents)} a day${days}, card ${t.points >= 0 ? '+' : ''}${t.points.toFixed(2)}${frees(t)}`);
+  }
 }
 if (refused.size) console.log(`  refused: ${[...refused].map(([r, n]) => `${r} ${n}`).join(', ')}`);
-console.log(`  (${((performance.now() - t0) / 1000).toFixed(0)} s; the run's cash at its end ${usd(run.cashCents)})`);
+console.log(`  (${((performance.now() - t0) / 1000).toFixed(0)} s${loaded ? ', the company read from LATEGAME_SAVE' : ''})`);
