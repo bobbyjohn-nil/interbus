@@ -60,10 +60,10 @@ export function Home({ sim, onContinue, onNewGame, onSaves, onHelp }: { sim: Sim
       )}
       {/* Side by side, so Help makes Home no taller: Home and Saves take 24.3% of 1152×720 of I13's 26%. */}
       <span className="pair">
-        <button type="button" onClick={onSaves}>
+        <button type="button" onClick={onSaves} data-testid="home-saves">
           Saves
         </button>
-        <button type="button" onClick={onHelp}>
+        <button type="button" onClick={onHelp} title="Help (?)" data-testid="home-help">
           Help
         </button>
       </span>

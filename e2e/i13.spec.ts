@@ -179,11 +179,11 @@ test.describe('the screen budget (I13)', () => {
       await saves.getByRole('button', { name: 'Close', exact: true }).focus();
       expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Back to Home' }))).toBe(true);
       // Help, from Saves' last row, which it shares with Export session and Back to Home, so Saves at its tallest grows no
-      // taller (savesTallest); measured alone, Saves closed. Its tables scroll inside its cap (60vh).
+      // taller (savesTallest); it takes Saves' place. Its tables scroll inside its cap (60vh).
       await saves.getByRole('button', { name: 'Help', exact: true }).click();
       const help = page.getByTestId('help');
       await expect(help).toBeVisible();
-      await saves.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(saves).toHaveCount(0);
       shares.help = await chromeShare(page);
       await help.getByRole('button', { name: 'Close', exact: true }).click();
       await page.getByRole('button', { name: 'Saves' }).click();

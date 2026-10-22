@@ -396,9 +396,9 @@ export function Saves({ sim, onClose, onHome, onHelp }: { sim: Sim; onClose: () 
               </button>
             ) : null}
             {/* Help, in the game, where Saves is the one panel the chip row opens: it fits this row's 88 px to spare, so Saves
-                grows no taller (I13). Home has its own. */}
+                grows no taller, and it takes Saves' place (I13). Home has its own. */}
             {onHelp ? (
-              <button type="button" onClick={onHelp}>
+              <button type="button" onClick={onHelp} title="Help (?)">
                 Help
               </button>
             ) : null}

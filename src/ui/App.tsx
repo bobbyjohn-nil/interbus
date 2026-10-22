@@ -13,6 +13,7 @@ import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
 import { useFocusBack } from "./focusBack";
+import { focusLost } from "./focusLost";
 import { LinesHere, linesHere } from "./game/LinesHere";
 import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
@@ -354,6 +355,17 @@ export function App() {
 
   const ready = sim.status === "ready";
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
+  // On Home, Saves and Help stand beside Home's card, off the panel layer, so Panels' hand-back never reaches them. One that
+  // goes with the focus in it hands the focus to Home's button for it, or to the Close of the one that takes its place: Escape
+  // or Close left the focus on the page (the review of #157).
+  const homeSide = atHome ? (open.includes("saves") ? "saves" : open.includes("help") ? "help" : null) : null;
+  const sideWas = useRef(homeSide);
+  useEffect(() => {
+    const was = sideWas.current;
+    sideWas.current = homeSide;
+    if (!was || was === homeSide || !focusLost()) return;
+    document.querySelector<HTMLElement>(homeSide ? `[data-testid="${homeSide}"] .close` : `[data-testid="home-${was}"]`)?.focus();
+  });
   // A game that stopped working (its worker failed and was stopped) shows nothing of itself to press, nor of a tool out: no
   // panel (Saves opened from Home too), no tool's card, tint or draft, no day card and no lender's card, as it shows no dock
   // and no Saves chip. Their buttons would send to a worker that is gone, or close a card over a game that no longer runs,
@@ -397,8 +409,13 @@ export function App() {
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement;
       // ? opens Help and closes it again (PLAN §8's keyboard shortcuts, which it lists), on Home too, where it takes Saves'
-      // place beside Home's card. Typed into a field, it is the field's; held, it opens once.
-      if (event.key === "?" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      // place beside Home's card. Typed into a field, it is the field's (a radio or a checkbox is no field); held, it opens
+      // once; with AltGr, as some keyboards type it, it still counts. An open list or menu keeps its keys: ? left it open
+      // behind Help, its arrows and Enter going to Help (the review of #157).
+      const chosen = event.target instanceof HTMLInputElement && (event.target.type === "radio" || event.target.type === "checkbox");
+      const inList = event.target instanceof Element && event.target.closest('[role="listbox"], [role="menu"]') !== null;
+      const plain = event.getModifierState?.("AltGraph") || (!event.ctrlKey && !event.altKey);
+      if (event.key === "?" && (!typing || chosen) && !inList && !event.metaKey && plain) {
         event.preventDefault();
         if (event.repeat) return;
         if (atHome) hide("saves");
@@ -541,7 +558,13 @@ export function App() {
           <Saves
             sim={sim}
             onClose={() => hide("saves")}
-            onHelp={() => show("help")}
+            onHelp={() => {
+              // Help takes Saves' place, as on Home: the two together took 35.5% of 1152×720 (I13; the review of #157).
+              // The Saves chip, which opened Saves, takes the focus first, so a Help the keyboard opened hands it back there.
+              if (document.activeElement?.closest('[data-testid="saves"]')) document.querySelector<HTMLElement>('[data-testid="saves-chip"]')?.focus();
+              hide("saves");
+              show("help");
+            }}
             onHome={() => {
               // Paused first, which saves the game, so Continue picks up exactly here; the tool goes
               // down, so nothing of it waits unseen behind Home.
@@ -618,8 +641,14 @@ export function App() {
         />
         <Home
           sim={sim}
-          onContinue={() => setHomeAt(null)}
+          // Leaving Home closes Help: carried onto the founding card, the two took 31.6% of 1152×720 (I13; the review of #157).
+          // Saves stays, where a game not yet founded loads a slot or a file instead (saves.spec).
+          onContinue={() => {
+            hide("help");
+            setHomeAt(null);
+          }}
           onNewGame={() => {
+            hide("help");
             if (sim.snapshot?.company.name) send({ type: "new-game" });
             // A new game starts clean: no tool, draft or route editor, and no day card, of the old one,
             // and its new-line card on the Sparrow, never on a bus the old game had unlocked.

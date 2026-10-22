@@ -20,7 +20,7 @@ describe('Home', () => {
     expect(html).toContain('Back Bay Transit · Year 1, Q2, Day 4 · $123,456'); // day 12 since founding
     expect(html.indexOf('Continue')).toBeLessThan(html.indexOf('New game'));
     // One row, so Help makes Home no taller (I13).
-    expect(html).toMatch(/<span class="pair"><button type="button">Saves<\/button><button type="button">Help<\/button><\/span>/);
+    expect(html).toMatch(/<span class="pair"><button type="button" data-testid="home-saves">Saves<\/button><button type="button" title="Help \(\?\)" data-testid="home-help">Help<\/button><\/span>/);
   });
 
   it('offers New game first when no company has been founded', () => {
