@@ -19,6 +19,14 @@ async function lines(page: Page, edit?: (data: SaveData) => void) {
   return page.getByTestId('inspector');
 }
 
+/** The debug line and `more` lines more on its stops, Line 2 on stops 1 and 2 and Line 3 on 2 and 3. */
+const withLines = (more: 1 | 2) => (d: SaveData) => {
+  const one = (d.lines as Record<string, unknown>[])[0]!;
+  const extra = [{ ...one, id: 2, name: 'Line 2', stopIds: [1, 2] }, { ...one, id: 3, name: 'Line 3', stopIds: [2, 3] }];
+  (d.lines as Record<string, unknown>[]).push(...extra.slice(0, more));
+  d.nextIds = { ...d.nextIds, line: 2 + more };
+};
+
 /** The debug line every 20 minutes needs 2 Sparrows; this one has 4, 2 of them spare. */
 const fourBuses = (d: SaveData) => void ((d.lines as { buses: number }[])[0]!.buses = 4);
 
@@ -139,11 +147,7 @@ test.describe('the focus as a card’s button goes', () => {
   test('goes to the tab of a line an undo brings back, from the card it replaces', async ({ page }) => {
     // Two lines, Line 2 shown. Closing it shows Line 1's card, the focus on its Buses list; the undo brings Line 2 back, the line
     // the panel still names, so its card replaces Line 1's under the focus, which fell to the page (the review of the hand-back).
-    const panel = await lines(page, (d) => {
-      const one = (d.lines as Record<string, unknown>[])[0]!;
-      (d.lines as Record<string, unknown>[]).push({ ...one, id: 2, name: 'Line 2', stopIds: [1, 2] });
-      d.nextIds = { ...d.nextIds, line: 3 };
-    });
+    const panel = await lines(page, withLines(1));
     await panel.getByRole('tab', { name: 'Line 2', exact: true }).click();
     await press(page, panel.getByRole('button', { name: 'Close line' }));
     await press(page, panel.getByTestId('close-line').getByRole('button', { name: 'Close it' }));
@@ -153,6 +157,35 @@ test.describe('the focus as a card’s button goes', () => {
     const two = panel.getByRole('tab', { name: 'Line 2', exact: true });
     await expect(two).toHaveAttribute('aria-selected', 'true');
     await expect(two).toBeFocused();
+  });
+
+  test('goes to the tab of a line an undo brings back among three, from the tab shown in its place', async ({ page }) => {
+    // Three lines, Line 2 shown. Closing it gives Line 1's tab the focus; the undo shows Line 2 again, and the focus stayed on
+    // Line 1's tab, no longer chosen, so the arrows moved from Line 2 (the review of #156).
+    const panel = await lines(page, withLines(2));
+    await panel.getByRole('tab', { name: 'Line 2', exact: true }).click();
+    await press(page, panel.getByRole('button', { name: 'Close line' }));
+    await press(page, panel.getByTestId('close-line').getByRole('button', { name: 'Close it' }));
+    await expect(panel.getByRole('tab', { name: 'Line 2', exact: true })).toHaveCount(0);
+    await expect(panel.getByRole('tab', { name: 'Line 1', exact: true })).toBeFocused();
+    await page.keyboard.press('Control+z');
+    const two = panel.getByRole('tab', { name: 'Line 2', exact: true });
+    await expect(two).toHaveAttribute('aria-selected', 'true');
+    await expect(two).toBeFocused();
+  });
+
+  test('after the mouse’s Close it, an undo leaves the focus on the page, so Space plays', async ({ page }) => {
+    // The mouse's: the undo's key gave the tab the focus as the keyboard's, so Space pressed the tab and the game stayed
+    // paused (the review of #156).
+    const panel = await lines(page, withLines(1));
+    await panel.getByRole('tab', { name: 'Line 2', exact: true }).click();
+    await panel.getByRole('button', { name: 'Close line' }).click();
+    await panel.getByTestId('close-line').getByRole('button', { name: 'Close it' }).click();
+    await expect(panel.getByRole('tablist')).toHaveCount(0);
+    await page.keyboard.press('Control+z');
+    await expect(panel.getByRole('tab', { name: 'Line 2', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
   });
 
   test('stays on the page as an undo takes the only line, so Space plays rather than opening Build', async ({ page }) => {
@@ -407,6 +440,7 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
   });
 
   test('a step up to the top its lines allow keeps the focus on the step, now refused in words', async ({ page }) => {
+    const sent = await countSends(page);
     // Stop 2 a Shelter on one line, so a Station is its top.
     await game(page, (d) => void ((d.stops as { id: number; tier: number }[]).find((s) => s.id === 2)!.tier = 2));
     await page.getByRole('button', { name: 'Lines', exact: true }).click();
@@ -414,12 +448,33 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     const card = page.getByTestId('stop-card');
     await press(page, card.getByRole('button', { name: /^Make it a Station/ }));
     await expect(card).toHaveAttribute('data-tier', '3');
+    expect(await sent('set-stop-tier')).toBe(1);
     const step = card.getByRole('button', { name: /^Make it an Interchange/ });
     await expect(step).toHaveAttribute('aria-disabled', 'true');
     await expect(step).toBeFocused();
     await expect(card).toContainText('Needs 3 lines stopping here');
-    // A press on it does nothing.
+    // A press on it sends nothing: the sim would refuse it too, so the count shows it (the review of #156).
     await page.keyboard.press('Enter');
     await expect(card).toHaveAttribute('data-tier', '3');
+    expect(await sent('set-stop-tier')).toBe(1);
+  });
+
+  test('Escape closing a stop’s card and the Lines it was opened from hands the focus to the dock’s Lines', async ({ page }) => {
+    // The stop card's opener, Stop 2 in Lines' stops, went with Lines; it fell to the page (the review of #156).
+    await game(page);
+    const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
+    await tabOnto(page, dockLines);
+    await page.keyboard.press('Enter');
+    const stop2 = page.getByTestId('line-stops').getByRole('button', { name: 'Stop 2', exact: true });
+    for (let k = 0; k < 40 && !(await stop2.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(stop2).toBeFocused();
+    await page.keyboard.press('Enter');
+    const card = page.getByTestId('stop-card');
+    await expect(card).toBeVisible();
+    await expect.poll(() => card.evaluate((el) => el.parentElement === document.activeElement)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId('inspector')).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
   });
 });

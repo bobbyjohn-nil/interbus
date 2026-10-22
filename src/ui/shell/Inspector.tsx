@@ -65,14 +65,18 @@ export function Inspector({
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
   if (closingId !== null && closingId !== line?.id) setClosingId(null);
   if (sentId !== null && (sentId !== closingId || sim.refusal?.command === "close-line")) setSentId(null);
-  // The control the focus is on in this panel, until the focus goes elsewhere or the player presses elsewhere. An undo that
-  // brings back the line App still names (Close it, then Ctrl+Z) shows its card in place of the one the focus was in, and the
-  // focus fell to the page (the review of the hand-back); it goes to that line's tab instead. Only as the line shown changes,
-  // so the run's end, which turns controls off, still gives the day card's Continue the focus (DayCard).
+  // The control the keyboard has in this panel (:focus-visible, as the day card's cameFrom), until the focus goes elsewhere or
+  // the player presses elsewhere. An undo that brings back the line App still names (Close it, then Ctrl+Z) shows its card in
+  // place of the one the focus was in, and the focus fell to the page; among three lines or more it stayed on a tab no longer
+  // chosen (the reviews of the hand-back and of #156). It goes to the shown line's tab instead. A control the mouse focused is
+  // not held, so after the mouse's Close it the undo leaves the page focused, where Space plays: held, the undo's key handed
+  // the tab Space (the review of #156). Only as the line shown changes, so the run's end, which turns controls off, still
+  // gives the day card's Continue the focus (DayCard).
   const held = useRef<Element | null>(null);
   useEffect(() => {
     const focusIn = (event: FocusEvent) => {
-      held.current = event.target instanceof Element && panel.current?.contains(event.target) ? event.target : null;
+      const at = event.target;
+      held.current = at instanceof Element && panel.current?.contains(at) && at.matches(":focus-visible") ? at : null;
     };
     const press = (event: PointerEvent) => {
       if (!(event.target instanceof Node && held.current?.contains(event.target))) held.current = null;
@@ -87,7 +91,10 @@ export function Inspector({
   const shownId = line?.id;
   useEffect(() => {
     const was = held.current;
-    if (!was || was.isConnected || !focusLost()) return;
+    if (!was) return;
+    const gone = !was.isConnected && focusLost();
+    const unchosen = document.activeElement === was && was.getAttribute("role") === "tab" && was.getAttribute("aria-selected") !== "true";
+    if (!gone && !unchosen) return;
     held.current = null;
     panel.current?.querySelector<HTMLElement>(SHOWN)?.focus();
   }, [shownId]);
