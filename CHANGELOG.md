@@ -241,6 +241,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing a card's button from the keyboard keeps your place: after Keep as is, Run it, Buy and run, Buy and swap, Sell them or Keep it, the focus goes back to the control the card came from, and after Close it to the line shown next, or to Build once the last line has closed, instead of to the top of the page.
 - Pressing Sell them twice quickly sells the spare buses once, instead of also saying that the line needs every bus it has.
 - More of the buttons that go with their card keep your place on the keyboard. A stop card's Remove from a line moves the focus to the stop's first remaining line. Once the stop has come down, it goes back to the line's stops you opened the card from. Take it down moves it to Build, and a step down to a Sign or up to a Transfer Hub moves it to the other step's button. Take it in Contracts moves it to the contract you took. The day card's Continue moves it back to the control the keyboard was on when the card showed. Before, each dropped it to the top of the page.
+- Closing a panel you opened from the keyboard, with its Close or Escape, puts the focus back on the button that opened it, or on the one that opened the panel it came from when Escape closes both. A stop's step up to the top its lines allow keeps the focus on the step, refused in words, and an undo from the keyboard that brings back a line you closed puts it on that line's tab. Before, each dropped the focus to the top of the page.
 
 ### Removed
 

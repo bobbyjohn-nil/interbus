@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { focusLost } from "../focusLost";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
 export interface PanelItem {
@@ -187,9 +188,45 @@ export function Panels({
   useLayoutEffect(() => {
     takes.current = takesFocus;
   });
+  // What each panel the keyboard opened took the focus from, and the panel the player was last in, by the focus or a press.
+  // One that closes while the player was in it, by its Close, Escape or the game, hands the focus back to what opened it, as
+  // a dialog does; it fell to the page (the reviews of the hand-back and the stop card's keys). An opener inside a panel that
+  // went with it hands on to that panel's own: a stop's card opened from Lines' stops, both closed by one Escape, gives the
+  // dock's Lines the focus (the review of #156). Checked after the layout effects, so a card's own hand-off (useFocusBack,
+  // App) goes first.
+  const openers = useRef(new Map<string, { readonly at: HTMLElement; readonly in: string | null }>());
+  const lastIn = useRef<string | null>(null);
+  useEffect(() => {
+    const at = (event: Event) => {
+      lastIn.current = (event.target instanceof Element ? event.target.closest("[data-movable]")?.getAttribute("data-movable") : null) ?? null;
+    };
+    document.addEventListener("focusin", at, true);
+    document.addEventListener("pointerdown", at, true);
+    return () => {
+      document.removeEventListener("focusin", at, true);
+      document.removeEventListener("pointerdown", at, true);
+    };
+  }, []);
+  const wereOpen = useRef<readonly string[]>([]);
+  useEffect(() => {
+    const now = items.map((i) => i.id);
+    const went = wereOpen.current.filter((id) => !now.includes(id));
+    wereOpen.current = now;
+    if (!went.length) return;
+    const left = lastIn.current;
+    let opener = left && went.includes(left) ? openers.current.get(left) : undefined;
+    for (let hop = 0; opener && !opener.at.isConnected && opener.in && went.includes(opener.in) && hop < went.length; hop++) opener = openers.current.get(opener.in);
+    for (const id of went) openers.current.delete(id);
+    if (left && went.includes(left)) lastIn.current = null;
+    const to = opener?.at;
+    if (to?.isConnected && !to.matches(":disabled") && focusLost()) to.focus();
+  });
   useLayoutEffect(() => {
     const box = focus && takes.current() ? boxes.current.get(focus.id) : undefined;
     if (!box) return;
+    const from = document.activeElement;
+    if (from instanceof HTMLElement && from !== document.body && !box.contains(from))
+      openers.current.set(focus!.id, { at: from, in: from.closest("[data-movable]")?.getAttribute("data-movable") ?? null });
     box.tabIndex = -1;
     box.addEventListener("blur", () => box.removeAttribute("tabindex"), { once: true });
     box.focus();

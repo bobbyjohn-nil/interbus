@@ -27,8 +27,9 @@ describe('a stop’s card', () => {
     const station = render({ tier: 3 });
     expect(station).toContain('Upkeep $51 a day · feels 1.8 min closer on foot');
     expect(station).toContain('Make it a Shelter · $17.5k back');
-    // An Interchange needs three lines calling; this stop has one, so the step up is refused in words.
-    expect(station).toMatch(/<button type="button" disabled="" title="Upkeep \$141 a day">Make it an Interchange · \$90k<\/button>/);
+    // An Interchange needs three lines calling; this stop has one, so the step up is refused in words, and aria-disabled, so a
+    // press up to this step leaves the focus on it (the review of the stop card's keys).
+    expect(station).toMatch(/<button type="button" aria-disabled="true" title="Upkeep \$141 a day">Make it an Interchange · \$90k<\/button>/);
     expect(station).toContain('Needs 3 lines stopping here');
   });
 
