@@ -88,7 +88,7 @@ export function LineHeading({ line }: { line: LineView }) {
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
  * (sim/rules/line.ts, GD-05). Its heading is the Lines panel's (LineHeading).
  */
-export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
+export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: LineView; onFinance?: () => void; onStop?: (stopId: number, from: HTMLElement) => void }) {
   const [wanted, setWanted] = useState<HeadwayPick | null>(null);
   const [modelPick, setModelPick] = useState<ModelPick | null>(null);
   // A change picked, of headways or of model, shows its card whole, its Run it or Buy and swap with it: a low line's, under many
@@ -289,6 +289,18 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
             </button>
           </div>
         </div>
+      ) : null}
+      {onStop ? (
+        // Its stops in route order, each opening its card: the keyboard's way to a stop, where the map has only a press on it
+        // (the accessibility pass). Last, so one Tab still goes from the tabs to Buses (many.spec), not through every stop.
+        <p className="stops" data-testid="line-stops">
+          Stops
+          {line.stopIds.map((id) => (
+            <button key={id} type="button" aria-label={`Stop ${id}`} onClick={(e) => onStop(id, e.currentTarget)}>
+              {id}
+            </button>
+          ))}
+        </p>
       ) : null}
     </section>
   );

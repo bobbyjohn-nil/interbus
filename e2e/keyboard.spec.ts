@@ -6,7 +6,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, toScreen, withDebugLine, zoomOutOnce, type SaveData } from './shell';
+import { build, city, onDepotLand, setSpeed, toScreen, withDebugLine, zoomOutOnce, type SaveData } from './shell';
 
 /** A founded company with the debug line, edited by `edit`, past Home, and Lines open on it. */
 async function lines(page: Page, edit?: (data: SaveData) => void) {
@@ -180,5 +180,153 @@ test.describe('the focus as a card’s button goes', () => {
     expect([await sent('sell-spares'), await sent('close-line')]).toEqual([1, 1]);
     // Nor did a second command's refusal say so (copy.ts); the load's notice may still show, for 6 s.
     await expect(page.getByText(/That line is gone|The line needs every bus it has/)).toHaveCount(0);
+  });
+});
+
+// The keyboard's way to a stop (the accessibility pass): the map opens a stop's card only on a press on it, so each line's card
+// lists its stops, and the buttons that go with their card hand the focus on: a stop card's, the day card's Continue and
+// Contracts' Take it. A hand-off waits only until the player's next key or press. Shown failing (TS-04) with no stops on the
+// line card, the focus left where it fell, and a hand-off left waiting (the review of the stop card's keys).
+test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a contract’s and a day’s buttons', () => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+
+  test('a line’s stops open their cards; a stop taken off a line hands the focus to its next line, then to the line’s stops', async ({ page }) => {
+    // Line 2 calls at stops 2 to 4 too, so stop 2 stays up as it leaves Line 1, and comes down as it leaves Line 2.
+    const panel = await lines(page, (d) => {
+      const one = (d.lines as Record<string, unknown>[])[0]!;
+      (d.lines as Record<string, unknown>[]).push({ ...one, id: 2, name: 'Line 2', stopIds: [2, 3, 4] });
+      d.nextIds = { ...d.nextIds, line: 3 };
+    });
+    // The stops come after the line's controls, so one Tab still goes from the tabs to Buses.
+    await panel.getByRole('tab', { name: 'Line 1', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    await expect(panel.getByTestId('line-model')).toBeFocused();
+    const stops = panel.getByTestId('line-stops');
+    await expect(stops.getByRole('button')).toHaveText(['1', '2', '3', '4']);
+    // Tab reaches it, so the stop's card takes the keyboard with it, as a panel the keyboard opens does (focusSource).
+    await stops.getByRole('button', { name: 'Stop 1', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    await expect(stops.getByRole('button', { name: 'Stop 2', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    const card = page.getByTestId('stop-card');
+    await expect(card).toHaveAttribute('aria-label', 'Stop 2');
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const shown = document.querySelector('[data-testid="stop-card"]');
+          const at = document.activeElement;
+          return !!shown && !!at && (at.contains(shown) || shown.contains(at));
+        }),
+      )
+      .toBe(true);
+
+    await press(page, card.getByRole('button', { name: /^Remove from Line 1/ }));
+    await expect(card.getByRole('button', { name: /^Remove from Line 1/ })).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Line 2', exact: true })).toBeFocused();
+    await press(page, card.getByRole('button', { name: /^Remove from Line 2/ }));
+    await expect(card).toHaveCount(0);
+    await expect(stops.getByRole('button')).toHaveText(['1', '3', '4']);
+    await expect(stops.getByRole('button', { name: 'Stop 1', exact: true })).toBeFocused();
+  });
+
+  test('a tier that goes hands the focus to the other; one that stays leaves no hand-off waiting for an Escape', async ({ page }) => {
+    // Stop 2 a Shelter, and stop 1 off the line, alone (stops 3 and 4 lie below a 720 px window's foot).
+    const panel = await lines(page, (d) => {
+      (d.stops as { id: number; tier: number }[]).find((s) => s.id === 2)!.tier = 2;
+      (d.lines as { stopIds: number[] }[])[0]!.stopIds = [2, 3, 4];
+    });
+    const card = page.getByTestId('stop-card');
+    await panel.getByTestId('line-stops').getByRole('button', { name: 'Stop 2', exact: true }).click();
+    // Down to a Sign, the lowest: its button goes, and the focus goes to the step up.
+    await press(page, card.getByRole('button', { name: /^Make it a Sign/ }));
+    await expect(card).toHaveAttribute('data-tier', '1');
+    await expect(card.getByRole('button', { name: /^Make it a Shelter/ })).toBeFocused();
+    // Up to a Shelter: its button stays, now for a Station. An Escape later closes the card and moves the focus nowhere, so
+    // Space plays; a hand-off left waiting gave Build the focus, and Space opened the Build menu.
+    await page.keyboard.press('Enter');
+    await expect(card).toHaveAttribute('data-tier', '2');
+    await expect(card.getByRole('button', { name: /^Make it a Station/ })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId('build')).not.toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
+    await expect(page.getByTestId('build-menu')).toHaveCount(0);
+
+    // Stop 1, on no line, opened from the map: Take it down closes its card, and the focus goes to Build.
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    const placed = (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').map((t) => t.split(/[:,]/).map(Number));
+    const one = placed.find(([id]) => id === 1)!;
+    const [x, y] = await toScreen(page, [one[1]!, one[2]!]);
+    await expect(async () => {
+      await page.mouse.click(x, y);
+      await expect(card).toHaveAttribute('aria-label', 'Stop 1', { timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await press(page, card.getByRole('button', { name: /^Take it down/ }));
+    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId('build')).toBeFocused();
+  });
+
+  test('Take it hands the focus to the contract it took', async ({ page }) => {
+    await lines(page);
+    // The checklist's last step, Take a contract, opens Contracts (shell.ts: day 1 in profit).
+    await page.getByTestId('checklist').click();
+    const contracts = page.getByTestId('contracts');
+    const offer = contracts.getByTestId('contract').filter({ has: page.getByRole('button', { name: 'Take it' }) }).first();
+    const id = await offer.getAttribute('data-contract');
+    await press(page, offer.getByRole('button', { name: 'Take it' }));
+    const taken = contracts.locator(`[data-contract="${id}"]`);
+    await expect(taken).toHaveAttribute('data-held', 'yes');
+    await expect(taken).toBeFocused();
+  });
+
+  /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×; the day card and its Continue. */
+  async function toTheClose(page: Page) {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await leaveHome(page);
+    await foundCompany(page);
+    await withDebugLine(page, (d) => void (d.clock.elapsed = 86_400 + 18 * 3_600 + 30 * 60));
+    await setSpeed(page, '600×');
+    const day = page.getByTestId('day-card');
+    return { day, go: day.getByRole('button', { name: 'Continue' }) };
+  }
+
+  /** Tabs on from where the focus is until `go` has it, as a keyboard player reaches it. */
+  async function tabTo(page: Page, go: Locator) {
+    for (let k = 0; k < 60 && !(await go.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(go).toBeFocused();
+  }
+
+  test('Continue hands the focus back where the keyboard had it as the day card showed', async ({ page }) => {
+    const { day, go } = await toTheClose(page);
+    // The keyboard on the dock's Lines as the card shows, three game minutes' wait or more ahead of it.
+    const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
+    await dockLines.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(dockLines).toBeFocused();
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await tabTo(page, go);
+    await page.keyboard.press('Enter');
+    await expect(day).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+  });
+
+  test('Continue leaves the page’s focus on the page as the card goes, so Space plays', async ({ page }) => {
+    // Where the focus came into the card from was the Saves chip on every forward Tab, and Space opened Saves.
+    const { day, go } = await toTheClose(page);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await tabTo(page, go);
+    await page.keyboard.press('Enter');
+    await expect(day).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
+    await expect(page.getByTestId('saves')).toHaveCount(0);
   });
 });

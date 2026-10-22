@@ -25,6 +25,7 @@ export function Inspector({
   onFinance,
   onClose,
   closeHandBack,
+  onStop,
 }: {
   sim: Sim;
   lineId: number | null;
@@ -36,6 +37,8 @@ export function Inspector({
   onClose: () => void;
   /** Hands Close it's focus on as its line goes: held by App, as Lines closes with the last line (useFocusBack). */
   closeHandBack: HandBack;
+  /** Opens a stop's card, from the line card's stops: `from` is the stop's button. */
+  onStop: (stopId: number, from: HTMLElement) => void;
 }) {
   // The line whose Close line was pressed, asking to confirm. Another line shown lets the ask go, so it never comes back by
   // itself: not on a tab chosen again, nor on a line created later under the id an undo freed (the review of the change).
@@ -126,6 +129,7 @@ export function Inspector({
           sim={sim}
           line={line}
           onFinance={() => onFinance(line.id)}
+          onStop={onStop}
         />
         <div className="controls">
           <button type="button" disabled={runOver(sim)} onClick={() => onEditRoute(line.id)}>

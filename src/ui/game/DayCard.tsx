@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import type { HandBack } from '../focusBack';
 import { focusLost } from '../focusLost';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
 import { useScrollStop } from '../scrollStop';
@@ -20,7 +21,7 @@ const points = (grade: number) => Math.floor(grade);
  * it above Continue scrolls inside the card when it is taller than its cap (52vh, and the room above
  * the dock), so Continue stays in view; a long line wraps at its width (app.css, I13).
  */
-export function DayCard({ sim }: { sim: Sim }) {
+export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   const card = sim.dayCard;
   // The close that ends the run turns off the control the keyboard was on: Continue takes the focus, rather than the page.
   // Any other close leaves the focus where it is, so Space still plays and pauses as the day's card shows.
@@ -30,13 +31,25 @@ export function DayCard({ sim }: { sim: Sim }) {
     if (over && focusLost()) go.current?.focus();
   }, [card?.day, over]);
   const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();
+  // Where the keyboard had the focus as the card showed, so Continue's goes back there as the card goes (App holds the
+  // hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where the focus came
+  // into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's end the
+  // lender's card takes it instead.
+  const cameFrom = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const at = document.activeElement;
+    cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? at : null;
+  }, [card?.day]);
   const heading = useId();
   if (!card) return null;
   const byKind = new Map<string, number>();
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
   return (
-    <section key={card.day} className="day-card" role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
+    <section
+      key={card.day}
+      className="day-card"
+      role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
       {/* Its rows scroll inside it on a busy close, and hold nothing focusable, so while they scroll the box takes the focus
           itself for the keyboard's arrows (useScrollStop). */}
       <div className="day-card-scroll" ref={scrollBox} {...(scrolls ? { tabIndex: 0, role: 'region', 'aria-labelledby': heading } : {})}>
@@ -104,7 +117,14 @@ export function DayCard({ sim }: { sim: Sim }) {
           </tbody>
         </table>
       </div>
-      <button ref={go} type="button" onClick={sim.closeDayCard}>
+      <button
+        ref={go}
+        type="button"
+        onClick={(e) => {
+          if (!over) handBack(e.currentTarget, () => cameFrom.current);
+          sim.closeDayCard();
+        }}
+      >
         Continue
       </button>
     </section>

@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A click where several lines run on the same streets lists them all, each with a button that opens its line, instead of opening only the line drawn on top.
 - A line with more buses than its headways need, after you run it less often or shorten its route, says so on its card, with a button that sells the spare buses for half what they cost and frees their places at the depot. A slower headway's card says how many of the line's buses it needs.
 - Close line, beside Edit route in Lines, takes a line away after asking: its buses leave the streets at once and sell for half what they cost, and its stops that no other line calls at come down, giving back half of what they and their fittings cost. Undo, while paused, takes back a line closed or spare buses sold, cash and all.
+- Each line's card in Lines lists its stops in route order: press one to open that stop's card, from the keyboard too. Before, only a press on the stop on the map opened it.
 
 ### Changed
 
@@ -236,6 +237,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Importing a save file whose money rows are out of day order is now refused as unreadable, with your game kept as it was, instead of stopping the game at that night's close.
 - Pressing a card's button from the keyboard keeps your place: after Keep as is, Run it, Buy and run, Buy and swap, Sell them or Keep it, the focus goes back to the control the card came from, and after Close it to the line shown next, or to Build once the last line has closed, instead of to the top of the page.
 - Pressing Sell them twice quickly sells the spare buses once, instead of also saying that the line needs every bus it has.
+- More of the buttons that go with their card keep your place on the keyboard. A stop card's Remove from a line moves the focus to the stop's first remaining line. Once the stop has come down, it goes back to the line's stops you opened the card from. Take it down moves it to Build, and a step down to a Sign or up to a Transfer Hub moves it to the other step's button. Take it in Contracts moves it to the contract you took. The day card's Continue moves it back to the control the keyboard was on when the card showed. Before, each dropped it to the top of the page.
 
 ### Removed
 

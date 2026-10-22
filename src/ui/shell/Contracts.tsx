@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
+import { useFocusBack } from '../focusBack';
 import { runOver } from '../game/runOver';
 import { askText, capitalise, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
@@ -12,18 +14,30 @@ import type { Sim } from '../game/useSim';
  * unlocks the Goliath.
  */
 export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
+  // Take it goes as its contract is held, so the focus goes to that contract's row, which now says its days met (useFocusBack).
+  // The row takes the focus only then, as Panels' box does, so a press on a row's text still leaves the arrows to the panel.
+  const handBack = useFocusBack();
+  const root = useRef<HTMLElement>(null);
+  const toRow = (id: number) => () => {
+    const row = root.current?.querySelector<HTMLElement>(`[data-contract="${id}"]`);
+    if (row) {
+      row.tabIndex = -1;
+      row.addEventListener('blur', () => row.removeAttribute('tabindex'), { once: true });
+    }
+    return row;
+  };
   const s = sim.snapshot;
   if (!s) return null;
   const toSilver = tripsToSilver(s.medals, s.tripsCarried);
   return (
-    <aside className="panel contracts" aria-label="Contracts" data-testid="contracts" data-chrome="panel">
+    <aside ref={root} className="panel contracts" aria-label="Contracts" data-testid="contracts" data-chrome="panel">
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
         ×
       </button>
       <h2>Contracts</h2>
       <ul className="contract-list">
         {s.contracts.map((c) => (
-          <li key={c.id} data-testid="contract" data-landmark={c.landmark} data-kind={c.kind} data-held={c.held ? 'yes' : 'no'} data-met={c.met ? 'yes' : 'no'} data-days-met={c.daysMet}>
+          <li key={c.id} data-contract={c.id} data-testid="contract" data-landmark={c.landmark} data-kind={c.kind} data-held={c.held ? 'yes' : 'no'} data-met={c.met ? 'yes' : 'no'} data-days-met={c.daysMet}>
             <strong>
               {capitalise(askText(c.kind, c.ask))} at {c.landmark}
             </strong>
@@ -37,7 +51,14 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
               </span>
             ) : (
               <span className="controls">
-                <button type="button" disabled={runOver(sim)} onClick={() => sim.send({ type: 'accept-contract', contractId: c.id })}>
+                <button
+                  type="button"
+                  disabled={runOver(sim)}
+                  onClick={(e) => {
+                    handBack(e.currentTarget, toRow(c.id));
+                    sim.send({ type: 'accept-contract', contractId: c.id });
+                  }}
+                >
                   Take it
                 </button>
               </span>

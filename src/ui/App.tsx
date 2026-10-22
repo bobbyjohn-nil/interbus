@@ -80,6 +80,9 @@ export function App() {
   const [financeAsks, setFinanceAsks] = useState(0);
   if (financeLine !== null && !open.includes("finance")) setFinanceLine(null);
   const [stopId, setStopId] = useState<number | null>(null);
+  // The stops of the line card a stop's card was opened from, none for a press on the map: the focus goes back to them as
+  // the stop comes down, or to Build.
+  const [stopRow, setStopRow] = useState<Element | null>(null);
   // The lines a click found on the same streets, the topmost first (LinesHere).
   const [hereIds, setHereIds] = useState<readonly number[]>([]);
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
@@ -160,6 +163,7 @@ export function App() {
         setRouting((r) => (r ? { ...r, points: [...r.points, point] } : r));
       } else if (hit.stopId !== null) {
         // A click on a stop opens its card; on a line, the line's inspector.
+        setStopRow(null);
         setStopId(hit.stopId);
         show("stop");
       } else if (hit.lineIds.length > 1) {
@@ -268,10 +272,19 @@ export function App() {
   // Lines with no line left to show (an undo took back the only one) closes, as Escape closes it, so
   // the dock shows it neither open nor pressed.
   if (game && !game.lines.length && open.includes("lines")) setOpen((o) => o.filter((p) => p !== "lines"));
-  // Close it's focus, held here as Lines closes with the last line: once its line has gone, it goes to the line shown in its
-  // place, or to Build, the next thing to do, when none is left (useFocusBack). An undo that takes the only line leaves the
-  // focus where it was, so Space still plays (the review of the hand-back: it opened Build).
-  const closeHandBack = useFocusBack();
+  // The focus of a button whose card closes with it, held here as the card goes (useFocusBack): Close it's, once its line has
+  // gone, to the line shown in its place or to Build when none is left; the day card's Continue's, to where the focus came
+  // from; a stop card's, as its stop goes or leaves a line. An undo that takes the only line leaves the focus where it was,
+  // so Space still plays (the review of the hand-back: it opened Build).
+  const handBack = useFocusBack();
+  const openStop = useCallback(
+    (id: number, from: HTMLElement) => {
+      setStopRow(from.closest("[data-testid='line-stops']"));
+      setStopId(id);
+      show("stop");
+    },
+    [show],
+  );
   // A stop's card closes with its stop (taken down, or an undo), so it never opens again by itself on a
   // stop that takes the same id later.
   if (stopId !== null && game && !game.stops.some((s) => s.id === stopId)) {
@@ -491,7 +504,8 @@ export function App() {
               show("finance");
             }}
             onClose={() => hide("lines")}
-            closeHandBack={closeHandBack}
+            closeHandBack={handBack}
+            onStop={openStop}
           />
         ),
       });
@@ -552,6 +566,8 @@ export function App() {
           <StopCard
             sim={sim}
             stopId={stopId}
+            handBack={handBack}
+            backTo={() => (stopRow?.isConnected ? stopRow.querySelector<HTMLElement>("button") : null)}
             onLine={(id) => {
               setLineId(id);
               show("lines");
@@ -691,7 +707,7 @@ export function App() {
           setHomeAt(Date.now());
         }}
       />
-      {stopped ? null : <DayCard sim={sim} />}
+      {stopped ? null : <DayCard sim={sim} handBack={handBack} />}
       <Corner key="corner" />
       {/* A failed game's worker is gone, and Export with it: its card offers Reload alone. */}
       <ReplacedCard key="replaced" failed={stopped ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} unsaved={stopped ? null : mapUnsaved} />
