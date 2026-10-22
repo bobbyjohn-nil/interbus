@@ -101,6 +101,10 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   // A change card's buttons and Sell them go with their card, so the focus goes back to the control the card came from: the
   // headway last picked, or the Buses list (useFocusBack).
   const handBack = useFocusBack();
+  // The line and its bus count Sell them was pressed at: one press, one sale (D26), so a second press before the sale lands
+  // sends nothing (two Enters sent two, and the second's refusal said the line needed every bus). Its buses changing, another
+  // line or a refusal lets it go.
+  const [soldAt, setSoldAt] = useState<{ lineId: number; buses: number } | null>(null);
   const root = useRef<HTMLElement>(null);
   const lastPeriod = useRef<Period>('peak');
   const toModel = () => root.current?.querySelector<HTMLElement>('[data-testid="line-model"]');
@@ -108,6 +112,7 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   const s = sim.snapshot;
   if (!s) return null;
   const over = runOver(sim);
+  if (soldAt && (soldAt.lineId !== line.id || soldAt.buses !== line.buses || sim.refusal?.command === 'sell-spares')) setSoldAt(null);
   const game = sim.loaded?.at ?? null;
   // A pick made before an undo or a load is dropped, not sent with the line as it now stands.
   const held = heldPick(wanted, line, game);
@@ -211,6 +216,8 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
               type="button"
               disabled={over}
               onClick={(e) => {
+                if (soldAt?.lineId === line.id) return;
+                setSoldAt({ lineId: line.id, buses: line.buses });
                 handBack(e.currentTarget, toModel);
                 sim.send({ type: 'sell-spares', lineId: line.id });
               }}
