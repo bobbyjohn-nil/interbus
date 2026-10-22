@@ -229,13 +229,14 @@ const told = (p: Played) =>
 for (const kind of ['stop', 'bus', 'more often', 'bigger, less often']) {
   const all = tried.filter((t) => t.kind === kind);
   const pay = all.filter((t) => t.gainCents > 0).sort((a, b) => a.priceCents / a.gainCents - b.priceCents / b.gainCents);
-  const price = pay.reduce((s, t) => s + t.priceCents, 0);
-  const gain = pay.reduce((s, t) => s + t.gainCents, 0);
-  console.log(
-    `  ${kind}: ${all.length} tried; ${pay.length} pay alone, ${usd(price)} for ${usd(gain)} a day added up${gain > 0 ? ` (${Math.round(price / gain)} days)` : ''}; all ${all.length} cost ${usd(all.reduce((s, t) => s + t.priceCents, 0))} and add ${all.reduce((s, t) => s + t.points, 0).toFixed(2)} card points, each alone`,
-  );
-  // The best that pays alone on each stop or line, bought together on the one day.
+  // The best that pays alone on each stop or line: a line takes one model, so its others are not added to it.
   const best = pay.filter((t, i) => pay.findIndex((u) => u.subject === t.subject) === i);
+  const price = best.reduce((s, t) => s + t.priceCents, 0);
+  const gain = best.reduce((s, t) => s + t.gainCents, 0);
+  console.log(
+    `  ${kind}: ${all.length} tried; ${pay.length} pay alone, and the best of them on each stop or line (${best.length}) cost ${usd(price)} and bring ${usd(gain)} a day added up${gain > 0 ? ` (${Math.round(price / gain)} days)` : ''}; all ${all.length} cost ${usd(all.reduce((s, t) => s + t.priceCents, 0))} and add ${all.reduce((s, t) => s + t.points, 0).toFixed(2)} card points, each alone`,
+  );
+  // Those best ones, bought together on the one day.
   if (best.length > 1) {
     const together = play(() => {
       let priceCents = 0;
