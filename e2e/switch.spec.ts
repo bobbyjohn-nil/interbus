@@ -169,7 +169,7 @@ test.describe('switching games', () => {
     const saves = page.getByTestId('saves');
     const slot = page.getByTestId('slot-1');
     await slot.getByRole('button', { name: 'Save here' }).click();
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
     await openBoth();
     await page.getByTestId('saves-chip').click();
     await slot.getByRole('button', { name: 'Load' }).click();
@@ -179,7 +179,7 @@ test.describe('switching games', () => {
     await expect.soft(inspector).toHaveCount(0);
     await expect(saves).toBeVisible();
     // The same with a save file.
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
     await openBoth();
     await withDebugLine(page);
     await expect(stopCard).toHaveCount(0);

@@ -68,7 +68,7 @@ test.describe('saves: slots, export and import', () => {
     const exported = await (await file.createReadStream()).toArray();
 
     // A line, then slot 1 back: the line is gone and the cash is the slot's.
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await build(page, 'Draw a line');
     for (const stop of DEBUG_STOPS) {
       const [x, y] = await toScreen(page, stop.at);
@@ -186,7 +186,7 @@ test.describe('saves: slots, export and import', () => {
     await saves.getByRole('button', { name: 'Import a save file' }).click();
     await chooser;
     await expect(saves.getByRole('button', { name: 'Replace this game' })).toHaveCount(0);
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
 
     await foundCompany(page, 'First Co');
     await page.getByRole('button', { name: 'Saves' }).click();
@@ -276,7 +276,7 @@ test.describe('saves: slots, export and import', () => {
     await button('Save here').click();
     await expect(slot).toContainText('Back Bay Transit');
     // The keyboard's way in: Tab from Close.
-    await saves.getByRole('button', { name: 'Close' }).focus();
+    await saves.getByRole('button', { name: 'Close', exact: true }).focus();
     await page.keyboard.press('Tab');
     await expect(button('Save here')).toBeFocused();
     await page.keyboard.press('Enter');
@@ -409,7 +409,7 @@ test.describe('saves: slots, export and import', () => {
     await expect(chip).toHaveText('Autosave off');
     await expect(chip).toHaveAccessibleName('Saves: autosave off');
     // Closed again and opened from the same place: the chip has not moved under the pointer.
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(chip).toHaveText('Autosave off');
     expect(await chip.boundingBox()).toEqual(at);
     await chip.click();
@@ -437,7 +437,7 @@ test.describe('saves: slots, export and import', () => {
     await expect(row).toContainText('Autosave · Year 1, Q1, Day 1, 05:00 · New Line Co');
     expect((await page.evaluate(() => (window as unknown as { rowSeen: string[] }).rowSeen)).filter((t) => !t.includes('not set aside') && !t.includes('New Line Co'))).toEqual([]);
     await expect(row.getByRole('button')).toHaveCount(0);
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(chip).toHaveText('Saves');
     await expect.poll(async () => (JSON.parse((await live()) ?? 'null') as { data: { company: { name: string } } } | null)?.data.company.name).toBe('New Line Co');
     // Said by a notice on Home, never on the founding card nor in the game, where the chip says it; never said to be set aside,
@@ -523,7 +523,7 @@ test.describe('saves: slots, export and import', () => {
     await expect(notice).toHaveCount(0);
     await expect(saves.getByTestId('saves-refused')).toHaveCount(0);
     // No room at all: the stop placed grows the autosave past it.
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
     await fillStore(page, 'b', 0);
     const cash = Number(await panel.getAttribute('data-cash'));
     await build(page, 'Place a stop');

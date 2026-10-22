@@ -85,7 +85,7 @@ test.describe('a change of line', () => {
     await page.getByTestId('undo').click();
     await expect(page.getByTestId('route-editor')).toHaveCount(0);
     await expect(card.getByRole('button', { name: 'Line 2', exact: true })).toHaveCount(0);
-    await card.getByRole('button', { name: 'Close' }).click();
+    await card.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(card).toHaveCount(0);
     await expect(async () => {
       await page.mouse.click(sx, sy);

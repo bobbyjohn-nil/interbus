@@ -207,7 +207,8 @@ function Lines({ sim, finance: f, open: asked }: { sim: Sim; finance: FinanceVie
     showWhole(body, row, row.nextElementSibling ?? row);
     shown.current = { banded, top: body.scrollTop };
   }, [asked, open, banded]);
-  if (!lines.length) return <p className="hint">No lines yet: draw one to see its money here.</p>;
+  // "Yet" only before the first: a company that closed its lines has had some (the review of Close line).
+  if (!lines.length) return <p className="hint">{sim.snapshot?.lineDrawn ? 'No lines' : 'No lines yet'}: draw one to see its money here.</p>;
   return (
     <table className="lines-money">
       <thead>

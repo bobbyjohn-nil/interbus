@@ -282,7 +282,7 @@ test.describe('one press, one command', () => {
     await page.mouse.down();
     await page.mouse.move(heading.x + 10 + x - takeDown.x - takeDown.width / 2, heading.y + heading.height / 2 + y - takeDown.y - takeDown.height / 2, { steps: 8 });
     await page.mouse.up();
-    await card.getByRole('button', { name: 'Close' }).click();
+    await card.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(card).toHaveCount(0);
     const before = await cash(page);
     await page.mouse.move(x, y);
@@ -549,7 +549,7 @@ test.describe('one press, one command', () => {
     await build(page, 'Place a stop');
     before = await cash(page);
     const stops = await stopIds(page);
-    await doubleClick(page, card.getByRole('button', { name: 'Close' }));
+    await doubleClick(page, card.getByRole('button', { name: 'Close', exact: true }));
     await expect(card).toHaveCount(0);
     await page.waitForTimeout(500);
     expect(await cash(page)).toBe(before);

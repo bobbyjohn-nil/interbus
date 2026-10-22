@@ -10,7 +10,7 @@ const CODES = [
   'depot_limit', 'not_depot_land', 'too_far_from_street', 'too_close_to_depot',
   'needs_depot', 'model_locked', 'same_model', 'no_street_near', 'stop_twice', 'no_route', 'too_few_stops',
   'headway_not_whole_seconds', 'headway_too_short', 'daytime_headway_too_long', 'overnight_more_often_than_offpeak', 'same_headways',
-  'depot_full', 'insufficient_funds', 'no_such_line', 'not_started',
+  'depot_full', 'insufficient_funds', 'no_such_line', 'no_spares', 'not_started',
   'already_founded', 'name_empty', 'name_too_long', 'colour_not_offered',
   'fare_out_of_range', 'fare_not_a_step', 'same_fare',
   'same_tier', 'no_such_tier', 'needs_lines', 'no_such_stop', 'not_on_line', 'line_keeps_two', 'no_new_stops', 'no_leg_near', 'no_change', 'stop_near', 'stop_in_use',

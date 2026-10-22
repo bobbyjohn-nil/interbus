@@ -29,7 +29,7 @@ async function lateGame(page: Page, lines = 30) {
   await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'late.json', mimeType: 'application/json', buffer: Buffer.from(encode(world.state, { sha: 'late', version: '0.0.0' })) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
+  await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
   return world;
 }
 
@@ -136,7 +136,7 @@ test.describe('a late game of many lines', () => {
     };
     // A new line over the shared street: the card lists it with the others.
     await draw(on!.a, on!.b);
-    await page.getByTestId('inspector').getByRole('button', { name: 'Close' }).click();
+    await page.getByTestId('inspector').getByRole('button', { name: 'Close', exact: true }).click();
     const here = await openHere(page, shared.xy);
     await expect(here.getByRole('button', { name: NEW, exact: true })).toBeVisible();
     // Undo takes it back, and the card closes with it.
@@ -165,7 +165,7 @@ test.describe('a late game of many lines', () => {
     for (const part of [finance.getByTestId(`line-money-${last.id}`), finance.getByTestId('line-forecast'), finance.getByTestId('fare-band')]) {
       expect(await shownIn(body, part)).toMatchObject({ whole: true });
     }
-    for (const part of [finance.getByRole('heading', { name: 'Finance' }), finance.getByRole('button', { name: 'Close' }), finance.getByRole('tablist', { name: 'Finance views' })]) {
+    for (const part of [finance.getByRole('heading', { name: 'Finance' }), finance.getByRole('button', { name: 'Close', exact: true }), finance.getByRole('tablist', { name: 'Finance views' })]) {
       expect(await shownIn(finance, part)).toMatchObject({ whole: true });
     }
   });

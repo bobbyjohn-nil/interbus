@@ -60,7 +60,7 @@ test.describe('route insert', () => {
     await page.getByRole('button', { name: 'Replace this game' }).click();
     await (await chooser).setFiles({ name: 'insert.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     const before = await settled(page, 0, 4);
     expect(before.at.length).toBe(3);
 

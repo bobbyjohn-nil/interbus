@@ -1258,6 +1258,8 @@ describe('the failure floor', () => {
       { type: 'set-headways', lineId: line.id, headways: { peak: 3_600, offpeak: 3_600, overnight: null } },
       { type: 'set-fare', lineId: line.id, fareCents: 175 },
       { type: 'create-line', clicks: CLICKS },
+      { type: 'sell-spares', lineId: line.id },
+      { type: 'close-line', lineId: line.id },
       { type: 'speed', speed: 1 },
     ];
     for (const ask of asks) {
@@ -1398,5 +1400,112 @@ describe('city events (the M4 spec, item 2)', () => {
     host.handle({ type: 'place-stop', at: CLICKS[1]! }); // Symphony
     expect(last('snapshot')!.snapshot.stops).toHaveLength(3);
     expectAmid();
+  });
+});
+
+// The late game at the bus ceiling (DECISIONS, Open, its recommended (a)): a line's spare buses sold, and a line closed, at half
+// price as a model change sells, each taken back by an undo while paused, to the cent (I9).
+describe('selling a line’s spare buses, and closing a line', () => {
+  function withLine() {
+    const run = started();
+    run.host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    run.host.handle({ type: 'place-depot', at: depotSpot(run.last('ready')!.depotLand as [number, number][][]) });
+    run.host.handle({ type: 'create-line', clicks: CLICKS });
+    return { ...run, line: run.last('snapshot')!.snapshot.lines[0]! };
+  }
+
+  it('sells the buses a line’s headways no longer need, at half price, and an undo takes the sale back', () => {
+    const { host, last, line } = withLine();
+    host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 3_600, offpeak: 3_600, overnight: null } });
+    const parked = last('snapshot')!.snapshot;
+    // Run less often, the line keeps its buses, the spares parked in their depot places.
+    expect(parked.lines[0]!.buses).toBe(line.buses);
+    host.handle({ type: 'sell-spares', lineId: line.id });
+    const sold = last('snapshot')!.snapshot;
+    const needed = sold.lines[0]!.buses;
+    expect(needed).toBeGreaterThan(0);
+    expect(needed).toBeLessThan(line.buses);
+    expect(sold.cashCents - parked.cashCents).toBe(((line.buses - needed) * 9_500_000) / 2);
+    expect(sold.undo).toEqual({ command: 'sell-spares', subject: 'Line 1' });
+    host.handle({ type: 'sell-spares', lineId: line.id });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'sell-spares', reason: 'no_spares' });
+    host.handle({ type: 'undo' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: parked.cashCents, lines: [{ id: line.id, buses: line.buses }] });
+  });
+
+  it('closes a line, its buses sold and its stops taken down at half price, and an undo puts it back', () => {
+    const { host, last, line } = withLine();
+    const open = last('snapshot')!.snapshot;
+    expect(open.stops.length).toBe(4);
+    host.handle({ type: 'close-line', lineId: line.id });
+    const closed = last('snapshot')!.snapshot;
+    expect(closed.lines).toEqual([]);
+    expect(closed.stops).toEqual([]);
+    // Each Sparrow back at $47,500, each Sign at $2,000.
+    expect(closed.cashCents - open.cashCents).toBe((line.buses * 9_500_000) / 2 + 4 * 200_000);
+    expect(closed.undo).toEqual({ command: 'close-line', subject: 'Line 1' });
+    host.handle({ type: 'undo' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: open.cashCents, lines: [{ id: line.id, buses: line.buses }], stops: open.stops.map((s) => ({ id: s.id })) });
+  });
+
+  it('keeps the stops another line calls at', () => {
+    const { host, last, line } = withLine();
+    host.handle({ type: 'create-line', clicks: [CLICKS[0]!, [...KENMORE]] });
+    const second = last('snapshot')!.snapshot.lines.find((l) => l.id !== line.id)!;
+    expect(second.stopIds).toContain(line.stopIds[0]);
+    host.handle({ type: 'close-line', lineId: line.id });
+    const after = last('snapshot')!.snapshot;
+    expect(after.lines.map((l) => l.id)).toEqual([second.id]);
+    expect(after.stops.map((s) => s.id).sort((a, b) => a - b)).toEqual([...second.stopIds].sort((a, b) => a - b));
+  });
+
+  // The undos above checked the cash and the buses; this checks the whole game, ids and all (the review of the change).
+  it('puts back the exact game when a sale and a close with buses out are undone, and the next line takes the same id', () => {
+    const { host, last, line } = withLine();
+    host.handle({ type: 'create-line', clicks: [CLICKS[0]!, [...KENMORE]] });
+    host.handle({ type: 'speed', speed: 5 });
+    host.advanceTo(86_400 + 3 * 3_600); // 08:00 on day 2, the buses out
+    host.handle({ type: 'speed', speed: 0 });
+    host.handle({ type: 'set-headways', lineId: line.id, headways: { peak: 3_600, offpeak: 3_600, overnight: null } });
+    const game = () => {
+      host.handle({ type: 'export' });
+      return JSON.stringify((JSON.parse(last('export')!.text) as { data: unknown }).data);
+    };
+    const [before, hash] = [game(), host.stateHash()];
+    host.handle({ type: 'sell-spares', lineId: line.id });
+    host.handle({ type: 'close-line', lineId: 2 });
+    expect(last('snapshot')!.snapshot.lines.map((l) => l.id)).toEqual([line.id]);
+    host.handle({ type: 'undo' });
+    host.handle({ type: 'undo' });
+    expect(game()).toBe(before);
+    expect(host.stateHash()).toBe(hash);
+    host.handle({ type: 'create-line', clicks: [CLICKS[1]!, CLICKS[3]!] });
+    expect(last('snapshot')!.snapshot.lines.map((l) => l.id)).toEqual([1, 2, 3]);
+  });
+
+  // Each line's hour is banked as it closes (step.ts), so a line closed mid-hour banks nothing more; the day's card still adds
+  // up to the change in cash (I1).
+  it('closes a line mid-trip, and that day’s card adds up to the change in cash (I1)', () => {
+    const { host, out, line } = withLine();
+    host.handle({ type: 'create-line', clicks: [CLICKS[0]!, [...KENMORE]] });
+    host.handle({ type: 'speed', speed: 5 });
+    host.advanceTo(86_400 + 3 * 3_600 + 1_800); // 08:30 on day 2
+    host.handle({ type: 'close-line', lineId: line.id });
+    host.advanceTo(2 * 86_400 - 5 * 3_600 + 60); // past day 2's close at midnight
+    const card = out.flatMap((m) => (m.type === 'day-card' && m.card.day === 2 ? [m.card] : []))[0]!;
+    expect(card.rows.some((r) => r.lineId === line.id)).toBe(true);
+    expect(card.rows.reduce((sum, r) => sum + r.amountCents, 0)).toBe(card.cashAfterCents - card.cashBeforeCents);
+  });
+
+  // The checklist's second step reads whether a line was ever drawn, so closing every line does not bring the chip back to
+  // Draw a line (the review of the change); an undo of the Create still takes the step back.
+  it('counts a line drawn once it closes, and not once its Create is undone', () => {
+    const { host, last, line } = withLine();
+    expect(last('snapshot')!.snapshot.lineDrawn).toBe(true);
+    host.handle({ type: 'close-line', lineId: line.id });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], lineDrawn: true });
+    host.handle({ type: 'undo' });
+    host.handle({ type: 'undo' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], lineDrawn: false });
   });
 });

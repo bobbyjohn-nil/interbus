@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { cyclesOf } from '../../sim/rules/cycle';
 import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
-import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, type FleetContext } from '../../sim/rules/line';
+import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, checkSellSpares, type FleetContext } from '../../sim/rules/line';
 import { planIsExpress } from '../../sim/rules/express';
 import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
@@ -121,6 +121,9 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   const works = line.worksM > 0 && s.event ? { street: s.event.street, addS: line.cycles.peak - clear.peak } : null;
   const snowAddS = snow ? line.cycles.peak - clear.peak : 0;
   const pick = (period: Period, value: string) => setWanted(pickHeadway(held, line, game, period, value === 'off' ? null : Number(value) * 60));
+  // Buses its headways no longer need, parked in their depot places: sold, the places are free for another line (the late game
+  // at the bus ceiling, DECISIONS, Open, its recommended (a)), on the rule the command checks (GD-05).
+  const spares = checkSellSpares({ buses: line.buses, cycle: line.cycle, cycles: line.cycles, model, headways: line.headways });
   return (
     <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={s.finance.lines.find((m) => m.id === line.id)?.forecastCents.running ?? 0}>
       <p>
@@ -180,6 +183,18 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
           </div>
         </div>
       ) : null}
+      {spares.ok ? (
+        <div className="spares" data-testid="line-spares" data-sold={spares.sold}>
+          <p>
+            {spares.sold} of its {busCount(line.buses, model.name)} {spares.sold === 1 ? 'is' : 'are'} spare: it needs {spares.needed}
+          </p>
+          <div className="controls">
+            <button type="button" disabled={over} onClick={() => sim.send({ type: 'sell-spares', lineId: line.id })}>
+              Sell {spares.sold === 1 ? 'it' : 'them'} · {usdK(spares.saleCents)} back
+            </button>
+          </div>
+        </div>
+      ) : null}
       {/* The fare is a money lever: it is set in Finance's Lines, beside the line's money (D25). */}
       <p className="fare" data-testid="line-fare" data-fare={line.fareCents}>
         Fare {usd(line.fareCents, { cents: true })}
@@ -207,7 +222,13 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
       {change ? (
         <div className="change" ref={changeCard} data-testid="headway-change" data-ok={change.ok ? 'yes' : 'no'}>
           {change.ok ? (
-            <p>{change.extra > 0 ? `Needs ${change.needed} buses (you have ${line.buses}) · ${usdK(change.priceCents)}` : `Runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}</p>
+            <p>
+              {change.extra > 0
+                ? `Needs ${change.needed} buses (you have ${line.buses}) · ${usdK(change.priceCents)}`
+                : change.needed < line.buses
+                  ? `Needs ${change.needed} of the ${line.buses} buses it has`
+                  : `Runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}
+            </p>
           ) : (
             <p className="refusal" role="status">
               {refusalText(change)}

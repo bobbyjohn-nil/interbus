@@ -33,7 +33,7 @@ async function edited(page: Page, edit: (d: Data) => void): Promise<void> {
   await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'events.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
+  await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
 }
 
 /** 23:50 on `day`, ten game minutes before its close. */
@@ -123,7 +123,7 @@ test.describe('roadworks a day ahead', () => {
     const snowy = Number(await roundTrip.getAttribute('data-peak'));
     expect(snowy).toBeGreaterThan(calm);
     expect(snowy - calm).toBe(Number(await roundTrip.getAttribute('data-snow-s')));
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
 
     // A festival rolled the same way gathers at one of the line's stops, a ring round it.
     await edited(page, (d) => company(d, 'festival', 3));

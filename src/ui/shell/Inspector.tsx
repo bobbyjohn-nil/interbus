@@ -1,5 +1,10 @@
-import type { KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { BUS_MODELS } from "../../sim/rules/line";
+import { closingOf } from "../../sim/rules/route";
+import type { StopTier } from "../../sim/rules/stopTier";
+import { busCount, usdK } from "../format";
 import { runOver } from "../game/runOver";
+import { showInBody } from "../showWhole";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 import { tabTo } from "../tablist";
@@ -28,9 +33,27 @@ export function Inspector({
   onFinance: (lineId: number) => void;
   onClose: () => void;
 }) {
+  // The line whose Close line was pressed, asking to confirm. Another line shown lets the ask go, so it never comes back by
+  // itself: not on a tab chosen again, nor on a line created later under the id an undo freed (the review of the change).
+  const [closingId, setClosingId] = useState<number | null>(null);
+  // The ask opens under the controls, below the panel's foot when the panel is low or the line's card long, so it is scrolled
+  // into view, as the line card's change cards are (#140).
+  const closeCard = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => showInBody(closeCard.current), [closingId]);
   const lines = sim.snapshot?.lines ?? [];
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
+  if (closingId !== null && closingId !== line?.id) setClosingId(null);
   if (!line) return null;
+  const model = BUS_MODELS[line.model];
+  // What closing it sells and takes down, on the rule the command checks (sim/rules/route.ts closingOf; GD-05).
+  const closing =
+    closingId === line.id
+      ? closingOf(
+          { buses: line.buses, model, stopIds: line.stopIds },
+          (sim.snapshot?.stops ?? []).map((s) => ({ id: s.id, tier: s.tier as StopTier, linesHere: s.lineIds.length })),
+        )
+      : null;
+  const down = closing?.removed.length ?? 0;
   // WAI-ARIA's tabs: the arrow keys move along the tabs, wrapping, and Home and End go to the first and last, each tab chosen as
   // the focus reaches it; only the chosen tab is in the Tab order, so one Tab goes on to the card. Before, the arrows did
   // nothing, and 30 lines took 30 presses of Tab to reach the card (the systems audit's seventh round).
@@ -92,7 +115,33 @@ export function Inspector({
           <button type="button" disabled={runOver(sim)} onClick={() => onEditRoute(line.id)}>
             Edit route
           </button>
+          <button type="button" disabled={runOver(sim)} aria-expanded={closing !== null} onClick={() => setClosingId(closing ? null : line.id)}>
+            Close line
+          </button>
         </div>
+        {closing ? (
+          <div className="change" ref={closeCard} data-testid="close-line">
+            <p>
+              Close {line.name}? {line.buses === 1 ? `Its ${model.name} sells` : `Its ${busCount(line.buses, model.name)} sell`} for {usdK(closing.saleCents)}
+              {down ? `, and ${down} ${down === 1 ? "stop" : "stops"} no other line uses ${down === 1 ? "comes" : "come"} down for ${usdK(closing.refundCents)}` : ""}.
+            </p>
+            <div className="controls">
+              <button
+                type="button"
+                disabled={runOver(sim)}
+                onClick={() => {
+                  sim.send({ type: "close-line", lineId: line.id });
+                  setClosingId(null);
+                }}
+              >
+                Close it
+              </button>
+              <button type="button" onClick={() => setClosingId(null)}>
+                Keep it
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

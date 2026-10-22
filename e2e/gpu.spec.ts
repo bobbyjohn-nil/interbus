@@ -72,7 +72,7 @@ test.describe('the GPU ladder', () => {
     }
     await expect(page.getByTestId('draft-card')).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Create' }).click();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await setSpeed(page, '600×');
     // The readout names where it was read: the camera's zoom and pitch, and the rung.
     await expect(page.getByTestId('fps')).toContainText(/ fps · p95 \d+ ms · zoom 1\d\.\d · 0° · Low graphics$/, { timeout: 10_000 });
@@ -309,7 +309,7 @@ test.describe('the GPU ladder', () => {
       await page.getByRole('button', { name: 'Replace this game' }).click();
       await (await chooser).setFiles({ name: 'restore.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
       await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-      await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
+      await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
     };
     await load();
     await expect(map).toHaveAttribute('data-depots', first);

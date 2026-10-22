@@ -77,7 +77,7 @@ test.describe('the copy convention', () => {
       await expect(page.getByTestId('stop-card')).toBeVisible({ timeout: 1_000 });
     }).toPass({ timeout: 10_000 });
     await read('lone stop card');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
     await page.mouse.move(dx - 20, dy);
@@ -100,7 +100,7 @@ test.describe('the copy convention', () => {
     await expect(page.getByTestId('route-editor')).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
     await read('route editor');
     await page.getByRole('button', { name: 'Cancel' }).click();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await read('finance');
     await page.getByTestId('finance-breakdown').click();
@@ -108,19 +108,19 @@ test.describe('the copy convention', () => {
     await read('finance breakdown');
     await page.getByTestId('finance-lines').click();
     await read('finance lines');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     const placed = (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number));
     const [sx, sy] = await toScreen(page, [placed[1]![1]!, placed[1]![2]!]);
     await page.mouse.click(sx, sy);
     await expect(page.getByTestId('stop-card')).toBeVisible();
     await read('stop card');
     // Panels stay open together (D25): the stop card goes before Saves opens, each read alone.
-    await page.getByTestId('stop-card').getByRole('button', { name: 'Close' }).click();
+    await page.getByTestId('stop-card').getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Saves' }).click();
     await page.getByTestId('slot-1').getByRole('button', { name: 'Save here' }).click();
     await expect(page.getByTestId('slot-1-when')).toBeVisible();
     await read('saves');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
 
     // A day to its close: the day card, then the contracts the checklist opens.
     await setSpeed(page, '5,400×');

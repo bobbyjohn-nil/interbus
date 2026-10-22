@@ -55,6 +55,17 @@ test.describe('the Lines panel dragged low', () => {
     await expect(panel.getByTestId('headway-change')).toBeVisible();
     expect(await shownIn(panel, panel.getByTestId('headway-change'))).toMatchObject({ whole: true });
     expect(await shownIn(panel, panel.getByRole('heading').first())).toMatchObject({ whole: true });
-    expect(await shownIn(panel, panel.getByRole('button', { name: 'Close' }))).toMatchObject({ whole: true });
+    expect(await shownIn(panel, panel.getByRole('button', { name: 'Close', exact: true }))).toMatchObject({ whole: true });
+  });
+
+  // Close line's ask opened under the controls, 65 px below the foot, and nothing scrolled to it, so the button seemed to do
+  // nothing (the review of the change).
+  test('Close line shows its ask whole, Close it with it', async ({ page }) => {
+    const panel = await linesLow(page);
+    await panel.getByRole('button', { name: 'Close line' }).click();
+    const ask = panel.getByTestId('close-line');
+    await expect(ask).toBeVisible();
+    expect(await shownIn(panel, ask)).toMatchObject({ whole: true });
+    expect(await shownIn(panel, ask.getByRole('button', { name: 'Close it' }))).toMatchObject({ whole: true });
   });
 });

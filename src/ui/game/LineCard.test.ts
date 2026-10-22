@@ -147,3 +147,17 @@ describe('the line card’s headway pick', () => {
     expect(heldModel(null, { model: 'sparrow' }, 1_000)).toBeNull();
   });
 });
+
+// A line run less often parks the buses it no longer needs in their depot places; the card counts them and sells them at half
+// price, on the rule the command checks (the late game at the bus ceiling, DECISIONS, Open, its recommended (a); GD-05).
+describe('a line’s spare buses on its card', () => {
+  it('counts the buses its headways no longer need, and offers them at half price', () => {
+    const spare = render({ headways: { peak: 1_800, offpeak: 1_800, overnight: null } });
+    expect(spare).toContain('2 of its 3 Sparrows are spare: it needs 1');
+    expect(spare).toContain('Sell them · $95k back');
+    const one = render({ headways: { peak: 1_200, offpeak: 1_200, overnight: null } });
+    expect(one).toContain('1 of its 3 Sparrows is spare: it needs 2');
+    expect(one).toContain('Sell it · $47.5k back');
+    expect(render({})).not.toContain('spare');
+  });
+});

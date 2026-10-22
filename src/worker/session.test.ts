@@ -100,6 +100,31 @@ describe('Export session', () => {
     expect(session.commands.map((c) => c.message.type)).toEqual(['set-fare', 'speed', 'undo']);
   });
 
+  // Sell spare buses and Close line (the late game at the bus ceiling, DECISIONS, Open, its recommended (a)) are commands a
+  // session records like any other. Shown failing (TS-04) with the two left out of the host's session commands.
+  it('replays spare buses sold and a line closed while time runs, mid-trip, to the same game', () => {
+    const g = game();
+    g.send({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    const land = g.last('ready')!.depotLand as [number, number][][];
+    const ring = [...land].sort((a, b) => b.length - a.length)[0]!;
+    g.send({ type: 'place-depot', at: [ring.reduce((s, p) => s + p[0], 0) / ring.length, ring.reduce((s, p) => s + p[1], 0) / ring.length] });
+    g.send({ type: 'create-line', clicks: CLICKS });
+    g.send({ type: 'create-line', clicks: [CLICKS[0]!, CLICKS[2]!] });
+    const [one, two] = g.last('snapshot')!.snapshot.lines;
+    g.send({ type: 'speed', speed: 5 });
+    g.runTo(86_400 + 3 * 3_600 + 1_800); // 08:30 on day 2, the buses out
+    g.send({ type: 'set-headways', lineId: one!.id, headways: { peak: 3_600, offpeak: 3_600, overnight: null } });
+    g.send({ type: 'sell-spares', lineId: one!.id });
+    g.runTo(86_400 + 5 * 3_600);
+    g.send({ type: 'close-line', lineId: two!.id });
+    g.runTo(2 * 86_400 + 3 * 3_600);
+    expect(g.last('snapshot')!.snapshot.lines.map((l) => l.id)).toEqual([one!.id]);
+    const live = g.host.stateHash()!;
+    const file = exported(g);
+    expect(replaySession(baked.text, file.text)).toEqual({ ok: true, hash: live, matches: true });
+    expect((JSON.parse(file.text) as SessionFile).commands.map((c) => c.message.type)).toEqual(['place-depot', 'create-line', 'create-line', 'speed', 'set-headways', 'sell-spares', 'close-line']);
+  });
+
   it('refuses a file that is not a session', () => {
     expect(replaySession(baked.text, '{')).toEqual({ ok: false, problem: 'not JSON' });
     expect(replaySession(baked.text, '{"kind":"interbus-save"}')).toEqual({ ok: false, problem: 'not a session file' });

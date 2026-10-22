@@ -31,7 +31,7 @@ test.describe('the camera and the sim (D2)', () => {
     }
     await expect(page.getByTestId('draft-card')).toHaveAttribute('data-price', '20600000', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Create' }).click();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
 
     // Tilted while time runs, flattened again, and a fare changed in between.
     await setSpeed(page, '5,400×');

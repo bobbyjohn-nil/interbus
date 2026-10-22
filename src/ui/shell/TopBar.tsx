@@ -31,7 +31,7 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const s = sim.snapshot;
   if (sim.status !== 'ready' || !s) return null;
   const founded = s.company.name !== '';
-  const progress = { depots: s.depots.length, lines: s.lines.length, elapsed: s.elapsed, profitableDays: s.profitableDays, contractTaken: s.contractTaken };
+  const progress = { depots: s.depots.length, lineDrawn: s.lineDrawn, elapsed: s.elapsed, profitableDays: s.profitableDays, contractTaken: s.contractTaken };
   const checklist = checklistText(progress);
   const toContracts = checklistStep(progress) === CHECKLIST.indexOf('Take a contract');
   const held = s.contracts.filter((c) => c.held).length;
