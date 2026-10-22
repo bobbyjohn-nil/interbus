@@ -369,6 +369,17 @@ export function App() {
     if (!was || was === homeSide || !focusLost()) return;
     document.querySelector<HTMLElement>(homeSide ? `[data-testid="${homeSide === "saves" ? "saves" : "help"}"] .close` : `[data-testid="home-${was}"]`)?.focus();
   });
+  // Help asked for again while it shows opens afresh on the view asked for, keyed by the asking. A press that leaves the focus
+  // in it, as Safari's and Firefox's on macOS do (they focus no button they click), would leave it on the page as Help
+  // remounts: Help's Close takes it, at Home and in the game (the review of the credits).
+  const helpOpen = open.includes("help");
+  const helpWas = useRef({ open: helpOpen, n: helpAsked.n });
+  useEffect(() => {
+    const was = helpWas.current;
+    helpWas.current = { open: helpOpen, n: helpAsked.n };
+    if (!was.open || !helpOpen || was.n === helpAsked.n || !focusLost()) return;
+    document.querySelector<HTMLElement>('[data-testid="help"] .close')?.focus();
+  });
   // A game that stopped working (its worker failed and was stopped) shows nothing of itself to press, nor of a tool out: no
   // panel (Saves opened from Home too), no tool's card, tint or draft, no day card and no lender's card, as it shows no dock
   // and no Saves chip. Their buttons would send to a worker that is gone, or close a card over a game that no longer runs,

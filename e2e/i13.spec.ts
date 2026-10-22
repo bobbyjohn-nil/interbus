@@ -3,7 +3,7 @@
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, the compass
 // and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
 // the draft card, the inspector, the route editor, a stop's card, Finance, Saves, Help, the day card). Home's
-// Saves and Help open beside Home's card, in turn, so each is measured with it.
+// Saves, Help and Credits (Help on its credits) open beside Home's card, in turn, so each is measured with it.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';

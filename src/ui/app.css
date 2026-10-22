@@ -888,9 +888,11 @@ button.chip.checklist,
   font-weight: 600;
 }
 
-/* The credits' links, each a target 24 px high (PLAN §8's floor), as a button is: the corner's are a line of 12 px text. */
+/* The credits' links, each a target 24 px high (PLAN §8's floor), as a button is: the corner's are a line of 12 px text. In
+   the ink's colour, as the corner's are, so each theme's tokens colour them, and underlined, so they read as links without it. */
 .help dl a {
   display: inline-block;
+  color: inherit;
   min-height: 24px;
   line-height: 24px;
 }

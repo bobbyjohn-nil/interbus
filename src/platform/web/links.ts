@@ -18,7 +18,8 @@ export const OWN_FILES: readonly string[] = ['fonts/OFL.txt', 'THIRD_PARTY_NOTIC
 
 /**
  * One of this build's own files, opened in a tab of its own as an external link is, never in place of the game: its href is
- * relative, so it resolves under /interbus/ and later app://, and the desktop build routes it as it routes the allowlist.
+ * relative, so it resolves under /interbus/ and, in the desktop build, under app://, which will need a route of its own there,
+ * since the system browser, where the allowlist's links go, cannot open an app:// file.
  */
 export function ownFile(path: string): ExternalLinkProps {
   if (!OWN_FILES.includes(path)) throw new Error(`own file not on the list: ${path}`);

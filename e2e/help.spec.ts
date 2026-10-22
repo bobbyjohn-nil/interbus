@@ -117,8 +117,11 @@ test.describe('Help', () => {
     await tabOnto(page, homeHelp);
     await page.keyboard.press('Enter');
     await expect(help).toBeVisible();
+    // Home's Credits, its last button, then Help beside it: its Close first.
     const close = help.getByRole('button', { name: 'Close', exact: true });
-    for (let k = 0; k < 5 && !(await close.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await expect(home.getByTestId('home-credits')).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(close).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
@@ -194,5 +197,43 @@ test.describe('Help', () => {
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     await expect(homeCredits).toBeFocused();
+  });
+
+  // Asked for again while it shows, Help opens afresh on the view asked for. A press that leaves the focus in it, as Safari's
+  // and Firefox's on macOS do (they focus no button they press: here a pointer's press and click sent to the button), hands it
+  // to Help's Close, not the page, at Home and in the game. Shown failing (TS-04) without the hand-back, with the focus on the page (the review of the
+  // credits).
+  test('asked for again while it shows, it opens afresh on that view and keeps a focus the press left in it', async ({ page }) => {
+    await ready(page);
+    const home = page.getByTestId('home');
+    const help = page.getByTestId('help');
+    const close = help.getByRole('button', { name: 'Close', exact: true });
+    const pressWithNoFocus = async (button: Locator) => {
+      await button.dispatchEvent('pointerdown');
+      await button.dispatchEvent('click');
+    };
+    const toCredits = async () => {
+      await help.getByRole('tab', { name: 'Keys and the map' }).focus();
+      await page.keyboard.press('ArrowRight');
+      await expect(help).toHaveAttribute('data-view', 'credits');
+    };
+    await home.getByTestId('home-help').click();
+    await toCredits();
+    await pressWithNoFocus(home.getByTestId('home-help'));
+    await expect(help).toHaveAttribute('data-view', 'keys');
+    await expect(close).toBeFocused();
+
+    await leaveHome(page);
+    await foundCompany(page);
+    const saves = page.getByTestId('saves');
+    await page.getByTestId('saves-chip').click();
+    await page.keyboard.press('?');
+    await expect(help).toBeVisible();
+    await expect(saves).toBeVisible();
+    await toCredits();
+    await pressWithNoFocus(saves.getByRole('button', { name: 'Help', exact: true }));
+    await expect(saves).toHaveCount(0);
+    await expect(help).toHaveAttribute('data-view', 'keys');
+    await expect(close).toBeFocused();
   });
 });

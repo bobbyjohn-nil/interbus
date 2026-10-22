@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Close line, beside Edit route in Lines, takes a line away after asking: its buses leave the streets at once and sell for half what they cost, and its stops that no other line calls at come down, giving back half of what they and their fittings cost. Undo, while paused, takes back a line closed or spare buses sold, cash and all.
 - Each line's card in Lines lists its stops in route order: press one to open that stop's card, from the keyboard too. Before, only a press on the stop on the map opened it.
 - Help lists the game's keys and what the mouse, your fingers and the keys do on the map, and what Low graphics leaves out. Press ? to open or close it, or choose Help on Home or in Saves.
-- A Credits screen, on Home and as a tab in Help: who made the game, and where its map, its homes and jobs, its font and its software come from, each linked to its page or its license.
+- A Credits screen, on Home and as a tab in Help: who made the game, and where its map, its homes and jobs, its font and its software come from. The map's sources link to their pages, and the font and the software to their licenses.
 
 ### Changed
 
