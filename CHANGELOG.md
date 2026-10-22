@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line with more buses than its headways need, after you run it less often or shorten its route, says so on its card, with a button that sells the spare buses for half what they cost and frees their places at the depot. A slower headway's card says how many of the line's buses it needs.
 - Close line, beside Edit route in Lines, takes a line away after asking: its buses leave the streets at once and sell for half what they cost, and its stops that no other line calls at come down, giving back half of what they and their fittings cost. Undo, while paused, takes back a line closed or spare buses sold, cash and all.
 - Each line's card in Lines lists its stops in route order: press one to open that stop's card, from the keyboard too. Before, only a press on the stop on the map opened it.
+- Help lists the game's keys and what the mouse, your fingers and the keys do on the map, and what Low graphics leaves out. Press ? to open or close it, or choose Help on Home or in Saves.
 
 ### Changed
 
@@ -242,6 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing Sell them twice quickly sells the spare buses once, instead of also saying that the line needs every bus it has.
 - More of the buttons that go with their card keep your place on the keyboard. A stop card's Remove from a line moves the focus to the stop's first remaining line. Once the stop has come down, it goes back to the line's stops you opened the card from. Take it down moves it to Build, and a step down to a Sign or up to a Transfer Hub moves it to the other step's button. Take it in Contracts moves it to the contract you took. The day card's Continue moves it back to the control the keyboard was on when the card showed. Before, each dropped it to the top of the page.
 - Closing a panel you opened from the keyboard, with its Close or Escape, puts the focus back on the button that opened it, or on the one that opened the panel it came from when Escape closes both. A stop's step up to the top its lines allow keeps the focus on the step, refused in words, and an undo from the keyboard that brings back a line you closed puts it on that line's tab. Before, each dropped the focus to the top of the page.
+- Closing Saves or Help beside Home, with Escape or Close, puts the focus back on Home's button for it, instead of the top of the page.
 
 ### Removed
 

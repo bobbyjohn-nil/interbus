@@ -119,7 +119,7 @@ export interface KeyPress {
 /** What a key does to the view: `T` tilts or flattens, `N` faces north, `Q` and `E` turn (3D only). */
 export type ViewKey = 'tilt' | 'north' | 'left' | 'right';
 
-const VIEW_KEYS: Readonly<Record<string, ViewKey>> = { t: 'tilt', n: 'north', q: 'left', e: 'right' };
+export const VIEW_KEYS: Readonly<Record<string, ViewKey>> = { t: 'tilt', n: 'north', q: 'left', e: 'right' };
 
 /** The view key pressed, with Shift or Caps Lock or neither, not held down and not typed into a field; else null. */
 export function viewKey(press: KeyPress): ViewKey | null {

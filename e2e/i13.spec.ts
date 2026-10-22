@@ -2,8 +2,8 @@
 // or less with a panel open, at 1440×900, 1366×768 and 1152×720, in the light theme. Chrome is every
 // element marked data-chrome: the chip row, the dock, notices, the credits and build chip, the compass
 // and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
-// the draft card, the inspector, the route editor, a stop's card, Finance, Saves, the day card). Home's
-// Saves always opens beside Home's card, so the two are measured together.
+// the draft card, the inspector, the route editor, a stop's card, Finance, Saves, Help, the day card). Home's
+// Saves and Help open beside Home's card, in turn, so each is measured with it.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
@@ -178,6 +178,15 @@ test.describe('the screen budget (I13)', () => {
       // Tab reaches the buttons below the fold, each scrolled into view: Back to Home, the last.
       await saves.getByRole('button', { name: 'Close', exact: true }).focus();
       expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Back to Home' }))).toBe(true);
+      // Help, from Saves' last row, which it shares with Export session and Back to Home, so Saves at its tallest grows no
+      // taller (savesTallest); it takes Saves' place. Its tables scroll inside its cap (60vh).
+      await saves.getByRole('button', { name: 'Help', exact: true }).click();
+      const help = page.getByTestId('help');
+      await expect(help).toBeVisible();
+      await expect(saves).toHaveCount(0);
+      shares.help = await chromeShare(page);
+      await help.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.getByRole('button', { name: 'Saves' }).click();
       // Home with Continue; its Saves, which opens beside it; and Start over's question with Saves open.
       // Shown failing (TS-04) without Saves' cap on Home and Home's width: 32.9% and 39.0% at 1152×720,
       // 26.9% and 31.8% at 1366×768.
@@ -194,12 +203,17 @@ test.describe('the screen budget (I13)', () => {
       await saves.getByRole('button', { name: 'Close', exact: true }).focus();
       expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Import a save file' }))).toBe(true);
       await home.getByRole('button', { name: 'Keep it' }).click();
+      // Help, beside Home's card in Saves' place, its tables scrolling inside Saves' cap there (45vh).
+      await home.getByRole('button', { name: 'Help', exact: true }).click();
+      await expect(help).toBeVisible();
+      await expect(saves).toHaveCount(0);
+      shares.homeHelp = await chromeShare(page);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
       expect(shares.rest, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
       expect(shares.restWithLine, JSON.stringify(rounded)).toBeLessThanOrEqual(REST);
-      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'homeContinue', 'homeSaves', 'homeSavesAsk']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
+      for (const panel of ['home', 'founding', 'demand', 'build', 'draft', 'inspector', 'routeEditor', 'finance', 'financeLines', 'financeBreakdown', 'financeBought', 'stop', 'saves', 'savesLoad', 'savesImport', 'savesTallest', 'help', 'homeContinue', 'homeSaves', 'homeSavesAsk', 'homeHelp']) expect(shares[panel], `${panel} ${JSON.stringify(rounded)}`).toBeLessThanOrEqual(PANEL);
     });
   }
 
