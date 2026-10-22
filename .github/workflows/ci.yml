@@ -9,6 +9,8 @@
 # Chromium (16 to 44 s in the other quarters' jobs). With the accessibility floor's axe-core runs the
 # first quarter took 4.4 minutes and its job 7.3 (#150), apt fetching Chromium's fonts at 263 kB/s
 # for 1 min 39 s of them, so the builds and their smoke tests run on a runner of their own.
+# Chromium's install keeps apt's packages between runs (.github/actions/chromium), apt once taking
+# 8 min 18 s to fetch them and the limit cancelling a quarter before its tests began (#152).
 name: CI
 
 on:
@@ -108,7 +110,7 @@ jobs:
         run: npm run measure:bundle
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/chromium
 
       # I14's first frame within 2.5 s on the shipped build, timed alone so no other test shares the
       # runner while it times (beside the busy scene's, its median was 1.99 s; e2e/first-frame.spec.ts).
@@ -158,7 +160,7 @@ jobs:
       - run: npm run cities
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
       - run: npm run e2e -- --shard=1/4
@@ -197,7 +199,7 @@ jobs:
       - run: npm run cities
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
       - run: npm run e2e -- --shard=2/4
@@ -236,7 +238,7 @@ jobs:
       - run: npm run cities
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
       - run: npm run e2e -- --shard=3/4
@@ -275,7 +277,7 @@ jobs:
       - run: npm run cities
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
       - run: npm run e2e -- --shard=4/4

@@ -1,0 +1,41 @@
+# Playwright's Chromium and the system packages it needs, for the CI jobs that run a browser. apt
+# fetched those packages, 25.9 MB of fonts and libraries, from the runner's mirror at 52 kB/s for
+# 8 min 18 s, and the 8-minute limit cancelled the job (#152, 2026-10-22); on other runs it took
+# 1 min 39 s (#150) and 4 min 30 s. So the packages apt downloads are kept in the Actions cache,
+# under a key named by the files kept, and put back in apt's own folder before it runs. apt still
+# checks each one against the archive's signed index and fetches any it lacks or that is out of
+# date, and a run that fetched any keeps the new set.
+name: Install Playwright's Chromium
+description: Playwright's Chromium and its system packages, with apt's downloads kept between runs
+runs:
+  using: composite
+  steps:
+    - name: Restore apt's packages for Chromium
+      id: restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/apt-archives
+        # Never an exact match: the newest set kept is restored by its prefix.
+        key: apt-chromium-${{ runner.os }}-${{ runner.arch }}-
+        restore-keys: apt-chromium-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: Install Playwright's Chromium and its system packages
+      id: install
+      shell: bash
+      run: |
+        mkdir -p ~/apt-archives
+        sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+        npx playwright install --with-deps chromium
+        # Keep what the archive still serves, and name the set by its files.
+        sudo apt-get autoclean -qq
+        rm -f ~/apt-archives/*.deb
+        cp /var/cache/apt/archives/*.deb ~/apt-archives/ 2>/dev/null || true
+        echo "apt's packages for Chromium: $(ls ~/apt-archives | wc -l) files, $(du -sh ~/apt-archives | cut -f1)"
+        echo "key=apt-chromium-${{ runner.os }}-${{ runner.arch }}-$(ls ~/apt-archives | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+    - name: Keep apt's packages for Chromium
+      if: steps.install.outputs.key != steps.restore.outputs.cache-matched-key
+      uses: actions/cache/save@v6
+      with:
+        path: ~/apt-archives
+        key: ${{ steps.install.outputs.key }}
