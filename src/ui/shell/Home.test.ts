@@ -10,16 +10,17 @@ import { Home } from './Home';
 function render(company: string): string {
   const snapshot = { company: { name: company, colour: '#2471a3' }, day: 12, cashCents: 12_345_600 } as unknown as Snapshot;
   const sim = { status: 'ready', snapshot } as unknown as Sim;
-  return renderToStaticMarkup(createElement(Home, { sim, onContinue: () => undefined, onNewGame: () => undefined, onSaves: () => undefined }));
+  return renderToStaticMarkup(createElement(Home, { sim, onContinue: () => undefined, onNewGame: () => undefined, onSaves: () => undefined, onHelp: () => undefined }));
 }
 
 describe('Home', () => {
-  it('offers Continue with the game’s company, day and cash, then New game and Saves', () => {
+  it('offers Continue with the game’s company, day and cash, then New game, and Saves and Help side by side', () => {
     const html = render('Back Bay Transit');
     expect(html).toContain('data-testid="home-continue"');
     expect(html).toContain('Back Bay Transit · Year 1, Q2, Day 4 · $123,456'); // day 12 since founding
     expect(html.indexOf('Continue')).toBeLessThan(html.indexOf('New game'));
-    expect(html).toContain('>Saves<');
+    // One row, so Help makes Home no taller (I13).
+    expect(html).toMatch(/<span class="pair"><button type="button">Saves<\/button><button type="button">Help<\/button><\/span>/);
   });
 
   it('offers New game first when no company has been founded', () => {

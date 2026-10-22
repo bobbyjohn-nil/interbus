@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line with more buses than its headways need, after you run it less often or shorten its route, says so on its card, with a button that sells the spare buses for half what they cost and frees their places at the depot. A slower headway's card says how many of the line's buses it needs.
 - Close line, beside Edit route in Lines, takes a line away after asking: its buses leave the streets at once and sell for half what they cost, and its stops that no other line calls at come down, giving back half of what they and their fittings cost. Undo, while paused, takes back a line closed or spare buses sold, cash and all.
 - Each line's card in Lines lists its stops in route order: press one to open that stop's card, from the keyboard too. Before, only a press on the stop on the map opened it.
+- Help lists every key the game answers and what the mouse and your fingers do on the map. Press ? to open or close it, or choose Help on Home or in Saves.
 
 ### Changed
 

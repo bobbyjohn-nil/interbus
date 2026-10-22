@@ -443,6 +443,7 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-22** (`e2e/i13.spec.ts` and `npm run build:fixture`, on #156's branch with this pull request's Help): **Help's room** (PLAN §10's week 14, ahead under D25's clearance). In the game Help takes 16.6%, 18.1% and 21.8% with the shell at rest at 1440×900, 1366×768 and 1152×720, its tables scrolling inside 60vh. Beside Home's card, in Saves' place there, Home and Help take 16.4%, 18.5% and 22.6%, inside Saves' 45vh. It adds nothing at rest: ? opens it, Home's Saves and Help sit side by side, and Saves' Help takes its last row's 88 px to spare, so Saves at its tallest stays at 24.3%. The menu's chunk grows by 0.9 kB gzip, from 86.2 to 87.1 kB of its 200 KiB.
 - **2026-10-22** (`npm run bench lategame` on the three companies its late-game measurement kept, below, now summing each one's ledger from founding; on `main` 9cc5c4a with this pull request's bench): **where a company's money comes from and goes** (D26's values pass: the running costs and the city's money).
   - **The profit-only company** (seed 1, to day 201):
     - it took in $1,969,348 in fares and the city's subsidy (fares $1,068,708, the subsidy $900,640) and $2,337,126 in rewards (contracts $1,950,000, card grants $387,126);

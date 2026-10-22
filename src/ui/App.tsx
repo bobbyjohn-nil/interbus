@@ -25,6 +25,7 @@ import { Panels, type PanelFront, type PanelItem } from "./shell/Panels";
 import { Finance } from "./shell/Finance";
 import { Contracts } from "./shell/Contracts";
 import { DemandMenu } from "./shell/DemandMenu";
+import { Help } from "./shell/Help";
 import { Home } from "./shell/Home";
 import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
@@ -391,14 +392,22 @@ export function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // Home stands over a paused game: its keys are Home's (Escape closes Saves), not the game's.
-      if (atHome && event.key !== "Escape") return;
-      if (
+      const typing =
         event.target instanceof HTMLSelectElement ||
         event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement
-      )
+        event.target instanceof HTMLTextAreaElement;
+      // ? opens Help and closes it again (PLAN §8's keyboard shortcuts, which it lists), on Home too, where it takes Saves'
+      // place beside Home's card. Typed into a field, it is the field's; held, it opens once.
+      if (event.key === "?" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        if (event.repeat) return;
+        if (atHome) hide("saves");
+        toggle("help");
         return;
+      }
+      // Home stands over a paused game: its keys are Home's (Escape closes Saves and Help), not the game's.
+      if (atHome && event.key !== "Escape") return;
+      if (typing) return;
       // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A button the keyboard reached
       // keeps Space, so Space still presses it; one pressed with the mouse does not, or Space pressed it
       // again (opening the speed menu, closing Finance, taking back one more command). A held Space
@@ -432,7 +441,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [choose, send, atHome, removeLast]);
+  }, [choose, send, atHome, removeLast, toggle, hide]);
 
   // A tool and the panels stay out together, each on the panel layer in a place of its own: they no
   // longer cover each other (the owner's initial playtest: "when you open 2 tabs, they conflict and you
@@ -532,6 +541,7 @@ export function App() {
           <Saves
             sim={sim}
             onClose={() => hide("saves")}
+            onHelp={() => show("help")}
             onHome={() => {
               // Paused first, which saves the game, so Continue picks up exactly here; the tool goes
               // down, so nothing of it waits unseen behind Home.
@@ -544,6 +554,7 @@ export function App() {
         ),
       });
     else if (p === "contracts") panelItems.push({ id: p, node: <Contracts sim={sim} onClose={() => hide("contracts")} /> });
+    else if (p === "help") panelItems.push({ id: p, node: <Help onClose={() => hide("help")} /> });
     else if (p === "here")
       panelItems.push({
         id: p,
@@ -617,10 +628,20 @@ export function App() {
             sim.closeDayCard();
             setHomeAt(null);
           }}
-          onSaves={() => show("saves")}
+          onSaves={() => {
+            hide("help");
+            show("saves");
+          }}
+          onHelp={() => {
+            hide("saves");
+            show("help");
+          }}
         />
+        {/* Saves and Help take turns beside Home's card, the one place there is for either (I13). */}
         {open.includes("saves") ? (
           <Saves sim={sim} onClose={() => hide("saves")} />
+        ) : open.includes("help") ? (
+          <Help onClose={() => hide("help")} />
         ) : null}
         {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once
             and a panel dragged opens where it was dragged to again after Continue. */}

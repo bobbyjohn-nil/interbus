@@ -45,7 +45,7 @@ function When({ about, testId }: { about: SaveAbout | null; testId: string }) {
  * meanwhile. A Save here the browser refused says so on its slot's row, with the way out, until the
  * slot is saved or a delete makes room. Export session hands over this session for a bug report (the M3 spec, item 12).
  */
-export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void; onHome?: () => void }) {
+export function Saves({ sim, onClose, onHome, onHelp }: { sim: Sim; onClose: () => void; onHome?: () => void; onHelp?: () => void }) {
   const { send } = sim;
   // Listed when Saves opens, and again as the store keeps writes, so the autosave's row keeps up with the
   // game; at most every LIST_EVERY_MS, since each listing has the worker read every save.
@@ -393,6 +393,13 @@ export function Saves({ sim, onClose, onHome }: { sim: Sim; onClose: () => void;
                 }}
               >
                 Back to Home
+              </button>
+            ) : null}
+            {/* Help, in the game, where Saves is the one panel the chip row opens: it fits this row's 88 px to spare, so Saves
+                grows no taller (I13). Home has its own. */}
+            {onHelp ? (
+              <button type="button" onClick={onHelp}>
+                Help
               </button>
             ) : null}
           </>

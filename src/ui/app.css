@@ -851,6 +851,52 @@ button.chip.checklist,
   overflow-y: auto;
 }
 
+/* Help (src/ui/shell/Help.tsx): its keys and the map's gestures scroll under its heading and Close. Beside Home's card, in
+   Saves' place there, it is capped as Saves is (45vh); in the game at 60vh, 432 px at 720 px high, so it and the chips and the
+   dock stay within I13's 26%. */
+.panel.help {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+  max-height: min(calc(100% - 128px), 45vh);
+}
+
+.help h3 {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.help dl {
+  margin: 0;
+}
+
+.help dd {
+  margin: 0;
+}
+
+/* Keys beside what they do; a gesture, longer, above it. */
+.help dl.keys {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 10px;
+}
+
+.help dl.gestures dt {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.help kbd {
+  font: inherit;
+  font-weight: 600;
+  padding: 0 4px;
+  border: 1px solid var(--ui-line);
+  border-radius: 4px;
+  background: #fff;
+}
+
 .finance table {
   width: 100%;
   border-collapse: collapse;
@@ -1428,6 +1474,16 @@ button.chip.checklist,
   margin: 0 0 6px;
 }
 
+/* Saves and Help side by side, so Help makes Home no taller (I13). */
+.home .pair {
+  display: flex;
+  gap: 8px;
+}
+
+.home .pair button {
+  flex: 1;
+}
+
 /* The GPU ladder's cards, the map's own start failures and Low graphics' word on a refused tilt
    (src/render/map/MapView.tsx, gpu.ts): high on the board, so Home and the founding card stay clear
    below. They stay under the cards and panels, as the map does: the no-GPU card stays up while the
@@ -1634,6 +1690,10 @@ button.chip.checklist,
 
 .movable > .panel.saves {
   max-height: min(var(--room, calc(100vh - 128px)), 69vh);
+}
+
+.movable > .panel.help {
+  max-height: min(var(--room, calc(100vh - 128px)), 60vh);
 }
 
 .movable .panel h2,

@@ -66,6 +66,12 @@ test.describe('the copy convention and the accessibility floor', () => {
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
     await read('home');
+    // Help, beside Home's card: its headings and Close (Help.test.ts holds its tables' words, which this walk does not read).
+    await page.getByTestId('home').getByRole('button', { name: 'Help', exact: true }).click();
+    await expect(page.getByTestId('help')).toBeVisible();
+    await read('home help');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('help')).toHaveCount(0);
     await leaveHome(page);
     await expect(page.getByTestId('founding-card')).toBeVisible();
     await read('founding');
@@ -159,6 +165,6 @@ test.describe('the copy convention and the accessibility floor', () => {
     expect.soft(problems).toEqual([]);
     expect.soft([...small].flatMap(([where, things]) => things.map((t) => `${where}: ${t}`))).toEqual([]);
     expect.soft([...axe].flatMap(([where, found]) => found.map((f) => `${where}: ${f}`))).toEqual([]);
-    expect([seen.size, axe.size]).toEqual([19, AXED.size]);
+    expect([seen.size, axe.size]).toEqual([20, AXED.size]);
   });
 });
