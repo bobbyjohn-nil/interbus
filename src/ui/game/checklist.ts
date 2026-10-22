@@ -4,7 +4,8 @@ export const CHECKLIST = ['Place a depot', 'Draw a line', 'Press play', 'Close a
 
 export interface ChecklistState {
   readonly depots: number;
-  readonly lines: number;
+  /** A line has been drawn, standing now or closed since (Snapshot.lineDrawn). */
+  readonly lineDrawn: boolean;
   /** Game seconds since founding: time has run once it is above 0. */
   readonly elapsed: number;
   readonly profitableDays: number;
@@ -14,7 +15,7 @@ export interface ChecklistState {
 
 /** The first step not yet done (0-based), or CHECKLIST.length when every step is. */
 export function checklistStep(s: ChecklistState): number {
-  const done = [s.depots > 0, s.lines > 0, s.elapsed > 0, s.profitableDays > 0, s.contractTaken];
+  const done = [s.depots > 0, s.lineDrawn, s.elapsed > 0, s.profitableDays > 0, s.contractTaken];
   const next = done.indexOf(false);
   return next < 0 ? CHECKLIST.length : next;
 }

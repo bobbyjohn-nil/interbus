@@ -180,3 +180,23 @@ export function checkModelChange(
   if (short > 0) return refuse('insufficient_funds', { shortCents: short });
   return ok({ needed, buyCents, saleCents });
 }
+
+export type SellSparesRefusal = 'no_spares';
+
+/**
+ * A line's spare buses (the late game at the bus ceiling, DECISIONS, Open, its recommended (a)): those its headways no longer
+ * need on its round trips (`cycles`, or one `cycle` all day), sold at half price as a model change sells them (V1's resale,
+ * no wear). A line run less often parks its spares in their depot places, so selling them frees the places for another line.
+ */
+export function checkSellSpares(line: {
+  readonly buses: number;
+  readonly cycle: number;
+  readonly cycles?: Cycles | undefined;
+  readonly model: BusModel;
+  readonly headways: Headways;
+}): Result<{ needed: number; sold: number; saleCents: number }, SellSparesRefusal> {
+  const needed = busesNeeded(line.cycles ?? line.cycle, line.headways);
+  const sold = line.buses - needed;
+  if (sold <= 0) return refuse('no_spares');
+  return ok({ needed, sold, saleCents: Math.floor((sold * line.model.priceCents * RESALE_PERMILLE) / 1000) });
+}

@@ -72,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Running a line costs money: $0.90 for each kilometer a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what the day is forecast to cost.
 - Stops cost upkeep: a thousandth of what a stop cost to build, every day, so a Sign costs $4 a day, a Shelter $16, a Station $51, an Interchange $141 and a Transfer Hub $341. A stop's card says its upkeep and the next tier's, its upkeep counts in what the stop earns, and Costs/day includes it.
 - A click where several lines run on the same streets lists them all, each with a button that opens its line, instead of opening only the line drawn on top.
+- A line with more buses than its headways need, after you run it less often or shorten its route, says so on its card, with a button that sells the spare buses for half what they cost and frees their places at the depot. A slower headway's card says how many of the line's buses it needs.
+- Close line, beside Edit route in Lines, takes a line away after asking: its buses leave the streets at once and sell for half what they cost, and its stops that no other line calls at come down, giving back half of what they and their fittings cost. Undo, while paused, takes back a line closed or spare buses sold, cash and all.
 
 ### Changed
 

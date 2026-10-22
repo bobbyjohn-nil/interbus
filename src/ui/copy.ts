@@ -31,6 +31,7 @@ export const REFUSAL_COPY: Readonly<Record<string, Copy>> = {
   depot_full: (r) => (r.room ? `Depots have room for ${r.room} more` : 'Your depots are full'),
   insufficient_funds: (r) => `${usd(r.shortCents ?? 0)} short`,
   no_such_line: () => 'That line is gone',
+  no_spares: () => 'The line needs every bus it has',
   // Fares (sim/rules/fare.ts)
   fare_out_of_range: () => 'Fares run from $1.00 to $5.00',
   fare_not_a_step: () => 'Fares go up in 25¢ steps',
@@ -99,6 +100,8 @@ const UNDO_COPY: Readonly<Record<string, (subject: string) => string>> = {
   'insert-stop': (s) => `Insert a stop on ${s}`,
   'set-headways': (s) => `${s}’s headways`,
   'set-model': (s) => `${s}’s buses`,
+  'sell-spares': (s) => `${s}’s spare buses`,
+  'close-line': (s) => `Close ${s}`,
   'set-fare': (s) => `${s}’s fare`,
   'set-stop-tier': (s) => `${s}’s kind`,
   // "Take Stop 2 off Line 1" (host.ts names the stop and the line): "Remove Stop 2 from Line 1", about 30 px wider, took the

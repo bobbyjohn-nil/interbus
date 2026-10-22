@@ -19,6 +19,8 @@ export type UndoCommand =
   | 'set-route'
   | 'set-headways'
   | 'set-model'
+  | 'sell-spares'
+  | 'close-line'
   | 'set-fare'
   | 'set-stop-tier'
   | 'remove-stop'

@@ -248,6 +248,11 @@ export interface Snapshot {
   readonly contracts: readonly ContractView[];
   /** A contract has been taken, held now or paid: the checklist's last step. */
   readonly contractTaken: boolean;
+  /**
+   * A line has been drawn, standing now or closed since: the checklist's second step, which closing every line does not take
+   * back (the review of Close line). Line ids count up from the first, and an undo of a Create takes its id back with it.
+   */
+  readonly lineDrawn: boolean;
   /** The city event pending or on (the M4 spec, item 2), or null. */
   readonly event: EventView | null;
   /** The day each medal was awarded, or null (the M4 spec, item 3; sim/rules/medal.ts). */
@@ -387,6 +392,10 @@ export type ToWorker =
   | { readonly type: 'create-line'; readonly clicks: readonly LngLatPair[]; readonly headways?: HeadwaysData; readonly model?: BusModelId }
   | { readonly type: 'set-headways'; readonly lineId: number; readonly headways: HeadwaysData }
   | { readonly type: 'set-model'; readonly lineId: number; readonly model: BusModelId }
+  /** Sells the buses a line's headways no longer need, at half price (sim/rules/line.ts checkSellSpares). */
+  | { readonly type: 'sell-spares'; readonly lineId: number }
+  /** Closes a line: its buses sold and the stops no other line calls at taken down, half price back (sim/rules/route.ts closingOf). */
+  | { readonly type: 'close-line'; readonly lineId: number }
   | { readonly type: 'set-fare'; readonly lineId: number; readonly fareCents: number }
   | { readonly type: 'set-stop-tier'; readonly stopId: number; readonly tier: number }
   | { readonly type: 'remove-stop'; readonly lineId: number; readonly stopId: number }

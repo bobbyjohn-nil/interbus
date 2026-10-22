@@ -11,6 +11,8 @@ import { placeDepot } from '../sim/commands/placeDepot';
 import { setHeadways } from '../sim/commands/setHeadways';
 import { setFare } from '../sim/commands/setFare';
 import { setModel } from '../sim/commands/setModel';
+import { sellSpares } from '../sim/commands/sellSpares';
+import { closeLine } from '../sim/commands/closeLine';
 import { setStopTier } from '../sim/commands/setStopTier';
 import { removeStop } from '../sim/commands/removeStop';
 import { extendLine } from '../sim/commands/extendLine';
@@ -33,7 +35,7 @@ import { fareBandSteps, type FareBand } from '../sim/economy/fareBand';
 import { finance, runningCostsCents, type Finance } from '../sim/economy/finance';
 import { stopDays } from '../sim/economy/stops';
 import { profitableDays } from '../sim/economy/ledger';
-import type { ContractId, LineId, StopId } from '../sim/core/ids';
+import { FIRST_IDS, type ContractId, type LineId, type StopId } from '../sim/core/ids';
 import { jobsWithinWalk, peopleNearStops, peopleWithinWalk } from '../sim/rules/catchment';
 import { COMPANY_COLOURS } from '../sim/rules/company';
 import { checkDepotSite } from '../sim/rules/depot';
@@ -100,6 +102,8 @@ const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set([
   'create-line',
   'set-headways',
   'set-model',
+  'sell-spares',
+  'close-line',
   'set-fare',
   'set-stop-tier',
   'remove-stop',
@@ -632,6 +636,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           : null,
       contracts: contractsNow(w, t.day),
       contractTaken: w.state.contracts.some((c) => c.acceptedDay !== null) || w.state.ledger.rows.some((r) => r.kind === 'contract'),
+      lineDrawn: w.state.nextIds.line > FIRST_IDS.line,
       event: eventNow(w, t.day),
       medals: { ...w.state.medals },
       tripsCarried: w.state.tripsCarried,
@@ -893,6 +898,16 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         post({ type: 'snapshot', snapshot: snapshot() });
       } else if (message.type === 'set-model') {
         const result = command({ command: 'set-model', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () => setModel(world!, message.lineId as LineId, message.model));
+        if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
+        else {
+          refreshLines();
+          save();
+        }
+        post({ type: 'snapshot', snapshot: snapshot() });
+      } else if (message.type === 'sell-spares' || message.type === 'close-line') {
+        const name = world.state.lines.find((l) => l.id === message.lineId)?.name ?? '';
+        const lineId = message.lineId as LineId;
+        const result = command({ command: message.type, subject: name }, () => (message.type === 'sell-spares' ? sellSpares(world!, lineId) : closeLine(world!, lineId)));
         if (!result.ok) post({ type: 'refused', command: message.type, ...refusalView(result) });
         else {
           refreshLines();

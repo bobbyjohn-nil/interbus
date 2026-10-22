@@ -16,7 +16,7 @@
 //   the same rule as an extension; a stop it leaves comes down as Remove's does.
 // - Take down (D25): a stop placed on its own, no line calling there, comes down for half its cost.
 import { STOP_COST_CENTS } from '../config/economy';
-import type { BusModel } from '../config/fleet';
+import { RESALE_PERMILLE, type BusModel } from '../config/fleet';
 import { DETOUR_WARN_SHARE, INSERT_REACH_M, MIN_LINE_STOPS } from '../config/lines';
 import { STOP_TIER_IDS, STOP_TIERS, type StopTier } from '../config/stops';
 import type { XY } from '../core/geo';
@@ -174,6 +174,34 @@ export type TakeDownRefusal = 'stop_in_use';
 export function checkTakeDownStop(stop: { readonly tier: StopTier }, linesHere: number): Result<{ readonly refundCents: number }, TakeDownRefusal, { limit?: number }> {
   if (linesHere > 0) return refuse('stop_in_use', { limit: linesHere });
   return ok({ refundCents: Math.floor(stopCostCents(stop.tier) / 2) });
+}
+
+/** What closing a line sells and takes down (closingOf). */
+export interface LineClosing {
+  /** Every bus it has, at half price. */
+  readonly saleCents: number;
+  /** Its stops no other line calls at: each comes down, half its cost back. */
+  readonly removed: readonly { readonly stopId: number; readonly refundCents: number }[];
+  readonly refundCents: number;
+}
+
+/**
+ * Closing a line (the late game at the bus ceiling, DECISIONS, Open, its recommended (a)): every bus it has is sold at half
+ * price, as a model change sells them, and each of its stops no other line calls at comes down for half its cost, as a route
+ * edit takes down the stops it leaves (checkTakeDownStop). `stops` holds each stop with the lines that call there, this one
+ * among them. The Lines panel's ask and the command read it alike (GD-05).
+ */
+export function closingOf(
+  line: { readonly buses: number; readonly model: BusModel; readonly stopIds: readonly number[] },
+  stops: readonly { readonly id: number; readonly tier: StopTier; readonly linesHere: number }[],
+): LineClosing {
+  const saleCents = Math.floor((line.buses * line.model.priceCents * RESALE_PERMILLE) / 1000);
+  const removed = line.stopIds.flatMap((id) => {
+    const stop = stops.find((s) => s.id === id);
+    const down = stop ? checkTakeDownStop(stop, stop.linesHere - 1) : null;
+    return down?.ok ? [{ stopId: id, refundCents: down.refundCents }] : [];
+  });
+  return { saleCents, removed, refundCents: removed.reduce((sum, r) => sum + r.refundCents, 0) };
 }
 
 export type RouteRefusal = LineRefusal | 'no_change';
