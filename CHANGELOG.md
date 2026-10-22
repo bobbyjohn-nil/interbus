@@ -110,6 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - How far people commute now follows Boston's own census records rather than a generic guess, so trips are a little shorter on average and a line from Copley to Longwood carries about 3% fewer riders.
 - Small print is easier to read and small buttons easier to press: the Build menu's descriptions, Finance's chart labels, the route editor's stop numbers and an express line's tag are 12 px or more, and the route editor's Move up, Move down and Remove buttons are 24 px. A crowded chart names fewer of its days, and its money scale sits above the bars instead of on them.
 - When your computer is set to reduce motion, the compass turns at once instead of easing.
+- Each line's name runs along its route on the map, so lines are told apart by more than their colour.
+- On the demand map, jobs are drawn as rings and homes as filled dots, in its legend and on its button too, so the two differ in shape as well as colour.
+- A contract’s figure for today ends in “met” or “not met”, beside its colour.
 
 ### Fixed
 
