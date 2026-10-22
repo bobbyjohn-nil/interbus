@@ -4,7 +4,9 @@
 # minutes of the 8 (2026-10-14), so it ran in two halves, Playwright's shards 1/2 and 2/2; the first half,
 # beside the builds and the smoke tests, reached 6.7 minutes (#118, 2026-10-15), so it ran in thirds; and
 # the first third, with Close line's tests, took 8.0 and 8.3 minutes, the limit cancelling the second
-# (#149, 2026-10-22), so it runs in quarters, about 3 to 4.5 minutes of tests each.
+# (#149, 2026-10-22), so it runs in quarters: 4.1, 2.7, 1.9 and 3.5 minutes of tests on their first
+# run, the first beside the builds in a job of 6.9 and 7.3 minutes, 2.0 and 2.3 of them installing
+# Chromium (16 to 44 s in the other quarters' jobs).
 name: CI
 
 on:
