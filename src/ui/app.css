@@ -1109,8 +1109,9 @@ button.chip.checklist,
   font-weight: 600;
 }
 
-/* Each line calling here: its button, and the button that takes the stop off it. */
-.stop-card .lines {
+/* Each line calling here: its button, and the button that takes the stop off it; and each line on the streets a click found. */
+.stop-card .lines,
+.lines-here .lines {
   display: grid;
   gap: 6px;
 }

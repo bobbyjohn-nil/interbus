@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Tool } from '../game/Tools';
 import { closeOnPressAway } from '../pressAway';
 
-export type Panel = 'none' | 'lines' | 'stop' | 'finance' | 'saves' | 'contracts';
+export type Panel = 'none' | 'lines' | 'stop' | 'here' | 'finance' | 'saves' | 'contracts';
 
 /** The Build menu's tools (D25: "a build tab with options to place individual stops, and an option like the one we have now. place a depot should also be in the build menu"). */
 const BUILD: readonly { readonly tool: Exclude<Tool, 'none' | 'route'>; readonly name: string; readonly hint: string; readonly icon: JSX.Element }[] = [

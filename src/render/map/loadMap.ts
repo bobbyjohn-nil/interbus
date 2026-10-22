@@ -96,6 +96,8 @@ export interface HoveredDot {
 /** What a click lands on: a line and, at one of its stops, that stop; and whether it is a double-click's second click. */
 export interface MapHit {
   readonly lineId: number | null;
+  /** Every line under the click, the topmost first as the map draws them: lines on the same streets draw over one another. */
+  readonly lineIds: readonly number[];
   readonly stopId: number | null;
   readonly double: boolean;
 }
@@ -467,8 +469,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
-    const line = hits.find((h) => numberOf(h.properties?.id) !== null);
-    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: numberOf(line?.properties?.id), stopId: numberOf(stop?.properties?.stop), double });
+    const lineIds = [...new Set(hits.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
+    click?.([e.lngLat.lng, e.lngLat.lat], { lineId: lineIds[0] ?? null, lineIds, stopId: numberOf(stop?.properties?.stop), double });
   });
 
   return {

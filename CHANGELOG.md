@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
 - Running a line costs money: $0.90 for each kilometer a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what the day is forecast to cost.
 - Stops cost upkeep: a thousandth of what a stop cost to build, every day, so a Sign costs $4 a day, a Shelter $16, a Station $51, an Interchange $141 and a Transfer Hub $341. A stop's card says its upkeep and the next tier's, its upkeep counts in what the stop earns, and Costs/day includes it.
+- A click where several lines run on the same streets lists them all, each with a button that opens its line, instead of opening only the line drawn on top.
 
 ### Changed
 

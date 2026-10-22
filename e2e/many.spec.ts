@@ -4,12 +4,16 @@
 import { createHash } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { loadCity } from '../src/sim/city/simfile';
+import { toLngLat, toXY, type XY } from '../src/sim/core/geo';
 import { encode } from '../src/sim/save/save';
 import { FIXTURE_CORRIDORS, lateScene } from '../src/sim/scene';
+import { copyProblems } from '../src/ui/copyRules';
+import { lineEdges, type World } from '../src/sim/world';
 import { foundCompany } from './found';
+import { build, projector, toScreen } from './shell';
 
-/** The fixture's late game, imported over a founded company, paused. */
-async function lateGame(page: Page) {
+/** The fixture's late game of at most `lines` lines, imported over a founded company, paused. */
+async function lateGame(page: Page, lines = 30) {
   await page.setViewportSize({ width: 1152, height: 720 });
   const simFile = page.waitForResponse((r) => /\/cities\/sim-[^/]+\.json$/.test(new URL(r.url()).pathname));
   await page.goto('./');
@@ -17,7 +21,7 @@ async function lateGame(page: Page) {
   const loaded = loadCity(text);
   if (!loaded.ok) throw new Error(loaded.problem);
   const { city } = loaded;
-  const world = lateScene(city, { id: city.id, revision: city.extent, hash: createHash('sha256').update(text).digest('hex') }, FIXTURE_CORRIDORS, 30);
+  const world = lateScene(city, { id: city.id, revision: city.extent, hash: createHash('sha256').update(text).digest('hex') }, FIXTURE_CORRIDORS, lines);
   await foundCompany(page);
   await page.getByRole('button', { name: 'Saves' }).click();
   const chooser = page.waitForEvent('filechooser');
@@ -29,6 +33,56 @@ async function lateGame(page: Page) {
   return world;
 }
 
+/** The point half way along a street's points. */
+function halfway(pts: readonly XY[]): XY {
+  const legs = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i]![0], p[1] - pts[i]![1]));
+  let left = legs.reduce((a, b) => a + b, 0) / 2;
+  for (const [i, leg] of legs.entries()) {
+    if (left <= leg) {
+      const [a, b] = [pts[i]!, pts[i + 1]!];
+      return [a[0] + ((b[0] - a[0]) * left) / leg, a[1] + ((b[1] - a[1]) * left) / leg];
+    }
+    left -= leg;
+  }
+  return pts.at(-1)!;
+}
+
+/** The middle of each street that two or more of `world`'s lines drive between their stops (lineEdges, Create's own route), more than 120 m from every stop, and those lines. */
+function sharedStreets(world: World): { street: number; at: [number, number]; lineIds: number[] }[] {
+  const { city, state } = world;
+  const stops = state.stops.map((s) => toXY(city.frame, [s.lon, s.lat]));
+  const driven = new Map<number, Set<number>>();
+  for (const line of state.lines) for (const e of lineEdges(world, line)) driven.set(e, (driven.get(e) ?? new Set<number>()).add(line.id));
+  return [...driven].flatMap(([street, ids]) => {
+    const mid = halfway(city.streets[street]!.points as readonly XY[]);
+    if (ids.size < 2 || stops.some((s) => Math.hypot(s[0] - mid[0], s[1] - mid[1]) < 120)) return [];
+    return [{ street, at: [...toLngLat(city.frame, mid)] as [number, number], lineIds: [...ids] }];
+  });
+}
+
+/** Where the camera shows the shared street nearest the map's middle, at least 150 px inside the map, and its lines. */
+async function sharedInView(page: Page, world: World) {
+  const { project, box } = await projector(page);
+  const centre: [number, number] = [box.x + box.width / 2, box.y + box.height / 2];
+  const inView = ([x, y]: [number, number]) => x > box.x + 150 && x < box.x + box.width - 150 && y > box.y + 150 && y < box.y + box.height - 150;
+  const shared = sharedStreets(world)
+    .map((s) => ({ ...s, xy: project(s.at) }))
+    .filter((s) => inView(s.xy))
+    .sort((a, b) => Math.hypot(a.xy[0] - centre[0], a.xy[1] - centre[1]) - Math.hypot(b.xy[0] - centre[0], b.xy[1] - centre[1]))[0];
+  expect(shared).toBeDefined();
+  return { ...shared!, inView: (at: readonly [number, number]) => inView(project(at)) };
+}
+
+/** Clicks `xy` until Lines here comes: the lines draw a moment after a save loads or a line is made, and the tries are far enough apart that none is taken for a double-click. */
+async function openHere(page: Page, xy: [number, number]) {
+  const here = page.getByTestId('lines-here');
+  await expect(async () => {
+    await page.mouse.click(...xy);
+    await expect(here).toBeVisible({ timeout: 1_000 });
+  }).toPass({ intervals: [700], timeout: 15_000 });
+  return here;
+}
+
 /** Whether `el` shows whole in the part of `panel` the window shows, and how far past the panel's foot it ends. */
 async function shownIn(panel: Locator, el: Locator) {
   const [p, b] = [(await panel.boundingBox())!, (await el.boundingBox())!];
@@ -36,6 +90,63 @@ async function shownIn(panel: Locator, el: Locator) {
 }
 
 test.describe('a late game of many lines', () => {
+  // Lines on the same streets draw over one another, and a click there opened only the line drawn on top: the others were
+  // reached only from Lines' tabs (DECISIONS, Open: many lines on the map, its recommended (b)). Such a click now lists every
+  // line under it, each to open. Shown failing (TS-04) with the click opening the line on top, as before.
+  test('a click on streets that several lines share lists them, and each opens its line', async ({ page }) => {
+    const world = await lateGame(page);
+    const shared = await sharedInView(page, world);
+    const here = await openHere(page, shared.xy);
+    const names = shared.lineIds.map((id) => world.state.lines.find((l) => l.id === id)!.name);
+    for (const name of names) await expect(here.getByRole('button', { name, exact: true })).toBeVisible();
+    expect(copyProblems(await here.locator('h2, p, button').allInnerTexts())).toEqual([]);
+    for (const name of names.slice(0, 2)) {
+      await here.getByRole('button', { name, exact: true }).click();
+      await expect(page.getByTestId('inspector').getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
+    }
+  });
+
+  // An undo took back a line the card listed and freed its id, and the next line created took that id: the card listed the
+  // new line as running where the click was, though it ran elsewhere, and opened it (the review of the change). The card now
+  // closes with any line it lists, as the stop card closes with its stop. Shown failing (TS-04) without App's rule that closes it.
+  test('Lines here closes with a line it lists, so a later line under the freed id is never listed', async ({ page }) => {
+    // 16 lines of one Sparrow each leave the depots room for the two made here.
+    const world = await lateGame(page, 16);
+    const shared = await sharedInView(page, world);
+    const { state } = world;
+    const at = (id: number) => {
+      const s = state.stops.find((x) => x.id === id)!;
+      return [s.lon, s.lat] as [number, number];
+    };
+    // Each leg of a line, one stop to the next, with the streets Create drives between them.
+    const legs = state.lines
+      .flatMap((line) => line.stopIds.slice(1).map((b, k) => ({ lineId: line.id, a: line.stopIds[k]!, b, edges: lineEdges(world, { ...line, stopIds: [line.stopIds[k]!, b] }) })))
+      .filter((leg) => shared.inView(at(leg.a)) && shared.inView(at(leg.b)));
+    const on = legs.find((leg) => leg.edges.includes(shared.street));
+    const off = legs.find((leg) => !leg.edges.includes(shared.street) && !shared.lineIds.includes(leg.lineId));
+    expect(on && off).toBeTruthy();
+    const NEW = `Line ${state.nextIds.line}`;
+    const draw = async (a: number, b: number) => {
+      await build(page, 'Draw a line');
+      for (const id of [a, b]) await page.mouse.click(...(await toScreen(page, at(id))));
+      const draft = page.getByTestId('draft-card');
+      await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+      await draft.getByRole('button', { name: 'Create' }).click();
+      await expect(page.getByTestId('inspector').getByRole('tab', { name: NEW, exact: true })).toHaveAttribute('aria-selected', 'true');
+    };
+    // A new line over the shared street: the card lists it with the others.
+    await draw(on!.a, on!.b);
+    await page.getByTestId('inspector').getByRole('button', { name: 'Close' }).click();
+    const here = await openHere(page, shared.xy);
+    await expect(here.getByRole('button', { name: NEW, exact: true })).toBeVisible();
+    // Undo takes it back, and the card closes with it.
+    await page.keyboard.press('Control+z');
+    await expect(here).toBeHidden();
+    // A line made elsewhere takes the freed id, and the card stays closed: nothing lists it as a line here.
+    await draw(off!.a, off!.b);
+    await expect(here).toBeHidden();
+  });
+
   // The line card's link opened Finance's Lines on its line, the row expanded but below the panel's foot, under the lines
   // before it, and nothing scrolled to it: the link seemed to do nothing. Scrolled to it, the panel's heading (its drag handle),
   // Close and views went out of reach with the rest (the review of the round's fixes): only the body scrolls now.
