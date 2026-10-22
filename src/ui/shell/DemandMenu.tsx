@@ -86,7 +86,7 @@ export function DemandMenu({ dots, shown, onShown }: { dots: Dots | null; shown:
       >
         <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
           <circle cx="7" cy="8" r="4.5" fill={GAME_LIGHT.homeDot} opacity={shown.home ? 0.85 : 0.25} />
-          <circle cx="13.5" cy="13" r="3.5" fill={GAME_LIGHT.jobDot} opacity={shown.job ? 0.85 : 0.25} />
+          <circle cx="13.5" cy="13" r="3" fill="none" stroke={GAME_LIGHT.jobDot} strokeWidth="1.6" opacity={shown.job ? 0.85 : 0.25} />
         </svg>
       </button>
       {open ? (
@@ -107,7 +107,8 @@ export function DemandMenu({ dots, shown, onShown }: { dots: Dots | null; shown:
               <span className="demand-check" aria-hidden="true">
                 {shown[k.kind] ? '✓' : ''}
               </span>
-              <span className="demand-swatch" aria-hidden="true" style={{ background: k.colour }} />
+              {/* Homes filled and jobs ringed, as the map draws them (overlays.ts). */}
+              <span className="demand-swatch" aria-hidden="true" style={k.kind === 'job' ? { border: `2px solid ${k.colour}` } : { background: k.colour }} />
               <span className="demand-name">{k.name}</span>
               <span className="demand-what">
                 {k.what} · {about(dotTotal(dots, k.kind))} {k.unit}

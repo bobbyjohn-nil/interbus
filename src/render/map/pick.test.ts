@@ -1,7 +1,8 @@
 // The dot under the pointer (D25). Shown failing (TS-04) with no slop, where a pointer 4 px from a 1.8 px
 // dot picked nothing, and with the nearest centre taken over the circle that holds the pointer.
 import { describe, expect, it } from 'vitest';
-import { dotRadiusExpression, dotRadiusPx, pickDot, PICK_SLOP_PX, type DotCandidate } from './pick';
+import { createExpression } from '@maplibre/maplibre-gl-style-spec';
+import { dotRadiusExpression, dotRadiusPx, pickDot, PICK_SLOP_PX, RING_MAX_PX, ringExpressions, ringWidthPx, type DotCandidate } from './pick';
 
 const dot = (i: number, x: number, y: number, radiusPx: number): DotCandidate => ({ kind: 'home', i, x, y, radiusPx });
 
@@ -43,5 +44,35 @@ describe('a dot’s radius', () => {
 
   it('is the paint expression’s own numbers', () => {
     expect(dotRadiusExpression()).toEqual(['interpolate', ['linear'], ['zoom'], 12, ['*', 0.06, ['sqrt', ['get', 'w']]], 16, ['*', 0.24, ['sqrt', ['get', 'w']]]]);
+  });
+});
+
+// A job's ring is drawn inside its people radius: MapLibre strokes outward from the circle's radius, so the radius is the
+// people radius less the stroke. Drawn outside it, a job of 19 drew at 2.7 px for 0.65 and looked bigger than a home of 140,
+// and the pick missed a ring's outer pixel (the review of shape beside colour). Shown failing (TS-04) with the stroke outside.
+describe('a job’s ring', () => {
+  /** What MapLibre's own evaluator makes of a paint expression for a dot of `w` at `zoom`. */
+  const paint = (expression: unknown, w: number, zoom: number): number => {
+    const made = createExpression(expression, 'paint.circle-radius');
+    if (made.result !== 'success') throw new Error(made.value.map((e) => e.message).join('; '));
+    return made.value.evaluate({ zoom }, { type: 'Point', properties: { w } } as never) as number;
+  };
+
+  it('ends at the people radius at every zoom, the radius the pick finds', () => {
+    const { radius, width } = ringExpressions();
+    for (const w of [1, 19, 140, 356, 4_000, 10_000])
+      for (const zoom of [11, 12, 13, 14, 15.5, 16, 17]) {
+        expect(paint(radius, w, zoom) + paint(width, w, zoom)).toBeCloseTo(dotRadiusPx(w, zoom), 9);
+        expect(paint(width, w, zoom)).toBeCloseTo(ringWidthPx(w, zoom), 9);
+      }
+    // The same radius the homes paint with.
+    expect(paint(dotRadiusExpression(), 140, 14)).toBeCloseTo(dotRadiusPx(140, 14), 9);
+  });
+
+  it('is half the radius wide, at most 2 px, so a big job is a ring and the smallest a dot', () => {
+    expect(ringWidthPx(19, 14)).toBeCloseTo(dotRadiusPx(19, 14) / 2, 9);
+    // 10,000 jobs: capped at both zoom stops, so 2 px at every zoom between, with a 13 px hole at zoom 14.
+    expect(ringWidthPx(10_000, 14)).toBe(RING_MAX_PX);
+    expect(dotRadiusPx(10_000, 14) - ringWidthPx(10_000, 14)).toBeGreaterThan(10);
   });
 });

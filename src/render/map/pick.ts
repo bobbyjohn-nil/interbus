@@ -25,6 +25,31 @@ export function dotRadiusExpression(): unknown {
   return ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([z, f]) => [z, ['*', DOT_SCALE * f, ['sqrt', ['get', 'w']]]])];
 }
 
+/** A job's ring at most this wide: half the dot's radius below that, so the smallest stay a dot. */
+export const RING_MAX_PX = 2;
+
+/** The width of a job's ring of `w` jobs at `zoom`: half its radius, at most RING_MAX_PX, drawn inside it. */
+export function ringWidthPx(w: number, zoom: number): number {
+  const [[z0, f0], [z1, f1]] = ZOOM_STOPS as [readonly [number, number], readonly [number, number]];
+  const t = Math.min(1, Math.max(0, (zoom - z0) / (z1 - z0)));
+  const at = (f: number) => Math.min(RING_MAX_PX, (DOT_SCALE * f * Math.sqrt(w)) / 2);
+  return at(f0) + (at(f1) - at(f0)) * t;
+}
+
+/**
+ * A job's ring as MapLibre paints it: the stroke is drawn outward from the circle's radius, so the radius is the people
+ * radius less the stroke, and the ring's outer edge is the radius the pick finds (the review of shape beside colour: drawn
+ * outside it, a job of 19 drew at 2.7 px for 0.65, larger than a home of 140, and the pick missed a ring's outer pixel).
+ * Both are straight between the same zoom stops, so their sum is dotRadiusPx at every zoom.
+ */
+export function ringExpressions(): { radius: unknown; width: unknown } {
+  const width = (f: number) => ['min', RING_MAX_PX, ['/', ['*', DOT_SCALE * f, ['sqrt', ['get', 'w']]], 2]];
+  return {
+    width: ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([z, f]) => [z, width(f)])],
+    radius: ['interpolate', ['linear'], ['zoom'], ...ZOOM_STOPS.flatMap(([z, f]) => [z, ['-', ['*', DOT_SCALE * f, ['sqrt', ['get', 'w']]], width(f)]])],
+  };
+}
+
 /** How far outside a dot's circle the pointer may be and still pick it. */
 export const PICK_SLOP_PX = 6;
 

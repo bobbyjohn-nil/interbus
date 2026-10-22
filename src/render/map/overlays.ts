@@ -6,7 +6,7 @@
 // worker; the renderer computes none (AR-04), only the shapes that show them.
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
-import { dotRadiusExpression, type DotKind } from './pick';
+import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -27,7 +27,7 @@ export const EVENT_LAYERS = ['event-pending', 'event-on', 'event-label'] as cons
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
 
-export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'labelHalo'>): void {
+export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>): void {
   for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, EVENTS]) map.addSource(id, { type: 'geojson', data: empty });
   // A city event's street (the M4 spec, item 2), under the lines and wider than them so it shows on
   // either side of a route: hatched while pending, solid while on, in the warning colour.
@@ -54,18 +54,29 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
   map.addLayer({ id: 'depot-land-edge', type: 'line', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'line-color': t.depotLand, 'line-width': 1.5 } });
   // A dot's area grows with its people: radius by the square root, larger as the map zooms in (pick.ts,
   // which finds the dot under the pointer by the same numbers).
-  for (const [id, kind, colour] of [
-    ['dots-homes', 'home', t.homeDot],
-    ['dots-jobs', 'job', t.jobDot],
-  ] as const) {
-    map.addLayer({
-      id,
-      type: 'circle',
-      source: DOTS,
-      filter: ['==', ['get', 'kind'], kind],
-      paint: { 'circle-color': colour, 'circle-opacity': 0.55, 'circle-radius': dotRadiusExpression() as never, 'circle-pitch-alignment': 'map' },
-    });
-  }
+  // Homes are filled and jobs ringed, so the two kinds differ in shape as well as colour (PLAN §8: shape plus colour).
+  map.addLayer({
+    id: 'dots-homes',
+    type: 'circle',
+    source: DOTS,
+    filter: ['==', ['get', 'kind'], 'home'],
+    paint: { 'circle-color': t.homeDot, 'circle-opacity': 0.55, 'circle-radius': dotRadiusExpression() as never, 'circle-pitch-alignment': 'map' },
+  });
+  map.addLayer({
+    id: 'dots-jobs',
+    type: 'circle',
+    source: DOTS,
+    filter: ['==', ['get', 'kind'], 'job'],
+    // The ring inside the people radius (pick.ts, ringExpressions), so a job draws no larger than its jobs.
+    paint: {
+      'circle-color': 'rgba(0, 0, 0, 0)',
+      'circle-stroke-color': t.jobDot,
+      'circle-stroke-width': ringExpressions().width as never,
+      'circle-stroke-opacity': 0.7,
+      'circle-radius': ringExpressions().radius as never,
+      'circle-pitch-alignment': 'map',
+    },
+  });
   map.addLayer({
     id: 'lines-route',
     type: 'line',
@@ -73,6 +84,18 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     filter: ['==', ['get', 'kind'], 'route'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 16, 7] },
+  });
+  // Each line's name along its route where it has room, in the labels' ink, beside its colour (PLAN §8: shape plus colour):
+  // under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two pairs are
+  // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street one name shows (7 of the late game's
+  // 18 in its opening view), and a click there lists them all. Under the stops and their flags, which it never covers.
+  map.addLayer({
+    id: 'lines-name',
+    type: 'symbol',
+    source: LINES,
+    filter: ['==', ['get', 'kind'], 'route'],
+    layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
+    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
   });
   map.addLayer({
     id: 'lines-stops',
@@ -247,7 +270,7 @@ export function flagWord(stop: Pick<StopView, 'quiet' | 'loss'>): string | null 
 export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[]): void {
   const features = [
     ...lines.flatMap((line) => [
-      { type: 'Feature' as const, properties: { kind: 'route', colour: line.colour, id: line.id }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
+      { type: 'Feature' as const, properties: { kind: 'route', colour: line.colour, id: line.id, name: line.name }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
       ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
     ]),
     ...stops.flatMap((s) => (s.lineIds.length ? [] : [{ type: 'Feature' as const, properties: { kind: 'lone', stop: s.id }, geometry: { type: 'Point' as const, coordinates: [...s.at] } }])),

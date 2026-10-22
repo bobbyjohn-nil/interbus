@@ -44,7 +44,10 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             <span>
               {c.daysNeeded} days in a row · {usd(c.rewardCents)}
             </span>
-            <span className={c.met ? 'met' : 'short'}>Today: {figureText(c.kind, c.figure, c.ask)}</span>
+            {/* Met or not, now, in words beside the colour (PLAN §8: shape plus colour); a held one that missed an hour today says so below. */}
+            <span className={c.met ? 'met' : 'short'}>
+              Today: {figureText(c.kind, c.figure, c.ask)} · {c.met ? 'met now' : 'not met now'}
+            </span>
             {c.held ? (
               <span>
                 {c.daysMet} of {c.daysNeeded} days · {c.daysLeft} {c.daysLeft === 1 ? 'day' : 'days'} left{c.onTrack ? '' : ' · missed today'}
