@@ -12,6 +12,7 @@ import { runOver } from "./game/runOver";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
+import { LinesHere } from "./game/LinesHere";
 import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
@@ -78,6 +79,8 @@ export function App() {
   const [financeAsks, setFinanceAsks] = useState(0);
   if (financeLine !== null && !open.includes("finance")) setFinanceLine(null);
   const [stopId, setStopId] = useState<number | null>(null);
+  // The lines a click found on the same streets, the topmost first (LinesHere).
+  const [hereIds, setHereIds] = useState<readonly number[]>([]);
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
   const [homeAt, setHomeAt] = useState<number | null>(0);
@@ -158,6 +161,10 @@ export function App() {
         // A click on a stop opens its card; on a line, the line's inspector.
         setStopId(hit.stopId);
         show("stop");
+      } else if (hit.lineIds.length > 1) {
+        // On streets that several lines share, each is listed to open, not only the one drawn on top.
+        setHereIds(hit.lineIds);
+        show("here");
       } else if (hit.lineId !== null) {
         setLineId(hit.lineId);
         show("lines");
@@ -316,7 +323,7 @@ export function App() {
     loadedSeen.current = loadedAt;
     creating.current = false;
     choose("none");
-    setOpen((o) => o.filter((p) => p !== "stop" && p !== "lines"));
+    setOpen((o) => o.filter((p) => p !== "stop" && p !== "lines" && p !== "here"));
     setDraftModel("sparrow");
   }, [loadedAt, choose]);
 
@@ -511,6 +518,21 @@ export function App() {
         ),
       });
     else if (p === "contracts") panelItems.push({ id: p, node: <Contracts sim={sim} onClose={() => hide("contracts")} /> });
+    else if (p === "here")
+      panelItems.push({
+        id: p,
+        node: (
+          <LinesHere
+            sim={sim}
+            lineIds={hereIds}
+            onLine={(id) => {
+              setLineId(id);
+              show("lines");
+            }}
+            onClose={() => hide("here")}
+          />
+        ),
+      });
     else if (p === "stop" && stopId !== null)
       panelItems.push({
         id: p,

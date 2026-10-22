@@ -4,9 +4,12 @@
 import { createHash } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { loadCity } from '../src/sim/city/simfile';
+import { toLngLat, toXY, type XY } from '../src/sim/core/geo';
 import { encode } from '../src/sim/save/save';
 import { FIXTURE_CORRIDORS, lateScene } from '../src/sim/scene';
+import { nearestNode, type World } from '../src/sim/world';
 import { foundCompany } from './found';
+import { projector } from './shell';
 
 /** The fixture's late game, imported over a founded company, paused. */
 async function lateGame(page: Page) {
@@ -29,6 +32,39 @@ async function lateGame(page: Page) {
   return world;
 }
 
+/** The point half way along a street's points. */
+function halfway(pts: readonly XY[]): XY {
+  const legs = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i]![0], p[1] - pts[i]![1]));
+  let left = legs.reduce((a, b) => a + b, 0) / 2;
+  for (const [i, leg] of legs.entries()) {
+    if (left <= leg) {
+      const [a, b] = [pts[i]!, pts[i + 1]!];
+      return [a[0] + ((b[0] - a[0]) * left) / leg, a[1] + ((b[1] - a[1]) * left) / leg];
+    }
+    left -= leg;
+  }
+  return pts.at(-1)!;
+}
+
+/** The middle of each street that two or more of `world`'s lines drive between their stops, more than 120 m from every stop, and those lines. */
+function sharedStreets(world: World): { at: [number, number]; lineIds: number[] }[] {
+  const { city, state } = world;
+  const stops = new Map(state.stops.map((s) => [s.id, toXY(city.frame, [s.lon, s.lat])]));
+  const driven = new Map<number, number[]>();
+  for (const line of state.lines) {
+    const xy = line.stopIds.map((id) => stops.get(id)!);
+    for (let k = 1; k < xy.length; k++) {
+      const [a, b] = [nearestNode(world, xy[k - 1]!), nearestNode(world, xy[k]!)];
+      for (const e of (a === null || b === null ? null : world.router.route(a, b))?.edges ?? []) driven.set(e, [...new Set([...(driven.get(e) ?? []), line.id])]);
+    }
+  }
+  return [...driven].flatMap(([e, lineIds]) => {
+    const mid = halfway(city.streets[e]!.points as readonly XY[]);
+    if (lineIds.length < 2 || [...stops.values()].some((s) => Math.hypot(s[0] - mid[0], s[1] - mid[1]) < 120)) return [];
+    return [{ at: [...toLngLat(city.frame, mid)] as [number, number], lineIds }];
+  });
+}
+
 /** Whether `el` shows whole in the part of `panel` the window shows, and how far past the panel's foot it ends. */
 async function shownIn(panel: Locator, el: Locator) {
   const [p, b] = [(await panel.boundingBox())!, (await el.boundingBox())!];
@@ -36,6 +72,34 @@ async function shownIn(panel: Locator, el: Locator) {
 }
 
 test.describe('a late game of many lines', () => {
+  // Lines on the same streets draw over one another, and a click there opened only the line drawn on top: the others were
+  // reached only from Lines' tabs (DECISIONS, Open: many lines on the map, its recommended (b)). Such a click now lists every
+  // line under it, each to open. Shown failing (TS-04) with the click opening the line on top, as before.
+  test('a click on streets that several lines share lists them, and each opens its line', async ({ page }) => {
+    const world = await lateGame(page);
+    const { project, box } = await projector(page);
+    const centre: [number, number] = [box.x + box.width / 2, box.y + box.height / 2];
+    const inView = ([x, y]: [number, number]) => x > box.x + 150 && x < box.x + box.width - 150 && y > box.y + 150 && y < box.y + box.height - 150;
+    const shared = sharedStreets(world)
+      .map((s) => ({ ...s, xy: project(s.at) }))
+      .filter((s) => inView(s.xy))
+      .sort((a, b) => Math.hypot(a.xy[0] - centre[0], a.xy[1] - centre[1]) - Math.hypot(b.xy[0] - centre[0], b.xy[1] - centre[1]))[0];
+    expect(shared).toBeDefined();
+    const here = page.getByTestId('lines-here');
+    // The lines draw a moment after the save loads, so the click is tried until the card comes, the tries far enough apart that
+    // none is taken for a double-click.
+    await expect(async () => {
+      await page.mouse.click(...shared!.xy);
+      await expect(here).toBeVisible({ timeout: 1_000 });
+    }).toPass({ intervals: [700], timeout: 15_000 });
+    const names = shared!.lineIds.map((id) => world.state.lines.find((l) => l.id === id)!.name);
+    for (const name of names) await expect(here.getByRole('button', { name, exact: true })).toBeVisible();
+    for (const name of names.slice(0, 2)) {
+      await here.getByRole('button', { name, exact: true }).click();
+      await expect(page.getByTestId('inspector').getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
+    }
+  });
+
   // The line card's link opened Finance's Lines on its line, the row expanded but below the panel's foot, under the lines
   // before it, and nothing scrolled to it: the link seemed to do nothing. Scrolled to it, the panel's heading (its drag handle),
   // Close and views went out of reach with the rest (the review of the round's fixes): only the body scrolls now.
