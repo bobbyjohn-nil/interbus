@@ -178,6 +178,7 @@ test.describe('the focus as a card’s button goes', () => {
     await page.keyboard.press('Enter');
     await expect(panel).toHaveCount(0);
     expect([await sent('sell-spares'), await sent('close-line')]).toEqual([1, 1]);
-    await expect(page.getByTestId('notice')).toHaveCount(0);
+    // Nor did a second command's refusal say so (copy.ts); the load's notice may still show, for 6 s.
+    await expect(page.getByText(/That line is gone|The line needs every bus it has/)).toHaveCount(0);
   });
 });
