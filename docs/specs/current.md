@@ -39,7 +39,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
    - **What the player does:**
      - founds with the founding recipe and plays its first day at 600×, then 2,700× (1,800× until the tuning freeze);
      - draws a second line along a sweep corridor once its cash covers that line and its buses;
-     - takes the contracts its lines can meet, and nothing else.
+     - takes every contract on offer, and builds for none.
    - **What it reports, in real minutes on the speed ladder** (`SPEED_RATES`, `src/sim/rules/speed.ts`: 1×, 60×, 600×, 2,700× and 5,400×, where 2,700× was 1,800× from D25 until the tuning freeze; the pacing run plays at 600× and 2,700×): first profitable day, second line, the report card, then bronze, silver and gold.
    - **The targets:** profit by 8 minutes, the second line after 15–25, the report card by 20, the top medal in 2–4 hours.
    - **The first line's 3–5 minutes** is the player's own time at the tools. The e2e founding run times its clicks, and P2 times people.
