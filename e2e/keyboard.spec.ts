@@ -136,6 +136,25 @@ test.describe('the focus as a card’s button goes', () => {
     await expect(page.getByTestId('build')).toBeFocused();
   });
 
+  test('goes to the tab of a line an undo brings back, from the card it replaces', async ({ page }) => {
+    // Two lines, Line 2 shown. Closing it shows Line 1's card, the focus on its Buses list; the undo brings Line 2 back, the line
+    // the panel still names, so its card replaces Line 1's under the focus, which fell to the page (the review of the hand-back).
+    const panel = await lines(page, (d) => {
+      const one = (d.lines as Record<string, unknown>[])[0]!;
+      (d.lines as Record<string, unknown>[]).push({ ...one, id: 2, name: 'Line 2', stopIds: [1, 2] });
+      d.nextIds = { ...d.nextIds, line: 3 };
+    });
+    await panel.getByRole('tab', { name: 'Line 2', exact: true }).click();
+    await press(page, panel.getByRole('button', { name: 'Close line' }));
+    await press(page, panel.getByTestId('close-line').getByRole('button', { name: 'Close it' }));
+    await expect(panel.getByRole('tablist')).toHaveCount(0);
+    await expect(panel.getByTestId('line-model')).toBeFocused();
+    await page.keyboard.press('Control+z');
+    const two = panel.getByRole('tab', { name: 'Line 2', exact: true });
+    await expect(two).toHaveAttribute('aria-selected', 'true');
+    await expect(two).toBeFocused();
+  });
+
   test('stays on the page as an undo takes the only line, so Space plays rather than opening Build', async ({ page }) => {
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });

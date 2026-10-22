@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BUS_MODELS } from "../../sim/rules/line";
 import { closingOf } from "../../sim/rules/route";
 import type { StopTier } from "../../sim/rules/stopTier";
@@ -6,9 +6,13 @@ import { busCount, usdK } from "../format";
 import { runOver } from "../game/runOver";
 import { showInBody } from "../showWhole";
 import { useFocusBack, type HandBack } from "../focusBack";
+import { focusLost } from "../focusLost";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 import { tabTo } from "../tablist";
+
+/** Where the focus goes as the line shown changes under it: the line's tab, or its Buses list when it is the only line. */
+const SHOWN = '[role="tab"][aria-selected="true"], [data-testid="line-model"]';
 
 /**
  * The line inspector (the M2 spec, item 7): one line's card and its headways. Its money and its fare
@@ -61,6 +65,32 @@ export function Inspector({
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
   if (closingId !== null && closingId !== line?.id) setClosingId(null);
   if (sentId !== null && (sentId !== closingId || sim.refusal?.command === "close-line")) setSentId(null);
+  // The control the focus is on in this panel, until the focus goes elsewhere or the player presses elsewhere. An undo that
+  // brings back the line App still names (Close it, then Ctrl+Z) shows its card in place of the one the focus was in, and the
+  // focus fell to the page (the review of the hand-back); it goes to that line's tab instead. Only as the line shown changes,
+  // so the run's end, which turns controls off, still gives the day card's Continue the focus (DayCard).
+  const held = useRef<Element | null>(null);
+  useEffect(() => {
+    const focusIn = (event: FocusEvent) => {
+      held.current = event.target instanceof Element && panel.current?.contains(event.target) ? event.target : null;
+    };
+    const press = (event: PointerEvent) => {
+      if (!(event.target instanceof Node && held.current?.contains(event.target))) held.current = null;
+    };
+    document.addEventListener("focusin", focusIn, true);
+    document.addEventListener("pointerdown", press, true);
+    return () => {
+      document.removeEventListener("focusin", focusIn, true);
+      document.removeEventListener("pointerdown", press, true);
+    };
+  }, []);
+  const shownId = line?.id;
+  useEffect(() => {
+    const was = held.current;
+    if (!was || was.isConnected || !focusLost()) return;
+    held.current = null;
+    panel.current?.querySelector<HTMLElement>(SHOWN)?.focus();
+  }, [shownId]);
   if (!line) return null;
   const model = BUS_MODELS[line.model];
   // What closing it sells and takes down, on the rule the command checks (sim/rules/route.ts closingOf; GD-05).
@@ -154,9 +184,7 @@ export function Inspector({
                   setSentId(line.id);
                   closeHandBack(
                     e.currentTarget,
-                    () =>
-                      panel.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"], [data-testid="line-model"]') ??
-                      document.querySelector<HTMLElement>('[data-testid="build"]'),
+                    () => panel.current?.querySelector<HTMLElement>(SHOWN) ?? document.querySelector<HTMLElement>('[data-testid="build"]'),
                   );
                   sim.send({ type: "close-line", lineId: line.id });
                 }}
