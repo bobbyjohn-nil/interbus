@@ -1,0 +1,45 @@
+# Playwright's Chromium and the system packages it needs, for the CI jobs that run a browser. apt
+# fetched those packages, 25.9 MB of fonts and libraries, from the runner's mirror at 52 kB/s for
+# 8 min 18 s, and the 8-minute limit cancelled the job (#152, 2026-10-22); on other runs it took
+# 1 min 39 s (#150) and 4 min 30 s. So the packages apt downloads are kept in the Actions cache and
+# put back in apt's own folder before it runs. apt still checks each one against the archive's signed
+# index, and fetches any it lacks or that is out of date. A runner image's installed packages decide
+# what apt fetches, so each image keeps its own set; an image with none yet starts from the newest set
+# of another (#153: the newest set of any held only the fonts, and apt fetched 4.9 MB of libraries).
+name: Install Playwright's Chromium
+description: Playwright's Chromium and its system packages, with apt's downloads kept between runs
+runs:
+  using: composite
+  steps:
+    - name: Name the runner image's set
+      id: image
+      shell: bash
+      run: echo "key=apt-chromium-${ImageOS:-linux}-${ImageVersion:-unknown}-${{ runner.arch }}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore apt's packages for Chromium
+      id: restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/apt-archives
+        key: ${{ steps.image.outputs.key }}
+        restore-keys: apt-chromium-
+
+    - name: Install Playwright's Chromium and its system packages
+      shell: bash
+      run: |
+        mkdir -p ~/apt-archives
+        echo "apt's packages for Chromium restored: $(ls ~/apt-archives | wc -l) files, from ${{ steps.restore.outputs.cache-matched-key || 'no set' }}"
+        sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+        npx playwright install --with-deps chromium
+        # Keep what the archive still serves: the set restored and what apt fetched.
+        sudo apt-get autoclean -qq
+        rm -f ~/apt-archives/*.deb
+        cp /var/cache/apt/archives/*.deb ~/apt-archives/ 2>/dev/null || true
+        echo "apt's packages for Chromium kept: $(ls ~/apt-archives | wc -l) files, $(du -sh ~/apt-archives | cut -f1)"
+
+    - name: Keep apt's packages for Chromium
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/apt-archives
+        key: ${{ steps.image.outputs.key }}
