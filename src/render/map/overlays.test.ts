@@ -4,7 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { addOverlays, setDotKinds, setLines } from './overlays';
+import { ringExpressions } from './pick';
 import type { LineView, StopView } from '../../sim/types';
+import { FONT_STACKS } from './style';
 import { GAME_LIGHT, LIGHT } from './tokens';
 
 interface Layer {
@@ -52,7 +54,7 @@ describe('the game layers', () => {
     expect(layout.get('dots-jobs.visibility')).toBe('none');
   });
 
-  it('name each line along its route, in the labels’ ink, so no line is told by its colour alone', () => {
+  it('name each line along its route where it has room, in the labels’ ink, under the stops and their flags', () => {
     const { map, specs, data } = fakeMap();
     addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
     const names = specs.get('lines-name')!;
@@ -61,6 +63,14 @@ describe('the game layers', () => {
     expect(names.layout).toMatchObject({ 'symbol-placement': 'line', 'text-field': ['get', 'name'] });
     expect(names.layout!['text-size']).toBeGreaterThanOrEqual(12);
     expect(names.paint).toMatchObject({ 'text-color': LIGHT.label, 'text-halo-color': LIGHT.labelHalo });
+    // Over the routes and under the stops and their flags, which it never covers (the review of shape beside colour).
+    const { layers } = (() => {
+      const f = fakeMap();
+      addOverlays(f.map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+      return f;
+    })();
+    expect(layers.indexOf('lines-name')).toBe(layers.indexOf('lines-route') + 1);
+    for (const under of ['lines-stops', 'stops-lone', 'stops-flag-ring', 'stops-flag-word']) expect(layers.indexOf('lines-name')).toBeLessThan(layers.indexOf(under));
     // The route carries the line's name.
     const line = { id: 2, name: 'Line 2', colour: '#2471a3', route: [[-71.08, 42.35], [-71.09, 42.34]], stops: [], stopIds: [] } as unknown as LineView;
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);
@@ -74,6 +84,16 @@ describe('the game layers', () => {
     expect(specs.get('dots-homes')!.paint).toMatchObject({ 'circle-color': GAME_LIGHT.homeDot });
     expect(specs.get('dots-homes')!.paint!['circle-stroke-width']).toBeUndefined();
     expect(specs.get('dots-jobs')!.paint).toMatchObject({ 'circle-color': 'rgba(0, 0, 0, 0)', 'circle-stroke-color': GAME_LIGHT.jobDot });
-    expect(specs.get('dots-jobs')!.paint!['circle-stroke-width']).toBeGreaterThanOrEqual(1.5);
+    // Its stroke and radius come from the ring's expressions (pick.ts), so the ring ends at the people radius.
+    expect(specs.get('dots-jobs')!.paint!['circle-stroke-width']).toEqual(ringExpressions().width);
+    expect(specs.get('dots-jobs')!.paint!['circle-radius']).toEqual(ringExpressions().radius);
+  });
+
+  it('draw every word in the self-hosted Afacad Flux stacks', () => {
+    const { map, specs } = fakeMap();
+    addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+    const fonts = [...specs.values()].flatMap((l) => (l.layout?.['text-font'] as string[] | undefined) ?? []);
+    expect(fonts.length).toBeGreaterThan(2);
+    expect(fonts.filter((f) => !FONT_STACKS.includes(f))).toEqual([]);
   });
 });

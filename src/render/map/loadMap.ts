@@ -466,7 +466,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     if (swallow) return;
     const double = e.originalEvent.detail > 1 && heardBefore;
     heardLast = true;
-    const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS] }) : [];
+    const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS, 'lines-name'] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
     const lineIds = [...new Set(hits.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];

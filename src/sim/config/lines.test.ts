@@ -1,7 +1,8 @@
-// The line colours apart (PLAN §8: shape plus colour; UX-08's final form, the palette's ΔE as a unit test). For normal vision
-// the eight colours stay at least 5.5 apart in OKLab (×100, where about 2 is the least difference seen). Under simulated
-// colour blindness they fall as close as 2.0, which no palette of eight avoids; so a line is never told by its colour alone:
-// its name runs along its route (overlays.ts, lines-name), and the panels name it beside its swatch.
+// The line colours apart (PLAN §8: shape plus colour; UX-08's final form, the palette's ΔE as a unit test). Today's palette,
+// held here until it is redone with the light style pass: for normal vision its eight colours stay at least 5.5 apart in OKLab
+// (×100, where about 2 is the least difference seen), and under simulated colour blindness they fall as close as 2.0, where
+// Okabe and Ito's eight stay 7.6 apart (the review of shape beside colour). Meanwhile a line's name runs along its route where
+// it has room (overlays.ts, lines-name), and the panels name it beside its swatch.
 import { describe, expect, it } from 'vitest';
 import { LINE_COLOURS } from './lines';
 

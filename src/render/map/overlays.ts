@@ -6,7 +6,7 @@
 // worker; the renderer computes none (AR-04), only the shapes that show them.
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
-import { dotRadiusExpression, type DotKind } from './pick';
+import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -67,12 +67,13 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     type: 'circle',
     source: DOTS,
     filter: ['==', ['get', 'kind'], 'job'],
+    // The ring inside the people radius (pick.ts, ringExpressions), so a job draws no larger than its jobs.
     paint: {
       'circle-color': 'rgba(0, 0, 0, 0)',
       'circle-stroke-color': t.jobDot,
-      'circle-stroke-width': 2,
-      'circle-stroke-opacity': 0.8,
-      'circle-radius': dotRadiusExpression() as never,
+      'circle-stroke-width': ringExpressions().width as never,
+      'circle-stroke-opacity': 0.7,
+      'circle-radius': ringExpressions().radius as never,
       'circle-pitch-alignment': 'map',
     },
   });
@@ -83,6 +84,18 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     filter: ['==', ['get', 'kind'], 'route'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 16, 7] },
+  });
+  // Each line's name along its route where it has room, in the labels' ink, beside its colour (PLAN §8: shape plus colour):
+  // under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two pairs are
+  // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street one name shows (7 of the late game's
+  // 18 in its opening view), and a click there lists them all. Under the stops and their flags, which it never covers.
+  map.addLayer({
+    id: 'lines-name',
+    type: 'symbol',
+    source: LINES,
+    filter: ['==', ['get', 'kind'], 'route'],
+    layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
+    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
   });
   map.addLayer({
     id: 'lines-stops',
@@ -129,17 +142,6 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     filter: ['==', ['get', 'kind'], 'flag'],
     layout: { 'text-field': ['get', 'word'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -1.1], 'text-allow-overlap': true },
     paint: { 'text-color': t.stopFlag, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
-  });
-  // Each line's name along its route, in the labels' ink, so lines are told apart by more than their colour (PLAN §8: shape
-  // plus colour): under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two
-  // pairs are within 7.1 for everyone (src/sim/config/lines.test.ts).
-  map.addLayer({
-    id: 'lines-name',
-    type: 'symbol',
-    source: LINES,
-    filter: ['==', ['get', 'kind'], 'route'],
-    layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
-    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
   });
   map.addLayer({
     id: 'depots',

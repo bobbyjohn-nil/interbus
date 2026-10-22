@@ -42,8 +42,8 @@ describe('contracts on the page', () => {
     expect(offered).toContain('Take it');
     const held = panel(sim({ contracts: [{ ...offer, held: true, daysMet: 3, daysLeft: 17, figure: 900, met: true, onTrack: false }] }));
     // Met or not in words, beside the colour (PLAN §8: shape plus colour).
-    expect(held).toContain('Today: every 15 min · met');
-    expect(offered).toContain('Today: every 20 min · not met');
+    expect(held).toContain('Today: every 15 min · met now');
+    expect(offered).toContain('Today: every 20 min · not met now');
     expect(held).toContain('3 of 10 days · 17 days left · missed today');
     expect(held).not.toContain('Take it');
     expect(panel(sim({ contracts: [{ ...offer, figure: null }] }))).toContain('Today: no bus within a walk');
@@ -54,7 +54,7 @@ describe('contracts on the page', () => {
     // Two 20-minute lines at Copley, one a second slower in snow (the systems audit's fifth round, D26): short of the
     // 10-minute ask by a quarter of a second, and its figure says so, as RIDERSHIP's floor does.
     const snow = panel(sim({ contracts: [{ ...offer, landmark: 'Copley Square', ask: 600, figure: 600.2499, met: false }] }));
-    expect(snow).toContain('<span class="short">Today: every 10 min 1 s · not met</span>');
+    expect(snow).toContain('<span class="short">Today: every 10 min 1 s · not met now</span>');
   });
 });
 
