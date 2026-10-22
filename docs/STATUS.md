@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-21, at `main` 37965a4 ([#143](https://github.com/bobbyjohn-nil/interbus/pull/143): the ninth audit round's fixes), with the values pass's gold measurement on this pull request.
+**Updated:** 2026-10-22, at `main` da186a6 ([#144](https://github.com/bobbyjohn-nil/interbus/pull/144): the values pass starts, with what gold takes on Inner Boston), with the late game's measurement on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 37965a4 (#143). Deploy preview run 39654364516's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` da186a6 (#144). Deploy preview run 39694275545's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -22,6 +22,7 @@ The handoff between Claude sessions: what is live, what waits on the owner, what
 - [ ] **P0, by Sat Oct 17:** the owner and the artist play V1 for 30 minutes each. Notes go in `docs/playtests/2026-10-17-p0-v1-baseline.md`. Merges no longer wait for them: the owner lifted P0's freeze on Oct 21 (D28).
 - [ ] **The artist, by Sun Oct 18:** read `docs/art/MODELS.md` §1 and §2 and answer §1's questions, including which Windows version the artist's PC runs (D21 (b)); commit `art/LICENSE.md` naming Miticept Studios and CC BY 4.0 with the credit "Miticept Studios" (D20), which records the artist's agreement.
 - [ ] **I14 on a hub of lines, and on many lines, by Sun Nov 1** (DECISIONS, Open): a hub of 10 to 15 lines out of one stop takes 0.11–0.24 s a command at p50 (0.15–0.30 s at p95), and a late game of 20 to 30 lines with no hub 0.14–0.21 s (0.20–0.28 s), against I14's 150 ms at p95. Hold I14 on the reference network, on hubs of up to 8 spokes and on networks of up to 15 lines, and make the assignment faster once a playtest or the pacing run builds a larger one (recommended); or make it faster now (2–3 sessions); or limit a stop to 8 lines (which leaves the late game over).
+- [ ] **The late game at the bus ceiling, by Sun Nov 1** (DECISIONS, Open; measured 2026-10-22). At 30 buses a company earns $47,000–50,000 a day and can buy little but Shelters (about $900,000, back in about 130 days): a bigger bus pays back in 566 days at best, and only a bigger bus run less often frees a bus place (926 days at best), since no command closes a line or sells a spare bus. Add Close line and Sell spare buses, selling at half price as a model change does, about a session, before P1 (recommended); or V1's way, a closed line's buses free to another line (about two sessions, and a save-format change); or either with a sixth depot ($1,140,000, 36 buses); or none before P1. The prices stay.
 - [ ] **When the values pass starts, by Sun Oct 25** (DECISIONS, Open): the audit confirmed 40 bugs in round 1, 18 in round 7's six lanes (one blocker, six major), 5 minors in round 8's two and 3 in round 9's two, on the least-touched systems, whose fixes are in. The values pass has started by default (In progress, recommended); or audit until a round finds nothing.
 - [ ] **Many lines on the map, by Sun Nov 8** (DECISIONS, Open): a late game's 30 lines share 8 colours and nothing recolours one, and lines on the same streets hide each other, a click there opening the line on top. List the lines under such a click now, and leave the palette and side-by-side drawing for the light style pass (recommended); or leave both for the pass; or do both now as unscheduled look work.
 - [ ] **I2 and a stop's dwell, by Sun Oct 25** (DECISIONS, Open): hold I2's 0.1% for a stop with the dwell at zero and bound the dwell at 1% of trips (recommended), or make buses skip unused stops.
@@ -48,7 +49,7 @@ Systems that work first, the real values later (D26). The audit found what did n
 
 Each round's lanes, fixes and measurements are in its pull requests and DECISIONS' Measured entries. The values pass now tunes prices, rates, the pacing minutes and the medal bars, against the pacing run and the late-game benches, toward the tuning freeze on Dec 13 (M5, item 2). It is the default until the owner answers (Waiting on the owner: when the values pass starts).
 
-- [x] **The gold measurement** (this pull request; DECISIONS, Measured, 2026-10-21). It brings back D26's parked harness:
+- [x] **The gold measurement** ([#144](https://github.com/bobbyjohn-nil/interbus/pull/144); DECISIONS, Measured, 2026-10-21). It brings back D26's parked harness:
   - `npm run bench coverage`;
   - the pacing player's card scoring (`PACING_CARD_CENTS`) and wider candidates (`PACING_CANDIDATES=wide`);
   - its depot fallbacks, and a retry cadence (`PACING_RETRY_DAYS`), which makes another player.
@@ -59,7 +60,12 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
   - the profit-only player reaches 31.
 
   The medal ladder goes to the owner with these numbers (Waiting on the owner).
-- [ ] **Next: the late game's cash.** Both players stop building while their cash grows: the profit-only player's to $1.2 million by day 200, and the card-building player's past $1 million a week after the 30-bus ceiling (seed 2: $1.3 million by day 152). Measure what a late company can spend on and where the ceiling binds, then propose values with numbers.
+- [x] **The late game's cash** (this pull request; DECISIONS, Measured, 2026-10-22). `npm run bench lategame` plays a run and, on its first day with no event on, tries each stop's next tier, each bigger bus (at its headways, and less often) and each line a step more often for a day, then each kind's best together; `LATEGAME_SAVE` keeps the company it played for later runs.
+  - The profit-only company (seed 1, day 202, 15 buses): $1.2 million and $4,182 a day more. Its buses never fill; what pays is Shelters, $408,000 back in 222 days, and two headway steps on spare buses, $355 a day.
+  - The card-building company at the 30-bus ceiling (seeds 1 and 2, days 146 and 153): $47,000–50,000 a day more. Shelters pay, about $900,000 back in about 130 days; no bigger bus pays back in under 566 days; 10–11 of its 13–14 lines have no room to run more often; and freeing a bus place, by a bigger bus run less often, pays back in 926 days at best.
+
+  The prices stay. The late game at the bus ceiling goes to the owner (Waiting on the owner).
+- [ ] **Next: the contracts' asks, the fare band and crowding** (M5 spec, item 2's tunables), against the pacing run and the companies `LATEGAME_SAVE` keeps.
 
 Open from the audit:
 - [ ] **Held for a save format:** the checklist coming back as "5/5 Take a contract" when a taken contract lapses needs a saved flag, so it waits to share one format change with any other finding that needs one.
