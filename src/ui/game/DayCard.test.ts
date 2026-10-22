@@ -8,7 +8,7 @@ import type { DayCard as DayCardData } from '../../sim/types';
 import { DayCard } from './DayCard';
 import type { Sim } from './useSim';
 
-const render = (card: DayCardData) => renderToStaticMarkup(createElement(DayCard, { sim: { dayCard: card, closeDayCard: () => undefined } as unknown as Sim }));
+const render = (card: DayCardData) => renderToStaticMarkup(createElement(DayCard, { sim: { dayCard: card, closeDayCard: () => undefined } as unknown as Sim, handBack: () => undefined }));
 const report = { quarter: 1, coverage: 50.6, reliability: 100, comfort: 80, money: 66.5, overall: 74.3, payoutCents: 3_081_300 };
 const rows = [
   { kind: 'fares', amountCents: 143_100, lineId: 1 },

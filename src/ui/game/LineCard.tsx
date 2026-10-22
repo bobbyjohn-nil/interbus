@@ -88,7 +88,7 @@ export function LineHeading({ line }: { line: LineView }) {
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
  * (sim/rules/line.ts, GD-05). Its heading is the Lines panel's (LineHeading).
  */
-export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; onFinance?: () => void }) {
+export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: LineView; onFinance?: () => void; onStop?: (stopId: number) => void }) {
   const [wanted, setWanted] = useState<HeadwayPick | null>(null);
   const [modelPick, setModelPick] = useState<ModelPick | null>(null);
   // A change picked, of headways or of model, shows its card whole, its Run it or Buy and swap with it: a low line's, under many
@@ -155,6 +155,18 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
       {line.fullAtMinute !== null ? (
         <p className="full" data-testid="line-full">
           Full at {clock(Math.floor(line.fullAtMinute / 60), line.fullAtMinute % 60)} · {about(line.turnedAwayPerDay)} riders a day turned away
+        </p>
+      ) : null}
+      {onStop ? (
+        // Its stops in route order, each opening its card: the keyboard's way to a stop, where the map has only a press on it
+        // (the accessibility pass).
+        <p className="stops" data-testid="line-stops">
+          Stops
+          {line.stopIds.map((id, k) => (
+            <button key={k} type="button" aria-label={`Stop ${id}`} onClick={() => onStop(id)}>
+              {id}
+            </button>
+          ))}
         </p>
       ) : null}
       <div className="model">
