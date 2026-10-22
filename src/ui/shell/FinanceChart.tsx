@@ -10,11 +10,11 @@ const BARS_H = 70;
 const LABELS_Y = 150;
 const H = 154;
 /**
- * About a character's width in the axis's 12px Afacad Flux, in the chart's units ("Q2 Day 1" measured 34.5 at 9px), and the
- * least room between two of its labels. Finance is 440 px wide, so a unit draws about 1.03 px and the labels about 12.4 px
- * (PLAN §8's chrome text of 12 px and more; they were 9).
+ * About a character's width in the axis's 12.5-unit Afacad Flux, in the chart's units ("Q2 Day 1" measured 34.5 at 9), and the
+ * least room between two of its labels. Finance is 440 px wide, so a unit draws about 1.03 px and the labels about 12.9 px, and
+ * 12.3 px beside a 17 px scrollbar (PLAN §8's chrome text of 12 px and more; they were 9).
  */
-const LABEL_CHAR = 5.9;
+const LABEL_CHAR = 6.1;
 const LABEL_GAP = 6;
 
 /**
@@ -90,7 +90,8 @@ export function FinanceChart({ finance: f }: { finance: FinanceView }) {
             {l.text}
           </text>
         ))}
-      <text className="scale" x={2} y={BARS_TOP + 10}>
+      {/* In the band between the cash line and the bars, so it covers neither (the review of the 12 px labels). */}
+      <text className="scale" x={2} y={BARS_TOP - 4}>
         {usd(scale)}
       </text>
     </svg>

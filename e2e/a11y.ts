@@ -17,21 +17,27 @@ export function smallThings(page: Page): Promise<string[]> {
       return r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
     };
     const name = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
-    for (const el of document.querySelectorAll('button, [role="tab"], [role="option"], [role="button"], a[href], input, select, summary')) {
-      if (!shown(el) || el.closest('.corner')) continue;
-      const label = (el as HTMLInputElement).type === 'radio' || (el as HTMLInputElement).type === 'checkbox' ? el.closest('label') : null;
-      const r = (label ?? el).getBoundingClientRect();
-      if (r.width < 24 - 0.5 || r.height < 24 - 0.5) out.push(`a ${Math.round(r.width)}×${Math.round(r.height)} px control: ${name(el)}`);
+    const px = (el: Element, at?: string) => parseFloat(getComputedStyle(el, at).fontSize);
+    for (const el of document.querySelectorAll('button, [role="tab"], [role="option"], [role="button"], a[href], input, select, textarea, summary')) {
+      if (!shown(el) || el.matches('.corner a')) continue;
+      const choice = (el as HTMLInputElement).type === 'radio' || (el as HTMLInputElement).type === 'checkbox';
+      const r = ((choice && el.closest('label')) || el).getBoundingClientRect();
+      if (r.width < 24 - 0.05 || r.height < 24 - 0.05) out.push(`a ${Math.round(r.width)}×${Math.round(r.height)} px control: ${name(el)}`);
+      // A field's own words, its value or its placeholder, are drawn in its font.
+      if (el.matches('input:not([type="radio"]):not([type="checkbox"]), select, textarea') && px(el) < 12 - 0.05) out.push(`${px(el).toFixed(1)} px text: the field ${name(el)}`);
     }
+    // Each text node where it is drawn, so text straight inside a display: contents box counts; an SVG's at its own scale.
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const el = n.parentElement;
       const text = n.textContent?.trim();
-      if (!text || !el || !shown(el)) continue;
-      // Text in an SVG draws at its font size times the drawing's scale.
-      const svg = el.closest('svg');
-      const px = parseFloat(getComputedStyle(el).fontSize) * (svg ? (svg.getScreenCTM()?.a ?? 1) : 1);
-      if (px < 12 - 0.05) out.push(`${px.toFixed(1)} px text: ${text.slice(0, 40)}`);
+      if (!text || !el || getComputedStyle(el).visibility === 'hidden') continue;
+      range.selectNodeContents(n);
+      if (![...range.getClientRects()].some((r) => r.width > 0 && r.height > 0)) continue;
+      const m = el instanceof SVGGraphicsElement ? el.getScreenCTM() : null;
+      const size = px(el) * (m ? Math.min(Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)) : 1);
+      if (size < 12 - 0.05) out.push(`${size.toFixed(1)} px text: ${text.slice(0, 40)}`);
     }
     // Text a style draws before or after an element, a count or a mark, is no text node, so each is read from its style.
     for (const el of document.body.querySelectorAll('*')) {
@@ -39,7 +45,7 @@ export function smallThings(page: Page): Promise<string[]> {
       for (const at of ['::before', '::after'] as const) {
         const style = getComputedStyle(el, at);
         const drawn = style.content.replace(/^none$|^normal$|^""$/, '');
-        if (drawn && style.display !== 'none' && parseFloat(style.fontSize) < 12 - 0.05) out.push(`${parseFloat(style.fontSize).toFixed(1)} px text: ${at} ${drawn.slice(0, 30)} of ${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}`);
+        if (drawn && style.display !== 'none' && px(el, at) < 12 - 0.05) out.push(`${px(el, at).toFixed(1)} px text: ${at} ${drawn.slice(0, 30)} of ${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}`);
       }
     }
     return [...new Set(out)];

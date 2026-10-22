@@ -114,7 +114,8 @@ export function Breakdown({ finance: f, today, quarter, fold = FOLDED }: { finan
     <table>
       <thead>
         <tr>
-          <th scope="col" />
+          {/* The rows' names have no heading, so their corner is a plain cell, not an empty one (axe-core's empty-table-header). */}
+          <td />
           <th scope="col">Today</th>
           <th scope="col">Yesterday</th>
           <th scope="col">{quarterText(f.quarterFirstDay)}</th>

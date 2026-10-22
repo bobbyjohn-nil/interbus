@@ -4,10 +4,12 @@
 // failing (TS-04) on the build before the copy pass, which listed 34: 'off', 'every 10 min', 'interbus',
 // 'build 859ca0b', a colour swatch named '#c0392b' and the draft card's 'every 20 min needs …'.
 //
-// The same screens hold the accessibility floor (PLAN §8, UX-08; e2e/a11y.ts): every control 24 px or
-// more each way and the text 12 px or more on each, and axe-core on the ones that bring something new.
-// Shown failing (TS-04) on the build before it: the Build menu's 11 px descriptions, Finance's chart
-// labels at 9.3 px, and axe-core's region rule on the speed menu, whose list sat loose in the body.
+// The same screens hold the accessibility floor (PLAN §8, UX-08; e2e/a11y.ts), at 1280×800 as PLAN §8
+// asks: every control 24 px or more each way and the text 12 px or more on each, and axe-core on the
+// ones that bring something new. Shown failing (TS-04) on the build before it: the Build menu's 11 px
+// descriptions, the route editor's 22 px buttons and 11 px stop numbers, Finance's chart labels at
+// 9.3 px, axe-core's region rule on the speed menu, whose list sat loose in the body, and its
+// empty-table-header on Finance's Breakdown.
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { copyProblems } from '../src/ui/copyRules';
@@ -23,7 +25,7 @@ function screenWords(page: Page): Promise<string[]> {
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     };
-    // The page, not only the app: a dropdown's list is drawn over it (Dropdown.tsx).
+    // The whole page, a dropdown's list drawn over the panels with it (Dropdown.tsx).
     const app = document.body;
     const labels = 'h1, h2, h3, h4, button, label, legend, option, th, caption, p, strong, .chip-label, .chip, .dropdown-label, .dropdown-hint, .demand-name, .demand-what, .build-chip, [role="status"], [role="alert"]';
     for (const el of app.querySelectorAll(labels)) {
@@ -51,13 +53,15 @@ test.describe('the copy convention and the accessibility floor', () => {
     const seen = new Map<string, string[]>();
     const small = new Map<string, string[]>();
     const axe = new Map<string, string[]>();
-    // axe-core takes about half a second a screen, so it reads those that bring something new: a card, a panel, a menu.
-    const AXED = new Set(['founding', 'speed menu', 'build menu', 'stop site card', 'draft card', 'line panel', 'route editor', 'finance', 'finance lines', 'stop card', 'saves', 'day card', 'contracts']);
+    // axe-core takes about 2 s a screen on CI (half a second to one here), so it reads those that bring something new: a card,
+    // a panel, a menu.
+    const AXED = new Set(['founding', 'speed menu', 'build menu', 'stop site card', 'draft card', 'line panel', 'route editor', 'finance', 'finance breakdown', 'finance lines', 'stop card', 'saves', 'day card', 'contracts']);
     const read = async (where: string) => {
       seen.set(where, await screenWords(page));
       small.set(where, await smallThings(page));
       if (AXED.has(where)) axe.set(where, await axeProblems(page));
     };
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
@@ -143,17 +147,18 @@ test.describe('the copy convention and the accessibility floor', () => {
     await page.getByRole('button', { name: 'Pause' }).click();
     await read('day card');
     await card.getByRole('button', { name: 'Continue' }).click();
+    // The day closed in profit, so the checklist's last step opens the contracts: read always, so every screen above is.
     const checklist = page.getByTestId('checklist');
-    if ((await checklist.count()) && (await checklist.evaluate((el) => el.tagName === 'BUTTON'))) {
-      await checklist.click();
-      await expect(page.getByTestId('contracts')).toBeVisible();
-      await read('contracts');
-    }
+    await expect(checklist).toHaveJSProperty('tagName', 'BUTTON');
+    await checklist.click();
+    await expect(page.getByTestId('contracts')).toBeVisible();
+    await read('contracts');
 
     const problems = [...seen].flatMap(([where, words]) => copyProblems(words).map((p) => `${where}: ${p}`));
     test.info().annotations.push({ type: 'screens read', description: [...seen.keys()].join(', ') });
-    expect(problems).toEqual([]);
-    expect([...small].flatMap(([where, things]) => things.map((t) => `${where}: ${t}`))).toEqual([]);
-    expect([...axe].flatMap(([where, found]) => found.map((f) => `${where}: ${f}`))).toEqual([]);
+    expect.soft(problems).toEqual([]);
+    expect.soft([...small].flatMap(([where, things]) => things.map((t) => `${where}: ${t}`))).toEqual([]);
+    expect.soft([...axe].flatMap(([where, found]) => found.map((f) => `${where}: ${f}`))).toEqual([]);
+    expect([seen.size, axe.size]).toEqual([19, AXED.size]);
   });
 });
