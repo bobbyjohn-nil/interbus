@@ -108,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The preview now plays all of Inner Boston, not just Back Bay to Longwood: Boston, Cambridge, Somerville and Brookline, with homes and jobs across all four and contracts offered at Kendall Square, Harvard Square and Downtown Crossing too. Demand is scaled so a first line from Copley to Longwood carries about what it did.
 - How far people commute now follows Boston's own census records rather than a generic guess, so trips are a little shorter on average and a line from Copley to Longwood carries about 3% fewer riders.
 - Small print is easier to read and small buttons easier to press: the Build menu's descriptions, Finance's chart labels, the route editor's stop numbers and an express line's tag are 12 px or more, and the route editor's Move up, Move down and Remove buttons are 24 px. A crowded chart names fewer of its days, and its money scale sits above the bars instead of on them.
+- When your computer is set to reduce motion, the compass turns at once instead of easing.
 
 ### Fixed
 
@@ -233,6 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bus stops and depots no longer land on the Mass Pike, the I-93 tunnel or their ramps, which sent buses kilometers out of their way to the next exit and back.
 - Buses run both ways along the streets you choose instead of looping around blocks of one-way streets in Back Bay and downtown. Most short trips there now drive less than a third further than the straight line, and none more than two and a half times it.
 - Importing a save file whose money rows are out of day order is now refused as unreadable, with your game kept as it was, instead of stopping the game at that night's close.
+- Pressing a card's button from the keyboard keeps your place: after Keep as is, Run it, Buy and swap, Sell them or Keep it, the focus goes back to the control the card came from, and after Close it to the line shown next, or to Build once the last line has closed, instead of to the top of the page.
+- A busy day's card can be scrolled from the keyboard: Tab to its rows, then use the arrow keys.
 
 ### Removed
 

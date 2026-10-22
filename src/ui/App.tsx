@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CITIES } from "../cities";
 import { MapView, type DotKinds, type HoveredDot, type MapHit } from "../render/map/MapView";
 import { readDotPrefs, writeDotPrefs } from "../platform";
@@ -12,6 +12,7 @@ import { runOver } from "./game/runOver";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
+import { focusLost } from "./focusLost";
 import { LinesHere, linesHere } from "./game/LinesHere";
 import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
@@ -267,6 +268,15 @@ export function App() {
   // Lines with no line left to show (an undo took back the only one) closes, as Escape closes it, so
   // the dock shows it neither open nor pressed.
   if (game && !game.lines.length && open.includes("lines")) setOpen((o) => o.filter((p) => p !== "lines"));
+  // Lines closing with its last line, as Close line's Close it or an undo took it: the focus it held goes to Build, the next
+  // thing to do, not to the page (the accessibility pass; useFocusBack hands it on while the panel stays).
+  const linesShown = open.includes("lines");
+  const linesWere = useRef(false);
+  useLayoutEffect(() => {
+    const went = linesWere.current && !linesShown && game !== null && game.lines.length === 0;
+    linesWere.current = linesShown;
+    if (went && focusLost()) document.querySelector<HTMLElement>('[data-testid="build"]')?.focus();
+  });
   // A stop's card closes with its stop (taken down, or an undo), so it never opens again by itself on a
   // stop that takes the same id later.
   if (stopId !== null && game && !game.stops.some((s) => s.id === stopId)) {

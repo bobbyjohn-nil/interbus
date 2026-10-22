@@ -34,7 +34,9 @@ export function DayCard({ sim }: { sim: Sim }) {
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
   return (
     <section key={card.day} className="day-card" role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
-      <div className="day-card-scroll">
+      {/* Its rows scroll inside it on a busy close, and hold nothing focusable, so the region takes the focus itself for the
+          keyboard's arrows (axe-core's scrollable-region-focusable; the accessibility pass). */}
+      <div className="day-card-scroll" tabIndex={0} role="region" aria-label="The day’s money">
         <h2>{dateText(card.day)} closed</h2>
         {card.report ? (
           <section className="report" aria-label={`${quarterText(card.day)} report card`} data-testid="report-card" data-overall={(Math.floor(card.report.overall * 10) / 10).toFixed(1)} data-payout={card.report.payoutCents}>

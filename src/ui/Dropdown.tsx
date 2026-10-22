@@ -239,7 +239,9 @@ export function Dropdown<T extends string | number>({
               role="listbox"
               aria-label={label}
               aria-activedescendant={`${listId}-${active}`}
-              tabIndex={-1}
+              // In the Tab order while it is open, as a list that scrolls must be for the keyboard (axe-core's
+              // scrollable-region-focusable); it holds the focus while open, and Tab and Shift+Tab close it (onListKey).
+              tabIndex={0}
               onKeyDown={onListKey}
             >
               {options.map((o, i) => (

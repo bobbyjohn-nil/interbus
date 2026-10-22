@@ -5,6 +5,7 @@ import type { StopTier } from "../../sim/rules/stopTier";
 import { busCount, usdK } from "../format";
 import { runOver } from "../game/runOver";
 import { showInBody } from "../showWhole";
+import { useFocusBack } from "../focusBack";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 import { tabTo } from "../tablist";
@@ -40,6 +41,11 @@ export function Inspector({
   // into view, as the line card's change cards are (#140).
   const closeCard = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => showInBody(closeCard.current), [closingId]);
+  // The ask's buttons go with it, so the focus goes on: Keep it's to Close line, and Close it's, once its line has gone, to the
+  // line shown in its place (useFocusBack). Close it keeps the ask until then, or the focus would go to a line about to go.
+  const handBack = useFocusBack();
+  const panel = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const lines = sim.snapshot?.lines ?? [];
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
   if (closingId !== null && closingId !== line?.id) setClosingId(null);
@@ -66,6 +72,7 @@ export function Inspector({
   };
   return (
     <aside
+      ref={panel}
       className="panel inspector"
       aria-label="Lines"
       data-testid="inspector"
@@ -115,7 +122,7 @@ export function Inspector({
           <button type="button" disabled={runOver(sim)} onClick={() => onEditRoute(line.id)}>
             Edit route
           </button>
-          <button type="button" disabled={runOver(sim)} aria-expanded={closing !== null} onClick={() => setClosingId(closing ? null : line.id)}>
+          <button ref={closeButton} type="button" disabled={runOver(sim)} aria-expanded={closing !== null} onClick={() => setClosingId(closing ? null : line.id)}>
             Close line
           </button>
         </div>
@@ -129,14 +136,20 @@ export function Inspector({
               <button
                 type="button"
                 disabled={runOver(sim)}
-                onClick={() => {
+                onClick={(e) => {
+                  handBack(e.currentTarget, () => panel.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"], [data-testid="line-model"]'));
                   sim.send({ type: "close-line", lineId: line.id });
-                  setClosingId(null);
                 }}
               >
                 Close it
               </button>
-              <button type="button" onClick={() => setClosingId(null)}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  handBack(e.currentTarget, () => closeButton.current);
+                  setClosingId(null);
+                }}
+              >
                 Keep it
               </button>
             </div>

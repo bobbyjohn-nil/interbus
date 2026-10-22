@@ -9,6 +9,7 @@ import { encode } from '../src/sim/save/save';
 import { FIXTURE_CORRIDORS, lateScene } from '../src/sim/scene';
 import { copyProblems } from '../src/ui/copyRules';
 import { lineEdges, type World } from '../src/sim/world';
+import { axeProblems } from './a11y';
 import { foundCompany } from './found';
 import { build, projector, toScreen } from './shell';
 
@@ -235,6 +236,8 @@ test.describe('a late game of many lines', () => {
     await page.keyboard.press('ArrowDown');
     const list = page.getByRole('listbox', { name: `Fare for ${line.name}` });
     await expect(list).toBeVisible();
+    // The list scrolls, so it is in the Tab order while open (axe-core's scrollable-region-focusable; the accessibility pass).
+    expect(await axeProblems(page)).toEqual([]);
     await page.keyboard.press('End');
     const b = (await body.boundingBox())!;
     await page.mouse.move(b.x + 20, b.y + b.height - 20);

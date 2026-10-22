@@ -5,6 +5,7 @@
 // fix: the card ran from 60 px to 800, Continue lay below the window's edge where no press reached it,
 // nothing scrolled, and the card lay over the dock's buttons until the next close replaced it.
 import { expect, test, type Locator } from '@playwright/test';
+import { axeProblems } from './a11y';
 import { foundCompany } from './found';
 import { city, setSpeed, withBusyQuarterClose } from './shell';
 
@@ -58,6 +59,10 @@ test.describe('the day card', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, 2_000);
     await expect.poll(() => onTop(cash)).toBe(true);
+    // Its rows hold nothing focusable, so they scroll for the keyboard as a region that takes the focus itself (axe-core's
+    // scrollable-region-focusable, the accessibility pass): before, Tab reached only Continue, and the rows below stayed out
+    // of a keyboard player's reach where the browser lets no scroller take the focus (Safari).
+    expect(await axeProblems(page)).toEqual([]);
     expect(await go.boundingBox()).toEqual(at);
 
     // A press on Continue, where the player sees it, closes the card.
