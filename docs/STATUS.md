@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-22, at `main` a842dcb ([#145](https://github.com/bobbyjohn-nil/interbus/pull/145): the late game's cash, and what a company can buy at the bus ceiling), with what the contracts carry on this pull request.
+**Updated:** 2026-10-22, at `main` 9cc5c4a ([#146](https://github.com/bobbyjohn-nil/interbus/pull/146): what the contracts carry, and the fare band and crowding kept), with where a company's money comes from and goes on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a842dcb (#145). Deploy preview run 39723395499's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 9cc5c4a (#146). Deploy preview run 39733075049's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up, on its second attempt: the first stopped installing Playwright's browser when packages.microsoft.com answered 403, and the deploy itself had passed. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -65,13 +65,19 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
   - The card-building company at the 30-bus ceiling (seeds 1 and 2, days 146 and 153): $47,000–50,000 a day more. Shelters pay, about $900,000 back in about 130 days; no bigger bus pays back in under 566 days; 10–11 of its 13–14 lines have no room to run more often; and freeing a bus place, by a bigger bus run less often, pays back in 926 days at best.
 
   The prices stay. The late game at the bus ceiling goes to the owner (Waiting on the owner).
-- [x] **The contracts, the fare band and crowding** (this pull request; DECISIONS, Measured, 2026-10-22; M5 spec, item 2's tunables). `PACING_CONTRACTS=off` plays the scripted player without contracts.
+- [x] **The contracts, the fare band and crowding** ([#146](https://github.com/bobbyjohn-nil/interbus/pull/146); DECISIONS, Measured, 2026-10-22; M5 spec, item 2's tunables). `PACING_CONTRACTS=off` plays the scripted player without contracts.
   - It never builds for a contract: on seed 1's profit-only run it took 69, 50 lapsed, 3 were still held, and the 16 its lines met paid $1,950,000, as much as all its fares and subsidy.
   - Without them both players meet the early targets on the same days (their first contracts pay on days 54 and 69). After that the profit-only player ends day 200 with 4 lines and $202,086 instead of 7 and $1.2 million, and the card-building player has no gold by day 200 (129.5 minutes) instead of gold on day 144 (103.2).
   - The fare band's 5% (one or two fares on the lines that earn) and crowding stay; full buses turn riders away only on Washington Street at a long headway, and at the 30-bus ceiling.
 
   **Next week's first question** (this week's five are asked; for the batch of Mon Oct 26, into DECISIONS' Open and Waiting on the owner): what a contract asks. (a) Keep the deck: an offer pays for service at its landmark, whether it was built for or ran already. (b) Deal only what a landmark lacks, so every contract asks for a change, at the same rewards. About a session or more: the deck's rule (what becomes of a card passed over, so that every six offers still hold each ask once, and of a landmark that meets every card left); I11 on a company that builds for its asks (its own takes only offers it meets, and would earn nothing); the fixture's second-line band, which rests on day 9's contract for service already running; and the gold and late-game measurements again. (c) Halve the rewards. Recommended: (b). GD-04 wants contracts as goals, and here every one that paid was for service already running; a player who builds for them still earns them. It would also move the card-building player's gold later than its 103 minutes, toward PLAN §3's 2–4 hours, so it bears on the medal ladder.
-- [ ] **Next: the running costs and the city's money** (wages, the cost a kilometre, the subsidy and the card's grant), against the pacing run and the companies `LATEGAME_SAVE` keeps.
+- [x] **The running costs and the city's money** (this pull request; DECISIONS, Measured, 2026-10-22). `npm run bench lategame` now sums a company's ledger from founding.
+  - Fares and the city's subsidy cover the running costs 1.5 times on the profit-only player's corridor lines (its fares alone 0.83 times), and 3 times on the card-building player's network, which reaches the dense neighbourhoods (fares alone 1.65–1.75).
+  - Wages are 61–64% of the running costs, the cost a kilometre 26–30%.
+  - Rewards, mostly contracts, are 37–54% of all a company takes in.
+
+  The rates stay: the running costs', but for stop upkeep (D25), the fare, the subsidy and the card's payout are V1's. The contracts' rewards are V2's and go with the contracts' question.
+- [ ] **Next: the values pass waits** on the owner's answers (the medal ladder, the late game at the bus ceiling, and next week's contracts question once asked) and on P1's notes. Until each comes, its recommendation stands (the autonomy protocol), so work goes on under Next.
 
 Open from the audit:
 - [ ] **Held for a save format:** the checklist coming back as "5/5 Take a contract" when a taken contract lapses needs a saved flag, so it waits to share one format change with any other finding that needs one.
@@ -86,6 +92,8 @@ Open from the audit:
 
 The spec is [`docs/specs/current.md`](specs/current.md) (M5, Prototype, by Sun Dec 20). No new sim system after Sun Dec 6. Look work stays at most one session in three until M3 is signed off.
 
+- [ ] **Many lines on the map, its recommended (b)** (DECISIONS, Open; the owner answers by Sun Nov 8, and until then the recommendation stands): a click on streets that several lines share lists them, each to open, where now it opens only the line on top. Page only, about half a session.
+- [ ] **The late game at the bus ceiling, its recommended (a)** (DECISIONS, Open; the owner answers by Sun Nov 1, and until then the recommendation stands): Close line and Sell spare buses, selling at half price as a model change does, about a session, so it is in before P1.
 - [ ] **M3 item 12, week 5's scheduled presentation items:** the art check and icons in CI (≤0.5), the three.js proof behind a flag (≤1).
 - [ ] **The tuning freeze** (item 2): k, the speed ladder, the medal bars and Boston's balance bands, from the pacing run and P1, by Dec 13. **k and the speed ladder done** ([#103](https://github.com/bobbyjohn-nil/interbus/pull/103)): k 1.333 and 2,700×, with the bands held nightly. The rest is D26's values pass (In progress); the medal bars wait for the owner. The 200-day run at k 1.2 ended with its 3 depots full, 18 buses, a fourth depot ($505,000; the third was $340,000) beyond its cash; no company can own more than 30 buses (five depots of six; DECISIONS, Measured).
 - [ ] **P2's fixes, the light style pass and the slow-laptop run** (items 7–9; week 10). The run's busy scene is ready (2026-10-13): `npm run bench scene` writes a save of 209 buses on 29 Inner Boston lines at 08:00, past the 30-bus ceiling, to import through Saves on the preview with `?fps`. CI draws every bus in it, in one draw call (PLAN §6: ≤7). A session sends you the file for the run. I14's first frame on software GL is measured and tested too: 1.2–1.5 s on Inner Boston against 2.5 s. So is PLAN §6's heap budget, nightly: the busy scene's heaps grew 1.0% over 30 minutes at 1,800×, against 10%, and the nightly now checks them at 2,700× (DECISIONS, Measured).
