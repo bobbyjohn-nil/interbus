@@ -7,9 +7,14 @@ const CASH_TOP = 6;
 const CASH_H = 40;
 const BARS_TOP = 62;
 const BARS_H = 70;
-const LABELS_Y = 146;
-/** About a character's width in the axis's 9px Afacad Flux, in the chart's units ("Q2 Day 1" measures 34.5), and the least room between two of its labels. */
-const LABEL_CHAR = 4.4;
+const LABELS_Y = 150;
+const H = 154;
+/**
+ * About a character's width in the axis's 12px Afacad Flux, in the chart's units ("Q2 Day 1" measured 34.5 at 9px), and the
+ * least room between two of its labels. Finance is 440 px wide, so a unit draws about 1.03 px and the labels about 12.4 px
+ * (PLAN §8's chrome text of 12 px and more; they were 9).
+ */
+const LABEL_CHAR = 5.9;
 const LABEL_GAP = 6;
 
 /**
@@ -56,7 +61,7 @@ export function FinanceChart({ finance: f }: { finance: FinanceView }) {
   }
   const summary = `Cash ${usd(days.at(-1)!.cashCents)} on ${dayName(today)}, from ${usd(points[0]!.cash)} on ${dayName(points[0]!.day)}`;
   return (
-    <svg className="finance-chart" viewBox={`0 0 ${W} 152`} role="img" aria-label={summary} data-testid="finance-chart" data-days={days.length}>
+    <svg className="finance-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary} data-testid="finance-chart" data-days={days.length}>
       {lo < 0 ? <line className="zero" x1={0} x2={W} y1={cashY(0)} y2={cashY(0)} /> : null}
       <polyline className="cash" points={points.map((p, k) => `${x(k)},${cashY(p.cash)}`).join(' ')} />
       {points.map((p, k) => (
@@ -85,7 +90,7 @@ export function FinanceChart({ finance: f }: { finance: FinanceView }) {
             {l.text}
           </text>
         ))}
-      <text className="scale" x={2} y={BARS_TOP + 8}>
+      <text className="scale" x={2} y={BARS_TOP + 10}>
         {usd(scale)}
       </text>
     </svg>

@@ -3,9 +3,15 @@
 // label, option, column, caption, tooltip and accessible name read on each screen it passes. Shown
 // failing (TS-04) on the build before the copy pass, which listed 34: 'off', 'every 10 min', 'interbus',
 // 'build 859ca0b', a colour swatch named '#c0392b' and the draft card's 'every 20 min needs …'.
+//
+// The same screens hold the accessibility floor (PLAN §8, UX-08; e2e/a11y.ts): every control 24 px or
+// more each way and the text 12 px or more on each, and axe-core on the ones that bring something new.
+// Shown failing (TS-04) on the build before it: the Build menu's 11 px descriptions, Finance's chart
+// labels at 9.3 px, and axe-core's region rule on the speed menu, whose list sat loose in the body.
 import { expect, test, type Page } from '@playwright/test';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { copyProblems } from '../src/ui/copyRules';
+import { axeProblems, smallThings } from './a11y';
 import { foundCompany, leaveHome } from './found';
 import { build, city, onDepotLand, setSpeed, toScreen, zoomOutOnce } from './shell';
 
@@ -37,13 +43,21 @@ function screenWords(page: Page): Promise<string[]> {
   });
 }
 
-test.describe('the copy convention', () => {
+test.describe('the copy convention and the accessibility floor', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
-  test('every label, tooltip and name on the way from Home to a day’s close keeps it', async ({ page }) => {
+  test('every label, tooltip and name on the way from Home to a day’s close keeps it, and every screen holds the floor', async ({ page }) => {
     test.setTimeout(150_000);
     const seen = new Map<string, string[]>();
-    const read = async (where: string) => seen.set(where, await screenWords(page));
+    const small = new Map<string, string[]>();
+    const axe = new Map<string, string[]>();
+    // axe-core takes about half a second a screen, so it reads those that bring something new: a card, a panel, a menu.
+    const AXED = new Set(['founding', 'speed menu', 'build menu', 'stop site card', 'draft card', 'line panel', 'route editor', 'finance', 'finance lines', 'stop card', 'saves', 'day card', 'contracts']);
+    const read = async (where: string) => {
+      seen.set(where, await screenWords(page));
+      small.set(where, await smallThings(page));
+      if (AXED.has(where)) axe.set(where, await axeProblems(page));
+    };
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
@@ -139,5 +153,7 @@ test.describe('the copy convention', () => {
     const problems = [...seen].flatMap(([where, words]) => copyProblems(words).map((p) => `${where}: ${p}`));
     test.info().annotations.push({ type: 'screens read', description: [...seen.keys()].join(', ') });
     expect(problems).toEqual([]);
+    expect([...small].flatMap(([where, things]) => things.map((t) => `${where}: ${t}`))).toEqual([]);
+    expect([...axe].flatMap(([where, found]) => found.map((f) => `${where}: ${f}`))).toEqual([]);
   });
 });
