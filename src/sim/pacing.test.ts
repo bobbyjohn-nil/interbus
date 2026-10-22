@@ -18,12 +18,13 @@ import type { World } from './world';
 
 
 describe('the scripted pacing run, on the fixture', () => {
-  const play = (world: World, maxDays: number) =>
+  const play = (world: World, maxDays: number, takeContracts?: boolean) =>
     playScripted(world, { name: 'the debug line', stops: DEBUG_STOPS.map((s) => s.at), headways: FOUNDING_HEADWAYS }, corridorCandidates(world, [['Copley to Kenmore', COPLEY, KENMORE]]), {
       rateOn: (day) => SPEED_RATES[day === 1 ? 3 : 4],
       player: { newGameToPlay: 3.5, perLine: 1.5, perDepot: 0.5 },
       reserveCents: 0,
       maxDays,
+      ...(takeContracts === undefined ? {} : { takeContracts }),
     });
   const result = play(fixtureGame(7), 40);
 
@@ -39,6 +40,17 @@ describe('the scripted pacing run, on the fixture', () => {
     expect(result.at.secondLine!.day).toBeLessThanOrEqual(13);
     expect(result.at.secondLine!.minutes).toBeGreaterThanOrEqual(10);
     expect(result.at.secondLine!.minutes).toBeLessThanOrEqual(14);
+  });
+
+  // PACING_CONTRACTS=off (bench/pacing.ts) weighs what the contracts carry: the same player taking none. Shown failing (TS-04)
+  // with the switch ignored, when day 9's $60,000 contract pays and the second line follows on day 10.
+  it('takes no contract when told not to, and its second line then waits past the day after the first one would pay', () => {
+    const without = play(fixtureGame(7), 14, false);
+    expect(result.contracts[0]?.day).toBe(9);
+    expect(result.lapsed).toBe(6); // with them, of the offers it took in 40 days
+    expect(without.contracts).toEqual([]);
+    expect(without.lapsed).toBe(0);
+    expect(without.at.secondLine?.day ?? Infinity).toBeGreaterThan(result.at.secondLine!.day);
   });
 
   // The nightly's founding-recipe band (bench/pacing.ts) read day 2's rows at the end of its run, and

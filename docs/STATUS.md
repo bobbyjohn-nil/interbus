@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-22, at `main` da186a6 ([#144](https://github.com/bobbyjohn-nil/interbus/pull/144): the values pass starts, with what gold takes on Inner Boston), with the late game's measurement on this pull request.
+**Updated:** 2026-10-22, at `main` a842dcb ([#145](https://github.com/bobbyjohn-nil/interbus/pull/145): the late game's cash, and what a company can buy at the bus ceiling), with what the contracts carry on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` da186a6 (#144). Deploy preview run 39694275545's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a842dcb (#145). Deploy preview run 39723395499's live check found that SHA on the build chip and in `version.json`, with the map ready and Home up. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -60,12 +60,18 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
   - the profit-only player reaches 31.
 
   The medal ladder goes to the owner with these numbers (Waiting on the owner).
-- [x] **The late game's cash** (this pull request; DECISIONS, Measured, 2026-10-22). `npm run bench lategame` plays a run and, on its first day with no event on, tries each stop's next tier, each bigger bus (at its headways, and less often) and each line a step more often for a day, then each kind's best together; `LATEGAME_SAVE` keeps the company it played for later runs.
+- [x] **The late game's cash** ([#145](https://github.com/bobbyjohn-nil/interbus/pull/145); DECISIONS, Measured, 2026-10-22). `npm run bench lategame` plays a run and, on its first day with no event on, tries each stop's next tier, each bigger bus (at its headways, and less often) and each line a step more often for a day, then each kind's best together; `LATEGAME_SAVE` keeps the company it played for later runs.
   - The profit-only company (seed 1, day 202, 15 buses): $1.2 million and $4,182 a day more. Its buses never fill; what pays is Shelters, $408,000 back in 222 days, and two headway steps on spare buses, $355 a day.
   - The card-building company at the 30-bus ceiling (seeds 1 and 2, days 146 and 153): $47,000–50,000 a day more. Shelters pay, about $900,000 back in about 130 days; no bigger bus pays back in under 566 days; 10–11 of its 13–14 lines have no room to run more often; and freeing a bus place, by a bigger bus run less often, pays back in 926 days at best.
 
   The prices stay. The late game at the bus ceiling goes to the owner (Waiting on the owner).
-- [ ] **Next: the contracts' asks, the fare band and crowding** (M5 spec, item 2's tunables), against the pacing run and the companies `LATEGAME_SAVE` keeps.
+- [x] **The contracts, the fare band and crowding** (this pull request; DECISIONS, Measured, 2026-10-22; M5 spec, item 2's tunables). `PACING_CONTRACTS=off` plays the scripted player without contracts.
+  - It never builds for a contract: on seed 1's profit-only run it took 69, 50 lapsed, 3 were still held, and the 16 its lines met paid $1,950,000, as much as all its fares and subsidy.
+  - Without them both players meet the early targets on the same days (their first contracts pay on days 54 and 69). After that the profit-only player ends day 200 with 4 lines and $202,086 instead of 7 and $1.2 million, and the card-building player has no gold by day 200 (129.5 minutes) instead of gold on day 144 (103.2).
+  - The fare band's 5% (one or two fares on the lines that earn) and crowding stay; full buses turn riders away only on Washington Street at a long headway, and at the 30-bus ceiling.
+
+  **Next week's first question** (this week's five are asked; for the batch of Mon Oct 26, into DECISIONS' Open and Waiting on the owner): what a contract asks. (a) Keep the deck: an offer pays for service at its landmark, whether it was built for or ran already. (b) Deal only what a landmark lacks, so every contract asks for a change, at the same rewards. About a session or more: the deck's rule (what becomes of a card passed over, so that every six offers still hold each ask once, and of a landmark that meets every card left); I11 on a company that builds for its asks (its own takes only offers it meets, and would earn nothing); the fixture's second-line band, which rests on day 9's contract for service already running; and the gold and late-game measurements again. (c) Halve the rewards. Recommended: (b). GD-04 wants contracts as goals, and here every one that paid was for service already running; a player who builds for them still earns them. It would also move the card-building player's gold later than its 103 minutes, toward PLAN §3's 2–4 hours, so it bears on the medal ladder.
+- [ ] **Next: the running costs and the city's money** (wages, the cost a kilometre, the subsidy and the card's grant), against the pacing run and the companies `LATEGAME_SAVE` keeps.
 
 Open from the audit:
 - [ ] **Held for a save format:** the checklist coming back as "5/5 Take a contract" when a taken contract lapses needs a saved flag, so it waits to share one format change with any other finding that needs one.
