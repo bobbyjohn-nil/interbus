@@ -12,7 +12,7 @@ import { runOver } from "./game/runOver";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
-import { LinesHere } from "./game/LinesHere";
+import { LinesHere, linesHere } from "./game/LinesHere";
 import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
@@ -272,6 +272,12 @@ export function App() {
   if (stopId !== null && game && !game.stops.some((s) => s.id === stopId)) {
     setStopId(null);
     hide("stop");
+  }
+  // Lines here closes with any line it lists, for the same reason: a line created later takes a freed id, and the card
+  // would list it as running where the click was.
+  if (hereIds.length && game && !linesHere(hereIds, game.lines)) {
+    setHereIds([]);
+    hide("here");
   }
 
   // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
