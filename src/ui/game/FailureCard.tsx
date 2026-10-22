@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { CREDIT_LIMIT_CENTS, FAILURE_CLOSES } from '../../sim/rules/credit';
 import { focusLost } from '../focusLost';
 import { usdK } from '../format';
+import { useScrollStop } from '../scrollStop';
 import { runOver } from './runOver';
 import type { Sim } from './useSim';
 
@@ -19,11 +20,14 @@ export function FailureCard({ sim }: { sim: Sim }) {
   useEffect(() => {
     if (shown && focusLost()) restart.current?.focus();
   }, [shown]);
+  // Its words scroll in a short window, as a day card's rows do (useScrollStop).
+  const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();
+  const heading = useId();
   if (!shown) return null;
   return (
     <section className="day-card failure" role="dialog" aria-label="The run is over" data-testid="failure-card" data-chrome="panel">
-      <div className="day-card-scroll">
-        <h2>The lender has called in the loan</h2>
+      <div className="day-card-scroll" ref={scrollBox} {...(scrolls ? { tabIndex: 0, role: 'region', 'aria-labelledby': heading } : {})}>
+        <h2 id={heading}>The lender has called in the loan</h2>
         <p>
           {FAILURE_CLOSES} days closed below {usdK(-CREDIT_LIMIT_CENTS)}. Start this quarter again from where it began.
         </p>

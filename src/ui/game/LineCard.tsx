@@ -7,6 +7,7 @@ import { modelLocked } from '../../sim/rules/medal';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
 import { Dropdown } from '../Dropdown';
+import { useFocusBack } from '../focusBack';
 import { showInBody } from '../showWhole';
 import { runOver } from './runOver';
 import { about, busCount, clock, duration, usd, usdK } from '../format';
@@ -97,9 +98,21 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   const swapCard = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => showInBody(changeCard.current), [wanted]);
   useLayoutEffect(() => showInBody(swapCard.current), [modelPick]);
+  // A change card's buttons and Sell them go with their card, so the focus goes back to the control the card came from: the
+  // headway last picked, or the Buses list (useFocusBack).
+  const handBack = useFocusBack();
+  // The line and its bus count Sell them was pressed at: one press, one sale (D26), so a second press before the sale lands
+  // sends nothing (two Enters sent two, and the second's refusal said the line needed every bus). Its buses changing, another
+  // line or a refusal lets it go.
+  const [soldAt, setSoldAt] = useState<{ lineId: number; buses: number } | null>(null);
+  const root = useRef<HTMLElement>(null);
+  const lastPeriod = useRef<Period>('peak');
+  const toModel = () => root.current?.querySelector<HTMLElement>('[data-testid="line-model"]');
+  const toHeadway = () => root.current?.querySelector<HTMLElement>(`[data-testid="headway-${lastPeriod.current}"]`);
   const s = sim.snapshot;
   if (!s) return null;
   const over = runOver(sim);
+  if (soldAt && (soldAt.lineId !== line.id || soldAt.buses !== line.buses || sim.refusal?.command === 'sell-spares')) setSoldAt(null);
   const game = sim.loaded?.at ?? null;
   // A pick made before an undo or a load is dropped, not sent with the line as it now stands.
   const held = heldPick(wanted, line, game);
@@ -120,12 +133,15 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
   const clear = cyclesOf(line.stopDistM[line.stopDistM.length - 1] ?? 0, line.stops.length, model.kmh, line.rush);
   const works = line.worksM > 0 && s.event ? { street: s.event.street, addS: line.cycles.peak - clear.peak } : null;
   const snowAddS = snow ? line.cycles.peak - clear.peak : 0;
-  const pick = (period: Period, value: string) => setWanted(pickHeadway(held, line, game, period, value === 'off' ? null : Number(value) * 60));
+  const pick = (period: Period, value: string) => {
+    lastPeriod.current = period;
+    setWanted(pickHeadway(held, line, game, period, value === 'off' ? null : Number(value) * 60));
+  };
   // Buses its headways no longer need, parked in their depot places: sold, the places are free for another line (the late game
   // at the bus ceiling, DECISIONS, Open, its recommended (a)), on the rule the command checks (GD-05).
   const spares = checkSellSpares({ buses: line.buses, cycle: line.cycle, cycles: line.cycles, model, headways: line.headways });
   return (
-    <section className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={s.finance.lines.find((m) => m.id === line.id)?.forecastCents.running ?? 0}>
+    <section ref={root} className="line-card" aria-label={line.name} data-testid="line-card" data-line={line.id} data-model={line.model} data-running={s.finance.lines.find((m) => m.id === line.id)?.forecastCents.running ?? 0}>
       <p>
         {about(line.ridersPerDay)} riders a day · {busCount(line.buses, model.name)}
       </p>
@@ -170,14 +186,21 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
             <button
               type="button"
               disabled={!swap.ok || over}
-              onClick={() => {
+              onClick={(e) => {
+                handBack(e.currentTarget, toModel);
                 sim.send({ type: 'set-model', lineId: line.id, model: wantedModel });
                 setWantedModel(null);
               }}
             >
               Buy and swap
             </button>
-            <button type="button" onClick={() => setWantedModel(null)}>
+            <button
+              type="button"
+              onClick={(e) => {
+                handBack(e.currentTarget, toModel);
+                setWantedModel(null);
+              }}
+            >
               Keep as is
             </button>
           </div>
@@ -189,7 +212,16 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
             {spares.sold} of its {busCount(line.buses, model.name)} {spares.sold === 1 ? 'is' : 'are'} spare: it needs {spares.needed}
           </p>
           <div className="controls">
-            <button type="button" disabled={over} onClick={() => sim.send({ type: 'sell-spares', lineId: line.id })}>
+            <button
+              type="button"
+              disabled={over}
+              onClick={(e) => {
+                if (soldAt?.lineId === line.id) return;
+                setSoldAt({ lineId: line.id, buses: line.buses });
+                handBack(e.currentTarget, toModel);
+                sim.send({ type: 'sell-spares', lineId: line.id });
+              }}
+            >
               Sell {spares.sold === 1 ? 'it' : 'them'} · {usdK(spares.saleCents)} back
             </button>
           </div>
@@ -238,14 +270,21 @@ export function LineCard({ sim, line, onFinance }: { sim: Sim; line: LineView; o
             <button
               type="button"
               disabled={!change.ok || over}
-              onClick={() => {
+              onClick={(e) => {
+                handBack(e.currentTarget, toHeadway);
                 sim.send({ type: 'set-headways', lineId: line.id, headways: next });
                 setWanted(null);
               }}
             >
               {change.ok && change.extra > 0 ? 'Buy and run' : 'Run it'}
             </button>
-            <button type="button" onClick={() => setWanted(null)}>
+            <button
+              type="button"
+              onClick={(e) => {
+                handBack(e.currentTarget, toHeadway);
+                setWanted(null);
+              }}
+            >
               Keep as is
             </button>
           </div>

@@ -42,7 +42,7 @@ function render(lines: number, lineId: number): string {
   const snapshot = { depots: [], lines: all, cashCents: 0, event: null, medals: { bronze: null, silver: null, gold: null }, finance: { lines: [] } } as unknown as Snapshot;
   const sim = { snapshot, fareBand: null, fareBandFor: () => undefined } as unknown as Sim;
   const none = () => undefined;
-  return renderToStaticMarkup(createElement(Inspector, { sim, lineId, onLine: none, onEditRoute: none, onFinance: none, onClose: none }));
+  return renderToStaticMarkup(createElement(Inspector, { sim, lineId, onLine: none, onEditRoute: none, onFinance: none, onClose: none, closeHandBack: none }));
 }
 
 describe('the Lines panel', () => {

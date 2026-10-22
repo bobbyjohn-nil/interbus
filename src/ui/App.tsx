@@ -12,6 +12,7 @@ import { runOver } from "./game/runOver";
 import { FoundingCard } from "./game/Founding";
 import { ProbeCard } from "./game/ProbeCard";
 import { StopCard } from "./game/StopCard";
+import { useFocusBack } from "./focusBack";
 import { LinesHere, linesHere } from "./game/LinesHere";
 import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint, type Routing } from "./game/RouteEditor";
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
@@ -267,6 +268,10 @@ export function App() {
   // Lines with no line left to show (an undo took back the only one) closes, as Escape closes it, so
   // the dock shows it neither open nor pressed.
   if (game && !game.lines.length && open.includes("lines")) setOpen((o) => o.filter((p) => p !== "lines"));
+  // Close it's focus, held here as Lines closes with the last line: once its line has gone, it goes to the line shown in its
+  // place, or to Build, the next thing to do, when none is left (useFocusBack). An undo that takes the only line leaves the
+  // focus where it was, so Space still plays (the review of the hand-back: it opened Build).
+  const closeHandBack = useFocusBack();
   // A stop's card closes with its stop (taken down, or an undo), so it never opens again by itself on a
   // stop that takes the same id later.
   if (stopId !== null && game && !game.stops.some((s) => s.id === stopId)) {
@@ -486,6 +491,7 @@ export function App() {
               show("finance");
             }}
             onClose={() => hide("lines")}
+            closeHandBack={closeHandBack}
           />
         ),
       });

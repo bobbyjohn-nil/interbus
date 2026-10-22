@@ -1646,3 +1646,14 @@ button.chip.checklist,
 .movable.dragging .panel h2 {
   cursor: grabbing;
 }
+
+/* Reduced motion (PLAN §8): what eases in the chrome, the compass's turn, draws at once. The map's camera and the tilt's
+   cross-fade read the same setting (loadMap.ts). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

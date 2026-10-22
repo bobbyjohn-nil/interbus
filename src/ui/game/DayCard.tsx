@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { focusLost } from '../focusLost';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
+import { useScrollStop } from '../scrollStop';
 import { runOver } from './runOver';
 import type { Sim } from './useSim';
 
@@ -28,14 +29,18 @@ export function DayCard({ sim }: { sim: Sim }) {
   useEffect(() => {
     if (over && focusLost()) go.current?.focus();
   }, [card?.day, over]);
+  const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();
+  const heading = useId();
   if (!card) return null;
   const byKind = new Map<string, number>();
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
   return (
     <section key={card.day} className="day-card" role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
-      <div className="day-card-scroll">
-        <h2>{dateText(card.day)} closed</h2>
+      {/* Its rows scroll inside it on a busy close, and hold nothing focusable, so while they scroll the box takes the focus
+          itself for the keyboard's arrows (useScrollStop). */}
+      <div className="day-card-scroll" ref={scrollBox} {...(scrolls ? { tabIndex: 0, role: 'region', 'aria-labelledby': heading } : {})}>
+        <h2 id={heading}>{dateText(card.day)} closed</h2>
         {card.report ? (
           <section className="report" aria-label={`${quarterText(card.day)} report card`} data-testid="report-card" data-overall={(Math.floor(card.report.overall * 10) / 10).toFixed(1)} data-payout={card.report.payoutCents}>
             <h3>{quarterText(card.day)} report card</h3>

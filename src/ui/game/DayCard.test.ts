@@ -18,7 +18,7 @@ const rows = [
 describe('the day card at a quarter’s close', () => {
   it('grades the quarter and says what the city pays, as one of the day’s rows', () => {
     const html = render({ day: 8, rows, cashBeforeCents: 0, cashAfterCents: 3_224_400, report, contracts: [], events: [], medals: [] });
-    expect(html).toContain('<h2>Year 1, Q1, Day 8 closed</h2>');
+    expect(html).toMatch(/<h2 [^>]*>Year 1, Q1, Day 8 closed<\/h2>/);
     expect(html).toContain('Year 1, Q1 report card');
     for (const text of ['<th scope="row">Coverage</th><td>50</td>', '<th scope="row">Reliability</th><td>100</td>', '<th scope="row">Comfort</th><td>80</td>', '<th scope="row">Money</th><td>66</td>', '<th scope="row">Overall</th><td>74</td>']) {
       expect(html).toContain(text);

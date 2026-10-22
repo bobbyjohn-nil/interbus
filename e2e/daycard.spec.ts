@@ -5,8 +5,9 @@
 // fix: the card ran from 60 px to 800, Continue lay below the window's edge where no press reached it,
 // nothing scrolled, and the card lay over the dock's buttons until the next close replaced it.
 import { expect, test, type Locator } from '@playwright/test';
+import { axeProblems } from './a11y';
 import { foundCompany } from './found';
-import { city, setSpeed, withBusyQuarterClose } from './shell';
+import { city, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';
 
 /** Whether a press at the middle of `l` lands on it, not on something drawn over it. */
 const onTop = (l: Locator) =>
@@ -58,10 +59,33 @@ test.describe('the day card', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, 2_000);
     await expect.poll(() => onTop(cash)).toBe(true);
+    // Its rows hold nothing focusable, so while they scroll the box is a Tab stop named by the card's heading, for the
+    // keyboard's arrows where the browser lets no scrolling box take the focus by itself (axe-core's
+    // scrollable-region-focusable, the accessibility pass; useScrollStop).
+    const rows = card.locator('.day-card-scroll');
+    await expect(rows).toHaveAttribute('tabindex', '0');
+    await expect(rows).toHaveRole('region');
+    await expect(rows).toHaveAccessibleName('Year 1, Q1, Day 8 closed');
+    expect(await axeProblems(page)).toEqual([]);
     expect(await go.boundingBox()).toEqual(at);
 
     // A press on Continue, where the player sees it, closes the card.
     await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
     await expect(card).toHaveCount(0);
+  });
+
+  test('adds no Tab stop on a close whose rows fit', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // The debug line's game at 23:50, ten minutes before its day closes (shell.ts).
+    await withDebugLine(page, (d) => void (d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60));
+    await setSpeed(page, '600×');
+    const card = page.getByTestId('day-card');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    const rows = card.locator('.day-card-scroll');
+    expect(await rows.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    await expect(rows).not.toHaveAttribute('tabindex');
+    await expect(rows).not.toHaveAttribute('role');
   });
 });

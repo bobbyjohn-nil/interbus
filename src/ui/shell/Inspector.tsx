@@ -5,6 +5,7 @@ import type { StopTier } from "../../sim/rules/stopTier";
 import { busCount, usdK } from "../format";
 import { runOver } from "../game/runOver";
 import { showInBody } from "../showWhole";
+import { useFocusBack, type HandBack } from "../focusBack";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 import { tabTo } from "../tablist";
@@ -23,6 +24,7 @@ export function Inspector({
   onEditRoute,
   onFinance,
   onClose,
+  closeHandBack,
 }: {
   sim: Sim;
   lineId: number | null;
@@ -32,6 +34,8 @@ export function Inspector({
   /** Opens Finance's Lines on this line. */
   onFinance: (lineId: number) => void;
   onClose: () => void;
+  /** Hands Close it's focus on as its line goes: held by App, as Lines closes with the last line (useFocusBack). */
+  closeHandBack: HandBack;
 }) {
   // The line whose Close line was pressed, asking to confirm. Another line shown lets the ask go, so it never comes back by
   // itself: not on a tab chosen again, nor on a line created later under the id an undo freed (the review of the change).
@@ -40,9 +44,20 @@ export function Inspector({
   // into view, as the line card's change cards are (#140).
   const closeCard = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => showInBody(closeCard.current), [closingId]);
+  // The ask's buttons go with it, so the focus goes on: Keep it's to Close line, and Close it's, once its line has gone, to the
+  // line shown in its place, or to Build once none is left (useFocusBack; App holds that one). Close it keeps the ask until
+  // then, or the focus would go to a line about to go.
+  const handBack = useFocusBack();
+  // The line Close it was pressed for, while its ask stays: one press, one command (D26), so a second press before the line
+  // goes sends nothing, as a Create on its way waits (the review of the hand-back: two Enters sent two, and the second's
+  // refusal said the line was gone). A refusal lets it go, so Close it can be pressed again.
+  const [sentId, setSentId] = useState<number | null>(null);
+  const panel = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const lines = sim.snapshot?.lines ?? [];
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
   if (closingId !== null && closingId !== line?.id) setClosingId(null);
+  if (sentId !== null && (sentId !== closingId || sim.refusal?.command === "close-line")) setSentId(null);
   if (!line) return null;
   const model = BUS_MODELS[line.model];
   // What closing it sells and takes down, on the rule the command checks (sim/rules/route.ts closingOf; GD-05).
@@ -66,6 +81,7 @@ export function Inspector({
   };
   return (
     <aside
+      ref={panel}
       className="panel inspector"
       aria-label="Lines"
       data-testid="inspector"
@@ -115,7 +131,7 @@ export function Inspector({
           <button type="button" disabled={runOver(sim)} onClick={() => onEditRoute(line.id)}>
             Edit route
           </button>
-          <button type="button" disabled={runOver(sim)} aria-expanded={closing !== null} onClick={() => setClosingId(closing ? null : line.id)}>
+          <button ref={closeButton} type="button" disabled={runOver(sim)} aria-expanded={closing !== null} onClick={() => setClosingId(closing ? null : line.id)}>
             Close line
           </button>
         </div>
@@ -129,14 +145,27 @@ export function Inspector({
               <button
                 type="button"
                 disabled={runOver(sim)}
-                onClick={() => {
+                onClick={(e) => {
+                  if (sentId === line.id) return;
+                  setSentId(line.id);
+                  closeHandBack(
+                    e.currentTarget,
+                    () =>
+                      panel.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"], [data-testid="line-model"]') ??
+                      document.querySelector<HTMLElement>('[data-testid="build"]'),
+                  );
                   sim.send({ type: "close-line", lineId: line.id });
-                  setClosingId(null);
                 }}
               >
                 Close it
               </button>
-              <button type="button" onClick={() => setClosingId(null)}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  handBack(e.currentTarget, () => closeButton.current);
+                  setClosingId(null);
+                }}
+              >
                 Keep it
               </button>
             </div>
