@@ -62,6 +62,8 @@ export interface PacingOptions {
   readonly retryDays?: number;
   /** What a point of the card's overall is worth to the player a day: 0 when left out, the next day's net alone; REPORT_GRANT_PER_POINT_PER_DAY_CENTS plays toward the card. */
   readonly cardCentsPerPoint?: number;
+  /** Whether the player takes the contracts on offer, as it does when left out; false plays the same game without them, to weigh what they pay. */
+  readonly takeContracts?: boolean;
   /** Called with each card and each line as the run reaches it, for a long run's progress. */
   readonly onProgress?: (entry: { readonly card: PacingCard } | { readonly line: PacingLine }) => void;
 }
@@ -104,6 +106,8 @@ export interface PacingResult {
   /** Each line drawn after the first: its next day's gain, the card points it added on its trial, and the depots and buses after it. */
   readonly lines: readonly PacingLine[];
   readonly contracts: readonly { readonly day: number; readonly landmark: string; readonly kind: string; readonly ask: number; readonly rewardCents: number }[];
+  /** The contracts it took that lapsed unmet. */
+  readonly lapsed: number;
   /** Each quarter's card: its four grades, its overall and its lowest category (which gold needs at GOLD_GRADE_MIN), and the company at its close. */
   readonly cards: readonly PacingCard[];
   readonly tripsADay: number;
@@ -255,6 +259,7 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
   const built = new Set<string>([first.name]);
   const lines: PacingLine[] = [];
   const contracts: { day: number; landmark: string; kind: string; ask: number; rewardCents: number }[] = [];
+  let lapsed = 0;
   const cards: PacingCard[] = [];
   let tripsADay = 0;
   let secondDayNetCents: number | null = null;
@@ -298,10 +303,13 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
         o.onProgress?.({ card });
       }
       for (const m of e.medals) mark(m, e.day);
-      for (const c of e.contracts) if (c.outcome === 'paid') contracts.push({ day: e.day, landmark: c.contract.landmark, kind: c.contract.kind, ask: c.contract.ask, rewardCents: c.contract.rewardCents });
+      for (const c of e.contracts) {
+        if (c.outcome === 'paid') contracts.push({ day: e.day, landmark: c.contract.landmark, kind: c.contract.kind, ask: c.contract.ask, rewardCents: c.contract.rewardCents });
+        else lapsed++;
+      }
     }
     if (world.state.closesBelowFloor >= 5) break;
-    for (const c of world.state.contracts) if (c.acceptedDay === null) acceptContract(world, c.id);
+    if (o.takeContracts ?? true) for (const c of world.state.contracts) if (c.acceptedDay === null) acceptContract(world, c.id);
     // Draw while the cash allows and the best candidate scores above nothing; after a day that drew none, try again `retryDays` on.
     while (day >= nextTry && world.state.ledger.cashCents >= o.reserveCents + cheapest) {
       const next = bestNextLine(world, candidates, built, o.reserveCents, centsPerPoint);
@@ -319,5 +327,5 @@ export function playScripted(world: World, first: PacingCandidate, candidates: r
       if (lines.length === 1) mark('secondLine', day + 1);
     }
   }
-  return { at, lines, contracts, cards, tripsADay, carried: world.state.tripsCarried, cashCents: world.state.ledger.cashCents, secondDayNetCents };
+  return { at, lines, contracts, lapsed, cards, tripsADay, carried: world.state.tripsCarried, cashCents: world.state.ledger.cashCents, secondDayNetCents };
 }

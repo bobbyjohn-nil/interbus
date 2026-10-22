@@ -16,7 +16,8 @@
 // is worth to the player a day (0, the next day's net alone; 16000 is a day's grant a point,
 // config/report.ts); PACING_CANDIDATES=wide, which adds the 348 lines between the densest
 // neighbourhoods (bench/dense.ts) to T03's corridors; and PACING_REPORT_ONLY=1, which prints everything
-// and always exits 0. PACING_PROGRESS=1 prints each card and line as the run reaches it.
+// and always exits 0. PACING_PROGRESS=1 prints each card and line as the run reaches it. For the values pass,
+// PACING_CONTRACTS=off plays a player that takes no contract, to weigh what they pay.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { FOUNDING_HEADWAYS } from '../src/sim/config/lines';
@@ -47,6 +48,7 @@ const retryDays = Number.isInteger(retryArg) && retryArg >= 1 ? retryArg : 1;
 const wide = process.env.PACING_CANDIDATES === 'wide';
 const reportOnly = process.env.PACING_REPORT_ONLY === '1';
 const progress = process.env.PACING_PROGRESS === '1';
+const takeContracts = process.env.PACING_CONTRACTS !== 'off';
 /** PLAN §3's targets, in real minutes. */
 const TARGETS = { profit: [0, 8], secondLine: [15, 25], reportCard: [0, 20], gold: [120, 240] } as const;
 /** The targets a run must meet, or exit 1: gold waits for the medal ladder's answer (DECISIONS, Open). */
@@ -70,6 +72,7 @@ const result = playScripted(world, { name: 'the founding recipe', stops: DEBUG_S
   maxDays,
   cardCentsPerPoint,
   retryDays,
+  takeContracts,
   ...(progress
     ? {
         onProgress: (e) =>
@@ -90,6 +93,11 @@ console.log(
   `pacing on Inner Boston, seed ${seed}: day 1 at 600x, then ${later.toLocaleString('en-US')}x; ${player.newGameToPlay} min to play, ${player.perLine} min a line; reserve ${usd(reserveCents)}; a card point ${usd(cardCentsPerPoint)} a day; tried again ${retryDays === 1 ? 'each day' : `every ${retryDays} days`} after nothing; ${corridors.length} corridor candidates${wide ? ` and ${dense.length} between dense neighbourhoods` : ''}`,
 );
 for (const c of result.contracts) console.log(`  day ${String(c.day).padStart(3)}: ${c.kind} ${c.ask} at ${c.landmark} paid ${usd(c.rewardCents)}`);
+console.log(
+  takeContracts
+    ? `  contracts: ${result.contracts.length} paid, ${usd(result.contracts.reduce((s, c) => s + c.rewardCents, 0))} in all; ${result.lapsed} lapsed`
+    : '  contracts: none taken (PACING_CONTRACTS=off)',
+);
 for (const l of result.lines)
   console.log(`  day ${String(l.day).padStart(3)} (${l.minutes.toFixed(1).padStart(6)} min): ${l.name}, ${signed(l.gainCents)} the next day, card ${l.cardPoints < 0 ? '' : '+'}${l.cardPoints.toFixed(2)}; ${l.depots} depots, ${l.buses} buses`);
 for (const c of result.cards)
