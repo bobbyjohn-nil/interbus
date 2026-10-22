@@ -47,6 +47,7 @@ describe('the scripted pacing run, on the fixture', () => {
   it('takes no contract when told not to, and its second line then waits past the day after the first one would pay', () => {
     const without = play(fixtureGame(7), 14, false);
     expect(result.contracts[0]?.day).toBe(9);
+    expect(result.lapsed).toBe(6); // with them, of the offers it took in 40 days
     expect(without.contracts).toEqual([]);
     expect(without.lapsed).toBe(0);
     expect(without.at.secondLine?.day ?? Infinity).toBeGreaterThan(result.at.secondLine!.day);

@@ -95,7 +95,7 @@ console.log(
 for (const c of result.contracts) console.log(`  day ${String(c.day).padStart(3)}: ${c.kind} ${c.ask} at ${c.landmark} paid ${usd(c.rewardCents)}`);
 console.log(
   takeContracts
-    ? `  contracts: ${result.contracts.length} paid, ${usd(result.contracts.reduce((s, c) => s + c.rewardCents, 0))} in all; ${result.lapsed} lapsed`
+    ? `  contracts: ${result.contracts.length} paid, ${usd(result.contracts.reduce((s, c) => s + c.rewardCents, 0))} in all; ${result.lapsed} lapsed; ${world.state.contracts.filter((c) => c.acceptedDay !== null).length} still held`
     : '  contracts: none taken (PACING_CONTRACTS=off)',
 );
 for (const l of result.lines)
@@ -112,7 +112,7 @@ for (const [name, [lo, hi]] of Object.entries(TARGETS)) {
 for (const medal of ['bronze', 'silver']) console.log(`  ${medal.padEnd(11)} ${result.at[medal] ? `day ${result.at[medal]!.day}, ${result.at[medal]!.minutes.toFixed(1)} min` : 'not reached'}`);
 console.log(`  ${world.state.lines.length} lines, ${world.state.depots.length} depots, ${result.tripsADay} trips on the last day, ${result.carried} carried; cash ${usd(result.cashCents)} (${((performance.now() - t0) / 1000).toFixed(0)} s)`);
 mkdirSync('.cache/bench', { recursive: true });
-writeFileSync('.cache/bench/pacing.json', `${JSON.stringify({ seed, player, later, reserveCents, cardCentsPerPoint, retryDays, candidates: wide ? 'wide' : 'corridors', ...result }, null, 2)}\n`);
+writeFileSync('.cache/bench/pacing.json', `${JSON.stringify({ seed, player, later, reserveCents, cardCentsPerPoint, retryDays, takeContracts, candidates: wide ? 'wide' : 'corridors', ...result }, null, 2)}\n`);
 // Read at day 2's close: by the run's end the ledger has folded it (src/sim/economy/ledger.ts DAYS_KEPT).
 const day2 = result.secondDayNetCents;
 const balance = { foundingDay2NetCents: day2, secondLineDay: result.at.secondLine?.day ?? null, firstCard: result.cards[0]?.overall ?? null };
