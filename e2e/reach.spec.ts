@@ -154,7 +154,7 @@ test.describe('Back to Home’s question’s reach', () => {
       await savesA.getByRole('button', { name: 'Save here' }).nth(k).click();
       await a.waitForTimeout(400);
     }
-    await savesA.getByRole('button', { name: 'Close' }).click();
+    await savesA.getByRole('button', { name: 'Close', exact: true }).click();
     await setSpeed(a, '600×');
     await a.waitForTimeout(1500);
     await a.getByTestId('play').click();

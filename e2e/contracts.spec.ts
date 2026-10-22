@@ -39,7 +39,7 @@ async function sevenDaysIn(page: Page, landmark: string, contract: Record<string
   await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'contract.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
 }
 
 test.describe('a HEADWAY contract', () => {
@@ -59,7 +59,7 @@ test.describe('a HEADWAY contract', () => {
     await expect(card).toContainText('7 of 8 days · 9 days left');
     // I13 with Contracts: the panel within 26%, and the shell at rest with the Contracts chip within 6%.
     const withPanel = await chromeShare(page);
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     const atRest = await chromeShare(page);
     test.info().annotations.push({ type: 'chrome %', description: JSON.stringify({ contracts: Math.round(withPanel * 1000) / 10, rest: Math.round(atRest * 1000) / 10 }) });
     expect(withPanel).toBeLessThanOrEqual(0.26);

@@ -66,7 +66,7 @@ test.describe('time and the speed menu', () => {
     await page.keyboard.press('Space');
     await expect(panel).toHaveAttribute('data-speed', '0');
     await expect(finance).toBeVisible();
-    await finance.getByRole('button', { name: 'Close' }).click();
+    await finance.getByRole('button', { name: 'Close', exact: true }).click();
     // A button reached with Tab keeps Space, so the keyboard can still press it: Tab from Play to the
     // speed menu, and Space opens it.
     await page.getByTestId('play').click();

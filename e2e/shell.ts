@@ -106,7 +106,7 @@ export async function setFare(page: Page, line: string, fare: string): Promise<v
   await page.getByRole('button', { name: `Fare for ${line}` }).click();
   await page.getByRole('option', { name: fare, exact: true }).click();
   await expect(page.getByRole('button', { name: `Fare for ${line}` })).toContainText(fare);
-  await page.getByTestId('finance').getByRole('button', { name: 'Close' }).click();
+  await page.getByTestId('finance').getByRole('button', { name: 'Close', exact: true }).click();
 }
 
 /** Picks a tool from the dock's Build menu (D25), opening the menu first. */
@@ -157,7 +157,7 @@ export async function withDebugLine(page: Page, edit?: (data: SaveData) => void)
   await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'line.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
+  await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
 }
 
 /** The events' first stream state whose next roll is one day of snow. */
@@ -200,5 +200,5 @@ export async function withBusyQuarterClose(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'busy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByTestId('saves').getByRole('button', { name: 'Close' }).click();
+  await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
 }

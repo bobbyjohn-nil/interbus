@@ -85,7 +85,7 @@ test.describe('Home', () => {
     await home.getByRole('button', { name: 'Saves' }).click();
     const saves = page.getByTestId('saves');
     await expect(saves.getByRole('button', { name: 'Import a save file' })).toBeVisible();
-    await saves.getByRole('button', { name: 'Close' }).click();
+    await saves.getByRole('button', { name: 'Close', exact: true }).click();
 
     // After a new game replaced the company, from the keyboard: back on Home, slot 1 loads.
     await foundCompany(page);

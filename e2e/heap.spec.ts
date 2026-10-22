@@ -53,7 +53,7 @@ test('the busy scene’s heaps grow at most 10% over 30 minutes at 2,700×', asy
   await page.getByRole('button', { name: 'Replace this game' }).click();
   await (await chooser).setFiles({ name: 'busy.json', mimeType: 'application/json', buffer: Buffer.from(encode(scene.world.state, { sha: 'scene', version: '0.0.0' })) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
-  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await setSpeed(page, '2,700×');
 
   // Every heap, by target: the page's through its own session, each worker's through the browser's.

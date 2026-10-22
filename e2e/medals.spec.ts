@@ -24,7 +24,7 @@ async function edited(page: Page, edit: (d: Data) => void, elapsed: number): Pro
   await (await chooser).setFiles({ name: 'medals.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
   await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-elapsed', String(elapsed));
-  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
 }
 
 /** 23:50 on `day`, ten game minutes before its close. */
@@ -69,7 +69,7 @@ test.describe('medals', () => {
     await expect(ladder).toHaveAttribute('data-to-silver', '5000');
     await expect(silver).toContainText('5,000 trips to go · unlocks the Goliath');
     expect(await chromeShare(page)).toBeLessThanOrEqual(0.26);
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
     // The line card's bus menu, the game's own dropdown (D25): the Goliath listed but locked.
     const models = page.getByTestId('inspector').getByRole('button', { name: 'Buses' });
@@ -79,7 +79,7 @@ test.describe('medals', () => {
     await expect(goliath).toContainText('locked');
     await page.keyboard.press('Escape');
     await expect(goliath).toHaveCount(0);
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
 
     // Its close grades the quarter at 55 or better: bronze, on the day card, the chip and the panel.
     await setSpeed(page, '5,400×');
@@ -95,7 +95,7 @@ test.describe('medals', () => {
     expect(left).toBeGreaterThan(0);
     expect(left).toBeLessThan(5_000); // the evening's trips counted
     await expect(silver).toContainText(`${left.toLocaleString('en-US')} trips to go · unlocks the Goliath`);
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
 
     // One trip short, the next evening: its close gives silver, and the Goliath is for sale.
     await edited(page, company(9, 24_999, { bronze: 8 }), eveningOf(9));
@@ -106,7 +106,7 @@ test.describe('medals', () => {
     await expect(dots).toHaveAttribute('data-held', 'bronze silver');
     await contracts.click();
     await expect(silver).toContainText('Since Year 1, Q2, Day 1 · the Goliath is for sale');
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
     await models.click();
     await expect(goliath).not.toHaveAttribute('aria-disabled', 'true');
@@ -114,7 +114,7 @@ test.describe('medals', () => {
     await page.keyboard.press('Escape');
 
     // At rest, paused with an undo to offer and the notices gone, as I13 measures it: still within 6%.
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await setFare(page, 'Line 1', '$2.50');
     await expect(page.getByTestId('undo')).toBeVisible();
     await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 10_000 });

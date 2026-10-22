@@ -114,7 +114,7 @@ test.describe('the failure floor', () => {
     for (const id of ['contracts', 'inspector', 'finance']) expect(await apart(failure, page.getByTestId(id)), id).toBe(true);
     expect(await onTop(restart)).toBe(true);
     for (const id of ['finance-overview', 'finance-breakdown', 'finance-lines']) expect(await onTop(finance.getByTestId(id)), id).toBe(true);
-    expect(await onTop(finance.getByRole('button', { name: 'Close' }))).toBe(true);
+    expect(await onTop(finance.getByRole('button', { name: 'Close', exact: true }))).toBe(true);
     await finance.getByTestId('finance-lines').click();
     await expect(finance).toHaveAttribute('data-view', 'lines');
 

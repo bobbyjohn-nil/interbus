@@ -119,7 +119,7 @@ test.describe('the screen budget (I13)', () => {
       shares.routeEditor = await chromeShare(page);
       await page.getByRole('button', { name: 'Cancel' }).click();
       await expect(page.getByTestId('inspector')).toBeVisible();
-      await page.getByRole('button', { name: 'Close' }).click();
+      await page.getByRole('button', { name: 'Close', exact: true }).click();
       shares.restWithLine = await chromeShare(page);
       await expect(page.getByTestId('undo')).toHaveText('Undo: Create Line 1');
       expect(await undoWhole(page), 'the Undo chip whole').toBe(true);
@@ -145,7 +145,7 @@ test.describe('the screen budget (I13)', () => {
       await expect(finance).toHaveAttribute('data-today', String(-35_600_000));
       await expect(finance).toHaveAttribute('data-quarter', String(-35_600_000));
       shares.financeBought = await chromeShare(page);
-      await page.getByRole('button', { name: 'Close' }).click();
+      await page.getByRole('button', { name: 'Close', exact: true }).click();
       // A stop's card, from where the second stop snapped.
       const placed = (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').map((s) => s.split(/[:,]/).map(Number));
       const [sx, sy] = await toScreen(page, [placed[1]![1]!, placed[1]![2]!]);
@@ -153,7 +153,7 @@ test.describe('the screen budget (I13)', () => {
       await expect(page.getByTestId('stop-card')).toBeVisible();
       shares.stop = await chromeShare(page);
       // Panels stay open together (D25), so each is measured alone: the stop card closes first.
-      await page.getByTestId('stop-card').getByRole('button', { name: 'Close' }).click();
+      await page.getByTestId('stop-card').getByRole('button', { name: 'Close', exact: true }).click();
       await page.getByRole('button', { name: 'Saves' }).click();
       // Every slot full, each naming when it was saved, and a set-aside save (the M5 spec, item 4).
       const saves = page.getByTestId('saves');
@@ -171,12 +171,12 @@ test.describe('the screen budget (I13)', () => {
       await page.evaluate(() => {
         for (const why of ['older-14', 'older-15']) localStorage.setItem(`interbus.backup.boston.${why}`, '{"format":1}');
       });
-      await saves.getByRole('button', { name: 'Close' }).click();
+      await saves.getByRole('button', { name: 'Close', exact: true }).click();
       await page.getByRole('button', { name: 'Saves' }).click();
       for (const why of ['older', 'older-14', 'older-15']) await expect(saves.getByTestId(`set-aside-${why}`)).toBeVisible();
       shares.savesTallest = await chromeShare(page);
       // Tab reaches the buttons below the fold, each scrolled into view: Back to Home, the last.
-      await saves.getByRole('button', { name: 'Close' }).focus();
+      await saves.getByRole('button', { name: 'Close', exact: true }).focus();
       expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Back to Home' }))).toBe(true);
       // Home with Continue; its Saves, which opens beside it; and Start over's question with Saves open.
       // Shown failing (TS-04) without Saves' cap on Home and Home's width: 32.9% and 39.0% at 1152×720,
@@ -191,7 +191,7 @@ test.describe('the screen budget (I13)', () => {
       await home.getByRole('button', { name: 'New game' }).click();
       await expect(home.getByRole('button', { name: 'Start a new game' })).toBeVisible();
       shares.homeSavesAsk = await chromeShare(page);
-      await saves.getByRole('button', { name: 'Close' }).focus();
+      await saves.getByRole('button', { name: 'Close', exact: true }).focus();
       expect(await tabbedIntoView(page, saves, saves.getByRole('button', { name: 'Import a save file' }))).toBe(true);
       await home.getByRole('button', { name: 'Keep it' }).click();
 
@@ -281,7 +281,7 @@ test.describe('the screen budget (I13)', () => {
     await expect(page.getByTestId('draft-card')).toHaveAttribute('data-price', '20600000', { timeout: 10_000 });
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByTestId('inspector')).toBeVisible();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(chip).toHaveText(AUTOSAVE_OFF_CHIP);
     shares.restWithLine = await chromeShare(page);
     // Its second stop taken off the line, which takes it down: its card closes, and the undo chip names it.
@@ -350,7 +350,7 @@ test.describe('the screen budget (I13)', () => {
       const offer = page.getByTestId('contract').first();
       await offer.getByRole('button', { name: 'Take it' }).click();
       await expect(offer).toHaveAttribute('data-held', 'yes');
-      await page.getByTestId('contracts').getByRole('button', { name: 'Close' }).click();
+      await page.getByTestId('contracts').getByRole('button', { name: 'Close', exact: true }).click();
       await expect(page.getByTestId('contracts-chip')).toContainText('1 held');
       const undo = page.getByTestId('undo');
       await expect(undo).toHaveText(/^Undo: Take the .+ contract$/);

@@ -74,7 +74,7 @@ test.describe('movable panels', () => {
     // again, it keeps the place it was dragged to.
     await finance.click({ position: { x: 430, y: 200 } });
     expect(await z(finance)).toBeGreaterThan(await z(saves));
-    await finance.getByRole('button', { name: 'Close' }).click();
+    await finance.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(finance).toHaveCount(0);
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     expect((await finance.boundingBox())!.x).toBe(to.x);
@@ -141,7 +141,7 @@ test.describe('movable panels', () => {
     await page.getByTestId('checklist').click();
     await expect.poll(async () => (await z(contracts)) > (await z(lines))).toBe(true);
     // No panel hides another: the stop's card, opened before Contracts, still closes with its own button.
-    const close = stop.getByRole('button', { name: 'Close' });
+    const close = stop.getByRole('button', { name: 'Close', exact: true });
     expect(await onTop(close)).toBe(true);
     await close.click();
     await expect(stop).toHaveCount(0);
@@ -190,7 +190,7 @@ test.describe('movable panels', () => {
     await dragBy(page, saves, 'Saves', 900, 0);
     expect((await saves.boundingBox())!.x).toBe(1152 - 48);
     // Tab from Play reaches Saves' Close, at its top right, past the window's edge.
-    const close = saves.getByRole('button', { name: 'Close' });
+    const close = saves.getByRole('button', { name: 'Close', exact: true });
     await page.getByTestId('play').focus();
     for (let i = 0; i < 6 && !(await close.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press('Tab');
     await expect(close).toBeFocused();
@@ -241,7 +241,7 @@ test.describe('movable panels', () => {
     };
     await expect.poll(async () => (await finance.boundingBox())!.x).toBeLessThanOrEqual(1152 - 48);
     await expect.poll(async () => (await saves.boundingBox())!.x + before.width).toBeLessThanOrEqual(1152 - 12);
-    expect(await onTop(saves.getByRole('button', { name: 'Close' }))).toBe(true);
+    expect(await onTop(saves.getByRole('button', { name: 'Close', exact: true }))).toBe(true);
     // Saves pressed, over Finance's heading; Finance closed and opened again, at its place inside the
     // narrower window, comes up in front, its heading under a press.
     await saves.getByRole('heading', { name: 'Saves' }).click();
@@ -308,7 +308,7 @@ test.describe('the panels by keyboard', () => {
     await page.keyboard.press('Enter');
     await expect(lines).toBeVisible();
     await page.keyboard.press('Tab');
-    await expect(lines.getByRole('button', { name: 'Close' })).toBeFocused();
+    await expect(lines.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     // Its Edit route: the route editor takes the focus the panel had, which fell to the page with it (Chrome's Tab went on
     // from where the panel was, into the editor, but the focus was nowhere).
     await tabTo(page, lines.getByRole('button', { name: 'Edit route' }));
@@ -325,7 +325,7 @@ test.describe('the panels by keyboard', () => {
     await page.keyboard.press('Enter');
     await expect(finance).toBeVisible();
     await page.keyboard.press('Tab');
-    await expect(finance.getByRole('button', { name: 'Close' })).toBeFocused();
+    await expect(finance.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     const view = (id: string) => finance.getByTestId(`finance-${id}`);
     await expect(view('overview')).toBeFocused();
@@ -347,7 +347,7 @@ test.describe('the panels by keyboard', () => {
     expect(await finance.locator('[role=tab]').evaluateAll((tabs) => tabs.some((tab) => tab === document.activeElement))).toBe(false);
 
     // Opened with the mouse, a panel leaves the focus on what was pressed.
-    await finance.getByRole('button', { name: 'Close' }).click();
+    await finance.getByRole('button', { name: 'Close', exact: true }).click();
     await dock.getByRole('button', { name: 'Finance', exact: true }).click();
     await expect(finance).toBeVisible();
     await expect(dock.getByRole('button', { name: 'Finance', exact: true })).toBeFocused();

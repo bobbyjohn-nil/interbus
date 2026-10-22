@@ -55,6 +55,6 @@ test.describe('the Lines panel dragged low', () => {
     await expect(panel.getByTestId('headway-change')).toBeVisible();
     expect(await shownIn(panel, panel.getByTestId('headway-change'))).toMatchObject({ whole: true });
     expect(await shownIn(panel, panel.getByRole('heading').first())).toMatchObject({ whole: true });
-    expect(await shownIn(panel, panel.getByRole('button', { name: 'Close' }))).toMatchObject({ whole: true });
+    expect(await shownIn(panel, panel.getByRole('button', { name: 'Close', exact: true }))).toMatchObject({ whole: true });
   });
 });
