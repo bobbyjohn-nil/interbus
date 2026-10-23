@@ -244,6 +244,25 @@ describe('the day and night tint', () => {
     expect(fade()).toEqual({ duration: 0, delay: 0 });
   });
 
+  // The systems audit's thirteenth round: a resting line's faded name lies over the running routes, so a click on it, where a
+  // running line shares the street, listed the resting line first in Lines here (4 of 9 clicks around Line 2's name on Huntington
+  // Avenue), where everywhere else on the street the running line comes first.
+  it('lists the running lines first where a click finds a resting line’s name over a running route', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    // MapLibre's order, topmost first: the resting Line 2's name, Line 1's running route, Line 2's resting route.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-name-resting' }, properties: { kind: 'route', id: 2 } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 1 } },
+      { layer: { id: 'lines-route-resting' }, properties: { kind: 'route', id: 2 } },
+    ]) as never;
+    let hit: { lineId: number | null; lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    map.fire('click', { point: { x: 100, y: 100 }, lngLat: { lng: -71.08, lat: 42.35 }, originalEvent: { detail: 1 } });
+    expect(hit).toMatchObject({ lineId: 1, lineIds: [1, 2] });
+  });
+
   it('fades the lines with overnight off from 00:00 to 05:00 with no bus in service, set as the lines resting change', async () => {
     const { mounted: board, map } = await mounted();
     map.styleLoaded = true;

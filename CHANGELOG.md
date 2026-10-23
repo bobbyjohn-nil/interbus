@@ -281,6 +281,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A name typed into the founding card as the splash's bus pulls away is kept: a click on New game, already uncovered, opened the card, but the keys typed into it were lost until the splash had gone.
 - Pressing ? while a new game is on its way no longer leaves Help open beside the founding card.
 - Two lines resting overnight on a street or at a stop they share no longer blend into a color that is neither's: the line drawn on top by day shows there, faded, and hides the other, as it does by day. A resting line is now drawn in its own color washed out with the main roads' night color, and at dawn with theirs as they lighten, and its stops lie under the lines still running.
+- Where a running line and a resting one share a street at night, a click on the resting line's faded name lists the running line first, as a click anywhere else on that street does.
 - Time runs more smoothly on the map: it no longer counts the demand dots it draws after every frame while the buses move (15 to 17 ms each time on Boston), nor the buildings in view after each tilt (up to about a fifth of a second).
 - Street names in the day card's roadworks and festival news, and on a line's card, are written properly: Monsignor O’Brien Highway with a curly apostrophe, Route 2A and Route 1 where the map's data says MA 2A and US 1, and I-93 for I 93.
 
