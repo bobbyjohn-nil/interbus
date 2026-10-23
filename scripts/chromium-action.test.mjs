@@ -123,12 +123,27 @@ test('a browser that fails to download fails the step on the dpkg path too', () 
   assert.notEqual(run.status, 0);
 });
 
-test('every workflow installs Chromium through the action, so no job waits on apt alone', () => {
+/** The lines of a workflow that install Playwright's browsers themselves: a command, not a comment or a step's name. */
+const rawInstalls = (yaml) =>
+  yaml.split('\n').flatMap((line, i) => {
+    const code = line.replace(/(^|\s)#.*$/, '');
+    return /\bplaywright(?:@\S+)?\s+install\b/.test(code) && !/^\s*-?\s*name:/.test(code) ? [i + 1] : [];
+  });
+
+test('no workflow runs playwright install itself: every job installs Chromium through the action', () => {
+  const forms = [
+    '      - run: npx playwright install --with-deps chromium',
+    '        run: |',
+    '          npx --yes playwright@1.63.0  install chromium',
+    '          npx playwright install-deps chromium',
+    "      - name: Install Playwright's Chromium (not playwright install)",
+    '      # npx playwright install went through apt here',
+    '        uses: ./.github/actions/chromium',
+  ];
+  assert.deepEqual(rawInstalls(forms.join('\n')), [1, 3, 4]);
   const workflows = new URL('../.github/workflows/', import.meta.url);
   const raw = readdirSync(workflows)
     .filter((f) => /\.ya?ml$/.test(f))
-    .flatMap((f) => readFileSync(new URL(f, workflows), 'utf8').split('\n').map((line, i) => ({ at: `${f}:${i + 1}`, line })))
-    .filter(({ line }) => /playwright install/.test(line) && !line.trim().startsWith('#'))
-    .map(({ at }) => at);
+    .flatMap((f) => rawInstalls(readFileSync(new URL(f, workflows), 'utf8')).map((n) => `${f}:${n}`));
   assert.deepEqual(raw, []);
 });

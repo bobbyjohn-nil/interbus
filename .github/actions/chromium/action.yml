@@ -1,11 +1,11 @@
 # Playwright's Chromium and the system packages it needs, for every job that runs a browser: CI's,
-# the deploy's live check and the nightly (scripts/chromium-action.test.mjs fails on an install
-# anywhere else). apt fetched those packages, 25.9 MB of fonts and libraries, from the runner's
-# mirror at 52 kB/s for 8 min 18 s, and the 8-minute limit cancelled the job (#152, 2026-10-22); on
-# other runs it took 1 min 39 s (#150) and 4 min 30 s. So the packages apt downloads are kept in the
-# Actions cache. A runner image's installed packages decide what apt fetches, so each image keeps
-# its own set; an image with none yet starts from the newest set of another (#153: the newest set of
-# any held only the fonts, and apt fetched 4.9 MB of libraries).
+# the deploy's live check and the nightly (scripts/chromium-action.test.mjs fails on a workflow that
+# runs `playwright install` itself). apt fetched those packages, 25.9 MB of fonts and libraries,
+# from the runner's mirror at 52 kB/s for 8 min 18 s, and the 8-minute limit cancelled the job
+# (#152, 2026-10-22); on other runs it took 1 min 39 s (#150) and 4 min 30 s. So the packages apt
+# downloads are kept in the Actions cache. A runner image's installed packages decide what apt
+# fetches, so each image keeps its own set; an image with none yet starts from the newest set of
+# another (#153: the newest set of any held only the fonts, and apt fetched 4.9 MB of libraries).
 #
 # On an exact match, a hosted image installs its own set with dpkg and no apt-get update: apt-get
 # update reads the archive's index first, and on #156's push run the mirror stalled for 7 minutes
