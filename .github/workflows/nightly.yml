@@ -142,7 +142,7 @@ jobs:
       - run: npm run build
 
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        uses: ./.github/actions/chromium
 
       - name: 30 minutes of the busy scene at 2,700×, its heaps within 10%
         run: npx playwright test e2e/heap.spec.ts

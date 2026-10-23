@@ -83,7 +83,11 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+
+      # As the PR checks install it: on #161's deploy this step took 8 min 39 s of the job's 20 minutes, nearly
+      # all of it apt (29 s on #160's).
+      - name: Install Playwright's Chromium
+        uses: ./.github/actions/chromium
 
       - name: The live preview shows this commit (deploy gate 5)
         run: node scripts/deploy/live-check.mjs "$LIVE_URL/" "${{ github.sha }}" "${{ github.run_id }}"
