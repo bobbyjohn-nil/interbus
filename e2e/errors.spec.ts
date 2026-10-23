@@ -101,14 +101,16 @@ for (const [what, fail] of [
   });
 }
 
-/** Site data blocked, for page.addInitScript: the localStorage getter throws a SecurityError, as e2e/gpu.spec.ts has it. */
+/** Site data blocked, for page.addInitScript: the localStorage and sessionStorage getters throw a SecurityError, as a browser
+ * blocking the site's data throws from both (the review of #161), and as e2e/gpu.spec.ts has it. */
 function blockStorage(): void {
-  Object.defineProperty(window, 'localStorage', {
-    configurable: true,
-    get() {
-      throw new DOMException('The operation is insecure.', 'SecurityError');
-    },
-  });
+  for (const name of ['localStorage', 'sessionStorage'])
+    Object.defineProperty(window, name, {
+      configurable: true,
+      get() {
+        throw new DOMException('The operation is insecure.', 'SecurityError');
+      },
+    });
 }
 
 // The systems audit's seventh round: while the game isn't saving itself (here blocked site data, so a reload loses the whole

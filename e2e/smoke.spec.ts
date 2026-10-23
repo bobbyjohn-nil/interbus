@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { bootGone } from './shell';
 
 /** Distinct colours in a PNG, counted inside the page so no image library is needed. */
 async function distinctColours(page: Page, png: Buffer): Promise<number> {
@@ -78,8 +79,9 @@ test('the preview boots, names its build and draws Boston', async ({ page }) => 
       expect(box?.width).toBeGreaterThanOrEqual(viewport.width * 0.99);
       expect(box?.height).toBeGreaterThanOrEqual(viewport.height * 0.99);
     }
-    // The corner's antialiased 12 px text alone gives about 120 colours, so it is masked: a map
-    // that draws only its background then counts 2, the real one thousands.
+    // The splash gone first, which its bus tows over the map for 2.4 s. The corner's antialiased 12 px text alone gives
+    // about 120 colours, so it is masked: a map that draws only its background then counts 2, the real one thousands.
+    await bootGone(page);
     const colours = await distinctColours(page, await page.screenshot({ mask: [page.locator('.corner')] }));
     expect(colours, 'distinct colours in the drawn map').toBeGreaterThan(50);
     expect(Number(await map.getAttribute('data-features')), 'features drawn on the first idle frame').toBeGreaterThan(0);

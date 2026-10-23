@@ -11,6 +11,11 @@ const entry = registry.cities[0]!;
 /** The city as the e2e tests play it: the fixture build (npm run build:fixture) loads mini-Boston, so `sim` is the fixture. */
 export const city = { ...entry, sim: entry.fixture ?? entry.sim };
 
+/** Waits for the page's boot splash to have gone, towed away or not (src/ui/brand/boot.ts), before a test reads the screen's pixels. */
+export async function bootGone(page: Page): Promise<void> {
+  await expect(page.locator('#boot')).toHaveCount(0, { timeout: 10_000 });
+}
+
 /** Where [lon, lat] lands on screen with the camera at rest (the map's data-view; Web Mercator, 512 px tiles). */
 export async function toScreen(page: Page, at: readonly [number, number]): Promise<[number, number]> {
   return (await projector(page)).project(at);

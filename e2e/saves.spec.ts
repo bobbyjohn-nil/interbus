@@ -445,18 +445,20 @@ test.describe('saves: slots, export and import', () => {
     expect((await said()).map(({ text }) => text)).toEqual(['Not autosaving: see Saves', '']);
   });
 
-  // Site data refused: here the localStorage getter throws a SecurityError. Shown failing (TS-04) with
-  // the refusal reaching only the console, so every save failed unseen and a reload lost the game.
+  // Site data refused: here the localStorage and sessionStorage getters throw a SecurityError, as a browser blocking the site's
+  // data throws from both. Shown failing (TS-04) with the refusal reaching only the console, so every save failed unseen and a
+  // reload lost the game.
   test('says once that a browser refusing storage keeps no saves, and Saves says so too', async ({ page }) => {
     test.setTimeout(60_000);
-    await page.addInitScript(() =>
-      Object.defineProperty(window, 'localStorage', {
-        configurable: true,
-        get() {
-          throw new DOMException('The operation is insecure.', 'SecurityError');
-        },
-      }),
-    );
+    await page.addInitScript(() => {
+      for (const name of ['localStorage', 'sessionStorage'])
+        Object.defineProperty(window, name, {
+          configurable: true,
+          get() {
+            throw new DOMException('The operation is insecure.', 'SecurityError');
+          },
+        });
+    });
     await page.goto('./');
     // Said as the game is ready, over Home, while the map may still be drawing; gone after its few seconds.
     const notice = page.getByTestId('notice');

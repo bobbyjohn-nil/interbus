@@ -12,3 +12,4 @@ export { readSimFile, startSimWorker } from './web/simFile';
 export { downloadText, pickTextFile } from './web/files';
 export { fpsSwitch, gpuSwitch, type GpuSwitch } from './web/switches';
 export { readDotPrefs, writeDotPrefs, type DotPrefs } from './web/prefs';
+export { firstInTab } from './web/tab';

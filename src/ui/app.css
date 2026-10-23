@@ -35,6 +35,9 @@
   --layer-menus: 20;
   --layer-cards: 100;
   --layer-replaced: 150;
+  /* The boot splash over them all while the game loads, but for the corner: the map's credit shows with any of the map, the
+     wipe's included (index.html, CLAUDE.md). */
+  --layer-boot: 200;
   font-family: 'Afacad Flux', system-ui, sans-serif;
   color: var(--ui-ink);
   background: var(--void);
@@ -1729,6 +1732,165 @@ button.chip.checklist,
 
 .movable.dragging .panel h2 {
   cursor: grabbing;
+}
+
+/* The boot splash (index.html; S18, V1's): the page draws it while the game's own files load, over everything but the corner,
+   and it takes no pointer, so nothing under it waits for it. The game ends it (src/ui/brand/boot.ts). */
+#boot {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-boot);
+  display: grid;
+  place-items: center;
+  background: var(--ui-paper);
+  color: var(--ui-ink);
+  pointer-events: none;
+}
+
+.boot-card {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.boot-bus svg {
+  display: block;
+}
+
+#boot b {
+  margin: 6px 0 2px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.boot-line {
+  font-size: 14px;
+  color: var(--ui-ink-soft);
+}
+
+.boot-bar {
+  display: block;
+  width: 180px;
+  height: 6px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ui-ink) 15%, transparent);
+}
+
+.boot-bar i {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--ui-ink);
+  animation: boot-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes boot-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+/* The corner over the splash while it stands: the map shows as the bus tows the splash away, and its credit with it, from the
+   wipe's first frame (CLAUDE.md: "© OpenStreetMap contributors" stays visible whenever the map shows; the review of #161). */
+body:has(#boot) .corner {
+  z-index: calc(var(--layer-boot) + 1);
+}
+
+/* What a screen reader says while the splash stands, as no one sees it. */
+.boot-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The wipe (GD-08: "engine start, then tow the screen away"; V1's `Intralines@7af45b1:src/ui/BusWipe.tsx` and its styles):
+   the splash's own bus turns its engine over for 0.9 s, then pulls away and takes the splash with it, slow off the mark and
+   gathering speed as a bus does. The splash's edge is shadowed, or it would leave unseen against Home's paper. */
+#boot.leaving {
+  box-shadow: -20px 0 38px color-mix(in srgb, var(--ui-ink) 20%, transparent);
+  animation: boot-away 2.4s linear forwards;
+}
+
+#boot.leaving .boot-line,
+#boot.leaving .boot-bar {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+@keyframes boot-away {
+  0%,
+  37.5% {
+    transform: translateX(0);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.55);
+  }
+  100% {
+    transform: translateX(112%);
+  }
+}
+
+#boot.leaving .boot-bus {
+  position: relative;
+}
+
+/* The engine: two hard shakes as it catches, an idle, then the shudder of pulling away, fading as it gets rolling. */
+#boot.leaving .boot-bus svg {
+  transform-origin: 50% 85%;
+  animation: boot-engine 2.4s linear forwards;
+}
+
+@keyframes boot-engine {
+  0% { transform: none; }
+  2% { transform: translate(0.9px, -1.8px) rotate(0.55deg); }
+  4.5% { transform: translate(-0.8px, 1.3px) rotate(-0.5deg); }
+  7% { transform: translate(0.8px, -1.2px) rotate(0.45deg); }
+  10% { transform: translate(-0.6px, 0.9px) rotate(-0.32deg); }
+  13% { transform: translate(0.5px, -0.7px) rotate(0.24deg); }
+  16% { transform: translate(-0.35px, 0.5px) rotate(-0.16deg); }
+  20% { transform: translate(0.3px, -0.4px) rotate(0.11deg); }
+  24% { transform: translate(-0.25px, 0.35px) rotate(-0.09deg); }
+  28% { transform: translate(0.3px, -0.35px) rotate(0.1deg); }
+  32% { transform: translate(-0.25px, 0.3px) rotate(-0.08deg); }
+  36% { transform: translate(0.25px, -0.3px) rotate(0.09deg); }
+  40% { transform: translate(-0.5px, 0.6px) rotate(-0.2deg); }
+  46% { transform: translate(0.45px, -0.5px) rotate(0.16deg); }
+  54% { transform: translate(-0.3px, 0.35px) rotate(-0.11deg); }
+  64% { transform: translate(0.2px, -0.25px) rotate(0.07deg); }
+  78% { transform: translate(-0.12px, 0.15px) rotate(-0.04deg); }
+  100% { transform: none; }
+}
+
+/* Exhaust: a puff as it catches, one as it takes up drive, and one on the way. */
+#boot.leaving .boot-bus::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 58%;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ui-ink) 18%, transparent);
+  opacity: 0;
+  animation: boot-puff 0.8s ease-out 3;
+}
+
+@keyframes boot-puff {
+  0% {
+    opacity: 0.55;
+    transform: translate(0, 0) scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-30px, -18px) scale(1.6);
+  }
 }
 
 /* Reduced motion (PLAN §8): what eases in the chrome, the compass's turn, draws at once. The map's camera and the tilt's
