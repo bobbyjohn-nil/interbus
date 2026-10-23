@@ -9,6 +9,7 @@ import {
   draggedBearing,
   draggedPitch,
   holdOutcome,
+  inOpenList,
   isTiltKey,
   MAX_PITCH,
   MIN_ZOOM,
@@ -154,6 +155,11 @@ describe('double-click and hold, and turning in 3D', () => {
     expect(viewKey(press({ key: 't', target: inside('listbox') }))).toBeNull();
     expect(viewKey(press({ key: 'q', target: inside('menu') }))).toBeNull();
     expect(viewKey(press({ key: 't', target: inside(null) }))).toBe('tilt');
+    // Round 11: the Build menu, a group of buttons, said nothing of keeping keys, and T tilted the map behind it.
+    const inBuild = { tagName: 'BUTTON', closest: (selector: string) => (selector.includes('[data-keeps-keys]') ? {} : null) } as unknown as EventTarget;
+    expect(viewKey(press({ key: 't', target: inBuild }))).toBeNull();
+    expect(inOpenList(inBuild)).toBe(true);
+    expect(inOpenList(inside(null))).toBe(false);
   });
 });
 

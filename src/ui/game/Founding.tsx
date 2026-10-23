@@ -35,9 +35,11 @@ export function FoundingCard({ sim, onHome }: { sim: Sim; onHome: () => void }) 
           if (verdict.ok) sim.send({ type: 'found', name, colour });
         }}
       >
+        {/* The name keeps the keyboard while the card shows: a panel the keyboard opened beside it, closing with nothing else to
+            hand the focus back to, gives it the focus (Panels' FOCUS_REST): Saves left open from Home gave the page the focus (round 11). */}
         <label>
           Name
-          <input value={name} maxLength={COMPANY_NAME_MAX + 8} placeholder="Back Bay Transit" onChange={(e) => setName(e.target.value)} autoFocus />
+          <input value={name} maxLength={COMPANY_NAME_MAX + 8} placeholder="Back Bay Transit" onChange={(e) => setName(e.target.value)} autoFocus data-focus-rest />
         </label>
         <fieldset>
           <legend>Color</legend>

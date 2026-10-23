@@ -150,8 +150,8 @@ describe('where the focus goes back to as a panel closes', () => {
   const button = (name: string, usable = true) => ({ name, usable }) as unknown as Element;
   const usable = (el: Element) => (el as unknown as { usable: boolean }).usable;
   const none = () => null;
-  const walk = (id: string, openers: [string, Opener][], opens: (panel: string) => Element | null = none) =>
-    (handBackTo(id, new Map(openers), opens, usable) as unknown as { name: string } | null)?.name ?? null;
+  const walk = (id: string, openers: [string, Opener][], opens: (panel: string) => Element | null = none, rest: () => Element | null = none) =>
+    (handBackTo(id, new Map(openers), opens, usable, rest) as unknown as { name: string } | null)?.name ?? null;
 
   it('gives it to what opened the panel, or, gone, to what opened the panel that held that', () => {
     expect(walk('lines', [['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
@@ -179,5 +179,17 @@ describe('where the focus goes back to as a panel closes', () => {
 
   it('hands back nothing for a panel the keyboard did not open', () => {
     expect(walk('lines', [], () => button('dock Lines'))).toBeNull();
+    expect(walk('saves', [], none, () => button('the name'))).toBeNull();
+  });
+
+  // Round 11: Saves left open from Home took the focus as the founding card showed, with no opener and no Saves chip before a
+  // company is founded, and its Escape gave the page the focus, as did Help's taken from Saves' place there.
+  it('with nothing else left, gives it to where the screen keeps the keyboard', () => {
+    const saves: [string, Opener] = ['saves', { at: null, in: null }];
+    expect(walk('saves', [saves], none, () => button('the name'))).toBe('the name');
+    expect(walk('help', [['help', { at: null, in: 'saves' }], saves], none, () => button('the name'))).toBe('the name');
+    // What opens it comes first: in the game, the Saves chip.
+    expect(walk('saves', [saves], (panel) => (panel === 'saves' ? button('Saves chip') : null), () => button('the name'))).toBe('Saves chip');
+    expect(walk('saves', [saves], none, () => button('the name', false))).toBeNull();
   });
 });

@@ -167,8 +167,13 @@ test.describe('the boot splash', () => {
     // The tow held at its start, the splash over the whole screen, Home's New game under its middle.
     await holdTow(page, 0);
     const home = page.getByTestId('home');
-    const at = (await home.getByRole('button', { name: 'New game' }).boundingBox())!;
+    const newGame = home.getByRole('button', { name: 'New game' });
+    const at = (await newGame.boundingBox())!;
     await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+    // Nor does the keyboard: Tab reached Home's buttons under it, and Enter pressed New game unseen (round 11).
+    for (let k = 0; k < 4 && !(await newGame.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement === document.body), 'the focus on nothing the splash hides').toBe(true);
+    await page.keyboard.press('Enter');
     // Once its timer asks for the splash to go, it goes.
     await page.waitForFunction(() => typeof (window as unknown as { letBootGo?: unknown }).letBootGo === 'function');
     await page.evaluate(() => (window as unknown as { letBootGo: () => void }).letBootGo());

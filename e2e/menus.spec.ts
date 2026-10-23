@@ -252,6 +252,25 @@ test.describe('the menus', () => {
     await expect(menu.getByRole('button', { name: 'Draw a line' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(menu).toHaveCount(0);
-    await expect(page.getByTestId('draft-card')).toBeVisible();
+    const card = page.getByTestId('draft-card');
+    await expect(card).toBeVisible();
+    // The line's card takes the focus, as every panel the keyboard opens does, and its Escape and its Cancel hand it back to
+    // Build: the focus went with the menu to the page, and Tab went on past the card (round 11).
+    const inCard = () => card.evaluate((el) => el.closest('[data-movable]')!.contains(document.activeElement));
+    await expect.poll(inCard).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(build).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect.poll(inCard).toBe(true);
+    const cancel = card.getByRole('button', { name: 'Cancel' });
+    for (let k = 0; k < 12 && !(await cancel.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(cancel).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(card).toHaveCount(0);
+    await expect(build).toBeFocused();
   });
 });

@@ -331,6 +331,14 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     const taken = contracts.locator(`[data-contract="${id}"]`);
     await expect(taken).toHaveAttribute('data-held', 'yes');
     await expect(taken).toBeFocused();
+    // Help opened there with ? and closed gives the row the focus back, which takes it only until it leaves: it fell to the
+    // page (round 11).
+    await page.keyboard.press('?');
+    const help = page.getByTestId('help');
+    await expect(help).toBeVisible();
+    await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    await expect(taken).toBeFocused();
   });
 
   /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×; the day card and its Continue. */
@@ -618,6 +626,29 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
 
   // The review of round 10: Help opened with ? from Lines' box took the box as its opener, which stops taking the focus once it
   // has let it go, so closing Help gave the page the focus. The box takes it back, and Tab goes on inside Lines.
+  // Round 11: Saves the keyboard opened from Home stays open into the game, and takes the focus as Continue goes, with no opener
+  // left: its Escape gave the page the focus, though the Saves chip opens it.
+  test('Saves kept open from Home into the game hands the focus to the Saves chip as it closes', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await page.getByTestId('saves-chip').click();
+    await page.getByTestId('saves').getByRole('button', { name: 'Back to Home' }).click();
+    const home = page.getByTestId('home');
+    await expect(home).toBeVisible();
+    await tabOnto(page, home.getByTestId('home-saves'));
+    await page.keyboard.press('Enter');
+    const saves = page.getByTestId('saves');
+    await expect(saves).toBeVisible();
+    await tabOnto(page, home.getByTestId('home-continue'));
+    await page.keyboard.press('Enter');
+    await expect(home).toHaveCount(0);
+    await expect.poll(() => saves.evaluate((el) => el.closest('[data-movable]')!.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(saves).toHaveCount(0);
+    await expect(page.getByTestId('saves-chip')).toBeFocused();
+  });
+
   test('Help opened with ? over a panel the keyboard opened gives that panel the focus back as it closes', async ({ page }) => {
     await game(page);
     const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
@@ -658,6 +689,20 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     await expect(list).toBeVisible();
     expect(await map.getAttribute('data-mode')).toBe('2d');
     // Counted as sent, as the speed shown could still read 0 before the sim answered one (the review of round 10).
+    expect(await sent('speed')).toBe(speeds);
+    // So does the Build menu, the keyboard on its tools: T tilted the map behind it and 2 picked 60× (round 11).
+    await page.keyboard.press('Escape');
+    await expect(list).toHaveCount(0);
+    await page.getByTestId('build').focus();
+    await page.keyboard.press('Enter');
+    const menu = page.getByTestId('build-menu');
+    await page.keyboard.press('Tab');
+    await expect(menu.getByRole('button', { name: 'Place a stop' })).toBeFocused();
+    await page.keyboard.press('t');
+    await page.keyboard.press('2');
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+    await expect(menu).toBeVisible();
+    expect(await map.getAttribute('data-mode')).toBe('2d');
     expect(await sent('speed')).toBe(speeds);
   });
 });

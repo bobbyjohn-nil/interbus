@@ -86,14 +86,17 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
         }}
       >
         {/* An ended run builds nothing (locked: runOver). */}
-        <button ref={button} type="button" aria-pressed={open || building} aria-expanded={open} data-testid="build" disabled={locked} onClick={() => setOpen((o) => !o)}>
+        {/* It opens the line's card too, through Draw a line: the card's Cancel and Escape hand the keyboard back to it (Panels' data-opens). */}
+        <button ref={button} type="button" aria-pressed={open || building} aria-expanded={open} data-testid="build" data-opens="tool" disabled={locked} onClick={() => setOpen((o) => !o)}>
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           Build
         </button>
         {open ? (
-          <div className="build-menu" role="group" aria-label="Build" data-testid="build-menu" data-chrome="panel">
+          // An open menu keeps the game's keys, as the lists and the demand menu do (KEEPS_KEYS): T tilted the map behind it and 2
+          // picked 60× (round 11).
+          <div className="build-menu" role="group" aria-label="Build" data-testid="build-menu" data-chrome="panel" data-keeps-keys>
             {BUILD.map((b) => (
               <button
                 key={b.tool}

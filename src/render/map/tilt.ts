@@ -122,9 +122,21 @@ export type ViewKey = 'tilt' | 'north' | 'left' | 'right';
 export const VIEW_KEYS: Readonly<Record<string, ViewKey>> = { t: 'tilt', n: 'north', q: 'left', e: 'right' };
 
 /**
+ * An open list or menu, which keeps every key from the game and the map (App.tsx, viewKey): a dropdown's list, the demand
+ * menu, and the Build menu, a group of buttons that says so itself (Dock.tsx). T tilted the map behind the speed list (round
+ * 10), and behind the Build menu, where 2 picked 60× too (round 11).
+ */
+export const KEEPS_KEYS = '[role="listbox"], [role="menu"], [data-keeps-keys]';
+
+/** Whether a key pressed on `target` is an open list's or menu's (KEEPS_KEYS). */
+export function inOpenList(target: unknown): boolean {
+  const at = target as { closest?: (selector: string) => unknown } | null;
+  return typeof at?.closest === 'function' && at.closest(KEEPS_KEYS) !== null;
+}
+
+/**
  * The view key pressed, with Shift or Caps Lock or neither, not held down, not typed into a field and not pressed in an open
- * list or menu, which keeps its keys as it keeps the game's (App.tsx): T tilted the map behind the speed list (round 10);
- * else null.
+ * list or menu, which keeps its keys as it keeps the game's (inOpenList); else null.
  */
 export function viewKey(press: KeyPress): ViewKey | null {
   if (press.ctrlKey || press.metaKey || press.altKey || press.repeat) return null;
@@ -132,7 +144,7 @@ export function viewKey(press: KeyPress): ViewKey | null {
   if (!key || press.key.length !== 1) return null;
   const target = press.target as { tagName?: string; isContentEditable?: boolean; closest?: (selector: string) => unknown } | null;
   if (target?.isContentEditable) return null;
-  if (target?.closest?.('[role="listbox"], [role="menu"]')) return null;
+  if (inOpenList(target)) return null;
   return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '') ? null : key;
 }
 

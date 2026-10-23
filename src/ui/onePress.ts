@@ -34,6 +34,12 @@ const CANVAS = '.maplibregl-canvas-container';
 /** Where a key presses: a control, or a dropdown's open list, which holds the focus while its options are picked. */
 const KEYED = `${CONTROLS}, [role="listbox"]`;
 
+/** Whether `target` is on the page's boot splash, whose bus may tow it off what the rest of a run of clicks then lands on (boot.ts). */
+function onSplash(target: unknown): boolean {
+  const at = target as { closest?: (selector: string) => unknown } | null;
+  return typeof at?.closest === 'function' && at.closest('#boot') !== null;
+}
+
 /** Whether `target` is on the map's canvas, where a press is the map's: the compass and the map's Reload sit beside it in the map's box, and are controls. */
 export function onCanvas(target: unknown): boolean {
   const at = target as { closest?: (selector: string) => unknown } | null;
@@ -65,7 +71,9 @@ export function onePress(page: EventTarget = window): () => void {
     if (!event.isTrusted) return;
     const detail = (event as MouseEvent).detail;
     if (event.type === 'click' && detail <= 1) {
-      rest = detail !== 1 ? 'keep' : onControl(event.target) ? 'drop' : onCanvas(event.target) ? 'map' : 'keep';
+      // A run begun on the splash drops the rest too: between its clicks the tow uncovered Home's New game under the pointer, and
+      // a double-click's second click pressed it (the systems audit's eleventh round).
+      rest = detail !== 1 ? 'keep' : onControl(event.target) || onSplash(event.target) ? 'drop' : onCanvas(event.target) ? 'map' : 'keep';
       return;
     }
     if (rest === 'keep' || (rest === 'map' && onCanvas(event.target))) return;

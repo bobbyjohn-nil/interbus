@@ -9,7 +9,7 @@ import { endBoot, WIPE_MS, type BootEnv } from './boot';
 function page(over: Partial<BootEnv> = {}) {
   const classes = new Set<string>();
   const timers: { run: () => void; ms: number }[] = [];
-  const state = { gone: false, asked: 0, hidden: null as string | null };
+  const state = { gone: false, asked: 0, hidden: null as string | null, holds: 0 };
   const boot = {
     classList: { contains: (c: string) => classes.has(c), add: (c: string) => void classes.add(c) } as unknown as DOMTokenList,
     remove: () => void (state.gone = true),
@@ -20,6 +20,7 @@ function page(over: Partial<BootEnv> = {}) {
     still: false,
     firstInTab: () => ++state.asked === 1,
     later: (run, ms) => void timers.push({ run, ms }),
+    holdKeys: () => void state.holds++,
     ...over,
   };
   return { env, classes, timers, state };
@@ -33,6 +34,9 @@ describe('the boot splash’s end', () => {
     expect(p.state.hidden).toBe('true');
     expect(p.state.gone).toBe(false);
     expect(p.timers.map((t) => t.ms)).toEqual([WIPE_MS + 150]);
+    // While it is towed the keyboard reaches nothing it hides (holdKeys, for as long as it stands): Tab reached Home's buttons
+    // under it, and Enter pressed New game unseen (the systems audit's eleventh round).
+    expect(p.state.holds).toBe(1);
     p.timers[0]!.run();
     expect(p.state.gone).toBe(true);
   });
@@ -43,6 +47,7 @@ describe('the boot splash’s end', () => {
     expect(p.state.gone).toBe(true);
     expect(p.classes.has('leaving')).toBe(false);
     expect(p.timers).toEqual([]);
+    expect(p.state.holds).toBe(0);
   });
 
   it('for anyone who asked for less motion, it goes at once and leaves the tab’s first time unspent', () => {
