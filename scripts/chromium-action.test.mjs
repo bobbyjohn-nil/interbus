@@ -122,3 +122,13 @@ test('a browser that fails to download fails the step on the dpkg path too', () 
   const run = runStep({ hit: 'true', debs: SET, env: { BROWSER_EXIT: '1' } });
   assert.notEqual(run.status, 0);
 });
+
+test('every workflow installs Chromium through the action, so no job waits on apt alone', () => {
+  const workflows = new URL('../.github/workflows/', import.meta.url);
+  const raw = readdirSync(workflows)
+    .filter((f) => /\.ya?ml$/.test(f))
+    .flatMap((f) => readFileSync(new URL(f, workflows), 'utf8').split('\n').map((line, i) => ({ at: `${f}:${i + 1}`, line })))
+    .filter(({ line }) => /playwright install/.test(line) && !line.trim().startsWith('#'))
+    .map(({ at }) => at);
+  assert.deepEqual(raw, []);
+});
