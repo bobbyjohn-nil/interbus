@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CITIES } from "../cities";
 import { MapView, type DotKinds, type HoveredDot, type MapHit } from "../render/map/MapView";
 import { readDotPrefs, writeDotPrefs } from "../platform";
@@ -358,8 +358,9 @@ export function App() {
   }, [loadedAt, choose]);
 
   const ready = sim.status === "ready";
-  // The page's boot splash goes once the game has a screen to show: Home, a game, or a card saying why there is none.
-  useEffect(() => {
+  // The page's boot splash goes once the game has a screen to show: Home, a game, or a card saying why there is none. Before
+  // the paint that shows it, so no moment shows that screen with the splash still speaking over it (endBoot).
+  useLayoutEffect(() => {
     if (sim.status !== "loading") endBoot();
   }, [sim.status]);
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
