@@ -41,42 +41,30 @@ test.describe('the day and night tint', () => {
     expect(errors).toEqual([]);
   });
 
-  test('with less motion asked for, each step comes at once', async ({ page }) => {
+  // One night, as one test for the first quarter's room (three cost about a minute of CI): a line with overnight off rests from
+  // 00:00 to 05:00, the clock names each period as it comes, and with less motion asked for each step of the light comes at once.
+  test('through one night: a line with overnight off rests from 00:00 to 05:00, the clock names each period, and with less motion asked for the light steps at once (D13)', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await at(page, hour(18, 58));
-    const map = page.getByTestId('map');
-    await page.keyboard.press('3');
-    await expect(map).toHaveAttribute('data-daylight', '1', { timeout: 30_000 });
-    await expect(map).toHaveAttribute('data-daylight-fade', '0');
-  });
-
-  test('the clock names the period, so the time of day never rests on the tint: Off-peak, then Peak from 06:30 (D13)', async ({ page }) => {
-    await at(page, hour(6, 28));
-    const period = page.getByTestId('period');
-    await expect(period).toHaveText('Off-peak');
-    await page.keyboard.press('2'); // 60×: 06:30 in about two seconds
-    await expect(period).toHaveText('Peak', { timeout: 30_000 });
-    await expect(page.getByTestId('map')).toHaveAttribute('data-daylight', '0');
-  });
-
-  test('a line with overnight off rests, faded, from 00:00 to 05:00, and runs whole from 05:00 (D13)', async ({ page }) => {
     await at(page, hour(23, 58), (d) => {
       (d.lines as { headways: { overnight: number | null } }[])[0]!.headways.overnight = null;
     });
     const map = page.getByTestId('map');
+    const period = page.getByTestId('period');
     await expect(map).toHaveAttribute('data-daylight', '4');
-    await expect(page.getByTestId('period')).toHaveText('Off-peak');
+    await expect(period).toHaveText('Off-peak');
     expect(await map.getAttribute('data-resting')).toBeNull();
     await page.keyboard.press('3');
     // Midnight closes day 2, and its card waits with time paused.
     const day = page.getByTestId('day-card');
     await expect(day).toBeVisible({ timeout: 30_000 });
     await expect(map).toHaveAttribute('data-resting', '1');
-    await expect(page.getByTestId('period')).toHaveText('Overnight');
+    await expect(period).toHaveText('Overnight');
     await day.getByRole('button', { name: 'Continue' }).click();
-    await page.keyboard.press('5'); // 5,400×: 05:00 in about three seconds
+    await page.keyboard.press('4'); // 2,700×: 05:00 in about seven seconds, then the peak from 06:30 for four
     await expect(map).toHaveAttribute('data-resting', '', { timeout: 30_000 });
-    // Lighter than night: at 5,400× the half hour of each step passes in a third of a second.
+    // Lighter than night, at once: at 2,700× each step's half hour passes in two thirds of a second.
     await expect(map).toHaveAttribute('data-daylight', /^[0-3]$/);
+    await expect(map).toHaveAttribute('data-daylight-fade', '0');
+    await expect(period).toHaveText('Peak', { timeout: 30_000 });
   });
 });
