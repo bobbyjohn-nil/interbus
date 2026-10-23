@@ -109,6 +109,18 @@ function put(box: HTMLElement, at: { x: number; y: number }): void {
 }
 
 /**
+ * Gives a panel's box the keyboard's focus, which it can hold only until the focus leaves: always focusable, it took the focus
+ * from a press on a panel's text, so the keys no longer scrolled the panel (the review of the ninth audit round). Handed back
+ * to, it is made focusable again: Help, opened with ? from Lines' box and closed, handed back to a box that could no longer
+ * take the focus, which fell to the page (the review of round 10).
+ */
+function focusBox(box: HTMLElement): void {
+  box.tabIndex = -1;
+  box.addEventListener("blur", () => box.removeAttribute("tabindex"), { once: true });
+  box.focus();
+}
+
+/**
  * What a panel took the keyboard's focus from as it opened (`at`), and the panel that held it (`in`). One that took it from a
  * panel going as it opened, as the route editor takes Lines' place and Lines the editor's, has no control (`at` null), only
  * that panel.
@@ -231,8 +243,10 @@ export function Panels({
   // dock's Lines the focus (the review of #156). Checked after the layout effects, so a card's own hand-off (useFocusBack,
   // App) goes first.
   // Each kept past its panel's close, for a panel that stood in for it to hand back through (handBackTo), and let go when the
-  // panel opens again without the keyboard. A panel asked for again while open keeps what opened it: a stop card's line
-  // button made itself Lines' opener, and Escape went round from Lines to the stop card and back to a gone button (round 10).
+  // panel opens again without the keyboard. A panel shown again from the keyboard while open takes what showed it as its
+  // opener: the stop card shown for Stop 3 goes back to Stop 3's row. A stop card's line button so becomes Lines' opener, and
+  // Escape closing both went round from Lines to the card and back to a gone button, until the walk went round no panel twice
+  // (round 10; keeping the first opener instead sent the card's Close to Stop 2: its review).
   const openers = useRef(new Map<string, Opener>());
   // The panel the keyboard opened in this render, whose opener the layout effect has just set.
   const opened = useRef<string | null>(null);
@@ -261,18 +275,18 @@ export function Panels({
     lastIn.current = null;
     const usable = (el: Element) => el.isConnected && !el.matches(":disabled");
     const to = handBackTo(left, openers.current, (panel) => document.querySelector(`[data-opens="${panel}"]`), usable);
-    if (to instanceof HTMLElement && focusLost()) to.focus();
+    if (to instanceof HTMLElement && focusLost()) {
+      if (to.hasAttribute("data-movable")) focusBox(to);
+      else to.focus();
+    }
   });
   useLayoutEffect(() => {
     const box = focus && takes.current() ? boxes.current.get(focus.id) : undefined;
     if (!box) return;
     const id = focus!.id;
     const from = document.activeElement;
-    const kept = wereOpen.current.includes(id) && openers.current.get(id);
     const left = lastIn.current;
-    if (kept && (!kept.at || kept.at.isConnected)) {
-      // Asked for again while open: it keeps what opened it.
-    } else if (from instanceof HTMLElement && from !== document.body && !box.contains(from)) {
+    if (from instanceof HTMLElement && from !== document.body && !box.contains(from)) {
       openers.current.set(id, { at: from, in: from.closest("[data-movable]")?.getAttribute("data-movable") ?? null });
       opened.current = id;
     } else if (left && left !== id && !itemIds.current.includes(left)) {
@@ -280,9 +294,7 @@ export function Panels({
       openers.current.set(id, { at: null, in: left });
       opened.current = id;
     }
-    box.tabIndex = -1;
-    box.addEventListener("blur", () => box.removeAttribute("tabindex"), { once: true });
-    box.focus();
+    focusBox(box);
   }, [focus]);
 
   // A window that changes size keeps a panel in a free place whole, and a dragged one in reach, as a drag does.

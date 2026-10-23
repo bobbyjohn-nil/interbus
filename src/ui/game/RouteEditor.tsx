@@ -125,8 +125,10 @@ export function RouteEditor({
   // arrow, or on its other one at the top or the bottom of the list, where that arrow shuts. A held key
   // moves it once: the page drops a held Enter's repeats on a control (onePress.ts). A stop taken off with its × hands the focus
   // to the × of the stop that takes its row, or of the row above at the list's end: the focus went with its row, and the next
-  // Space ran time behind the editor (round 10; DECISIONS, 2026-10-15, had left it).
+  // Space ran time behind the editor (round 10; DECISIONS, 2026-10-15, had left it). The last stop's hands it to Cancel, as
+  // Save route has nothing to save then (the review of round 10).
   const list = useRef<HTMLOListElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
   const refocus = useRef<{ readonly at: number; readonly up: boolean } | { readonly at: number; readonly removed: true } | null>(null);
   useLayoutEffect(() => {
     const r = refocus.current;
@@ -134,7 +136,8 @@ export function RouteEditor({
     if (!r) return;
     if ("removed" in r) {
       const rows = list.current?.children;
-      rows?.[Math.min(r.at, rows.length - 1)]?.querySelector<HTMLButtonElement>('button[aria-label^="Remove"]')?.focus();
+      const row = rows?.length ? rows[Math.min(r.at, rows.length - 1)] : undefined;
+      (row?.querySelector<HTMLButtonElement>('button[aria-label^="Remove"]') ?? cancel.current)?.focus();
       return;
     }
     const arrows = list.current?.children[r.at]?.querySelectorAll("button");
@@ -249,7 +252,7 @@ export function RouteEditor({
         <button type="button" onClick={onSave} disabled={!draft || refused !== null || saving}>
           Save route
         </button>
-        <button type="button" onClick={onCancel}>
+        <button type="button" ref={cancel} onClick={onCancel}>
           Cancel
         </button>
       </div>

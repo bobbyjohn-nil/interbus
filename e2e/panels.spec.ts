@@ -333,7 +333,7 @@ test.describe('the panels by keyboard', () => {
     await page.keyboard.press('Enter');
     const editor = page.getByTestId('route-editor');
     await expect(editor).toBeVisible();
-    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-movable]')?.getAttribute('data-movable'))).toBe('tool');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-movable]')?.getAttribute('data-movable'))).toBe('route');
     await page.keyboard.press('Tab');
     expect(await editor.evaluate((el) => el.contains(document.activeElement))).toBe(true);
     await editor.getByRole('button', { name: 'Cancel' }).click();

@@ -157,18 +157,18 @@ describe('where the focus goes back to as a panel closes', () => {
     expect(walk('lines', [['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
     // The route editor took the focus from Lines as Lines went; Lines' opener is kept past its close.
     const editor: [string, Opener][] = [
-      ['tool', { at: null, in: 'lines' }],
+      ['route', { at: null, in: 'lines' }],
       ['lines', { at: button('dock Lines'), in: null }],
     ];
-    expect(walk('tool', editor)).toBe('dock Lines');
+    expect(walk('route', editor)).toBe('dock Lines');
     expect(walk('stop', [['stop', { at: button('Stop 2', false), in: 'lines' }], ['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
   });
 
   it('goes round no panel twice, and then to what opens one of them now, the first first', () => {
     // Lines after the editor's Cancel took the focus from the editor, which had taken it from Lines.
     const round: [string, Opener][] = [
-      ['lines', { at: null, in: 'tool' }],
-      ['tool', { at: null, in: 'lines' }],
+      ['lines', { at: null, in: 'route' }],
+      ['route', { at: null, in: 'lines' }],
     ];
     expect(walk('lines', round)).toBeNull();
     expect(walk('lines', round, (panel) => (panel === 'lines' ? button('dock Lines') : null))).toBe('dock Lines');

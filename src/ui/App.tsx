@@ -247,7 +247,7 @@ export function App() {
       // The editor stands in for the line's panel while it is open; Save route and Cancel bring it back. Opened from the
       // keyboard, it takes the focus the panel had.
       hide("lines");
-      focusOn("tool");
+      focusOn("route");
       setRouting({ lineId: id, points: routeOf(line), base: line.stopIds, saved: null });
       hoveredRef.current = null;
       probeAt(null);
@@ -513,9 +513,12 @@ export function App() {
 
   // The panel layer's items: the tool's card first, then each open panel in the order it opened.
   const panelItems: PanelItem[] = [];
+  // The route editor and the line being drawn are two panels: as one, Build's Draw a line took the editor's place in its box,
+  // so the editor never closed and Escape from the line's card handed the focus back through the editor's (the review of
+  // round 10).
   if (tool === "route" && routing && routingLine)
     panelItems.push({
-      id: "tool",
+      id: "route",
       node: (
         <RouteEditor
           sim={sim}
