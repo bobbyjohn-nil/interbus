@@ -15,6 +15,7 @@ import type { Sim } from '../game/useSim';
 export function Home({
   sim,
   byKey = () => false,
+  waiting = false,
   onContinue,
   onNewGame,
   onSaves,
@@ -24,6 +25,8 @@ export function Home({
   sim: Sim;
   /** Whether the keyboard, not the pointer, moved the focus where it is (App's focusSource). */
   byKey?: () => boolean;
+  /** Whether a new game is on its way, for which Home's buttons wait (App's `starting`). */
+  waiting?: boolean;
   onContinue: () => void;
   onNewGame: () => void;
   onSaves: () => void;
@@ -66,7 +69,20 @@ export function Home({
   });
   if (sim.status !== 'ready' || !s) return null;
   return (
-    <section className="home" role="dialog" aria-label="Interbus" data-testid="home" data-chrome="panel">
+    <section
+      className="home"
+      role="dialog"
+      aria-label="Interbus"
+      data-testid="home"
+      data-chrome="panel"
+      // While the new game is on its way, a press waits for it: Keep it closed the question as the new game came anyway, and
+      // Continue went on with the old game for a moment (the review of round 11).
+      onClickCapture={(event) => {
+        if (!waiting) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       <h1>Interbus</h1>
       <p className="hint">A bus company in Boston</p>
       {company ? (

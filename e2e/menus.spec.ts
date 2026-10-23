@@ -204,6 +204,17 @@ test.describe('the menus', () => {
     await page.keyboard.press('Space');
     await expect(list).toBeVisible();
     await expect(panel).toHaveAttribute('data-speed', '0');
+    // A Build tool the mouse pressed without a click, by a right-click, takes no Space either, though the open Build menu keeps
+    // the game's other keys: Space pressed the tool (the review of round 11).
+    await page.keyboard.press('Escape');
+    await page.getByTestId('build').click();
+    const build = page.getByTestId('build-menu');
+    await build.getByRole('button', { name: 'Draw a line' }).click({ button: 'right' });
+    await expect(build).toBeVisible();
+    await page.keyboard.press('Space');
+    await expect(panel).not.toHaveAttribute('data-speed', '0');
+    await expect(build).toBeVisible();
+    await expect(page.getByTestId('draft-card')).toHaveCount(0);
   });
 
   test('with the Build menu open, Tab goes through its three tools in order, and on past the last closes it', async ({ page }) => {

@@ -483,8 +483,10 @@ export function App() {
         return;
       }
       // An open list or menu keeps every key, as it keeps ?: T tilted the map behind the speed list, and 2 picked 60× under it,
-      // its Enter then picking the old speed again (round 10). It takes Escape, Tab and its own keys itself.
-      if (inList) return;
+      // its Enter then picking the old speed again (round 10). It takes Escape, Tab and its own keys itself. But Space on a button
+      // the mouse pressed is the page's still, as below: a Build tool the mouse pressed without a click (a press dragged off it,
+      // or a right-click) took Space from play once the Build menu kept its keys (the review of round 11).
+      if (inList && !(event.key === " " && event.target instanceof HTMLButtonElement && !focus.current.byKey)) return;
       // Home stands over a paused game: its keys are Home's (Escape closes Saves and Help), not the game's.
       if (atHome && event.key !== "Escape") return;
       // Typed into a field, a key is the field's, but for Escape: in the company's name, which has the focus whenever the
@@ -711,6 +713,7 @@ export function App() {
         <Home
           sim={sim}
           byKey={() => focus.current.byKey}
+          waiting={starting}
           // Leaving Home closes Help: carried onto the founding card, the two took 31.6% of 1152×720 (I13; the review of #157).
           // Saves stays, where a game not yet founded loads a slot or a file instead (saves.spec).
           onContinue={() => {

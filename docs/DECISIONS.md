@@ -455,17 +455,23 @@ Filled in as they are measured, with the date and the commit, each by a committe
     - Take it hands the focus to its contract's row, whose tabindex goes as the focus leaves (`Contracts.tsx`). Help, opened there with ? and closed, handed back to a row that could no longer take it.
     - Every place handed back to is now made focusable until the focus leaves it (`giveFocus`), as round 10 made the panels' boxes.
   - **The founding card:** Saves left open from Home over the card had no opener, and no Saves chip stands before a company is founded, so its Close, Escape in it, and Escape in the Help its Help opens all gave the page the focus. The card's name is now the screen's resting place (`data-focus-rest`), last in the hand-back's walk.
+  - **A panel opened afresh** records an opener of its own, never an earlier opening's (its review). Help opened with ? from the dock's Finance, then opened again from the page, handed the focus back to Finance, so Space opened Finance instead of playing.
+  - **What `giveFocus` sets** it takes away only while it is still its own: a scrolling region's tabindex the page set since stays. Where it cannot give the focus at all, it takes the tabindex away at once (its review).
   - **The splash** (`src/ui/brand/boot.ts`, `src/ui/onePress.ts`):
     - **The keyboard:** round 10 made the splash take the pointer, but Tab still reached Home under it, and Enter pressed New game unseen. While its bus tows it away, every plain key now stops at the window (`holdKeys`); the corner and the replaced build's card, drawn over the splash, keep theirs. What the tow uncovers still takes the pointer's presses at once.
       - The hold lasts as long as the splash stands, not its timer's 2.55 s: tied to the timer, it let go under a busy test that held the splash's removal, and the lane's reproduction pressed New game once in a run of three.
     - **A double-click:** a run of clicks begun on the splash drops its later clicks, as one begun on a control does. Between a double-click's two clicks the tow uncovered New game under the pointer, and the second click pressed it.
   - **Home** (`src/ui/shell/Home.tsx`):
     - **Continue going:** with the keyboard on Continue, another tab's new game took Continue away and the focus fell to the page. New game takes it now, when the keyboard put the focus where it was, as Back to Home's hand-off does (round 10).
-    - **Start a new game** left Home at once, and the old company's chips and dock drew a frame before the founding card, one in each run. Home now stays until the worker's unnamed company comes (App's `starting`), which the worker always sends; the question stays with it.
-  - **The Build menu's keys:** round 10 kept every key in an open list or menu, by its role, and the Build menu is a group of buttons. With it open, T tilted the map and 2 picked 60×. One check now serves the page and the map (`inOpenList` in `src/render/map/tilt.ts`), and the Build menu says it keeps the keys (`data-keeps-keys`).
+    - **Start a new game** left Home at once, and the old company's chips and dock drew a frame before the founding card, one in each run. Home now stays until the worker's unnamed company comes (App's `starting`), which the worker always sends; the question stays with it. A press on Home waits meanwhile, 2–6 ms on the fixture and 35–91 ms on Inner Boston: Keep it closed the question as the new game came anyway (its review).
+  - **The Build menu's keys:** round 10 kept every key in an open list or menu, by its role, and the Build menu is a group of buttons. With it open, T tilted the map and 2 picked 60×. One check now serves the page and the map (`inOpenList` in `src/render/map/tilt.ts`), and the Build menu says it keeps the keys while open, Build with it (`data-keeps-keys` on the two together), where its Enter leaves the focus and Chrome's press puts it.
+    - **As the lists do**, it keeps ?, Ctrl+Z and Backspace too, which wait for it to close: before, ? on a tool opened Help and the menu closed as the focus left it.
+    - **Space on a button the mouse pressed** is still the page's, as App's Space rule has it: a tool the mouse pressed without a click (a right-click, or a press dragged off it) took Space once the menu kept its keys (its review).
+    - **Not kept:** a menu the mouse opened in Safari, or in Firefox on macOS, leaves the focus on the page, where the keys are the game's.
   - **Left as they are:** Place a stop and Place a depot leave the focus on the page as their tool comes out, so Space plays and pauses, as keyboard.spec.ts's undo test has it.
   - **Tests** (TS-04), each failing on 4464d22:
     - **e2e:**
+      - its review's: a Build tool the mouse right-clicked takes no Space, Help opened afresh from the page hands the focus back to the page, Build keeps T and 2, and a press on Home waits for the new game (each failing on the round's first commit);
       - Saves kept from Home into the game (the chip not focused);
       - the founding card's three ways (the name not focused);
       - Help over the contract row (the row not focused);
@@ -476,7 +482,7 @@ Filled in as they are measured, with the date and the commit, each by a committe
       - the splash's Tab (a Home button focused).
     - **Unit:**
       - the hand-back's resting place;
-      - the splash's key hold, let go as it goes;
+      - the splash's key hold, held while it stands, the browser's own keys and the corner's let through, and let go once it has gone (its review; failing with a hold that never lets go);
       - a double-click begun on the splash, which also fails with the splash's check taken out;
       - the Build menu in `viewKey`.
 - **2026-10-23** (`src/render/map/daylight.test.ts`, `src/render/map/overlays.test.ts`, `src/render/map/loadMap.test.ts`, `src/render/map/fleet.test.ts`, `src/sim/rules/position.test.ts`, `e2e/daylight.spec.ts`; on `main` 4464d22): **the systems audit's eleventh round, its first lane: the day and night tint** (D26, D13). Two finder lanes ran on the code merged since the tenth round: the tint and the time of day (#168), and the edges of the tenth round's fixes (#166, #167). The first found 5 bugs, all minor or nits; the second found 9, with their own entry and pull request. No format change.

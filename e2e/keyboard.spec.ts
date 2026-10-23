@@ -624,8 +624,6 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     await expect(line1).toBeFocused();
   });
 
-  // The review of round 10: Help opened with ? from Lines' box took the box as its opener, which stops taking the focus once it
-  // has let it go, so closing Help gave the page the focus. The box takes it back, and Tab goes on inside Lines.
   // Round 11: Saves the keyboard opened from Home stays open into the game, and takes the focus as Continue goes, with no opener
   // left: its Escape gave the page the focus, though the Saves chip opens it.
   test('Saves kept open from Home into the game hands the focus to the Saves chip as it closes', async ({ page }) => {
@@ -649,6 +647,8 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     await expect(page.getByTestId('saves-chip')).toBeFocused();
   });
 
+  // The review of round 10: Help opened with ? from Lines' box took the box as its opener, which stops taking the focus once it
+  // has let it go, so closing Help gave the page the focus. The box takes it back, and Tab goes on inside Lines.
   test('Help opened with ? over a panel the keyboard opened gives that panel the focus back as it closes', async ({ page }) => {
     await game(page);
     const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
@@ -668,6 +668,22 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     }
     await page.keyboard.press('Tab');
     await expect(lines.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+    // Help opened afresh from the page hands the focus back to the page, so Space plays: it kept the earlier Help's opener,
+    // and gave the focus to the dock's Lines (the review of round 11).
+    await page.keyboard.press('Escape');
+    await expect(lines).toHaveCount(0);
+    await tabOnto(page, page.getByTestId('build'));
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('build-menu').getByRole('button', { name: 'Place a stop' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('build-menu')).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    await page.keyboard.press('?');
+    await expect(help).toBeVisible();
+    await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement === document.body), 'the focus on the page').toBe(true);
   });
 
   // Round 10: an open list kept ? from the game (the review of #157) but not its other keys: T tilted the map behind it, and 2
@@ -690,19 +706,23 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     expect(await map.getAttribute('data-mode')).toBe('2d');
     // Counted as sent, as the speed shown could still read 0 before the sim answered one (the review of round 10).
     expect(await sent('speed')).toBe(speeds);
-    // So does the Build menu, the keyboard on its tools: T tilted the map behind it and 2 picked 60× (round 11).
+    // So does the Build menu, the keyboard on Build, where its Enter leaves it, and on its tools: T tilted the map behind it and
+    // 2 picked 60× (round 11, and its review for Build).
     await page.keyboard.press('Escape');
     await expect(list).toHaveCount(0);
-    await page.getByTestId('build').focus();
+    const build = page.getByTestId('build');
+    await build.focus();
     await page.keyboard.press('Enter');
     const menu = page.getByTestId('build-menu');
-    await page.keyboard.press('Tab');
-    await expect(menu.getByRole('button', { name: 'Place a stop' })).toBeFocused();
-    await page.keyboard.press('t');
-    await page.keyboard.press('2');
-    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
-    await expect(menu).toBeVisible();
-    expect(await map.getAttribute('data-mode')).toBe('2d');
-    expect(await sent('speed')).toBe(speeds);
+    for (const on of ['Build', 'Place a stop']) {
+      if (on !== 'Build') await page.keyboard.press('Tab');
+      await expect(on === 'Build' ? build : menu.getByRole('button', { name: on })).toBeFocused();
+      await page.keyboard.press('t');
+      await page.keyboard.press('2');
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+      await expect(menu).toBeVisible();
+      expect(await map.getAttribute('data-mode'), on).toBe('2d');
+      expect(await sent('speed'), on).toBe(speeds);
+    }
   });
 });

@@ -58,7 +58,19 @@ test.describe('Home', () => {
       };
       requestAnimationFrame(look);
     });
+    // The new game held on its way 800 ms: a press on Home waits for it. Keep it closed the question as the new game came anyway
+    // (the review of round 11).
+    await page.evaluate(() => {
+      const post = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function (this: Worker, message: unknown, ...rest: unknown[]) {
+        const send = () => (post as (...a: unknown[]) => void).call(this, message, ...rest);
+        if ((message as { type?: unknown } | null)?.type === 'new-game') window.setTimeout(send, 800);
+        else send();
+      } as typeof Worker.prototype.postMessage;
+    });
     await home.getByRole('button', { name: 'Start a new game' }).click();
+    await home.getByRole('button', { name: 'Keep it' }).click();
+    await expect(home.getByRole('group', { name: 'Start over' })).toBeVisible();
     await expect(page.getByTestId('founding-card')).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { oldGame: number }).oldGame), 'frames of the old game').toBe(0);
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('interbus.save.boston') ?? '{}').data?.company?.name)).toBe('');

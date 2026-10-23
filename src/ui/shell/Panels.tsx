@@ -119,8 +119,11 @@ function giveFocus(el: HTMLElement): void {
   el.focus();
   if (document.activeElement === el) return;
   el.tabIndex = -1;
-  el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true });
+  // Only its own: a tabindex the page set since (a scrolling region's) stays.
+  const unset = () => void (el.getAttribute("tabindex") === "-1" && el.removeAttribute("tabindex"));
   el.focus();
+  if (document.activeElement === el) el.addEventListener("blur", unset, { once: true });
+  else unset();
 }
 
 /**
@@ -303,10 +306,11 @@ export function Panels({
     } else if (left && left !== id && !itemIds.current.includes(left)) {
       // From a panel that went as this one opened, the focus with it.
       openers.current.set(id, { at: null, in: left });
-    } else if (!openers.current.has(id)) {
+    } else if (!openers.current.has(id) || !wereOpen.current.includes(id)) {
       // From nothing left to hand back to, the control gone with the screen it was on: what opens the panel takes it back. Saves
       // left open from Home took the focus as Continue went, and the line's card as Draw a line went with the Build menu, and
-      // with no opener each handed back nothing (round 11).
+      // with no opener each handed back nothing (round 11). A panel opened afresh so never keeps an earlier opening's: Help
+      // opened from the page handed the focus back to the dock's Finance, which had opened it before (the review of round 11).
       openers.current.set(id, { at: null, in: null });
     }
     opened.current = id;

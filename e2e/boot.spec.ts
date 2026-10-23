@@ -180,6 +180,9 @@ test.describe('the boot splash', () => {
     await expect(page.locator('#boot')).toHaveCount(0);
     await expect(page.getByTestId('founding-card')).toHaveCount(0);
     await expect(home).toBeVisible();
+    // With the splash gone the keys come back (the review of round 11).
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement !== document.body), 'Tab reaches something').toBe(true);
   });
 
   // Round 10: the replaced build's card stood under the splash, unseen until the city's 2 MB came, or for good on a stalled load.
