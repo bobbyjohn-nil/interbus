@@ -36,6 +36,23 @@ const freshStamp = (stamp: Locator) =>
     return seen;
   });
 
+/** The contrast on the card's paper of a stamp set down with `word`, as WCAG counts it: drawn in the word's colour. */
+const stampContrast = (stamp: Locator, word: string) =>
+  stamp.evaluate((el, word) => {
+    const copy = el.cloneNode(true) as HTMLElement;
+    copy.dataset.stamp = word;
+    copy.textContent = word;
+    el.parentElement!.append(copy);
+    const channel = (v: number) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const light = (css: string) => {
+      const [r, g, b] = css.match(/[\d.]+/g)!.slice(0, 3).map((v) => channel(Number(v)));
+      return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+    };
+    const [ink, paper] = [light(getComputedStyle(copy).color), light(getComputedStyle(el.closest('.day-card')!).backgroundColor)];
+    copy.remove();
+    return (Math.max(ink, paper) + 0.05) / (Math.min(ink, paper) + 0.05);
+  }, word);
+
 /** Whether a press at the middle of `l` lands on it, not on something drawn over it. */
 const onTop = (l: Locator) =>
   l.evaluate((el) => {
@@ -72,18 +89,23 @@ test.describe('the day card', () => {
     await expect(card.getByTestId('medal-news')).toHaveCount(1);
 
     // The city's stamp on the report card (PLAN §4's charm moments): its word for the payout, pressed down as the card
-    // showed, now at rest over none of the report's words or figures. Set down with less motion asked for, it is simply
-    // there, rather than waiting unseen for a landing that never comes.
+    // showed, now at rest over none of the report's words or figures, at the card's widest or narrowest. Set down with less
+    // motion asked for, it is simply there, rather than waiting unseen for a landing that never comes; and each word's colour
+    // stands 4.5:1 on the card's paper, Fined's the softest.
     const stamp = card.getByTestId('report-stamp');
     const payout = Number(await card.getByTestId('report-card').getAttribute('data-payout'));
     await expect(stamp).toHaveText(payout > 0 ? 'Approved' : payout < 0 ? 'Fined' : 'Noted');
     await expect.poll(() => page.evaluate(() => (window as unknown as { landed?: string }).landed)).toBe('stamp-down');
     await expect(stamp).toHaveCSS('opacity', '1');
     expect(await coveredBy(stamp)).toEqual([]);
+    await card.evaluate((el) => void (el.style.maxWidth = '260px'));
+    expect(await coveredBy(stamp)).toEqual([]);
+    await card.evaluate((el) => void (el.style.maxWidth = ''));
     expect(await freshStamp(stamp)).toEqual({ animations: ['stamp-down'], opacity: '0' });
+    // Less motion stays asked for from here on: turned back, the stamp would land again, unseen at first, under the checks below.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     expect(await freshStamp(stamp)).toEqual({ animations: [], opacity: '1' });
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    for (const word of ['Approved', 'Noted', 'Fined']) expect(await stampContrast(stamp, word), word).toBeGreaterThanOrEqual(4.5);
 
     // The card inside the window and clear of the dock, Continue in it and taking a press.
     const dock = (await page.getByTestId('dock').boundingBox())!;
