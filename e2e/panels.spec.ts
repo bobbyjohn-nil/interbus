@@ -276,11 +276,12 @@ test.describe('the panels by keyboard', () => {
 
   // The box holds the focus only while the keyboard put it there: always focusable, it took the focus from a press on a panel's
   // text, so the arrows no longer scrolled the panel (the review of the ninth round: Contracts 0 px where it scrolled 158).
-  // Shown failing (TS-04) with every box focusable. In a panel's first moments on screen Chromium can drop the arrows' scroll
-  // with nothing on the page to blame: four arrows scrolled no element in 3 of 12 runs on four workers (#163's CI once), the
-  // page changing nothing after the press, and none failed with the press a second after the panel showed (0 of 24) or the
-  // arrows 500 ms after the press (0 of 20). So the arrows go on, as a player's would, until the panel moves, which a page that
-  // takes the focus or swallows the arrows never lets it do (TS-04 too).
+  // Shown failing (TS-04) with every box focusable. Chromium can drop a burst of arrows after a press on a panel new on screen,
+  // with nothing on the page to blame: in about one run in eight under load (22 of 172 on four and eight workers here, and
+  // three CI runs, on #161's and #163's merges and #163's checks), four arrows scrolled no element, each reached the page
+  // uncancelled, the page changed nothing after the press, and the next arrow scrolled. Waits before the arrows made it rarer,
+  // not gone (1 of 88 runs with the press a second after the panel showed). So the arrows go on, as a player's would, until the
+  // panel moves, and none may be cancelled: a page that takes the focus, eats the arrows or cancels any of them still fails.
   test('a press on a panel’s text leaves the arrows scrolling the panel', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 480 });
     await page.goto('./');
@@ -293,6 +294,11 @@ test.describe('the panels by keyboard', () => {
     expect(await contracts.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
     await contracts.locator('[data-testid=contract] strong').first().click();
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    await page.evaluate(() => {
+      const w = window as unknown as { cancelled: string[] };
+      w.cancelled = [];
+      window.addEventListener('keydown', (e) => void setTimeout(() => e.defaultPrevented && w.cancelled.push(e.key)), true);
+    });
     for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowDown');
     await expect
       .poll(async () => {
@@ -301,6 +307,7 @@ test.describe('the panels by keyboard', () => {
         return top;
       })
       .toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as unknown as { cancelled: string[] }).cancelled)).toEqual([]);
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
   });
 
