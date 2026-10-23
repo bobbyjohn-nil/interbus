@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-23, at `main` a758f3f ([#162](https://github.com/bobbyjohn-nil/interbus/pull/162): sessions merged against sessions planned, measured), with the live check's and the nightly's Chromium on this pull request.
+**Updated:** 2026-10-23, at `main` a97a9b8 ([#163](https://github.com/bobbyjohn-nil/interbus/pull/163): the deploy's and the nightly's Chromium installed as the PR checks do), with the arrows test on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a758f3f (#162). Deploy preview run 39887093783's live check found that SHA on the build chip and in `version.json`, with the map ready and the sim worker running on the city's sim file. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` a97a9b8 (#163). Deploy preview run 39891391933's live check found that SHA on the build chip and in `version.json`, with the map ready and the sim worker running on the city's sim file. What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -87,7 +87,6 @@ Open from the audit:
   - The floor count stays as it is. A file claiming five closes below the floor ends only its own run, and checking it means replaying the ledger's closes.
   - A Save here, Load or Delete within Saves' 2 s listing of another tab's write to that slot acts on the new save.
 - [ ] **Low graphics' fps cap, read over once:** `e2e/gpu.spec.ts:51`'s readout read 47 fps against its cap of 31 on #150's push run, and passed on its re-run and in the other run. The cap holds the vehicle layer's frame requests (`gpu.ts` `frameDelayMs`); the likeliest other frames, not measured, are MapLibre's own: its 300 ms label fade (no `fadeDuration` is set) or a source updated as the sim posts. If it comes back, count which renders run in Low graphics; a `fadeDuration` of 0 there is the first fix to try.
-- [ ] **The arrows after a press on a panel's text, read over locally:** `e2e/panels.spec.ts:280` failed in 3 of 7 local runs of four specs on two workers (#156's checks), and a copy of it in 1 of 3 runs on `main`'s source: the focus on the page, the pressed text still in place, the game paused and Contracts alone open, yet four ArrowDowns scrolled nothing. Alone it passed every run, with Low graphics forced too, and it has not failed on CI. If CI shows it, find which scroller Chrome's arrows reached before changing the test.
 
 ## Next
 
