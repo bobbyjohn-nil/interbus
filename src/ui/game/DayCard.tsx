@@ -14,6 +14,15 @@ import type { Sim } from './useSim';
 const points = (grade: number) => Math.floor(grade);
 
 /**
+ * The city's stamp on a quarter's report card, its word for what the city does (PLAN §4's charm moments; GD-08): the one
+ * predicate the line under the grades says in full too. It lands as the card shows, a quarter's close being the sim's own
+ * event; a screen reader hears the line instead (app.css has its place and its landing).
+ */
+export function stampOf(payoutCents: number): 'Approved' | 'Noted' | 'Fined' {
+  return payoutCents > 0 ? 'Approved' : payoutCents < 0 ? 'Fined' : 'Noted';
+}
+
+/**
  * The daily close (PLAN §3): every figure a ledger row, adding up to the change in cash (I1). A
  * quarter's last day closes with its report card above the rows (the M3 spec, item 9), whose payout
  * or fine is one of them; a contract paid or lapsed at the close says so (item 11), as does a city
@@ -45,6 +54,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   const byKind = new Map<string, number>();
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
+  const stamp = card.report ? stampOf(card.report.payoutCents) : null;
   return (
     <section
       key={card.day}
@@ -57,6 +67,9 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
         {card.report ? (
           <section className="report" aria-label={`${quarterText(card.day)} report card`} data-testid="report-card" data-overall={(Math.floor(card.report.overall * 10) / 10).toFixed(1)} data-payout={card.report.payoutCents}>
             <h3>{quarterText(card.day)} report card</h3>
+            <span className="stamp" data-testid="report-stamp" data-stamp={stamp} aria-hidden="true">
+              {stamp}
+            </span>
             <table>
               <tbody>
                 {(
@@ -78,7 +91,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
                 </tr>
               </tbody>
             </table>
-            <p>{card.report.payoutCents > 0 ? `The city pays ${usd(card.report.payoutCents)}` : card.report.payoutCents < 0 ? `The city fines ${usd(-card.report.payoutCents)}` : 'The city neither pays nor fines'}</p>
+            <p>{stamp === 'Approved' ? `The city pays ${usd(card.report.payoutCents)}` : stamp === 'Fined' ? `The city fines ${usd(-card.report.payoutCents)}` : 'The city neither pays nor fines'}</p>
           </section>
         ) : null}
         {card.contracts.map((c) => (

@@ -5,7 +5,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DayCard as DayCardData } from '../../sim/types';
-import { DayCard } from './DayCard';
+import { copyProblem } from '../copyRules';
+import { DayCard, stampOf } from './DayCard';
 import type { Sim } from './useSim';
 
 const render = (card: DayCardData) => renderToStaticMarkup(createElement(DayCard, { sim: { dayCard: card, closeDayCard: () => undefined } as unknown as Sim, handBack: () => undefined }));
@@ -83,5 +84,23 @@ describe('the day card when a medal is awarded', () => {
     expect(html).toContain('Silver medal: 25,000 trips carried · the Goliath is for sale');
     expect(render({ day: 30, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report, contracts: [], events: [], medals: ['gold'] })).toContain('Gold medal: a quarter graded 75 or better, no grade under 60, on a day of 5,000 trips');
     expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [], medals: [] })).not.toContain('medal');
+  });
+});
+
+describe('the report card’s stamp', () => {
+  // The city's word on the quarter (PLAN §4's charm moments), from the payout as the line under the grades reads it: one
+  // predicate for both (stampOf). A screen reader hears the line, so the stamp is hidden from it.
+  it('says what the city does, as the line under the grades does, in the copy convention', () => {
+    expect([3_081_300, 0, -1_200_000].map(stampOf)).toEqual(['Approved', 'Noted', 'Fined']);
+    for (const word of ['Approved', 'Noted', 'Fined']) expect(copyProblem(word), word).toBeNull();
+    const card = (payoutCents: number) => render({ day: 8, rows, cashBeforeCents: 0, cashAfterCents: 0, report: { ...report, payoutCents }, contracts: [], events: [], medals: [] });
+    const stamp = (word: string) => `<span class="stamp" data-testid="report-stamp" data-stamp="${word}" aria-hidden="true">${word}</span>`;
+    expect(card(3_081_300)).toContain(stamp('Approved'));
+    expect(card(3_081_300)).toContain('The city pays $30,813');
+    expect(card(0)).toContain(stamp('Noted'));
+    expect(card(0)).toContain('The city neither pays nor fines');
+    expect(card(-1_200_000)).toContain(stamp('Fined'));
+    expect(card(-1_200_000)).toContain('The city fines $12,000');
+    expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [], medals: [] })).not.toContain('stamp');
   });
 });

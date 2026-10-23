@@ -443,6 +443,19 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-23** (`e2e/daycard.spec.ts`, `src/ui/game/DayCard.test.ts` and `npm run measure:bundle` after `npm run build:fixture`, on `main` 6450a5e with this pull request's stamp): **the report card's stamp** (PLAN §4's January charm moments, ahead under D25's clearance; GD-08), new to this version: V1 and V2 had no stamp, and V3 no report card.
+  - **What it is:** a quarter's report card, in the day card at the quarter's close, carries the city's stamp: "Approved" when the city pays, "Fined" when it fines, "Noted" when it does neither. One predicate (`stampOf`, `src/ui/game/DayCard.tsx`) gives the stamp its word and the line under the grades its sentence (GD-05). The stamp is pressed onto the card each time the card shows, which a quarter's close brings, the sim's own event and never the render loop's (GD-08), and again if Home and Continue show the card afresh: 450 ms after, it comes down from 1.9 times its size in 260 ms and rests tilted 8°. With less motion asked for it is simply there: app.css's reduced-motion rule stops the landing, and the stamp's resting style is the landed one.
+  - **Where it sits:** over the empty middle of the grades, between their names and their figures, covering neither at the card's 260–348 px. It is placed absolutely, so the card is no taller (I13).
+  - **Its colours:** ink for Approved, the softer ink for Noted, the money-out colour for Fined: 12.96:1, 6.49:1 and 4.68:1 on the card's paper. The money-in green (3.11:1) is not used for words this small; the word says what a colour would. Screen readers skip the stamp (`aria-hidden`) and hear the line under the grades.
+  - **Cost:** the menu's critical path grows 0.2 KiB, from 122.8 to 123.0 KiB of 200: the styles from 5.2 to 5.3 KiB, the code from 86.0 to 86.1 KiB.
+  - **Tests:** `src/ui/game/DayCard.test.ts` checks each word from its payout, beside the line's sentence and in the copy convention, hidden from screen readers, and no stamp on a day without a report card. `e2e/daycard.spec.ts`, on a busy quarter's close at 1152×720, checks that:
+    - the stamp's word matches the payout;
+    - its landing has ended, at full opacity;
+    - it covers none of the report's words or figures, on the card at its widest and at its narrowest (260 px);
+    - a stamp set down afresh starts unseen in its landing's delay, and with less motion asked for rests at once;
+    - each word's colour, drawn on the card, stands at least 4.5:1 on its paper.
+
+    Shown failing (TS-04) on the card before it, and with each rule taken out: no `backwards` fill, so it showed at rest through its delay and then jumped up; hidden at rest and shown by its landing, so it never showed with less motion asked for; set over the figures; set at 36% of the card, clear of the names on the widest card and over two of them on the narrowest; and Fined in the money-in green, at 3.11:1.
 - **2026-10-23** (`npm run measure:sessions` on `main` 4689265, to Thu Oct 22 in Boston): **sessions merged against sessions planned** (PLAN §10's velocity check, Sun Oct 18 and Oct 25; its capacity check, Sun Nov 1). Oct 18's went unrecorded, so it is read here from git, with week 2 so far.
   - **How it counts:** `scripts/measure/sessions.mjs` reads the work two ways, at one commit:
     - **the plan built**, which the verdict rests on: every row of §10's table up to the deadline row of the furthest milestone whose spec is archived as done (`docs/specs/`), against two-thirds of the plan to the week's end, so work done ahead of its weeks counts;
