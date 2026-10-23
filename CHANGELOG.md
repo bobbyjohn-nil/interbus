@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Help lists the game's keys and what the mouse, your fingers and the keys do on the map, and what Low graphics leaves out. Press ? to open or close it, or choose Help on Home or in Saves.
 - A Credits screen, on Home and as a tab in Help: who made the game, and where its map, its homes and jobs, its font and its software come from. The map's sources link to their pages, and the font and the software to their licenses.
 - A splash while the game loads: a bus idles over a line of depot chatter, and when the game is ready it pulls away and tows the splash off the screen. It plays once a tab; on a reload in the same tab, or with your computer set to reduce motion, the splash simply goes.
+- The city stamps each quarter's report card as it opens: Approved when it pays you, Fined when it fines you, Noted when it does neither. With your computer set to reduce motion, the stamp is simply there.
 
 ### Changed
 
