@@ -24,6 +24,9 @@ export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }:
   }, [followNewest]);
   const s = sim.snapshot;
   const company = s?.company.name ?? '';
+  // Let go as the game it named goes, so a later game of the same name never brings it back unasked (the review of round 10),
+  // during render, as App's state that follows the game does.
+  if (asking !== null && asking !== company) setAsking(null);
   const shown = company !== '' && asking === company;
   // The keyboard keeps its place, as in Saves' questions: the question takes the place of New game, and an answer the
   // question's, so the focus fell to the page (round 10). It goes to Keep it as the question opens, and back to New game as

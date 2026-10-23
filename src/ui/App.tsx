@@ -304,15 +304,16 @@ export function App() {
     hide("here");
   }
 
-  // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
-  // that arrives with a loaded save opens no panel). A load lets it go too: a Create undone with it in
-  // one render brings no line to let it go, and the game loaded later opened Lines on its newest line
-  // (the systems audit's fourth round). So does a Create refused, which brings no line either, so a line
-  // an undo brings back later is not taken for its answer (round 10).
-  const creating = useRef(false);
+  // Set when Create is pressed, to the undos sent by then: the new line, and only a created one, opens in the inspector (a line
+  // that arrives with a loaded save opens no panel). A load lets it go, as does a Create refused, which brings no line, and an
+  // undo sent after the press that the sim did, which took the Create back (createWaits, game/Tools.tsx). A Create undone with
+  // it in one render brings no line to let it go: the game loaded later opened Lines on its newest line (the systems audit's
+  // fourth round), and an undo bringing back a closed line put the tool down (round 10 and its review).
+  const creating = useRef<number | null>(null);
   useEffect(() => {
-    creating.current = false;
+    creating.current = null;
   }, [sim.createRefusals]);
+  const undone = sim.undos.done;
   // A tool closes once its purchase lands: a new depot, or a new line from Create. A line an undo brings back is no purchase:
   // since Close line, an undo grows the count too, and it put down the line half drawn, or the route editor another line had
   // out, Lines with it (round 10).
@@ -328,25 +329,27 @@ export function App() {
   // Counted from the game as it starts, so a reloaded game's lines are not new ones.
   const counts = useRef<{ depots: number; lines: number } | null>(null);
   useEffect(() => {
+    if (creating.current !== null && undone > creating.current) creating.current = null;
     if (!started) return;
     if (!counts.current) {
       counts.current = { depots, lines };
       return;
     }
-    if (depots > counts.current.depots || (lines > counts.current.lines && creating.current)) {
+    const created = lines > counts.current.lines && creating.current !== null;
+    if (depots > counts.current.depots || created) {
       setTool("none");
       setClicks([]);
       depotSiteAt(null);
     }
     // A new line opens in the inspector, so its headways and forecast are one look away: the newest,
     // as the game keeps its lines in the order they were made.
-    if (lines > counts.current.lines && creating.current) {
-      creating.current = false;
+    if (created) {
+      creating.current = null;
       setLineId(newest);
       show("lines");
     }
     counts.current = { depots, lines };
-  }, [started, depots, lines, newest, depotSiteAt, show]);
+  }, [started, depots, lines, newest, undone, depotSiteAt, show]);
 
   // A game loaded from a slot, a file or Restart this quarter takes this one's place: any tool out
   // goes down with the game it was drawn in, as with a new game, and so do the cards of its stops and
@@ -357,7 +360,7 @@ export function App() {
   useEffect(() => {
     if (loadedAt === loadedSeen.current) return;
     loadedSeen.current = loadedAt;
-    creating.current = false;
+    creating.current = null;
     choose("none");
     setOpen((o) => o.filter((p) => p !== "stop" && p !== "lines" && p !== "here"));
     setDraftModel("sparrow");
@@ -533,7 +536,7 @@ export function App() {
           onCreate={() => {
             // One press, one command: a second before the first has its answer sends nothing.
             if (createPress) return;
-            creating.current = true;
+            creating.current = createNow.undos;
             setCreatePress({ newest: createNow.newest, refusals: createNow.refusals, undos: createNow.undos, loadedAt: createNow.loadedAt });
             send({ type: "create-line", clicks, model: draftModel });
           }}

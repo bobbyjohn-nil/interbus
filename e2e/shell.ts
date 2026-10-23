@@ -207,3 +207,45 @@ export async function withBusyQuarterClose(page: Page): Promise<void> {
   await expect(page.getByTestId('notice')).toContainText('Save file loaded');
   await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
 }
+
+/**
+ * An init script: the worker's messages to the page held back while `held` is a list, and handed over in one task by
+ * release(), as a busy page or a slow city can hand over two answers: the page renders them together (as route.spec.ts).
+ * With `apartMs` above 0, each message comes that long after the one before, so the page renders each on its own, as
+ * a load's 'loaded' and 'snapshot' often come. `delivered` lists the types handed over, in order.
+ */
+export function holdAnswers(): void {
+  const w = window as unknown as { held: [() => void, string][] | null; release: () => void; apartMs: number; delivered: string[] };
+  w.held = null;
+  w.apartMs = 0;
+  w.delivered = [];
+  let last = 0;
+  const onmessage = Object.getOwnPropertyDescriptor(Worker.prototype, 'onmessage')!;
+  Object.defineProperty(Worker.prototype, 'onmessage', {
+    ...onmessage,
+    set(this: Worker, fn: ((event: MessageEvent<{ type?: string }>) => void) | null) {
+      onmessage.set!.call(
+        this,
+        fn &&
+          ((event: MessageEvent<{ type?: string }>) => {
+            const deliver = () => {
+              w.delivered.push(event.data?.type ?? '');
+              fn.call(this, event);
+            };
+            if (w.held) return void w.held.push([deliver, event.data?.type ?? '']);
+            if (!w.apartMs) return deliver();
+            last = Math.max(performance.now(), last) + w.apartMs;
+            window.setTimeout(deliver, last - performance.now());
+          }),
+      );
+    },
+  });
+  w.release = () => {
+    const held = w.held ?? [];
+    w.held = null;
+    for (const [deliver] of held) deliver();
+  };
+}
+
+/** Waits three of the page's frames: by then it has rendered what it was handed before, and run that render's effects. */
+export const frames = (page: Page) => page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => done())))));

@@ -251,9 +251,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - If a file of the game turns out to be gone while the city is still loading, the "This build was replaced" card shows at once, over the splash, instead of waiting unseen under it until the city has loaded.
 - Turning on reduce motion while the splash's bus tows it away takes the splash away at once, instead of putting it back over the whole screen for a moment.
 - Home's Start over question goes away when another tab starts a new game, instead of asking to replace a company with no name. From the keyboard, it puts the focus on Keep it, and Keep it puts the focus back on New game.
-- A report card that pays or fines less than a dollar says so in cents, instead of the city paying $0 under its Approved stamp.
+- A report card that pays less than a dollar says so in cents, instead of the city paying $0 under its Approved stamp.
 - An undo that brings back a closed line keeps the tool you have out: a line you are drawing stays, and so does another line's route editor.
-- With every line closed in the snow, the snow's words stay over your depots instead of moving to the corner of the map.
+- With every line closed in the snow, the snow's words stay among your depots instead of moving to the corner of the map.
 - Finance's chart says a day when you sold more than you bought brought money back, instead of a minus amount spent on buying and building.
 
 ### Removed

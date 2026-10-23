@@ -17,7 +17,7 @@
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, toScreen, withDebugLine, zoomOutOnce } from './shell';
+import { build, city, frames, holdAnswers, onDepotLand, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
 /** On Huntington Avenue between Symphony and the MFA, more than 250 m from each. */
 const ON_HUNTINGTON: [number, number] = [-71.0903, 42.33995];
@@ -71,48 +71,6 @@ async function openStop(page: Page, id: number) {
   }).toPass({ timeout: 10_000 });
   await expect(page.getByTestId('stop-card').locator('h2')).toContainText(`Stop ${id} ·`);
 }
-
-/**
- * An init script: the worker's messages to the page held back while `held` is a list, and handed over in one task by
- * release(), as a busy page or a slow city can hand over two answers: the page renders them together (as route.spec.ts).
- * With `apartMs` above 0, each message comes that long after the one before, so the page renders each on its own, as
- * a load's 'loaded' and 'snapshot' often come. `delivered` lists the types handed over, in order.
- */
-function holdAnswers(): void {
-  const w = window as unknown as { held: [() => void, string][] | null; release: () => void; apartMs: number; delivered: string[] };
-  w.held = null;
-  w.apartMs = 0;
-  w.delivered = [];
-  let last = 0;
-  const onmessage = Object.getOwnPropertyDescriptor(Worker.prototype, 'onmessage')!;
-  Object.defineProperty(Worker.prototype, 'onmessage', {
-    ...onmessage,
-    set(this: Worker, fn: ((event: MessageEvent<{ type?: string }>) => void) | null) {
-      onmessage.set!.call(
-        this,
-        fn &&
-          ((event: MessageEvent<{ type?: string }>) => {
-            const deliver = () => {
-              w.delivered.push(event.data?.type ?? '');
-              fn.call(this, event);
-            };
-            if (w.held) return void w.held.push([deliver, event.data?.type ?? '']);
-            if (!w.apartMs) return deliver();
-            last = Math.max(performance.now(), last) + w.apartMs;
-            window.setTimeout(deliver, last - performance.now());
-          }),
-      );
-    },
-  });
-  w.release = () => {
-    const held = w.held ?? [];
-    w.held = null;
-    for (const [deliver] of held) deliver();
-  };
-}
-
-/** Waits three of the page's frames: by then it has rendered what it was handed before, and run that render's effects. */
-const frames = (page: Page) => page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => done())))));
 
 const cash = async (page: Page) => Number(await page.getByTestId('sim-panel').getAttribute('data-cash'));
 const stopIds = async (page: Page) => (await page.getByTestId('map').getAttribute('data-stops'))!.split(' ').filter(Boolean).map((s) => Number(s.split(':')[0]));

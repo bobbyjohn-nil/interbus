@@ -267,5 +267,11 @@ test.describe('Home', () => {
     await expect(home).not.toContainText('Start over?');
     await expect(newGame).toBeVisible();
     await expect(newGame).toBeFocused();
+    // That tab founds its company under the same name, as a player starting over often would: the question this tab asked
+    // about another game stays gone, and the focus stays where it is (the review of round 10).
+    await foundCompany(b);
+    await expect(home.getByTestId('home-continue')).toContainText('Back Bay Transit', { timeout: 10_000 });
+    await expect(ask).toHaveCount(0);
+    await expect(newGame).toBeFocused();
   });
 });

@@ -4,7 +4,7 @@
 import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
-import { build, city, toScreen, withDebugLine, type SaveData } from './shell';
+import { build, city, frames, holdAnswers, toScreen, withDebugLine, type SaveData } from './shell';
 
 /** A founded company with the debug line, edited by `edit`, past Home. */
 async function debugGame(page: Page, edit?: (data: SaveData) => void) {
@@ -132,6 +132,37 @@ test.describe('selling spare buses and closing a line', () => {
     await undo.click();
     await expect(undo).toHaveCount(0);
     await expect(editor).toBeVisible();
+  });
+
+  // The review of round 10: a Create answered in the same render as an undo of it brought no line to let its press go, so the
+  // undo bringing back the closed line was taken for the Create's line, and put the tool down again.
+  test('a Create undone in one render with its answer leaves no press for a later undo’s line to be taken for', async ({ page }) => {
+    await page.addInitScript(holdAnswers);
+    await debugGame(page);
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await lines.getByRole('button', { name: 'Close line' }).click();
+    await lines.getByTestId('close-line').getByRole('button', { name: 'Close it' }).click();
+    const undoClose = page.getByRole('button', { name: 'Undo: Close Line 1' });
+    await expect(undoClose).toBeVisible();
+    await build(page, 'Draw a line');
+    for (const at of [[-71.0866, 42.3427], [-71.0985, 42.3452]] as const) await page.mouse.click(...(await toScreen(page, at)));
+    const draft = page.getByTestId('draft-card');
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    // Create, then Ctrl+Z before its answer comes: both answers handed over in one task, so the page renders them together.
+    await page.evaluate(() => void ((window as unknown as { held: unknown[] }).held = []));
+    await draft.getByRole('button', { name: 'Create' }).click();
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { held: [unknown, string][] }).held.map(([, type]) => type))).toContain('undone');
+    await page.evaluate(() => (window as unknown as { release: () => void }).release());
+    await frames(page);
+    await expect(draft).toContainText('2 stops');
+    await expect(undoClose).toBeVisible();
+    await undoClose.click();
+    await expect(undoClose).toHaveCount(0);
+    await frames(page);
+    await expect(draft).toBeVisible();
+    await expect(draft).toContainText('2 stops');
   });
 
   test('an ended run offers neither Sell them nor Close line', async ({ page }) => {

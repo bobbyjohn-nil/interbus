@@ -42,6 +42,29 @@ async function holdCity(page: Page): Promise<{ release: () => void }> {
 
 const zIndex = (page: Page, selector: string) => page.locator(selector).evaluate((el) => Number(getComputedStyle(el).zIndex));
 
+/** Holds the splash's removal, which its timer asks for a little past the tow (boot.ts), until the test lets it go (`letBootGo`,
+ * there once the timer has asked), so a tow held at a point of its own is never taken away under a test slower than the tow (the
+ * review of round 10: on a busy main thread the tow started late, and the timer did not wait). */
+async function holdRemoval(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { letBootGo?: () => void };
+    const remove = Element.prototype.remove;
+    Element.prototype.remove = function (this: Element) {
+      if (this.id !== 'boot' || w.letBootGo) return remove.call(this);
+      w.letBootGo = () => remove.call(this);
+    };
+  });
+}
+
+/** Holds the tow's animations at `ms` into it, so where the splash stands is the test's, not the page's timing. */
+const holdTow = (page: Page, ms: number) =>
+  page.evaluate((at) => {
+    for (const a of document.getElementById('boot')?.getAnimations({ subtree: true }) ?? []) {
+      a.pause();
+      a.currentTime = at;
+    }
+  }, ms);
+
 test.describe('the boot splash', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
@@ -136,16 +159,20 @@ test.describe('the boot splash', () => {
   // Round 10. Home stands under the splash as its bus tows it away, and the splash took no pointer, so a press on it pressed
   // the button under it unseen: New game on a first visit, Continue with a company. It takes the pointer where it stands now.
   test('a press on the splash as its bus tows it away presses nothing it hides', async ({ page }) => {
+    await holdRemoval(page);
     const sim = await holdCity(page);
     await page.goto('./');
     sim.release();
     await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
-    // The tow held where it stands, Home's New game under its middle.
-    await page.evaluate(() => document.getElementById('boot')?.getAnimations({ subtree: true }).forEach((a) => a.pause()));
+    // The tow held at its start, the splash over the whole screen, Home's New game under its middle.
+    await holdTow(page, 0);
     const home = page.getByTestId('home');
     const at = (await home.getByRole('button', { name: 'New game' }).boundingBox())!;
     await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
-    await expect(page.locator('#boot')).toHaveCount(0, { timeout: 5_000 });
+    // Once its timer asks for the splash to go, it goes.
+    await page.waitForFunction(() => typeof (window as unknown as { letBootGo?: unknown }).letBootGo === 'function');
+    await page.evaluate(() => (window as unknown as { letBootGo: () => void }).letBootGo());
+    await expect(page.locator('#boot')).toHaveCount(0);
     await expect(page.getByTestId('founding-card')).toHaveCount(0);
     await expect(home).toBeVisible();
   });
@@ -170,18 +197,21 @@ test.describe('the boot splash', () => {
   // Round 10: the reduced-motion rule stopped the tow, so the half-gone splash stood back over the whole screen until its timer
   // took it, up to 2.5 s.
   test('less motion asked for as the bus tows the splash away: it goes, never back over the screen', async ({ page }) => {
+    await holdRemoval(page);
     const sim = await holdCity(page);
     await page.goto('./');
     sim.release();
     await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    /** The splash's left edge, or null once nothing of it shows. */
     const left = () =>
       page.evaluate(() => {
         const r = document.getElementById('boot')?.getBoundingClientRect();
         return r && r.width > 0 ? r.left : null;
       });
-    await expect.poll(left, { intervals: [50], timeout: 5_000 }).toBeGreaterThan(200);
+    // The tow held 2 s in, past halfway across: a poll on the running tow raced it on CI's two workers (the review of round 10).
+    await holdTow(page, 2_000);
+    expect(await left()).toBeGreaterThan(200);
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    const now = await left();
-    expect(now === null || now > 200, `the splash's left edge at ${now} px`).toBe(true);
+    expect(await left(), 'the splash once less motion is asked for').toBeNull();
   });
 });
