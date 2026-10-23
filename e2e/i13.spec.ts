@@ -85,6 +85,14 @@ test.describe('the screen budget (I13)', () => {
       await leaveHome(page);
       await expect(page.getByTestId('founding-card')).toBeVisible({ timeout: 30_000 });
       shares.founding = await chromeShare(page);
+      // Help on the founding card: ? from a colour, which is no field. Two panels the player has open together, each held to
+      // 26% alone (D25), so the two are measured, not held (DECISIONS, Measured, 2026-10-22).
+      await page.getByTestId('founding-card').getByRole('radio').first().focus();
+      await page.keyboard.press('?');
+      await expect(page.getByTestId('help')).toBeVisible();
+      shares.foundingHelp = await chromeShare(page);
+      await page.keyboard.press('?');
+      await expect(page.getByTestId('help')).toHaveCount(0);
       await foundCompany(page);
       await zoomOutOnce(page);
       shares.rest = await chromeShare(page);
@@ -212,6 +220,15 @@ test.describe('the screen budget (I13)', () => {
       await home.getByRole('button', { name: 'Credits', exact: true }).click();
       await expect(help).toHaveAttribute('data-view', 'credits');
       shares.homeCredits = await chromeShare(page);
+      // Saves at its tallest beside the founding card: Home's Saves, then New game, which leaves Saves open there, where a
+      // game not yet founded loads a slot or a file instead (saves.spec). Two panels again, so measured, not held.
+      await home.getByRole('button', { name: 'Saves', exact: true }).click();
+      await expect(saves.getByTestId('set-aside-older-15')).toBeVisible();
+      await home.getByRole('button', { name: 'New game' }).click();
+      await home.getByRole('button', { name: 'Start a new game' }).click();
+      await expect(page.getByTestId('founding-card')).toBeVisible();
+      await expect(saves.getByTestId('set-aside-older-15')).toBeVisible();
+      shares.foundingSaves = await chromeShare(page);
 
       const rounded = Object.fromEntries(Object.entries(shares).map(([k, v]) => [k, Math.round(v * 1000) / 10]));
       test.info().annotations.push({ type: 'chrome %', description: JSON.stringify(rounded) });
