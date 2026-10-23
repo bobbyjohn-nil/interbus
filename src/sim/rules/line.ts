@@ -9,6 +9,8 @@ import { RESALE_PERMILLE, SPARROW, type BusModel } from '../config/fleet';
 
 /** The models the cards offer, read from the config rows the commands use. */
 export { BUS_MODELS, MODEL_IDS, type BusModel, type BusModelId } from '../config/fleet';
+/** The colours lines take in turn, for the map's contrast tests too (render/map/daylight.test.ts). */
+export { LINE_COLOURS } from '../config/lines';
 import { MIN_LINE_STOPS } from '../config/lines';
 import type { XY } from '../core/geo';
 import { ok, refuse, type Result } from '../core/result';

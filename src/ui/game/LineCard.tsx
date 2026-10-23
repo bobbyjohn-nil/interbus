@@ -10,14 +10,14 @@ import { Dropdown } from '../Dropdown';
 import { useFocusBack } from '../focusBack';
 import { showInBody } from '../showWhole';
 import { runOver } from './runOver';
-import { about, busCount, clock, duration, usd, usdK } from '../format';
+import { about, busCount, clock, duration, PERIOD_NAMES, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /** Headways a player picks from, in minutes; overnight adds "off". */
 const PERIODS = [
-  ['peak', 'Peak'],
-  ['offpeak', 'Off-peak'],
-  ['overnight', 'Overnight'],
+  ['peak', PERIOD_NAMES.peak],
+  ['offpeak', PERIOD_NAMES.offpeak],
+  ['overnight', PERIOD_NAMES.overnight],
 ] as const;
 
 /**

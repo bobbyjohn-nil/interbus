@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Credits screen, on Home and as a tab in Help: who made the game, and where its map, its homes and jobs, its font and its software come from. The map's sources link to their pages, and the font and the software to their licenses.
 - A splash while the game loads: a bus idles over a line of depot chatter, and when the game is ready it pulls away and tows the splash off the screen. It plays once a tab; on a reload in the same tab, or with your computer set to reduce motion, the splash simply goes.
 - The city stamps each quarter's report card as it opens: Approved when it pays you, Fined when it fines you, Noted when it does neither. With your computer set to reduce motion, the stamp is simply there.
+- The map dims through the evening, from 19:00 to night at 20:30, and brightens again from 03:30 to full day at 05:00, as the buses start. Your lines, stops and buses keep their colors, and the homes, jobs and roadworks on the map grow bolder as it dims. With your computer set to reduce motion, each step comes at once.
+- A line with no overnight service shows faded from 00:00 to 05:00.
 
 ### Changed
 
@@ -117,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each line’s name runs along its route on the map where it has room, beside its colour, and a click on a name opens its line. Where lines share a street one name shows, and a click there lists them all.
 - On the demand map, jobs are drawn as rings and homes as filled dots, in its legend and on its button too, so the two differ in shape as well as colour.
 - A contract’s figure for today ends in “met now” or “not met now”, beside its colour.
+- The clock says which period it is, Peak, Off-peak or Overnight, after the time. The year moved to the date's tooltip to make room, and screen readers still read it.
 
 ### Fixed
 

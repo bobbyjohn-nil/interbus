@@ -11,7 +11,8 @@ import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
-import { addOverlays, DOT_LAYER, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setTint, type DotKinds } from './overlays';
+import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
+import { addOverlays, DOT_LAYER, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, restingLines, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
 import {
@@ -33,7 +34,7 @@ import {
   toggled,
   type ViewMode,
 } from './tilt';
-import { GAME_LIGHT, LIGHT } from './tokens';
+import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
 import { LOW_GRAPHICS_FPS, type GraphicsRung } from './gpu';
 import { MAP_LOADED_MARK } from './status';
 import { createVehicleLayer } from './vehicles';
@@ -129,14 +130,11 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   pmtilesProtocol().add(tiles);
 
   const [w, s, e, n] = paddedBounds(city.extent);
+  // The board's style from a token set: the light tokens by day, and dimmed for each step of the light (daylight.ts).
+  const styleOf = (tokens: MapTokens) => buildStyle({ tilesUrl: `pmtiles://${tiles.source.getKey()}`, assetBase: assetBase(), tokens, extent: city.extent });
   const map = new MapLibreMap({
     container,
-    style: buildStyle({
-      tilesUrl: `pmtiles://${tiles.source.getKey()}`,
-      assetBase: assetBase(),
-      tokens: LIGHT,
-      extent: city.extent,
-    }),
+    style: styleOf(LIGHT),
     center: [city.view.center[0], city.view.center[1]],
     zoom: city.view.zoom,
     minZoom: MIN_ZOOM['2d'],
@@ -347,6 +345,44 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     event?: EventView | null;
   } = {};
   let shownKinds: DotKinds = { home: true, job: true };
+  // The day and night tint (daylight.ts): every paint the light's steps change, the board's and the game's names and translucent
+  // marks alike, worked out once. The style loads by day; a step is set when the sim's clock reaches it (setClock), with MapLibre's
+  // transition for its fade, or at once with less motion asked for, as the style loads, or as it comes back after a loss.
+  const lightPaints = [
+    ...daylightPaints(styleOf, LIGHT),
+    ...paintsAcross(Array.from({ length: NIGHT_STEP + 1 }, (_, step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step))),
+  ];
+  let light = 0;
+  let lightWanted = 0;
+  let lightSets = 0;
+  map.getContainer().dataset.daylight = String(light);
+  const showLight = (step: number, fade: boolean) => {
+    const duration = fade && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? DAYLIGHT_FADE_MS : 0;
+    for (const { layer, property, values } of lightPaints) {
+      if (!map.getLayer(layer)) continue;
+      map.setPaintProperty(layer, `${property}-transition` as PaintName, { duration, delay: 0 });
+      map.setPaintProperty(layer, property as PaintName, values[step] as never);
+    }
+    light = step;
+    // For the e2e tests: the step shown, how many times the light has been set, never once a frame (RN-04), and its fade.
+    const box = map.getContainer().dataset;
+    box.daylight = String(step);
+    box.daylightSets = String(++lightSets);
+    box.daylightFade = String(duration);
+  };
+  // The lines resting now (restingLines: overnight off, from 00:00 to 05:00), faded; set only when they change.
+  let clockSecond: number | null = null;
+  let linesNow: readonly LineView[] = [];
+  let restingShown = '';
+  const rest = () => {
+    if (!loaded || clockSecond === null) return;
+    const ids = restingLines(linesNow, clockSecond);
+    const key = ids.join(' ');
+    if (key === restingShown) return;
+    setResting(map, ids);
+    restingShown = key;
+    map.getContainer().dataset.resting = key;
+  };
   // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
   const fleet = new Fleet();
   const addVehicles = () => map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
@@ -362,6 +398,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     if (waiting.draft !== undefined) setDraft(map, waiting.draft);
     if (waiting.dotKinds) setDotKinds(map, waiting.dotKinds);
     if (waiting.event !== undefined) setEvent(map, waiting.event);
+    if (lightWanted !== light) showLight(lightWanted, false);
+    rest();
   };
   let overlaid = false;
   map.once('load', () => {
@@ -496,12 +534,18 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     setLines: (lines, stops) => {
       fleet.setLines(lines);
       map.triggerRepaint();
+      linesNow = lines;
       if (loaded) setLines(map, lines, stops);
       else pending.lines = { lines, stops };
+      rest();
     },
     setClock: (second, rate, day) => {
       fleet.setClock(second, rate, performance.now(), day);
       map.triggerRepaint();
+      clockSecond = second;
+      lightWanted = darkStep(second);
+      if (loaded && lightWanted !== light) showLight(lightWanted, true);
+      rest();
     },
     setDepotLand: (rings) => (loaded ? setDepotLand(map, rings) : void (pending.depotLand = rings)),
     setDepots: (depots) => (loaded ? setDepots(map, depots) : void (pending.depots = depots)),

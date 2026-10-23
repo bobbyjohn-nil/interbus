@@ -432,7 +432,9 @@ test.describe('the screen budget (I13)', () => {
       await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
       await foundCompany(page);
       await withDebugLine(page, (d) => {
-        d.clock.elapsed = 288 * 86_400 + 4 * 3_600; // Year 10, Q1 Day 1
+        // Year 10, Q1 Day 1 at 02:00, three hours before its 05:00 (a day starts at midnight): the clock names Overnight, the widest
+        // of the three periods (D13).
+        d.clock.elapsed = 288 * 86_400 - 3 * 3_600;
         // Owing $1m more and a close below the floor behind it; a contract paid, or day 1 a loss, so no day yet in profit.
         if (last === 'contracts') d.ledger.push({ day: 2, kind: 'buses', amountCents: -100_000_000, lineId: null }, { day: 2, kind: 'contract', amountCents: 6_000_000, lineId: null });
         else d.ledger.push({ day: 1, kind: 'wages', amountCents: -100_000_000, lineId: null });
@@ -447,7 +449,9 @@ test.describe('the screen budget (I13)', () => {
       await page.getByRole('button', { name: 'Pause' }).click();
       await setFare(page, 'Line 1', '$2.50');
       await expect(page.getByTestId('undo')).toHaveText('Undo: Line 1’s fare');
-      await expect(page.getByTestId('date')).toContainText('Year 10');
+      // The clock and its period's name on the row, the year in its title and read, not shown (D13).
+      await expect(page.getByTestId('date')).toHaveText(/^Year 10, Q1 Day 1, 0\d:\d\d Overnight$/);
+      await expect(page.getByTestId('date')).toHaveAttribute('title', 'Year 10, Q1, Day 1');
       await page.getByTestId('date').hover();
       await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 15_000 });
       const top = page.getByTestId('sim-panel');
