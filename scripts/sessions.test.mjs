@@ -2,8 +2,11 @@
 // Boston's time, the archived specs' milestones, and each week's count against its sessions. Run: npm run test:scripts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
-import { archivedMilestones, bostonDay, describe, isDoc, planWeeks, velocity } from './measure/sessions.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { archivedMilestones, bostonDay, describe, isDoc, mergedPullRequests, planWeeks, velocity } from './measure/sessions.mjs';
 
 const weeks = planWeeks(readFileSync('PLAN.md', 'utf8'));
 const row = (week) => weeks.find((w) => w.week === week);
@@ -46,7 +49,7 @@ test('every archived spec says when its milestone was built', () => {
   assert.throws(() => archivedMilestones([{ name: 'm9-x.md', text: '# M9\n\nArchived soon.' }]), /m9-x\.md does not say/);
 });
 
-test('each week counts its merges against its sessions, and the plan built by its end against the plan to date', () => {
+test('the plan built by a week, not its pull requests, decides its velocity, and a week so far counts to today', () => {
   const plan = [
     { week: '1', start: '2026-10-12', end: '2026-10-18', sessions: [6, 6], milestones: ['M0'] },
     { week: '2', start: '2026-10-19', end: '2026-10-25', sessions: [6, 6], milestones: ['M1'] },
@@ -54,20 +57,78 @@ test('each week counts its merges against its sessions, and the plan built by it
     { week: '4', start: '2026-11-02', end: '2026-11-08', sessions: [5, 5], milestones: ['M2'] },
   ];
   const merged = (day, n, code = true) => Array.from({ length: n }, (_, i) => ({ pr: i, day, code }));
-  const merges = [...merged('2026-10-12', 7), ...merged('2026-10-18', 1, false), ...merged('2026-10-21', 2), ...merged('2026-10-24', 9)];
-  const rows = velocity({ weeks: plan, merges, built: [{ milestone: 'M1', day: '2026-10-20' }], today: '2026-10-22' });
-  // Week 1: 8 pull requests are at least 4 sessions, two-thirds of 6 exactly; nothing was built by its end.
+  const merges = [...merged('2026-10-12', 8), ...merged('2026-10-18', 1, false), ...merged('2026-10-19', 1), ...merged('2026-10-21', 5)];
+  const rows = velocity({ weeks: plan, merges, built: [{ milestone: 'M1', day: '2026-10-20' }], today: '2026-10-20' });
+  // Week 1: nine pull requests, 4.5 sessions at PLAN §9's two a session, yet nothing built by its end: short of the plan.
   assert.deepEqual(rows[0], {
-    week: '1', start: '2026-10-12', to: '2026-10-18', partial: false, sessions: [6, 6], merged: 8, code: 7, holds: true, planned: [6, 6], built: null,
+    week: '1', start: '2026-10-12', to: '2026-10-18', end: '2026-10-18', partial: false, sessions: [6, 6], merged: 9, code: 8,
+    planned: [6, 6], built: null, holds: false,
   });
-  // Week 2, to today: 2 pull requests are 1 session, short of 4; M1 was built on Oct 20, and its deadline is week 3's.
+  // Week 2 to Tue Oct 20: one pull request, and M1 archived that day, whose deadline is week 3's: 15–16 sessions built
+  // against 12 planned through Sun Oct 25, a week ahead of that Sunday. The merges after today are not counted.
   assert.deepEqual(rows[1], {
-    week: '2', start: '2026-10-19', to: '2026-10-22', partial: true, sessions: [6, 6], merged: 2, code: 2, holds: false, planned: [12, 12],
-    built: { week: '3', end: '2026-11-01', milestones: ['M0', 'M1'], sessions: [15, 16], weeksAhead: 1 },
+    week: '2', start: '2026-10-19', to: '2026-10-20', end: '2026-10-25', partial: true, sessions: [6, 6], merged: 1, code: 1,
+    planned: [12, 12], built: { milestone: 'M1', archived: '2026-10-20', week: '3', end: '2026-11-01', sessions: [15, 16], weeksAhead: 1 },
+    holds: true,
   });
   assert.equal(rows.length, 2, 'no week that has not begun');
-  const text = describe(rows, { ref: 'origin/main', sha: 'abc1234', today: '2026-10-22' });
-  assert.match(text, /Week 1, Oct 12 to Oct 18: 6 sessions planned; 8 pull requests merged, 7 of them beyond the docs\./);
-  assert.match(text, /Week 2, Oct 19 to Oct 22, so far: .*\n {2}Velocity falls short: 2 pull requests are at least 1 session, against two-thirds of 6, 4\.0\./);
-  assert.match(text, /Built: M0–M1, the plan through week 3 \(Sun Nov 1\), 15–16 sessions against the 12 planned to date: 1 week ahead\./);
+  assert.deepEqual(describe(rows, { ref: 'origin/main', sha: 'abc1234', newest: '2026-10-19', today: '2026-10-20' }).split('\n'), [
+    'Sessions merged against sessions planned (PLAN §10), at origin/main abc1234, its newest commit on Oct 19, to Oct 20 in Boston.',
+    '',
+    "Week 1, Oct 12 to Oct 18: 6 sessions planned; 9 pull requests merged, 8 of them beyond the docs, 4.5 sessions at PLAN §9's two a session.",
+    '  Built: no milestone archived yet, against 6 sessions planned through Sun Oct 18.',
+    '  Velocity falls short: the plan built is under two-thirds of the plan through Sun Oct 18, 4.0 sessions.',
+    '',
+    "Week 2, Oct 19 to Oct 20, so far: 6 sessions planned; 1 pull request merged, 1 of them beyond the docs, 0.5 sessions at PLAN §9's two a session.",
+    "  Built: the plan through week 3 (Sun Nov 1), M1's deadline, its spec archived Oct 20: 15–16 sessions, against 12 planned through Sun Oct 25, 1 week ahead.",
+    '  Velocity holds so far: the plan built is at least two-thirds of the plan through Sun Oct 25, 8.0 sessions.',
+  ]);
+  // Exactly two-thirds holds: 12 sessions built against 18 planned.
+  const even = plan.slice(0, 3).map((w) => ({ ...w, sessions: [6, 6], milestones: w.week === '2' ? ['M1'] : [] }));
+  assert.equal(velocity({ weeks: even, merges: [], built: [{ milestone: 'M1', day: '2026-10-13' }], today: '2026-11-01' })[2].holds, true);
+});
+
+test("main's merges are read from git: each pull request once, dated in Boston, against the branch it merged into", () => {
+  const repo = mkdtempSync(join(tmpdir(), 'sessions-'));
+  const git = (args, at) =>
+    execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+      cwd: repo,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...{ GIT_AUTHOR_NAME: 'a', GIT_AUTHOR_EMAIL: 'a@example.com', GIT_AUTHOR_DATE: at },
+        ...{ GIT_COMMITTER_NAME: 'a', GIT_COMMITTER_EMAIL: 'a@example.com', GIT_COMMITTER_DATE: at },
+      },
+    });
+  const commit = (file, at) => {
+    mkdirSync(dirname(join(repo, file)), { recursive: true });
+    writeFileSync(join(repo, file), at);
+    git(['add', '.'], at);
+    git(['commit', '-q', '-m', `change ${file}`], at);
+  };
+  try {
+    git(['init', '-q', '-b', 'main'], '2026-10-12T12:00:00Z');
+    commit('README.md', '2026-10-12T12:00:00Z');
+    // Pull request 1 changes code while main takes a docs change; merged at 23:30 on Sun Oct 18 in Boston.
+    git(['checkout', '-q', '-b', 'one'], '2026-10-12T13:00:00Z');
+    commit('game.js', '2026-10-12T13:00:00Z');
+    git(['checkout', '-q', 'main'], '2026-10-12T14:00:00Z');
+    commit('NOTES.md', '2026-10-12T14:00:00Z');
+    git(['merge', '-q', '--no-ff', '-m', 'Merge pull request #1 from owner/one', 'one'], '2026-10-19T03:30:00Z');
+    // Pull request 2 changes only docs, in the newer subject; a merge that is no pull request's is left out.
+    git(['checkout', '-q', '-b', 'two'], '2026-10-20T12:00:00Z');
+    commit('docs/plan.txt', '2026-10-20T12:00:00Z');
+    git(['checkout', '-q', 'main'], '2026-10-20T12:00:00Z');
+    git(['merge', '-q', '--no-ff', '-m', 'Merge pull request #2: the plan', 'two'], '2026-10-20T13:00:00Z');
+    git(['checkout', '-q', '-b', 'three'], '2026-10-21T12:00:00Z');
+    commit('tool.js', '2026-10-21T12:00:00Z');
+    git(['checkout', '-q', 'main'], '2026-10-21T12:00:00Z');
+    git(['merge', '-q', '--no-ff', '-m', "Merge branch 'three'", 'three'], '2026-10-21T13:00:00Z');
+    assert.deepEqual(mergedPullRequests('main', repo), [
+      { pr: 2, day: '2026-10-20', code: false },
+      { pr: 1, day: '2026-10-18', code: true },
+    ]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });
