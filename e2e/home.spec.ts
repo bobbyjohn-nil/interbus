@@ -45,10 +45,34 @@ test.describe('Home', () => {
     await home.getByRole('button', { name: 'Keep it' }).click();
     await expect(page.getByTestId('home-continue')).toBeVisible();
 
-    // Start a new game: the founding card for an unnamed company, the autosave replaced, slot 1 kept.
+    // Start a new game: the founding card for an unnamed company, the autosave replaced, slot 1 kept. Home stays until the new
+    // game has come: left at once, the old company's dock and chips drew a frame before the card (round 11).
     await home.getByRole('button', { name: 'New game' }).click();
+    await page.evaluate(() => {
+      const w = window as unknown as { oldGame: number };
+      w.oldGame = 0;
+      const look = () => {
+        if (document.querySelector('[data-testid="founding-card"]')) return;
+        if (document.querySelector('[data-testid="dock"]')) w.oldGame++;
+        requestAnimationFrame(look);
+      };
+      requestAnimationFrame(look);
+    });
+    // The new game held on its way 800 ms: a press on Home waits for it. Keep it closed the question as the new game came anyway
+    // (the review of round 11).
+    await page.evaluate(() => {
+      const post = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function (this: Worker, message: unknown, ...rest: unknown[]) {
+        const send = () => (post as (...a: unknown[]) => void).call(this, message, ...rest);
+        if ((message as { type?: unknown } | null)?.type === 'new-game') window.setTimeout(send, 800);
+        else send();
+      } as typeof Worker.prototype.postMessage;
+    });
     await home.getByRole('button', { name: 'Start a new game' }).click();
+    await home.getByRole('button', { name: 'Keep it' }).click();
+    await expect(home.getByRole('group', { name: 'Start over' })).toBeVisible();
     await expect(page.getByTestId('founding-card')).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { oldGame: number }).oldGame), 'frames of the old game').toBe(0);
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('interbus.save.boston') ?? '{}').data?.company?.name)).toBe('');
     expect(await page.evaluate(() => localStorage.getItem('interbus.slot.boston.1'))).toContain('Back Bay Transit');
 
@@ -272,6 +296,17 @@ test.describe('Home', () => {
     await foundCompany(b);
     await expect(home.getByTestId('home-continue')).toContainText('Back Bay Transit', { timeout: 10_000 });
     await expect(ask).toHaveCount(0);
+    await expect(newGame).toBeFocused();
+    // The keyboard on Continue as that tab starts a new game again: Continue goes with the game it named, and New game takes
+    // the focus, which fell to the page (round 11).
+    await a.keyboard.press('Shift+Tab');
+    await expect(home.getByTestId('home-continue')).toBeFocused();
+    await b.getByTestId('saves-chip').click();
+    await b.getByRole('button', { name: 'Back to Home' }).click();
+    await homeB.getByRole('button', { name: 'New game' }).click();
+    await homeB.getByRole('button', { name: 'Start a new game' }).click();
+    await expect(b.getByTestId('founding-card')).toBeVisible();
+    await expect(home.getByTestId('home-continue')).toHaveCount(0, { timeout: 10_000 });
     await expect(newGame).toBeFocused();
   });
 });

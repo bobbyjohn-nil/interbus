@@ -443,6 +443,48 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-23** (`e2e/keyboard.spec.ts`, `e2e/start.spec.ts`, `e2e/menus.spec.ts`, `e2e/home.spec.ts`, `e2e/boot.spec.ts`, `src/ui/shell/Panels.test.ts`, `src/ui/brand/boot.test.ts`, `src/ui/onePress.test.ts`, `src/render/map/tilt.test.ts`): **the eleventh round's second lane: the edges of the tenth round's fixes** (D26; the round's entry below). It found 9 bugs, 5 minor and 4 nits, most older than round 10 but each beside one of its fixes, each reproduced in 3 runs of 3. No format change.
+  - **Held for the lane:**
+    - **The random play** (`src/worker/fuzz.test.ts`) held on 72 seeds of 72, in 309 s: 1,513 lines drawn and 836 closed, 218 sales, 1,457 headway changes and 1,695 whole days.
+    - **20 runs of 400–600 random keys** logged no error. The focus fell to the page only at the findings below, or where it is meant to: Continue from Home, Help opened from the page, Tab past the last link.
+    - **Other checks:** no opener of an old game's is ever focused in a new one, and the lists and the demand menu keep their keys.
+  - **The hand-back's openers** (`src/ui/shell/Panels.tsx`): a panel the keyboard brings the focus to now always records an opener, with no control (`{ at: null, in: null }`) where the one it came from went with its screen. Its close then reaches what opens it (`data-opens`).
+    - Saves opened from Home and left open took the focus as Continue went, or as a slot loaded from it played, with none recorded, and its Escape gave the page the focus. Now the Saves chip takes it.
+    - The line's card took no focus at all, since Draw a line asked for none and went with the Build menu. Now it takes the focus as every panel the keyboard opens does, and Build opens it (`data-opens="tool"`), so its Cancel and Escape hand the focus back to Build.
+  - **A row that takes the focus only until it leaves:**
+    - Take it hands the focus to its contract's row, whose tabindex goes as the focus leaves (`Contracts.tsx`). Help, opened there with ? and closed, handed back to a row that could no longer take it.
+    - Every place handed back to is now made focusable until the focus leaves it (`giveFocus`), as round 10 made the panels' boxes.
+  - **The founding card:** Saves left open from Home over the card had no opener, and no Saves chip stands before a company is founded, so its Close, Escape in it, and Escape in the Help its Help opens all gave the page the focus. The card's name is now the screen's resting place (`data-focus-rest`), last in the hand-back's walk.
+  - **A panel opened afresh** records an opener of its own, never an earlier opening's (its review). Help opened with ? from the dock's Finance, then opened again from the page, handed the focus back to Finance, so Space opened Finance instead of playing.
+  - **What `giveFocus` sets** it takes away only while it is still its own: a scrolling region's tabindex the page set since stays. Where it cannot give the focus at all, it takes the tabindex away at once (its review).
+  - **The splash** (`src/ui/brand/boot.ts`, `src/ui/onePress.ts`):
+    - **The keyboard:** round 10 made the splash take the pointer, but Tab still reached Home under it, and Enter pressed New game unseen. While its bus tows it away, every plain key now stops at the window (`holdKeys`); the corner and the replaced build's card, drawn over the splash, keep theirs. What the tow uncovers still takes the pointer's presses at once.
+      - The hold lasts as long as the splash stands, not its timer's 2.55 s: tied to the timer, it let go under a busy test that held the splash's removal, and the lane's reproduction pressed New game once in a run of three.
+    - **A double-click:** a run of clicks begun on the splash drops its later clicks, as one begun on a control does. Between a double-click's two clicks the tow uncovered New game under the pointer, and the second click pressed it.
+  - **Home** (`src/ui/shell/Home.tsx`):
+    - **Continue going:** with the keyboard on Continue, another tab's new game took Continue away and the focus fell to the page. New game takes it now, when the keyboard put the focus where it was, as Back to Home's hand-off does (round 10).
+    - **Start a new game** left Home at once, and the old company's chips and dock drew a frame before the founding card, one in each run. Home now stays until the worker's unnamed company comes (App's `starting`), which the worker always sends; the question stays with it. A press on Home waits meanwhile, 2–6 ms on the fixture and 35–91 ms on Inner Boston: Keep it closed the question as the new game came anyway (its review).
+  - **The Build menu's keys:** round 10 kept every key in an open list or menu, by its role, and the Build menu is a group of buttons. With it open, T tilted the map and 2 picked 60×. One check now serves the page and the map (`inOpenList` in `src/render/map/tilt.ts`), and the Build menu says it keeps the keys (`data-keeps-keys`), with the keyboard on its tools.
+    - **As the lists do**, it keeps ?, Ctrl+Z and Backspace too, which wait for it to close: before, ? on a tool opened Help and the menu closed as the focus left it.
+    - **Space on a button the mouse pressed** is still the page's, as App's Space rule has it: a tool the mouse pressed without a click (a right-click, or a press dragged off it) took Space once the menu kept its keys (its review).
+    - **Not on Build:** its review had Build keep them too while the menu was open, where its Enter leaves the focus and a press in Chrome puts it. That held 5 from `e2e/floor.spec.ts`, which runs time to the run's end with the menu the mouse opened, on #170's first CI run. A press in Safari or Firefox on macOS leaves the focus on the page instead, so Build kept them in one browser and not another; with the keyboard on Build, or on the page, the keys are the game's in all of them.
+  - **Left as they are:** Place a stop and Place a depot leave the focus on the page as their tool comes out, so Space plays and pauses, as keyboard.spec.ts's undo test has it.
+  - **Tests** (TS-04), each failing on 4464d22:
+    - **e2e:**
+      - its review's: a Build tool the mouse right-clicked takes no Space, Help opened afresh from the page hands the focus back to the page, and a press on Home waits for the new game (each failing on the round's first commit);
+      - Saves kept from Home into the game (the chip not focused);
+      - the founding card's three ways (the name not focused);
+      - Help over the contract row (the row not focused);
+      - the line's card (the focus not in it);
+      - the Build menu's T and 2 (`3d`);
+      - Continue gone (New game not focused);
+      - Start a new game (1 frame of the old game);
+      - the splash's Tab (a Home button focused).
+    - **Unit:**
+      - the hand-back's resting place;
+      - the splash's key hold, held while it stands, the browser's own keys and the corner's let through, and let go once it has gone (its review; failing with a hold that never lets go);
+      - a double-click begun on the splash, which also fails with the splash's check taken out;
+      - the Build menu in `viewKey`.
 - **2026-10-23** (`src/render/map/daylight.test.ts`, `src/render/map/overlays.test.ts`, `src/render/map/loadMap.test.ts`, `src/render/map/fleet.test.ts`, `src/sim/rules/position.test.ts`, `e2e/daylight.spec.ts`; on `main` 4464d22): **the systems audit's eleventh round, its first lane: the day and night tint** (D26, D13). Two finder lanes ran on the code merged since the tenth round: the tint and the time of day (#168), and the edges of the tenth round's fixes (#166, #167). The first found 5 bugs, all minor or nits; the second found 9, with their own entry and pull request. No format change.
   - **A resting line on a street it shares.** Lines on the same streets draw over one another, the later on top, and the fade was an opacity of each line's id. Where the resting line was the later, the running line under it showed (34, 120, 132): 0.35 of the resting green over 0.65 of the running blue, neither line's colour. At the middle of Huntington Avenue, 168 of its pixels blended and none showed the running blue.
     - The five layers a resting line fades in are now drawn twice. Under each layer sits a faded copy (`<layer>-resting`) that holds the resting lines' features at 35%, its other paints the layer's own; the layer itself holds the rest. The fade moves features between the two by filter alone (`setResting` in `src/render/map/overlays.ts`).

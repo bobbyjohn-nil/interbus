@@ -204,6 +204,17 @@ test.describe('the menus', () => {
     await page.keyboard.press('Space');
     await expect(list).toBeVisible();
     await expect(panel).toHaveAttribute('data-speed', '0');
+    // A Build tool the mouse pressed without a click, by a right-click, takes no Space either, though the open Build menu keeps
+    // the game's other keys: Space pressed the tool (the review of round 11).
+    await page.keyboard.press('Escape');
+    await page.getByTestId('build').click();
+    const build = page.getByTestId('build-menu');
+    await build.getByRole('button', { name: 'Draw a line' }).click({ button: 'right' });
+    await expect(build).toBeVisible();
+    await page.keyboard.press('Space');
+    await expect(panel).not.toHaveAttribute('data-speed', '0');
+    await expect(build).toBeVisible();
+    await expect(page.getByTestId('draft-card')).toHaveCount(0);
   });
 
   test('with the Build menu open, Tab goes through its three tools in order, and on past the last closes it', async ({ page }) => {
@@ -252,6 +263,25 @@ test.describe('the menus', () => {
     await expect(menu.getByRole('button', { name: 'Draw a line' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(menu).toHaveCount(0);
-    await expect(page.getByTestId('draft-card')).toBeVisible();
+    const card = page.getByTestId('draft-card');
+    await expect(card).toBeVisible();
+    // The line's card takes the focus, as every panel the keyboard opens does, and its Escape and its Cancel hand it back to
+    // Build: the focus went with the menu to the page, and Tab went on past the card (round 11).
+    const inCard = () => card.evaluate((el) => el.closest('[data-movable]')!.contains(document.activeElement));
+    await expect.poll(inCard).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(build).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect.poll(inCard).toBe(true);
+    const cancel = card.getByRole('button', { name: 'Cancel' });
+    for (let k = 0; k < 12 && !(await cancel.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(cancel).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(card).toHaveCount(0);
+    await expect(build).toBeFocused();
   });
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CITIES } from "../cities";
 import { MapView, type DotKinds, type HoveredDot, type MapHit } from "../render/map/MapView";
+import { inOpenList } from "../render/map/tilt";
 import { readDotPrefs, writeDotPrefs } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
 import type { BusModelId, LngLatPair, Speed } from "../sim/types";
@@ -94,6 +95,14 @@ export function App() {
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
   const [homeAt, setHomeAt] = useState<number | null>(0);
+  // Start a new game leaves Home once the worker's unnamed company has come, which it always sends (worker/host.ts): left at
+  // once, the old company's game drew a frame of its chips and dock before the founding card (round 11). During render, as
+  // state that follows the game.
+  const [starting, setStarting] = useState(false);
+  if (starting && sim.snapshot && !sim.snapshot.company.name) {
+    setStarting(false);
+    setHomeAt(null);
+  }
   const { probeAt, depotSiteAt, stopSiteAt, draftFor, send } = sim;
   // Play resumes the speed last played at, 600x the first time (D25).
   const [playSpeed, setPlaySpeed] = useState<Exclude<Speed, 0>>(PLAY_SPEED);
@@ -200,6 +209,15 @@ export function App() {
       stopSiteAt(null);
     },
     [probeAt, depotSiteAt, stopSiteAt],
+  );
+  // A tool picked from the Build menu. The line's card is a panel, and takes the keyboard's focus as every panel the keyboard
+  // opens does (Panels' takesFocus): Enter on Draw a line took the menu away, and the focus fell to the page with it (round 11).
+  const pickTool = useCallback(
+    (next: Tool) => {
+      choose(next);
+      if (next === "line") focusOn("tool");
+    },
+    [choose, focusOn],
   );
   // The run ended with a tool out (the route editor, a line half drawn): it is put down, as the tools are locked (runOver),
   // and the route editor's line shows again in the panel the editor stood in for, as after Cancel.
@@ -454,7 +472,7 @@ export function App() {
       // once; with AltGr, as some keyboards type it, it still counts. An open list or menu keeps its keys: ? left it open
       // behind Help, its arrows and Enter going to Help (the review of #157).
       const chosen = event.target instanceof HTMLInputElement && (event.target.type === "radio" || event.target.type === "checkbox");
-      const inList = event.target instanceof Element && event.target.closest('[role="listbox"], [role="menu"]') !== null;
+      const inList = inOpenList(event.target);
       const plain = event.getModifierState?.("AltGraph") || (!event.ctrlKey && !event.altKey);
       if (event.key === "?" && (!typing || chosen) && !inList && !event.metaKey && plain) {
         event.preventDefault();
@@ -465,8 +483,10 @@ export function App() {
         return;
       }
       // An open list or menu keeps every key, as it keeps ?: T tilted the map behind the speed list, and 2 picked 60× under it,
-      // its Enter then picking the old speed again (round 10). It takes Escape, Tab and its own keys itself.
-      if (inList) return;
+      // its Enter then picking the old speed again (round 10). It takes Escape, Tab and its own keys itself. But Space on a button
+      // the mouse pressed is the page's still, as below: a Build tool the mouse pressed without a click (a press dragged off it,
+      // or a right-click) took Space from play once the Build menu kept its keys (the review of round 11).
+      if (inList && !(event.key === " " && event.target instanceof HTMLButtonElement && !focus.current.byKey)) return;
       // Home stands over a paused game: its keys are Home's (Escape closes Saves and Help), not the game's.
       if (atHome && event.key !== "Escape") return;
       // Typed into a field, a key is the field's, but for Escape: in the company's name, which has the focus whenever the
@@ -692,6 +712,8 @@ export function App() {
         />
         <Home
           sim={sim}
+          byKey={() => focus.current.byKey}
+          waiting={starting}
           // Leaving Home closes Help: carried onto the founding card, the two took 31.6% of 1152×720 (I13; the review of #157).
           // Saves stays, where a game not yet founded loads a slot or a file instead (saves.spec).
           onContinue={() => {
@@ -700,13 +722,16 @@ export function App() {
           }}
           onNewGame={() => {
             hide("help");
-            if (sim.snapshot?.company.name) send({ type: "new-game" });
             // A new game starts clean: no tool, draft or route editor, and no day card, of the old one,
             // and its new-line card on the Sparrow, never on a bus the old game had unlocked.
             choose("none");
             setDraftModel("sparrow");
             sim.closeDayCard();
-            setHomeAt(null);
+            if (!sim.snapshot?.company.name) setHomeAt(null);
+            else if (!starting) {
+              send({ type: "new-game" });
+              setStarting(true);
+            }
           }}
           onSaves={() => {
             hide("help");
@@ -779,7 +804,7 @@ export function App() {
           panels={open}
           hasLines={(sim.snapshot?.lines.length ?? 0) > 0}
           locked={over}
-          onTool={choose}
+          onTool={pickTool}
           onPanel={toggle}
         />
       ) : null}

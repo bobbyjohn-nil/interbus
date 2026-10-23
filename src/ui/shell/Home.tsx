@@ -12,7 +12,27 @@ import type { Sim } from '../game/useSim';
  * one (useSim), so Continue names and plays the game the browser holds now, not the one read when this
  * tab opened (the systems audit's fifth round).
  */
-export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }: { sim: Sim; onContinue: () => void; onNewGame: () => void; onSaves: () => void; onHelp: () => void; onCredits: () => void }) {
+export function Home({
+  sim,
+  byKey = () => false,
+  waiting = false,
+  onContinue,
+  onNewGame,
+  onSaves,
+  onHelp,
+  onCredits,
+}: {
+  sim: Sim;
+  /** Whether the keyboard, not the pointer, moved the focus where it is (App's focusSource). */
+  byKey?: () => boolean;
+  /** Whether a new game is on its way, for which Home's buttons wait (App's `starting`). */
+  waiting?: boolean;
+  onContinue: () => void;
+  onNewGame: () => void;
+  onSaves: () => void;
+  onHelp: () => void;
+  onCredits: () => void;
+}) {
   // The company New game's question names, until it is answered: a game another tab puts in its place closes the question,
   // as nothing it asked about is left to replace. It stayed, and read "Start over? , on Year 1, Q1, Day 1, will be
   // replaced." over an unnamed game (round 10).
@@ -39,9 +59,30 @@ export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }:
     wasShown.current = shown;
     if (focusLost()) (shown ? keepIt.current : newGame.current)?.focus();
   });
+  // Continue goes with the game it names when another tab starts a new one, and the keyboard on it fell to the page (round 11):
+  // New game takes it, when the keyboard put it where it was, as a press of the mouse hands Space no button.
+  const hadContinue = useRef(company !== '');
+  useLayoutEffect(() => {
+    const went = hadContinue.current && company === '';
+    hadContinue.current = company !== '';
+    if (went && byKey() && focusLost()) newGame.current?.focus();
+  });
   if (sim.status !== 'ready' || !s) return null;
   return (
-    <section className="home" role="dialog" aria-label="Interbus" data-testid="home" data-chrome="panel">
+    <section
+      className="home"
+      role="dialog"
+      aria-label="Interbus"
+      data-testid="home"
+      data-chrome="panel"
+      // While the new game is on its way, a press waits for it: Keep it closed the question as the new game came anyway, and
+      // Continue went on with the old game for a moment (the review of round 11).
+      onClickCapture={(event) => {
+        if (!waiting) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       <h1>Interbus</h1>
       <p className="hint">A bus company in Boston</p>
       {company ? (
@@ -58,13 +99,9 @@ export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }:
             Start over? {company}, on {dateText(s.day)}, will be replaced. Your slots stay.
           </p>
           <span className="controls">
-            <button
-              type="button"
-              onClick={() => {
-                setAsking(null);
-                onNewGame();
-              }}
-            >
+            {/* The question stays until the new game has come, when Home goes (App's `starting`): closed at once, it left Continue
+                naming the old company on Home for a moment. */}
+            <button type="button" onClick={onNewGame}>
               Start a new game
             </button>
             <button type="button" ref={keepIt} onClick={() => setAsking(null)}>

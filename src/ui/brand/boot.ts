@@ -17,6 +17,29 @@ export interface BootEnv {
   readonly firstInTab: () => boolean;
   /** Runs `run` in `ms`, by a timer, so a tab put in the background, where animations wait, ends it too. */
   readonly later: (run: () => void, ms: number) => void;
+  /** Keeps the keyboard from what the splash hides for as long as it stands (holdKeys). */
+  readonly holdKeys: () => void;
+}
+
+/**
+ * Keeps every key from what the splash hides while its bus tows it away: Tab reached Home's buttons under it, and Enter pressed
+ * New game unseen (the systems audit's eleventh round), where a press of the pointer on it presses nothing (app.css). The corner
+ * and the replaced build's card, drawn over it, keep their keys, and so do the browser's own (with Ctrl, ⌘ or Alt, and F1 to
+ * F12). For as long as the splash stands, not its timer's 2.55 s, which a busy page can outlast; gone at once with less motion
+ * asked for mid-tow (app.css), it holds nothing more, and gone, the hold goes at the next key.
+ */
+export function holdKeys(win: Window = window): void {
+  const held = (event: KeyboardEvent) => {
+    const boot = win.document.getElementById('boot');
+    if (!boot) return win.removeEventListener('keydown', held, true);
+    if (win.getComputedStyle(boot).display === 'none') return;
+    if (event.ctrlKey || event.metaKey || event.altKey || /^F\d+$/.test(event.key)) return;
+    const at = event.target as { closest?: (selector: string) => unknown } | null;
+    if (typeof at?.closest === 'function' && at.closest('.corner, .replaced')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+  win.addEventListener('keydown', held, true);
 }
 
 function pageBoot(): BootEnv {
@@ -25,6 +48,7 @@ function pageBoot(): BootEnv {
     still: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true || document.visibilityState === 'hidden',
     firstInTab: () => firstInTab('boot-wipe'),
     later: (run, ms) => void window.setTimeout(run, ms),
+    holdKeys: () => holdKeys(),
   };
 }
 
@@ -44,5 +68,6 @@ export function endBoot(tow: boolean, env: BootEnv = pageBoot()): void {
   }
   boot.setAttribute('aria-hidden', 'true');
   boot.classList.add('leaving');
+  env.holdKeys();
   env.later(() => boot.remove(), WIPE_MS + 150);
 }

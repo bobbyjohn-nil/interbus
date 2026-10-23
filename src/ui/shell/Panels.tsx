@@ -109,15 +109,21 @@ function put(box: HTMLElement, at: { x: number; y: number }): void {
 }
 
 /**
- * Gives a panel's box the keyboard's focus, which it can hold only until the focus leaves: always focusable, it took the focus
- * from a press on a panel's text, so the keys no longer scrolled the panel (the review of the ninth audit round). Handed back
- * to, it is made focusable again: Help, opened with ? from Lines' box and closed, handed back to a box that could no longer
- * take the focus, which fell to the page (the review of round 10).
+ * Gives `el` the keyboard's focus, made focusable until the focus leaves it where it no longer takes it. A panel's box holds
+ * the focus only so: always focusable, it took the focus from a press on a panel's text, so the keys no longer scrolled the
+ * panel (the review of the ninth audit round). So does a contract's row Take it focused (Contracts.tsx). Handed back to,
+ * either could no longer take the focus, which fell to the page: Help, opened with ? from Lines' box (the review of round 10)
+ * or from the row (round 11), and closed.
  */
-function focusBox(box: HTMLElement): void {
-  box.tabIndex = -1;
-  box.addEventListener("blur", () => box.removeAttribute("tabindex"), { once: true });
-  box.focus();
+function giveFocus(el: HTMLElement): void {
+  el.focus();
+  if (document.activeElement === el) return;
+  el.tabIndex = -1;
+  // Only its own: a tabindex the page set since (a scrolling region's) stays.
+  const unset = () => void (el.getAttribute("tabindex") === "-1" && el.removeAttribute("tabindex"));
+  el.focus();
+  if (document.activeElement === el) el.addEventListener("blur", unset, { once: true });
+  else unset();
 }
 
 /**
@@ -133,11 +139,19 @@ export interface Opener {
 /**
  * Where the keyboard's focus goes back to as panel `id` closes with the player in it, for a panel the keyboard opened: what
  * opened it, while it can take the focus (`usable`); or, gone, what opened the panel it was in, and so on, never round a panel
- * twice; or, with none of those left, what opens one of those panels now (`opens`), the first first. A panel stood in for
- * another kept that one's opener: Escape from the route editor, or from Lines after its Cancel, gave the page the focus. And
- * the checklist's last step opens Contracts until Take it completes it, when the Contracts chip takes its place (round 10).
+ * twice; or, with none of those left, what opens one of those panels now (`opens`), the first first; or, with none, where the
+ * screen keeps the keyboard (`rest`: the founding card's name). A panel stood in for another kept that one's opener: Escape
+ * from the route editor, or from Lines after its Cancel, gave the page the focus. And the checklist's last step opens
+ * Contracts until Take it completes it, when the Contracts chip takes its place (round 10). Saves left open over the founding
+ * card had nothing to hand back to (round 11).
  */
-export function handBackTo(id: string, openers: ReadonlyMap<string, Opener>, opens: (panel: string) => Element | null, usable: (el: Element) => boolean): Element | null {
+export function handBackTo(
+  id: string,
+  openers: ReadonlyMap<string, Opener>,
+  opens: (panel: string) => Element | null,
+  usable: (el: Element) => boolean,
+  rest: () => Element | null = () => null,
+): Element | null {
   if (!openers.has(id)) return null;
   const chain: string[] = [];
   for (let panel: string | null = id; panel !== null && !chain.includes(panel); ) {
@@ -151,8 +165,12 @@ export function handBackTo(id: string, openers: ReadonlyMap<string, Opener>, ope
     const at = opens(panel);
     if (at && usable(at)) return at;
   }
-  return null;
+  const at = rest();
+  return at && usable(at) ? at : null;
 }
+
+/** Where the keyboard's focus rests on a screen when a panel it was in closes with nothing else to hand it back to (handBackTo's `rest`). */
+export const FOCUS_REST = "[data-focus-rest]";
 
 /** The panel shown last, and how many panels have been shown: a new one each time, even for a panel already open. */
 export interface PanelFront {
@@ -274,11 +292,8 @@ export function Panels({
     if (!left || !went.includes(left)) return;
     lastIn.current = null;
     const usable = (el: Element) => el.isConnected && !el.matches(":disabled");
-    const to = handBackTo(left, openers.current, (panel) => document.querySelector(`[data-opens="${panel}"]`), usable);
-    if (to instanceof HTMLElement && focusLost()) {
-      if (to.hasAttribute("data-movable")) focusBox(to);
-      else to.focus();
-    }
+    const to = handBackTo(left, openers.current, (panel) => document.querySelector(`[data-opens="${panel}"]`), usable, () => document.querySelector(FOCUS_REST));
+    if (to instanceof HTMLElement && focusLost()) giveFocus(to);
   });
   useLayoutEffect(() => {
     const box = focus && takes.current() ? boxes.current.get(focus.id) : undefined;
@@ -288,13 +303,18 @@ export function Panels({
     const left = lastIn.current;
     if (from instanceof HTMLElement && from !== document.body && !box.contains(from)) {
       openers.current.set(id, { at: from, in: from.closest("[data-movable]")?.getAttribute("data-movable") ?? null });
-      opened.current = id;
     } else if (left && left !== id && !itemIds.current.includes(left)) {
       // From a panel that went as this one opened, the focus with it.
       openers.current.set(id, { at: null, in: left });
-      opened.current = id;
+    } else if (!openers.current.has(id) || !wereOpen.current.includes(id)) {
+      // From nothing left to hand back to, the control gone with the screen it was on: what opens the panel takes it back. Saves
+      // left open from Home took the focus as Continue went, and the line's card as Draw a line went with the Build menu, and
+      // with no opener each handed back nothing (round 11). A panel opened afresh so never keeps an earlier opening's: Help
+      // opened from the page handed the focus back to the dock's Finance, which had opened it before (the review of round 11).
+      openers.current.set(id, { at: null, in: null });
     }
-    focusBox(box);
+    opened.current = id;
+    giveFocus(box);
   }, [focus]);
 
   // A window that changes size keeps a panel in a free place whole, and a dragged one in reach, as a drag does.

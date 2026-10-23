@@ -158,6 +158,53 @@ test.describe('starting and leaving a game', () => {
   // nothing, not even Saves left open beside the card; nothing showed where the keyboard was among the colours (WCAG 2.4.7); and
   // Back to Home, from the founding card or Saves, took its button with the game's screen and left the focus on the page, where
   // the next Tab went to the map's credits and Home's Continue was the sixth.
+  // Round 11: Saves the keyboard opened from Home stays open over the founding card, where no Saves chip stands yet: its Escape and
+  // its Close, and Escape in the Help its Help opens in its place, gave the page the focus. The card's name takes it back.
+  test('over the founding card, a panel the keyboard opened gives the card’s name the focus back as it closes', async ({ page }) => {
+    test.setTimeout(90_000);
+    const tabOnto = async (button: Locator) => {
+      await button.focus();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      await expect(button).toBeFocused();
+    };
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    const home = page.getByTestId('home');
+    const card = page.getByTestId('founding-card');
+    const saves = page.getByTestId('saves');
+    const name = card.getByLabel('Name');
+    for (const how of ['Escape in Saves', 'its Close', 'Escape in the Help its Help opens'] as const) {
+      await tabOnto(home.getByTestId('home-saves'));
+      await page.keyboard.press('Enter');
+      await expect(saves).toBeVisible();
+      await tabOnto(home.getByRole('button', { name: 'New game' }));
+      await page.keyboard.press('Enter');
+      await expect(card).toBeVisible();
+      await expect(name).toBeFocused();
+      const close = saves.getByRole('button', { name: 'Close', exact: true });
+      if (how === 'Escape in Saves') {
+        await tabOnto(close);
+        await page.keyboard.press('Escape');
+      } else if (how === 'its Close') {
+        await tabOnto(close);
+        await page.keyboard.press('Enter');
+      } else {
+        await tabOnto(saves.getByRole('button', { name: 'Help', exact: true }));
+        await page.keyboard.press('Enter');
+        const help = page.getByTestId('help');
+        await expect(help).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(help).toHaveCount(0);
+      }
+      await expect(saves).toHaveCount(0);
+      await expect(name, how).toBeFocused();
+      await tabOnto(card.getByRole('button', { name: 'Back to Home' }));
+      await page.keyboard.press('Enter');
+      await expect(home).toBeVisible();
+    }
+  });
+
   test('by the keyboard: Escape in the company’s name, the colours’ focus, and Back to Home into Home’s card', async ({ page }) => {
     test.setTimeout(90_000);
     /** Puts the keyboard on `button` as Tab would. */

@@ -10,13 +10,14 @@
 import { describe, expect, it } from 'vitest';
 import { onControl, onePress } from './onePress';
 
-/** What a click lands on: a control (a button, a link, an option, a menu item), a card's text, the map's canvas, or a control drawn on the canvas; or, for a key, a dropdown's open list or a text field. */
-type Under = 'button' | 'text' | 'canvas' | 'button on the canvas' | 'list' | 'field';
+/** What a click lands on: a control (a button, a link, an option, a menu item), a card's text, the map's canvas, a control drawn on the canvas, or the boot splash; or, for a key, a dropdown's open list or a text field. */
+type Under = 'button' | 'text' | 'canvas' | 'button on the canvas' | 'splash' | 'list' | 'field';
 
 /** `closest` as what is under the pointer answers it. */
 function closest(under: Under): (selector: string) => object | null {
   return (selector) => {
     if (selector.includes('maplibregl-canvas-container')) return under === 'canvas' || under === 'button on the canvas' ? {} : null;
+    if (selector === '#boot') return under === 'splash' ? {} : null;
     if (under === 'list') return selector.includes('listbox') ? {} : null;
     return selector.includes('button') && (under === 'button' || under === 'button on the canvas') ? {} : null;
   };
@@ -53,6 +54,18 @@ class Page extends EventTarget {
 }
 
 describe('one press, one command', () => {
+  // The systems audit's eleventh round: the splash takes the pointer as its bus tows it away (round 10), and between a
+  // double-click's two clicks the tow uncovered Home's New game under the pointer: its second click pressed it.
+  it('drops the rest of a double-click that starts on the boot splash, as on a control', () => {
+    const page = new Page();
+    onePress(page);
+    expect(page.click('splash', 1)).toBe(true);
+    expect(page.click('button', 2)).toBe(false);
+    expect(page.click('button', 0, 'dblclick')).toBe(false);
+    // A run of its own after it presses as ever.
+    expect(page.click('button', 1)).toBe(true);
+  });
+
   it('drops the rest of a double-click that starts on a control, wherever it lands, and its dblclick', () => {
     const page = new Page();
     onePress(page);
