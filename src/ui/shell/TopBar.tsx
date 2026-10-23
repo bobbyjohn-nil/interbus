@@ -3,10 +3,11 @@ import { runOver } from '../game/runOver';
 import { CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
 import { MEDAL_IDS } from '../../sim/rules/medal';
 import { calendarOfDay } from '../../sim/rules/calendar';
+import { periodAt } from '../../sim/rules/periods';
 import { RUNNING_SPEEDS } from '../../sim/rules/speed';
 import { undoText } from '../copy';
 import { Dropdown } from '../Dropdown';
-import { about, clockText, dateText, MEDAL_NAMES, quarterText, SPEED_HINTS, speedText, usd, usdK } from '../format';
+import { about, clockText, dateText, MEDAL_NAMES, PERIOD_NAMES, SPEED_HINTS, speedText, usd, usdK } from '../format';
 import { CHECKLIST, checklistStep, checklistText } from '../game/checklist';
 import type { Sim } from '../game/useSim';
 
@@ -43,8 +44,12 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const undo = s.undo ? undoText(s.undo) : null;
   return (
     <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
+      {/* The clock names D7's period, so the time of day never rests on the map's tint (D13). The year went to the title to make
+          room: late in a game, with three medals and "3 on offer", the chip row wrapped to two rows (10.09% of 1152×720 on
+          Inner Boston's numbers, against I13's 6%). */}
       <span className="chip date" title={dateText(s.day)} data-testid="date">
-        <span className="chip-label">{quarterText(s.day)}</span> Day {calendarOfDay(s.day).dayOfQuarter}, {clockText(s.hour, s.minute, s.rate)}
+        <span className="chip-label">Q{calendarOfDay(s.day).quarter}</span> Day {calendarOfDay(s.day).dayOfQuarter}, {clockText(s.hour, s.minute, s.rate)}{' '}
+        <span className="chip-label" data-testid="period">{PERIOD_NAMES[periodAt(s.hour * 3_600 + s.minute * 60)]}</span>
       </span>
       {founded ? (
         <span className="chip speed" role="group" aria-label="Speed">

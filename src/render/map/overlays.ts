@@ -4,7 +4,8 @@
 // draw no rings: the Contracts panel lists every offer (D25). GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+import { periodAt, runsIn } from '../../sim/rules/periods';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
 import { FONT_SEMIBOLD } from './style';
@@ -186,6 +187,42 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     layout: { 'text-field': ['to-string', ['get', 'n']], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -0.9], 'text-allow-overlap': true },
     paint: { 'text-color': t.draft, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
   });
+}
+
+/** The overlays' layers as addOverlays adds them, for the light's steps (daylight.ts): their words wear the labels' inks. */
+export function overlayLayers(t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>): LayerSpecification[] {
+  const layers: LayerSpecification[] = [];
+  const recorder = { addSource: () => undefined, addLayer: (layer: LayerSpecification) => void layers.push(layer) };
+  addOverlays(recorder as unknown as MapLibreMap, t, base);
+  return layers;
+}
+
+/** How much of a line shows while it rests: its route, its name and its stops. */
+export const RESTING_OPACITY = 0.35;
+/** A paint property's name, as MapLibre takes it. */
+export type PaintName = Parameters<MapLibreMap['setPaintProperty']>[1];
+/** The layers a resting line fades in, and the opacity each fades. */
+const RESTING: readonly (readonly [string, PaintName])[] = [
+  ['lines-route', 'line-opacity'],
+  ['lines-name', 'text-opacity'],
+  ['lines-stops', 'circle-opacity'],
+  ['lines-stops', 'circle-stroke-opacity'],
+];
+
+/**
+ * The lines resting at `secondOfDay`: those that run no service in its period, one predicate with the schedule's (runsIn and
+ * periodAt, sim/rules), so a line with overnight off rests from 00:00 to 05:00. D13: the map says the time of day without the
+ * tint, so it never depends on it.
+ */
+export function restingLines(lines: readonly Pick<LineView, 'id' | 'headways'>[], secondOfDay: number): number[] {
+  const period = periodAt(secondOfDay);
+  return lines.filter((line) => !runsIn(line.headways, period)).map((line) => line.id);
+}
+
+/** Fades the resting lines (restingLines): set when they change, at 00:00 and 05:00 or with the lines, never per frame (RN-04). */
+export function setResting(map: Pick<MapLibreMap, 'setPaintProperty'>, ids: readonly number[]): void {
+  const shows: ExpressionSpecification | number = ids.length ? ['case', ['in', ['get', 'id'], ['literal', [...ids]]], RESTING_OPACITY, 1] : 1;
+  for (const [layer, property] of RESTING) map.setPaintProperty(layer, property, shows);
 }
 
 export function setDepotLand(map: MapLibreMap, rings: readonly (readonly LngLatPair[])[]): void {

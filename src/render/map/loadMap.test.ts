@@ -2,7 +2,9 @@
 // layer change before its style has loaded or while it has none (the context lost).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { City } from '../../cities';
+import { DAYLIGHT_FADE_MS, dim, NIGHT_STEP } from './daylight';
 import { BUILDINGS_2D, BUILDINGS_3D } from './tilt';
+import { LIGHT } from './tokens';
 
 const fake = vi.hoisted(() => {
   type Listener = (event: unknown) => void;
@@ -38,6 +40,7 @@ const fake = vi.hoisted(() => {
     style: object | null = {};
     styleLoaded = false;
     readonly layout = new Map<string, unknown>();
+    readonly paint = new Map<string, unknown>();
     readonly layers: string[] = [];
     readonly camera = { pitch: 0, bearing: 0, zoom: 14 };
     readonly touchZoomRotate = { enableRotation: () => {}, disableRotation: () => {} };
@@ -55,8 +58,9 @@ const fake = vi.hoisted(() => {
       this.loadedStyle();
       this.layout.set(`${id}.${name}`, value);
     }
-    setPaintProperty() {
+    setPaintProperty(id: string, name: string, value: unknown) {
       this.loadedStyle();
+      this.paint.set(`${id}.${name}`, value);
     }
     addSource() {
       this.loadedStyle();
@@ -68,6 +72,10 @@ const fake = vi.hoisted(() => {
     getSource() {
       this.loadedStyle();
       return { setData: () => {} };
+    }
+    getLayer() {
+      this.loadedStyle();
+      return {};
     }
     easeTo(to: { pitch?: number; bearing?: number }) {
       Object.assign(this.camera, to);
@@ -184,5 +192,60 @@ describe('the graphics taken away and given back', () => {
     expect(map.layers.filter((id) => id === 'vehicles')).toHaveLength(2);
     expect(map.layout.get(`${BUILDINGS_3D}.visibility`)).toBe('visible');
     expect(map.layout.get('dots-homes.visibility')).toBe('none');
+  });
+});
+
+describe('the day and night tint', () => {
+  // daylight.ts: the light waits for the style, comes at once as the style loads or comes back after a loss, and fades a step
+  // at a time as the sim's clock reaches it, set only when the step changes (RN-04).
+  it('waits for the style, comes at once as it loads, fades a step as the clock reaches it, and comes back with the graphics', async () => {
+    const { mounted: board, map } = await mounted();
+    const background = () => map.paint.get('background.background-color');
+    const fade = () => map.paint.get('background.background-color-transition');
+    board.setClock(22 * 3_600, 0, 2); // night, before the style has loaded: nothing reaches it
+    map.styleLoaded = true;
+    map.fire('load');
+    expect(background()).toBe(dim(LIGHT.void, NIGHT_STEP));
+    expect(fade()).toEqual({ duration: 0, delay: 0 });
+
+    (window as unknown as { matchMedia: () => { matches: boolean } }).matchMedia = () => ({ matches: false });
+    map.paint.clear();
+    board.setClock(23 * 3_600, 600, 2); // the same step: nothing set
+    expect(map.paint.size).toBe(0);
+    board.setClock(5 * 3_600, 600, 3); // dawn's first step, faded by MapLibre
+    expect(background()).toBe(dim(LIGHT.void, NIGHT_STEP - 1));
+    expect(fade()).toEqual({ duration: DAYLIGHT_FADE_MS, delay: 0 });
+    // The words the game draws in the labels' inks dim with the map.
+    expect(map.paint.get('lines-name.text-halo-color')).toBe(dim(LIGHT.labelHalo, NIGHT_STEP - 1));
+
+    // The graphics taken away as the clock reaches day: given back, day comes at once.
+    map.style = null;
+    map.styleLoaded = false;
+    map.fire('webglcontextlost');
+    board.setClock(12 * 3_600, 600, 3);
+    map.style = {};
+    map.fire('webglcontextrestored');
+    map.styleLoaded = true;
+    map.fire('style.load');
+    await swapped();
+    expect(background()).toBe(LIGHT.void);
+    expect(fade()).toEqual({ duration: 0, delay: 0 });
+  });
+
+  it('fades the lines with overnight off from 00:00 to 05:00, set as the lines resting change', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number, overnight: number | null) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [], headways: { peak: 900, offpeak: 1_200, overnight }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1, null), line(2, 3_600)] as never, []);
+    board.setClock(23 * 3_600, 600, 2);
+    expect(map.paint.has('lines-route.line-opacity')).toBe(false);
+    board.setClock(0, 600, 3);
+    expect(map.paint.get('lines-route.line-opacity')).toEqual(['case', ['in', ['get', 'id'], ['literal', [1]]], 0.35, 1]);
+    map.paint.clear();
+    board.setClock(3 * 3_600, 600, 3);
+    expect(map.paint.has('lines-route.line-opacity')).toBe(false);
+    board.setClock(5 * 3_600, 600, 3);
+    expect(map.paint.get('lines-route.line-opacity')).toBe(1);
   });
 });

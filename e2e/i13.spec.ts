@@ -447,7 +447,9 @@ test.describe('the screen budget (I13)', () => {
       await page.getByRole('button', { name: 'Pause' }).click();
       await setFare(page, 'Line 1', '$2.50');
       await expect(page.getByTestId('undo')).toHaveText('Undo: Line 1’s fare');
-      await expect(page.getByTestId('date')).toContainText('Year 10');
+      // The clock and its period's name on the row, the year in its title (D13).
+      await expect(page.getByTestId('date')).toHaveText(/^Q1 Day 1, \d\d:\d\d (Peak|Off-peak|Overnight)$/);
+      await expect(page.getByTestId('date')).toHaveAttribute('title', 'Year 10, Q1, Day 1');
       await page.getByTestId('date').hover();
       await expect(page.getByTestId('notice')).toHaveCount(0, { timeout: 15_000 });
       const top = page.getByTestId('sim-panel');

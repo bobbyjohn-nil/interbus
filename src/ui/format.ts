@@ -5,6 +5,7 @@ import { contractMet, HEADWAY_HAIR_S } from '../sim/rules/contract';
 import { BRONZE_OVERALL, GOLD_GRADE_MIN, GOLD_OVERALL, GOLD_TRIPS_PER_DAY, SILVER_TRIPS, type MedalId } from '../sim/rules/medal';
 import { SPEED_RATES } from '../sim/rules/speed';
 import type { RowGroup, RowKind } from '../sim/rules/money';
+import type { Period } from '../sim/rules/periods';
 import type { Speed } from '../sim/types';
 
 /** "$313,200" for whole-dollar chips; "$1,234.56" with `cents`. */
@@ -80,6 +81,9 @@ export function clockText(hour: number, minute: number, rate: number): string {
   if (rate <= 60) return clock(hour, minute);
   return clock(hour, rate <= 600 ? minute - (minute % 10) : 0);
 }
+
+/** D7's periods as the clock chip names them (D13: the time of day never rests on the map's tint). */
+export const PERIOD_NAMES: Readonly<Record<Period, string>> = { peak: 'Peak', offpeak: 'Off-peak', overnight: 'Overnight' };
 
 /** "Year 1, Q2, Day 4": a game day (from 1, since founding) as the calendar reads it, eight days to a quarter (D25). */
 export function dateText(day: number): string {

@@ -23,7 +23,9 @@ test.describe('time and the speed menu', () => {
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
     const panel = page.getByTestId('sim-panel');
-    await expect(page.getByTestId('date')).toHaveText(/^Year 1, Q1 Day 1, 05:00$/);
+    // The clock names its period (D13); the year is in the title, as the chip row had no room for both (I13).
+    await expect(page.getByTestId('date')).toHaveText(/^Q1 Day 1, 05:00 Off-peak$/);
+    await expect(page.getByTestId('date')).toHaveAttribute('title', 'Year 1, Q1, Day 1');
 
     // The menu: five speeds, each with what it means, in the game's own dropdown.
     await page.getByTestId('speed-menu').click();
