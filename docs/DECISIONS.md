@@ -444,10 +444,11 @@ Filled in as they are measured, with the date and the commit, each by a committe
 
 **Measured**
 - **2026-10-23** (`e2e/daylight.spec.ts`, `e2e/demand.spec.ts`, `e2e/tilt.spec.ts`, `src/render/map/daylight.test.ts`, `src/render/map/loadMap.test.ts`, `src/ui/format.test.ts`, `src/worker/host.test.ts`; on `main` b64e69f): **the systems audit's twelfth round, its second lane: the first hour on the shipped build** (D26; the first lane's entry is below). It played the code merged since the tenth round (#166 to #171, with #165's stamp) for the first hour on Inner Boston at 9d1ac88, as P1 will, and found 5 bugs, 4 minor and a nit, each reproduced 3 runs of 3. Three of them (the dots, the buildings and Export's name) come from code older than #165. No format change.
-  - **Two lines resting on a street they share** (minor; `src/render/map/overlays.ts`, RESTING). Each resting copy laid its lines at RESTING_OPACITY over the streets, so two resting on a street they share blended, the later over the earlier. On Huntington Avenue at 02:00, Line 2's green over Line 1's blue drew (96, 146, 133): 0.058 in OKLab from Line 2's own faded colour, (129, 159, 134), and about as far as Line 1's (0.056). Every new line rests at night, overnight off.
+  - **Two lines resting on a street they share** (minor; `src/render/map/overlays.ts`, RESTING). Each resting copy laid its lines at RESTING_OPACITY over the streets, so two resting on a street they share blended, the later over the earlier. On Huntington Avenue at 02:00, Line 2's green over Line 1's blue drew (96, 146, 133): 0.058 in OKLab from Line 2's own faded colour, (129, 159, 134), and 0.070 from Line 1's. Every new line rests at night, overnight off.
     - **The fix.** The route's and the stops' copies are opaque now: each colour is RESTING_OPACITY of the line's own over the resting ground, so the later line hides the earlier, as by day, on a street and at a stop. The names and the flags, which never lie over one another, keep their opacity.
-    - **The ground** is the streets' colour at the darkest step (`restingGround`, #bcbfcf in the light theme). It is a game token, the same at every step, so the light's steps lay out nothing for it. At dawn, while a line still rests, the map mixes the copies with the step's streets instead (`loadMap.ts`, showGround), at most three times a night. A colour of each feature's, set anew, lays out the lines' source again and takes no fade, so for the 1.5 s of a dawn step's fade the resting line is a step ahead of the streets around it.
-    - **One line resting alone** looks as before on a minor street. On an arterial, mixed with the minor streets' night colour and not the arterial's, it is (133, 170, 160) where it was (129, 159, 134).
+    - **The ground** is the main roads' colour at the darkest step, the roads lines run on (`restingGround`: #b6aea7 in the warm set, #baa183 in V1's paper, each its arterials' at night). It is a game token, the same at every step, so the light's steps lay out nothing for it. At dawn, while a line still rests, the map mixes the copies with the step's main roads instead (`loadMap.ts`, showGround), at most four times a night: at 03:30, 04:00 and 04:30, and back at 05:00 with the filters that wake the lines. A colour of each feature's, set anew, lays out the lines' source again and takes no fade, so for the 1.5 s of a dawn step's fade the resting line is a step ahead of the roads around it.
+    - **One line resting alone** on a main road looks as it did laid over it: Line 2's green is (129, 159, 134) there. On a minor street it stands farther from the street than before. The nearest of the eight colours is 0.135 in OKLab from it, where laid over it the nearest was 0.097.
+    - **The stops** of a resting line lie under the running lines' routes, and under the lines' names.
     - **Not taken: MapLibre 6.11.2's `line-layer-opacity`.** It fades a layer whole, drawn offscreen and then laid over the map, and it drew Line 2's own (129, 159, 134) on all 100 of the box's line pixels. But three things ruled it out:
       - its compositing program linked at the first rest, in 181 ms on software GL, and the night's test forbids any link;
       - it ran its offscreen pass at every frame while under 1;
@@ -477,6 +478,22 @@ Filled in as they are measured, with the date and the commit, each by a committe
     - I13 at rest 4.36–5.70% through the first hour and 3.81–5.96% on the late game at 02:00 at three sizes, and 8.1–24.9% with a panel at 1152×720;
     - every command at or under I14's 150 ms;
     - the saves, Help, Credits, `?light=paper` and the first hour by keyboard.
+  - **Its review** found 2 minor issues and 6 nits, all fixed:
+    - **Fainter on the main roads** (minor). Mixed with the minor streets' night colour, a resting line came nearer the main roads, where lines run. The Amber line stood 0.037 in OKLab from a main road at night, half the 0.074 it stood laid over it, and 0.014 in V1's paper. Mixed with the arterials' now, the nearest pair is as near as it was laid over them, at every step it rests and in both sets (`daylight.test.ts` holds it), and every other street is farther.
+    - **Stops over running routes** (minor). Opaque, a resting line's stop covered a running line's route where it passed it: at Symphony, 63 of 64 px were the resting fill and none Line 1's blue. The stops now lie under the running routes.
+    - **I 93** stayed as OpenStreetMap writes it. Buses may drive its 7 motorway edges, and the convention lets a single capital pass. It is I-93 now. The names' sources are now cited: the articles Massachusetts Route 2A (https://en.wikipedia.org/wiki/Massachusetts_Route_2A) and U.S. Route 1 in Massachusetts (https://en.wikipedia.org/wiki/U.S._Route_1_in_Massachusetts), which writes I-93 with its hyphen. Both were found by web search and checked 2026-10-23; the pages themselves did not load from the session's network.
+    - **Nits:**
+      - the dawn mixes come four times a night at most, not three;
+      - a test's count of straight apostrophes, 18 and not 19;
+      - a doc comment orphaned above `fileDate`;
+      - the resting ground is now tested for each set, as the night's of the roads the map mixes with at dawn;
+      - the blend's distance from Line 1's faded colour, 0.070 and not 0.056.
+    - **Seen and left:** five busway edges keep names that name existing transit, such as "Ruggles - Lower Busway (Lane A)" (D17). That is for the bake (STATUS, Open from the audit).
+
+    With each fix taken out, its tests fail:
+    - with the minor streets' ground, the contrast test, the ground's test for each set and the dawn's;
+    - with the stops' copy over the running routes, the layers' order;
+    - without the interstate rule, the street names' test.
   - **Tests** (TS-04):
     - With `main`'s map code: the two lines on Huntington Avenue drew no pixel of Line 2's own faded colour, a player's page counted 649 dots, and a tilt counted the buildings.
     - With the dots counted at every frame, 13 counts came in ten frames, where the test allows 1.

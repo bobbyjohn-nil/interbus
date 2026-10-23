@@ -8,7 +8,7 @@ import { hexToOklch } from './oklch';
 import { overlayLayers, restingColour, restingLines, RESTING_OPACITY, restingStops, setResting, setRestingGround } from './overlays';
 import { buildStyle, MASK_LAYERS } from './style';
 import { blend, contrast, distance } from './testing';
-import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
+import { GAME_LIGHT, LIGHT, PAPER, WARM, type MapTokens } from './tokens';
 
 const EXTENT: Bbox = [-71.16, 42.315, -70.98, 42.405];
 const styleOf = (tokens: MapTokens) => buildStyle({ tilesUrl: 'pmtiles://cities/boston.pmtiles', assetBase: 'https://example.test/interbus/', tokens, extent: EXTENT });
@@ -239,7 +239,9 @@ describe('a line resting while it runs no service (D13)', () => {
       const layer = layers.find((l) => l.id === id) as { paint?: Record<string, unknown>; layout?: unknown; type: string };
       const copy = layers.find((l) => l.id === `${id}-resting`) as typeof layer | undefined;
       expect(copy, `${id} has a faded copy`).toBeDefined();
-      expect(ids.indexOf(`${id}-resting`), `${id}'s copy is just under it`).toBe(ids.indexOf(id) - 1);
+      // Just under it, but a resting line's route and stops both under the running routes (the review of the second lane).
+      const under = id === 'lines-route' ? ids.indexOf(id) - 2 : id === 'lines-stops' ? ids.indexOf('lines-route') - 1 : ids.indexOf(id) - 1;
+      expect(ids.indexOf(`${id}-resting`), `${id}'s copy is just under it`).toBe(under);
       expect(copy!.type).toBe(layer.type);
       expect(copy!.layout).toEqual(layer.layout);
       // The same for every feature but the line's own colour, as the layer's, so the copy draws with the layer's own program.
@@ -264,8 +266,8 @@ describe('a line resting while it runs no service (D13)', () => {
     for (const id of ['lines-route-resting', 'lines-stops-resting']) {
       for (const [property, value] of Object.entries(paint(id))) if (property.endsWith('-opacity')) expect(value, `${id} ${property}`).toBe(1);
     }
-    // The ground is the streets at the darkest step, so a line resting alone looks as it did laid over them.
-    expect(GAME_LIGHT.restingGround).toBe(dim(LIGHT.street, NIGHT_STEP));
+    // The ground is the main roads at the darkest step, so a line resting alone on one looks as it did laid over it.
+    expect(GAME_LIGHT.restingGround).toBe(dim(LIGHT.arterial, NIGHT_STEP));
     const colourOf = (expression: unknown, colour: string) => {
       const made = createExpression(expression as never, 'paint.line-color' as never);
       if (made.result !== 'success') throw new Error(made.value.map((e) => e.message).join('; '));
@@ -283,9 +285,23 @@ describe('a line resting while it runs no service (D13)', () => {
     expect(steps.filter((p) => p.layer.endsWith('-resting') && !p.layer.startsWith('lines-name'))).toEqual([]);
     // And mixed with another ground on asking (setRestingGround): the route's colour and the stops' two, nothing else.
     const set: [string, string, unknown][] = [];
-    setRestingGround({ setPaintProperty: (layer: string, property: string, value: unknown) => void set.push([layer, property, value]) } as never, GAME_LIGHT, LIGHT, dim(LIGHT.street, 1));
+    setRestingGround({ setPaintProperty: (layer: string, property: string, value: unknown) => void set.push([layer, property, value]) } as never, GAME_LIGHT, LIGHT, dim(LIGHT.arterial, 1));
     expect(set.map(([layer, property]) => `${layer} ${property}`)).toEqual(['lines-route-resting line-color', 'lines-stops-resting circle-color', 'lines-stops-resting circle-stroke-color']);
-    expect(colourOf(set[0]![2], LINE_COLOURS[2]!)).toBe(blend(LINE_COLOURS[2]!, RESTING_OPACITY, dim(LIGHT.street, 1)));
+    expect(colourOf(set[0]![2], LINE_COLOURS[2]!)).toBe(blend(LINE_COLOURS[2]!, RESTING_OPACITY, dim(LIGHT.arterial, 1)));
+  });
+
+  // The review of the twelfth round's second lane: mixed with the minor streets' night colour, the Amber line resting on a main
+  // road came to 0.037 in OKLab from it, half the 0.074 it stood laid over it, and in V1's paper 0.014. Mixed with the main roads'
+  // as the map mixes it at each step it rests, the nearest is as near as laid over them, and every other street farther.
+  it.each([['the warm-neutral set', WARM], ['V1’s paper', PAPER]] as const)('keeps a resting line as clear of the roads it runs on as it stood laid over them, in %s', (_, theme) => {
+    const roads = ['street', 'arterial', 'secondary', 'tertiary'] as const;
+    for (const step of [NIGHT_STEP, 3, 2, 1]) {
+      const ground = step === NIGHT_STEP ? theme.game.restingGround : dim(theme.map.arterial, step);
+      const base = dimmed(theme.map, step);
+      const nearest = (under: (colour: string, road: string) => string) => Math.min(...LINE_COLOURS.flatMap((c) => roads.map((r) => distance(under(c, base[r]), base[r]))));
+      const laid = nearest((c, road) => blend(c, RESTING_OPACITY, road));
+      expect(nearest((c) => blend(c, RESTING_OPACITY, ground)), `step ${step}`).toBeCloseTo(laid, 3);
+    }
   });
 
   it('moves its features, and the flags of the stops only it calls at, into the copies by their filters alone', () => {

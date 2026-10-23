@@ -71,8 +71,9 @@ describe('number copy', () => {
 
 // The systems audit's twelfth round: the city's street names are OpenStreetMap's, and 25 of Inner Boston's 3,535 broke the copy
 // convention in the game's own sentences (D25): "Roadworks on Monsignor O'Brien Highway tomorrow, for 4 days" on the day card, and
-// "roadworks on Monsignor O'Brien Highway add 1 min 1 s" on the line card. 19 had a straight apostrophe, 6 were a route's number
-// in capitals (MA 2A, US 1), and one a street's initials (RC Kelley Street).
+// "roadworks on Monsignor O'Brien Highway add 1 min 1 s" on the line card. 18 had a straight apostrophe, 6 were a route's number
+// in capitals (MA 2A, US 1), and one a street's initials (RC Kelley Street). Its review: 7 motorway edges named I 93, which buses
+// may drive, and the convention lets a single capital pass.
 describe('a street’s name in the game’s sentences', () => {
   // The day card's notices take the event's street as the sim names it; the line card's words typeset it as LineCard.tsx does.
   const sentences = (street: string) => [
@@ -82,11 +83,12 @@ describe('a street’s name in the game’s sentences', () => {
     `Round trip 15 min at peak, 13 min off-peak · roadworks on ${streetName(street)} add 1 min 1 s`,
   ];
 
-  it('takes a curly apostrophe, and a route’s number as Boston says it', () => {
+  it('takes a curly apostrophe, and a route’s number as Massachusetts names it', () => {
     expect(streetName("Monsignor O'Brien Highway")).toBe('Monsignor O’Brien Highway');
     expect(streetName("Saint John's Road Extension")).toBe('Saint John’s Road Extension');
     expect(streetName('MA 2A')).toBe('Route 2A');
     expect(streetName('US 1')).toBe('Route 1');
+    expect(streetName('I 93')).toBe('I-93');
     expect(streetName('Massachusetts Avenue')).toBe('Massachusetts Avenue');
     for (const street of ["Monsignor O'Brien Highway", 'MA 2A', 'US 1', 'RC Kelley Street']) {
       for (const text of sentences(street)) expect(copyProblem(text), text).toBeNull();

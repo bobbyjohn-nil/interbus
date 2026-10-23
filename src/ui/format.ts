@@ -184,12 +184,15 @@ export function moreBuses(n: number, model: string): string {
 
 /**
  * A street's name as the game's sentences give it, after D25's copy convention: OpenStreetMap's, as the bake keeps it, with a
- * curly apostrophe for its straight one (Monsignor O’Brien Highway), and a state or US route's number as Boston says it (MA 2A
- * is Route 2A, US 1 is Route 1). Inner Boston's 3,535 names held 25 that broke the convention (the systems audit's twelfth round).
+ * curly apostrophe for its straight one (Monsignor O’Brien Highway), a state or US route's number as Massachusetts names it (MA
+ * 2A is Route 2A, US 1 is Route 1) and an interstate's with its hyphen (I-93; DECISIONS, Measured, 2026-10-23). Inner Boston's
+ * 3,535 names held 25 that broke the convention (the systems audit's twelfth round), and 7 edges named I 93.
  */
 export function streetName(name: string): string {
   const route = /^(?:US|MA) (\d+[A-Z]?)$/.exec(name);
-  return route ? `Route ${route[1]}` : name.replace(/'/g, '’');
+  if (route) return `Route ${route[1]}`;
+  const interstate = /^I (\d+)$/.exec(name);
+  return interstate ? `I-${interstate[1]}` : name.replace(/'/g, '’');
 }
 
 /** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */

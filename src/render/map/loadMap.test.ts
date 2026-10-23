@@ -263,12 +263,12 @@ describe('the day and night tint', () => {
     board.setClock(3 * 3_600, 600, 3);
     expect(map.filters.size).toBe(0);
     expect([...map.paint.keys()]).toEqual([]);
-    // At dawn, while it rests, its route and stops are mixed with the streets at the step shown, as the base lightens (the systems
-    // audit's twelfth round: opaque, mixed with the streets at night): once a step, and back to the night's as it wakes at 05:00.
+    // At dawn, while it rests, its route and stops are mixed with the main roads at the step shown, as the base lightens (the
+    // systems audit's twelfth round: opaque, mixed with them at night): once a step, and back to the night's as it wakes at 05:00.
     const mixed = () => [...map.paint.keys()].filter((k) => /^lines-(route|stops)-resting\./.test(k)).sort();
     board.setClock(4 * 3_600 + 40 * 60, 600, 3);
     expect(mixed()).toEqual(['lines-route-resting.line-color', 'lines-stops-resting.circle-color', 'lines-stops-resting.circle-stroke-color']);
-    expect(map.paint.get('lines-stops-resting.circle-color')).toBe(restingColour(GAME_LIGHT.stopFill, dim(LIGHT.street, 1)));
+    expect(map.paint.get('lines-stops-resting.circle-color')).toBe(restingColour(GAME_LIGHT.stopFill, dim(LIGHT.arterial, 1)));
     map.paint.clear();
     board.setClock(4 * 3_600 + 50 * 60, 600, 3);
     expect(mixed()).toEqual([]);

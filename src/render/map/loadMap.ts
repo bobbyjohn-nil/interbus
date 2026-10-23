@@ -383,11 +383,11 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let stopsNow: readonly StopView[] = [];
   let restingShown = '|';
   let restingNow: readonly number[] = [];
-  // What the resting lines' routes and stops are mixed with (overlays.ts): their streets at night, as the style holds them, and at
-  // dawn, while a line still rests, the streets at the step shown, as the base lightens toward 05:00; set only as it changes.
+  // What the resting lines' routes and stops are mixed with (overlays.ts): the main roads at night, as the style holds them, and at
+  // dawn, while a line still rests, the main roads at the step shown, as the base lightens toward 05:00; set only as it changes.
   let groundShown = theme.game.restingGround;
   const showGround = () => {
-    const ground = restingNow.length > 0 && light > 0 && light < NIGHT_STEP ? dim(theme.map.street, light) : theme.game.restingGround;
+    const ground = restingNow.length > 0 && light > 0 && light < NIGHT_STEP ? dim(theme.map.arterial, light) : theme.game.restingGround;
     if (!loaded || ground === groundShown) return;
     setRestingGround(map, theme.game, theme.map, ground);
     groundShown = ground;

@@ -114,7 +114,6 @@ const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set([
   'undo',
 ]);
 
-/** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points, routed by `drive` (the router's own by default). */
 /**
  * An exported file's date, as the game's clock gives it: Year 2, Q1, Day 8 is `year-2-q1-day-8`. The days since founding the file
  * took its name from (day 40 there) are shown nowhere in the game (the systems audit's twelfth round).
@@ -124,6 +123,7 @@ export function fileDate(elapsed: number): string {
   return `year-${t.year}-q${t.quarter}-day-${t.dayOfQuarter}`;
 }
 
+/** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points, routed by `drive` (the router's own by default). */
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[], drive = (a: number, b: number): Path | null => world.router.route(a, b)): void {
   const { city } = world;
   const path = from === null || to === null ? null : drive(from, to);

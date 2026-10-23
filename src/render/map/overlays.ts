@@ -84,25 +84,14 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-pitch-alignment': 'map',
     },
   });
-  addResting(map, ground, {
+  const route: LayerSpecification = {
     id: 'lines-route',
     type: 'line',
     source: LINES,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 16, 7] },
-  });
-  // Each line's name along its route where it has room, in the labels' ink, beside its colour (PLAN §8: shape plus colour):
-  // under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two pairs are
-  // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street one name shows (7 of the late game's
-  // 18 in its opening view), and a click there lists them all. Under the stops and their flags, which it never covers.
-  addResting(map, ground, {
-    id: 'lines-name',
-    type: 'symbol',
-    source: LINES,
-    layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
-    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
-  });
-  addResting(map, ground, {
+  };
+  const stops: LayerSpecification = {
     id: 'lines-stops',
     type: 'circle',
     source: LINES,
@@ -112,7 +101,25 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-stroke-width': 3,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8],
     },
+  };
+  // A resting line's route and then its stops under every running line's route (round 11): opaque, its stops covered a running
+  // line's route where it passed them (the review of the twelfth round's second lane).
+  addCopy(map, ground, route);
+  addCopy(map, ground, stops);
+  addRunning(map, route);
+  // Each line's name along its route where it has room, in the labels' ink, beside its colour (PLAN §8: shape plus colour):
+  // under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two pairs are
+  // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street one name shows (7 of the late game's
+  // 18 in its opening view), and a click there lists them all. Under the running lines' stops and the flags, which it never
+  // covers; over the resting lines' stops, which lie under the running routes.
+  addResting(map, ground, {
+    id: 'lines-name',
+    type: 'symbol',
+    source: LINES,
+    layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
+    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
   });
+  addRunning(map, stops);
   // A stop placed on its own (D25): ringed in the draft's ink, as a line not yet running is, until a line calls there.
   map.addLayer({
     id: 'stops-lone',
@@ -246,19 +253,31 @@ function restingFilter(r: (typeof RESTING)[number], ids: readonly number[], rest
   return ['all', ['==', ['get', 'kind'], r.kind], rests ? named : ['!', named]];
 }
 
-/** Adds `layer` (one of RESTING's) and, just under it, its faded copy on `ground`, both as no line rests. */
-function addResting(map: MapLibreMap, ground: string, layer: LayerSpecification): void {
+/** Adds the faded copy of `layer` (one of RESTING's) on `ground`, as no line rests. */
+function addCopy(map: MapLibreMap, ground: string, layer: LayerSpecification): void {
   const r = RESTING.find((x) => x.layer === layer.id)!;
   const own = (layer as { paint?: Record<string, unknown> }).paint ?? {};
   const paint = { ...own, ...Object.fromEntries(r.fades.map((p) => [p, RESTING_OPACITY])), ...Object.fromEntries(r.mixes.map((p) => [p, restingColour(own[p], ground)])) };
   map.addLayer({ ...layer, id: `${layer.id}-resting`, filter: restingFilter(r, [], true), paint } as LayerSpecification);
+}
+
+/** Adds `layer` (one of RESTING's) itself, which holds every line's features as no line rests. */
+function addRunning(map: MapLibreMap, layer: LayerSpecification): void {
+  const r = RESTING.find((x) => x.layer === layer.id)!;
   map.addLayer({ ...layer, filter: restingFilter(r, [], false) } as LayerSpecification);
 }
 
+/** Adds `layer` (one of RESTING's) and, just under it, its faded copy on `ground`, both as no line rests. */
+function addResting(map: MapLibreMap, ground: string, layer: LayerSpecification): void {
+  addCopy(map, ground, layer);
+  addRunning(map, layer);
+}
+
 /**
- * Mixes the resting copies' route and stops with `ground` instead (addOverlays): the streets at the step shown while a line rests
- * at dawn, as the base lightens toward 05:00. A colour of each feature's set anew lays out the lines' source again, so the map sets
- * it only as it changes, three times a night at most (loadMap.ts).
+ * Mixes the resting copies' route and stops with `ground` instead (addOverlays): the main roads at the step shown while a line
+ * rests at dawn, as the base lightens toward 05:00. A colour of each feature's set anew lays out the lines' source again, so the
+ * map sets it only as it changes, four times a night at most: at 03:30, 04:00 and 04:30, and back as the lines wake at 05:00, with
+ * the filters that wake them (loadMap.ts).
  */
 export function setRestingGround(map: Pick<MapLibreMap, 'setPaintProperty'>, t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>, ground: string): void {
   const layers = overlayLayers(t, base, 0, ground);

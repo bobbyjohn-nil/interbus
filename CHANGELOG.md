@@ -280,9 +280,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - While the game loads under the splash, the keyboard reaches nothing hidden under it either: T no longer tilts the map, the arrows no longer move it, and ? no longer opens Help, all unseen, also where ? is typed with AltGr. Tab and Shift+Tab go round what is drawn over the splash alone: the map's credits, and the card that says this build of the game was replaced, with its Reload. A key there is the link's or the button's alone, so ? on the credits no longer opens Help under the splash.
 - A name typed into the founding card as the splash's bus pulls away is kept: a click on New game, already uncovered, opened the card, but the keys typed into it were lost until the splash had gone.
 - Pressing ? while a new game is on its way no longer leaves Help open beside the founding card.
-- Two lines resting overnight on a street or at a stop they share no longer blend into a color that is neither's: the line drawn on top by day shows there, faded, and hides the other, as it does by day. A resting line is now drawn in its own color washed out with the streets' night color, and at dawn with the streets as they lighten.
+- Two lines resting overnight on a street or at a stop they share no longer blend into a color that is neither's: the line drawn on top by day shows there, faded, and hides the other, as it does by day. A resting line is now drawn in its own color washed out with the main roads' night color, and at dawn with theirs as they lighten, and its stops lie under the lines still running.
 - Time runs more smoothly on the map: it no longer counts the demand dots it draws after every frame while the buses move (15 to 17 ms each time on Boston), nor the buildings in view after each tilt (up to about a fifth of a second).
-- Street names in the day card's roadworks and festival news, and on a line's card, read as Boston writes them: Monsignor O’Brien Highway with a curly apostrophe, and Route 2A and Route 1 where the map's data says MA 2A and US 1.
+- Street names in the day card's roadworks and festival news, and on a line's card, are written properly: Monsignor O’Brien Highway with a curly apostrophe, Route 2A and Route 1 where the map's data says MA 2A and US 1, and I-93 for I 93.
 
 ### Removed
 
