@@ -540,7 +540,12 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS, 'lines-name', ...RESTING_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
-    const lineIds = [...new Set(hits.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
+    // The running lines first, then the resting ones, each as MapLibre lists them, topmost first: a resting line's faded name lies
+    // over the running routes, and a click on it listed the resting line ahead (the systems audit's thirteenth round). The stop is
+    // still the topmost one under the click.
+    const resting = (h: (typeof hits)[number]) => (RESTING_LAYERS as readonly string[]).includes(h.layer.id);
+    const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
+    const lineIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
     click?.([e.lngLat.lng, e.lngLat.lat], { lineId: lineIds[0] ?? null, lineIds, stopId: numberOf(stop?.properties?.stop), double });
   });
 
