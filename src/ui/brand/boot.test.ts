@@ -9,10 +9,11 @@ import { endBoot, WIPE_MS, type BootEnv } from './boot';
 function page(over: Partial<BootEnv> = {}) {
   const classes = new Set<string>();
   const timers: { run: () => void; ms: number }[] = [];
-  const state = { gone: false, asked: 0 };
+  const state = { gone: false, asked: 0, hidden: null as string | null };
   const boot = {
     classList: { contains: (c: string) => classes.has(c), add: (c: string) => void classes.add(c) } as unknown as DOMTokenList,
     remove: () => void (state.gone = true),
+    setAttribute: (name: string, value: string) => void (name === 'aria-hidden' && (state.hidden = value)),
   };
   const env: BootEnv = {
     boot,
@@ -25,10 +26,11 @@ function page(over: Partial<BootEnv> = {}) {
 }
 
 describe('the boot splash’s end', () => {
-  it('the first time in a tab, its bus tows it away, and it goes a little past the wipe', () => {
+  it('the first time in a tab, its bus tows it away, saying nothing more, and it goes a little past the wipe', () => {
     const p = page();
     endBoot(p.env);
     expect(p.classes.has('leaving')).toBe(true);
+    expect(p.state.hidden).toBe('true');
     expect(p.state.gone).toBe(false);
     expect(p.timers.map((t) => t.ms)).toEqual([WIPE_MS + 150]);
     p.timers[0]!.run();

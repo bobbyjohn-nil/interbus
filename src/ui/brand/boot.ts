@@ -9,7 +9,7 @@ export const WIPE_MS = 2400;
 /** What ending the splash reads and does, the page's own by default, so a test can hand it its own. */
 export interface BootEnv {
   /** The splash, or null once it has gone, or on a page with none. */
-  readonly boot: Pick<Element, 'classList' | 'remove'> | null;
+  readonly boot: Pick<Element, 'classList' | 'remove' | 'setAttribute'> | null;
   /** Whether the player asked for less motion. */
   readonly still: boolean;
   /** Whether this is the first time in the tab, which counts it (the platform's firstInTab). */
@@ -27,7 +27,11 @@ function pageBoot(): BootEnv {
   };
 }
 
-/** Ends the splash: towed away by its bus, gone a little past the wipe, or gone at once. Called again, it does nothing more. */
+/**
+ * Ends the splash: towed away by its bus, gone a little past the wipe, or gone at once. Towed, it says nothing more to a screen
+ * reader or axe-core, as the game it waited for stands under it: its words outside the page's landmarks were axe-core's
+ * "region" on a screen tested as the wipe ran (e2e/many.spec.ts, #161's CI). Called again, it does nothing more.
+ */
 export function endBoot(env: BootEnv = pageBoot()): void {
   const { boot } = env;
   if (!boot || boot.classList.contains('leaving')) return;
@@ -35,6 +39,7 @@ export function endBoot(env: BootEnv = pageBoot()): void {
     boot.remove();
     return;
   }
+  boot.setAttribute('aria-hidden', 'true');
   boot.classList.add('leaving');
   env.later(() => boot.remove(), WIPE_MS + 150);
 }

@@ -9,17 +9,20 @@ import { smallThings } from './a11y';
 
 const CHATTER = [...readFileSync('index.html', 'utf8').matchAll(/^\s*'([^']+…)',$/gm)].map((m) => m[1]!);
 
-/** Records, in the page, whether the splash was ever told to leave by its bus. */
+/** Records, in the page, whether the splash was ever told to leave by its bus, and whether it said nothing more to a screen
+ * reader as it began: its words outside the page's landmarks were axe-core's "region" as the wipe ran (#161's CI). */
 async function watchTow(page: Page) {
   await page.addInitScript(() => {
-    const w = window as unknown as { towed: boolean };
-    w.towed = false;
+    const w = window as unknown as { towed: boolean; unsaid: boolean };
+    w.towed = w.unsaid = false;
     new MutationObserver(() => {
-      if (document.querySelector('#boot.leaving')) w.towed = true;
+      const boot = document.querySelector('#boot.leaving');
+      if (boot && !w.towed) [w.towed, w.unsaid] = [true, boot.getAttribute('aria-hidden') === 'true'];
     }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
   });
 }
 const towed = (page: Page) => page.evaluate(() => (window as unknown as { towed: boolean }).towed);
+const unsaid = (page: Page) => page.evaluate(() => (window as unknown as { unsaid: boolean }).unsaid);
 
 /** Holds the game's own code back a second and a half, as a slow connection would, until `release` is called. */
 async function holdGame(page: Page): Promise<{ release: () => void }> {
@@ -50,6 +53,7 @@ test.describe('the boot splash', () => {
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
     await expect(boot).toHaveCount(0, { timeout: 5_000 });
     expect(await towed(page)).toBe(true);
+    expect(await unsaid(page)).toBe(true);
 
     // Later in the tab it goes at once.
     game.release();
