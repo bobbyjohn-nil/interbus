@@ -78,12 +78,9 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
       {/* The menu comes after Build in the page, so Tab goes from Build through its tools in order, and
           the focus leaving for another control (Tab past the last, Shift+Tab from Build) closes it, as
           Tab closes a dropdown's list. */}
-      {/* Open, the menu and Build keep the game's keys, as the lists and the demand menu do (KEEPS_KEYS): T tilted the map behind
-          it and 2 picked 60×, from a tool and from Build, where its Enter and Chrome's press leave the focus (round 11). */}
       <div
         className="build"
         ref={build}
-        data-keeps-keys={open ? '' : undefined}
         onBlur={(event) => {
           if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
         }}
@@ -97,7 +94,10 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
           Build
         </button>
         {open ? (
-          <div className="build-menu" role="group" aria-label="Build" data-testid="build-menu" data-chrome="panel">
+          // The keyboard on its tools keeps the game's keys, as the lists and the demand menu do (KEEPS_KEYS): T tilted the map behind
+          // it and 2 picked 60× (round 11). Not on Build, where its Enter and a press in Chrome leave the focus: a press in Safari or
+          // Firefox on macOS leaves it on the page, so the keys stay the game's whichever browser opened the menu (its review).
+          <div className="build-menu" role="group" aria-label="Build" data-testid="build-menu" data-chrome="panel" data-keeps-keys>
             {BUILD.map((b) => (
               <button
                 key={b.tool}

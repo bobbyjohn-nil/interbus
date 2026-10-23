@@ -274,7 +274,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Draw a line chosen with the keyboard puts the focus in the new line's card, and the card's Cancel or Escape puts it back on Build. Before, the focus went to the top of the page, and the next Tab went on past the card.
 - While the splash's bus tows it away, the keyboard presses nothing hidden under it: Tab and Enter pressed Home's New game unseen. A double-click begun on the splash no longer presses a button of Home's that the tow uncovers between its two clicks.
 - With the keyboard on Home's Continue, when another tab starts a new game, the focus goes to New game instead of the top of the page.
-- With the Build menu open and the keyboard on it or on Build, the game's keys wait for it to close, as with the other menus and lists: T no longer tilts the map behind it, and 1 to 5 no longer change the speed. Space still plays and pauses from a tool the mouse pressed without letting go on it.
+- With the keyboard on the Build menu's tools, the game's keys wait for the menu to close, as with the other menus and lists: T no longer tilts the map behind it, and 1 to 5 no longer change the speed. Space still plays and pauses from a tool the mouse pressed without letting go on it.
 - Start a new game goes from Home straight to the founding card, without a moment of the old company's game, its chips and its dock, in between.
 
 ### Removed

@@ -706,23 +706,19 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     expect(await map.getAttribute('data-mode')).toBe('2d');
     // Counted as sent, as the speed shown could still read 0 before the sim answered one (the review of round 10).
     expect(await sent('speed')).toBe(speeds);
-    // So does the Build menu, the keyboard on Build, where its Enter leaves it, and on its tools: T tilted the map behind it and
-    // 2 picked 60× (round 11, and its review for Build).
+    // So does the Build menu, the keyboard on its tools: T tilted the map behind it and 2 picked 60× (round 11).
     await page.keyboard.press('Escape');
     await expect(list).toHaveCount(0);
-    const build = page.getByTestId('build');
-    await build.focus();
+    await page.getByTestId('build').focus();
     await page.keyboard.press('Enter');
     const menu = page.getByTestId('build-menu');
-    for (const on of ['Build', 'Place a stop']) {
-      if (on !== 'Build') await page.keyboard.press('Tab');
-      await expect(on === 'Build' ? build : menu.getByRole('button', { name: on })).toBeFocused();
-      await page.keyboard.press('t');
-      await page.keyboard.press('2');
-      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
-      await expect(menu).toBeVisible();
-      expect(await map.getAttribute('data-mode'), on).toBe('2d');
-      expect(await sent('speed'), on).toBe(speeds);
-    }
+    await page.keyboard.press('Tab');
+    await expect(menu.getByRole('button', { name: 'Place a stop' })).toBeFocused();
+    await page.keyboard.press('t');
+    await page.keyboard.press('2');
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+    await expect(menu).toBeVisible();
+    expect(await map.getAttribute('data-mode')).toBe('2d');
+    expect(await sent('speed')).toBe(speeds);
   });
 });
