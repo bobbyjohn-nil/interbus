@@ -97,11 +97,13 @@ export function App() {
   const [homeAt, setHomeAt] = useState<number | null>(0);
   // Start a new game leaves Home once the worker's unnamed company has come, which it always sends (worker/host.ts): left at
   // once, the old company's game drew a frame of its chips and dock before the founding card (round 11). During render, as
-  // state that follows the game.
+  // state that follows the game. Leaving Home closes Help, as Continue and New game do: ? pressed while the new game was on its
+  // way carried Help onto the founding card, the two at 31.6% of 1152×720 (I13; the systems audit's twelfth round).
   const [starting, setStarting] = useState(false);
   if (starting && sim.snapshot && !sim.snapshot.company.name) {
     setStarting(false);
     setHomeAt(null);
+    hide("help");
   }
   const { probeAt, depotSiteAt, stopSiteAt, draftFor, send } = sim;
   // Play resumes the speed last played at, 600x the first time (D25).

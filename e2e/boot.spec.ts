@@ -185,6 +185,65 @@ test.describe('the boot splash', () => {
     expect(await page.evaluate(() => document.activeElement !== document.body), 'Tab reaches something').toBe(true);
   });
 
+  // The systems audit's twelfth round: the keys were held only from the tow, so keys pressed while the game loaded under the
+  // splash reached the map: T tilted it, the arrows moved it, Tab reached its canvas and ? opened Help, all unseen.
+  test('keys pressed while the game loads under the splash reach nothing it hides', async ({ page }) => {
+    const sim = await holdCity(page);
+    await page.goto('./?gpu=full');
+    const map = page.getByTestId('map');
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await expect(page.locator('#boot')).toBeVisible();
+    const view = (await map.getAttribute('data-view'))!;
+    for (const key of ['t', '?', 'Tab', 'ArrowLeft', 'ArrowLeft']) await page.keyboard.press(key);
+    expect(await page.evaluate(() => document.activeElement === document.body), 'the focus on nothing the splash hides').toBe(true);
+    sim.release();
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#boot')).toHaveCount(0, { timeout: 10_000 });
+    await expect(map).toHaveAttribute('data-mode', '2d');
+    await expect(map).toHaveAttribute('data-view', view);
+    await expect(page.getByTestId('help')).toHaveCount(0);
+  });
+
+  // The twelfth round: what the tow uncovers takes presses at once (app.css), but the keys after them were held till the splash
+  // went, so the name typed into the founding card that a press on the uncovered New game opened was lost.
+  test('a key on what the tow has uncovered is its own: a name typed into the founding card the uncovered New game opened', async ({ page }) => {
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await holdRemoval(page);
+    await page.goto('./');
+    await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    // The tow held 2.1 s in: the splash's edge at 750 px, past New game (436-716 px) and the founding card it opens (406-746 px).
+    await holdTow(page, 2_100);
+    const newGame = page.getByTestId('home').getByRole('button', { name: 'New game' });
+    const at = (await newGame.boundingBox())!;
+    const [x, y] = [at.x + at.width / 2, at.y + at.height / 2];
+    expect(await page.evaluate(([px, py]) => document.elementFromPoint(px!, py!)?.closest('button')?.textContent, [x, y]), 'New game uncovered').toBe('New game');
+    await page.mouse.click(x, y);
+    const name = page.getByTestId('founding-card').getByLabel('Name');
+    await expect(name).toBeFocused();
+    await page.keyboard.type('Back Bay');
+    await expect(name).toHaveValue('Back Bay');
+    await expect(page.locator('#boot')).toBeAttached();
+  });
+
+  // The twelfth round: a key on the corner passed the hold whole, so ? there opened Help under the standing splash.
+  test('a key on the corner over the splash is the corner’s alone: ? there opens no Help under it', async ({ page }) => {
+    await holdRemoval(page);
+    const sim = await holdCity(page);
+    await page.goto('./');
+    const credit = page.locator('.corner a').first();
+    await expect(credit).toBeVisible({ timeout: 30_000 });
+    await credit.focus();
+    sim.release();
+    await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    // The tow held at its start, the splash over everything but the corner.
+    await holdTow(page, 0);
+    await expect(credit).toBeFocused();
+    await page.keyboard.press('?');
+    await page.waitForTimeout(300);
+    await expect(page.locator('#boot')).toBeVisible();
+    await expect(page.getByTestId('help')).toHaveCount(0);
+  });
+
   // Round 10: the replaced build's card stood under the splash, unseen until the city's 2 MB came, or for good on a stalled load.
   test('a file of this build gone while the city loads: its card shows at once, over the splash', async ({ page }) => {
     await page.route('**/assets/loadMap-*.js', (route) => route.fulfill({ status: 404, body: 'Not Found' }));

@@ -17,16 +17,21 @@ export interface BootEnv {
   readonly firstInTab: () => boolean;
   /** Runs `run` in `ms`, by a timer, so a tab put in the background, where animations wait, ends it too. */
   readonly later: (run: () => void, ms: number) => void;
-  /** Keeps the keyboard from what the splash hides for as long as it stands (holdKeys). */
-  readonly holdKeys: () => void;
 }
 
 /**
- * Keeps every key from what the splash hides while its bus tows it away: Tab reached Home's buttons under it, and Enter pressed
- * New game unseen (the systems audit's eleventh round), where a press of the pointer on it presses nothing (app.css). The corner
- * and the replaced build's card, drawn over it, keep their keys, and so do the browser's own (with Ctrl, ⌘ or Alt, and F1 to
- * F12). For as long as the splash stands, not its timer's 2.55 s, which a busy page can outlast; gone at once with less motion
- * asked for mid-tow (app.css), it holds nothing more, and gone, the hold goes at the next key.
+ * Keeps the keyboard from what the splash hides for as long as it stands, from the page's first script (main.tsx):
+ * - While the game loaded under it, T tilted the map, the arrows moved it, Tab reached its canvas and ? opened Help, all unseen
+ *   (the systems audit's twelfth round); as its bus towed it away, Tab reached Home's buttons under it and Enter pressed New game
+ *   unseen (the eleventh), where a press of the pointer on it presses nothing (app.css). Such a key is held: its default and its
+ *   way on both stopped. With nothing focused the key is the page's, and the page stands under the splash.
+ * - A key on a control the splash leaves in sight is that control's alone: typed into a field, Enter on a button, Tab on from it.
+ *   The page's own keys wait (? on the corner opened Help under the splash: the twelfth round). In sight are the corner and the
+ *   replaced build's card, drawn over the splash, and what its tow has uncovered, wholly or in part, which takes the pointer's
+ *   presses at once (app.css): held instead, the name typed into the founding card that a press on the uncovered New game opened
+ *   was lost, for the 0.65 s to the splash's going (the twelfth round).
+ * - The browser's own keys pass (with Ctrl, ⌘ or Alt, and F1 to F12), and every key once the tow has taken the splash off the
+ *   screen, or once it is gone at once with less motion asked for mid-tow (app.css); gone, the hold goes at the next key.
  */
 export function holdKeys(win: Window = window): void {
   const held = (event: KeyboardEvent) => {
@@ -34,12 +39,23 @@ export function holdKeys(win: Window = window): void {
     if (!boot) return win.removeEventListener('keydown', held, true);
     if (win.getComputedStyle(boot).display === 'none') return;
     if (event.ctrlKey || event.metaKey || event.altKey || /^F\d+$/.test(event.key)) return;
-    const at = event.target as { closest?: (selector: string) => unknown } | null;
-    if (typeof at?.closest === 'function' && at.closest('.corner, .replaced')) return;
-    event.preventDefault();
+    const splash = boot.getBoundingClientRect();
+    if (splash.left >= win.innerWidth) return;
+    if (!inSight(event.target, splash, win)) event.preventDefault();
     event.stopImmediatePropagation();
   };
   win.addEventListener('keydown', held, true);
+}
+
+/** Whether `target` is a control the splash leaves in sight: drawn over it, or on the screen and not wholly under it. */
+function inSight(target: EventTarget | null, splash: DOMRect, win: Window): boolean {
+  const at = target as { tagName?: string; closest?: (selector: string) => unknown; getBoundingClientRect?: () => DOMRect } | null;
+  if (typeof at?.closest !== 'function' || typeof at.getBoundingClientRect !== 'function' || at.tagName === 'BODY' || at.tagName === 'HTML') return false;
+  if (at.closest('.corner, .replaced')) return true;
+  const r = at.getBoundingClientRect();
+  const [left, top, right, bottom] = [Math.max(r.left, 0), Math.max(r.top, 0), Math.min(r.right, win.innerWidth), Math.min(r.bottom, win.innerHeight)];
+  if (right <= left || bottom <= top) return false;
+  return left < splash.left || right > splash.right || top < splash.top || bottom > splash.bottom;
 }
 
 function pageBoot(): BootEnv {
@@ -48,7 +64,6 @@ function pageBoot(): BootEnv {
     still: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true || document.visibilityState === 'hidden',
     firstInTab: () => firstInTab('boot-wipe'),
     later: (run, ms) => void window.setTimeout(run, ms),
-    holdKeys: () => holdKeys(),
   };
 }
 
@@ -68,6 +83,5 @@ export function endBoot(tow: boolean, env: BootEnv = pageBoot()): void {
   }
   boot.setAttribute('aria-hidden', 'true');
   boot.classList.add('leaving');
-  env.holdKeys();
   env.later(() => boot.remove(), WIPE_MS + 150);
 }
