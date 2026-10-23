@@ -5,7 +5,7 @@
 // the game; and Home's buttons are drawn in the game's own type. Shown failing (TS-04) on main before
 // the fix: Space ran time behind Home, Ctrl+Z took back the depot, the old route and day card came
 // into the new game, a draft outlived a slot's load, and "Slot loaded" came back on Home.
-import { expect, test, type Page } from './base';
+import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { usd } from '../src/ui/format';
 import { gapTo, fixtureCity, inMiddle, screenDots } from './dots';
@@ -152,5 +152,49 @@ test.describe('starting and leaving a game', () => {
       const font = await home.getByRole('button', { name }).evaluate((b) => getComputedStyle(b).fontFamily);
       expect(font).toContain('Afacad Flux');
     }
+  });
+
+  // Round 10, by the keyboard alone. In the company's name, which has the focus whenever the founding card shows, Escape closed
+  // nothing, not even Saves left open beside the card; nothing showed where the keyboard was among the colours (WCAG 2.4.7); and
+  // Back to Home, from the founding card or Saves, took its button with the game's screen and left the focus on the page, where
+  // the next Tab went to the map's credits and Home's Continue was the sixth.
+  test('by the keyboard: Escape in the company’s name, the colours’ focus, and Back to Home into Home’s card', async ({ page }) => {
+    test.setTimeout(90_000);
+    /** Puts the keyboard on `button` as Tab would. */
+    const tabOnto = async (button: Locator) => {
+      await button.focus();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      await expect(button).toBeFocused();
+    };
+    const inHome = () => page.getByTestId('home').evaluate((el) => el.contains(document.activeElement));
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await page.getByTestId('home').getByRole('button', { name: 'Saves', exact: true }).click();
+    await leaveHome(page);
+    const saves = page.getByTestId('saves');
+    const card = page.getByTestId('founding-card');
+    await expect(saves).toBeVisible();
+    await expect(card.getByLabel('Name')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(saves).toHaveCount(0);
+    await expect(card).toBeVisible();
+    // The colour the keyboard is on draws a ring inside its swatch.
+    const swatch = (name: string) => card.locator('.swatch-choice').filter({ has: page.getByRole('radio', { name }) });
+    await expect(swatch('Red')).toHaveCSS('box-shadow', 'none');
+    await page.keyboard.press('Tab');
+    await expect(card.getByRole('radio', { name: 'Red' })).toBeFocused();
+    await expect(swatch('Red')).not.toHaveCSS('box-shadow', 'none');
+    await tabOnto(card.getByRole('button', { name: 'Back to Home' }));
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('home')).toBeVisible();
+    await expect.poll(inHome).toBe(true);
+    await foundCompany(page);
+    await tabOnto(page.getByTestId('saves-chip'));
+    await page.keyboard.press('Enter');
+    await tabOnto(saves.getByRole('button', { name: 'Back to Home' }));
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('home')).toBeVisible();
+    await expect.poll(inHome).toBe(true);
   });
 });

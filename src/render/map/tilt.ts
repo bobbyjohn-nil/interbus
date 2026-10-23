@@ -121,13 +121,18 @@ export type ViewKey = 'tilt' | 'north' | 'left' | 'right';
 
 export const VIEW_KEYS: Readonly<Record<string, ViewKey>> = { t: 'tilt', n: 'north', q: 'left', e: 'right' };
 
-/** The view key pressed, with Shift or Caps Lock or neither, not held down and not typed into a field; else null. */
+/**
+ * The view key pressed, with Shift or Caps Lock or neither, not held down, not typed into a field and not pressed in an open
+ * list or menu, which keeps its keys as it keeps the game's (App.tsx): T tilted the map behind the speed list (round 10);
+ * else null.
+ */
 export function viewKey(press: KeyPress): ViewKey | null {
   if (press.ctrlKey || press.metaKey || press.altKey || press.repeat) return null;
   const key = VIEW_KEYS[press.key.toLowerCase()];
   if (!key || press.key.length !== 1) return null;
-  const target = press.target as { tagName?: string; isContentEditable?: boolean } | null;
+  const target = press.target as { tagName?: string; isContentEditable?: boolean; closest?: (selector: string) => unknown } | null;
   if (target?.isContentEditable) return null;
+  if (target?.closest?.('[role="listbox"], [role="menu"]')) return null;
   return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '') ? null : key;
 }
 

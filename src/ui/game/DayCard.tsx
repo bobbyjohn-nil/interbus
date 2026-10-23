@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { HandBack } from '../focusBack';
 import { focusLost } from '../focusLost';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
@@ -36,10 +36,12 @@ const amountSaid = (cents: number) => usd(cents, { cents: Math.abs(cents) < 100 
 export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   const card = sim.dayCard;
   // The close that ends the run turns off the control the keyboard was on: Continue takes the focus, rather than the page.
-  // Any other close leaves the focus where it is, so Space still plays and pauses as the day's card shows.
+  // Any other close leaves the focus where it is, so Space still plays and pauses as the day's card shows. Before the panels'
+  // hand-back (Panels, an effect after every layout effect): as the run's end took the route editor down, its hand-back went on
+  // through the panel it stood in for to the dock's Lines, and Continue found the focus taken (round 10, in its fixes' CI).
   const over = runOver(sim);
   const go = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (over && focusLost()) go.current?.focus();
   }, [card?.day, over]);
   const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();

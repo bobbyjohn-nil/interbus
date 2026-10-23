@@ -89,12 +89,12 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
         </span>
       ) : null}
       {founded && checklist && !over && toContracts ? (
-        <button type="button" className="chip checklist" data-testid="checklist" title={checklist} onClick={onContracts}>
+        <button type="button" className="chip checklist" data-testid="checklist" data-opens="contracts" title={checklist} onClick={onContracts}>
           <span className="chip-text">{checklist}</span>
         </button>
       ) : null}
       {founded && (!checklist || over) ? (
-        <button type="button" className="chip contracts" data-testid="contracts-chip" title={`Contracts ${offers}`} onClick={onContracts}>
+        <button type="button" className="chip contracts" data-testid="contracts-chip" data-opens="contracts" title={`Contracts ${offers}`} onClick={onContracts}>
           <span className="chip-text">
             <span className="chip-label">Contracts</span> {offers}
           </span>

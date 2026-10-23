@@ -114,13 +114,13 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
           </div>
         ) : null}
       </div>
-      <button type="button" aria-pressed={panels.includes('lines')} disabled={!hasLines} onClick={() => onPanel('lines')}>
+      <button type="button" aria-pressed={panels.includes('lines')} disabled={!hasLines} data-opens="lines" onClick={() => onPanel('lines')}>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M4 6h12M4 10h12M4 14h8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
         Lines
       </button>
-      <button type="button" aria-pressed={panels.includes('finance')} onClick={() => onPanel('finance')}>
+      <button type="button" aria-pressed={panels.includes('finance')} data-opens="finance" onClick={() => onPanel('finance')}>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M4 16V9M8 16V5M12 16v-5M16 16V7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
