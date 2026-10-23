@@ -59,7 +59,7 @@ describe('the game layers', () => {
     addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
     const names = specs.get('lines-name')!;
     expect(names.type).toBe('symbol');
-    expect(names.filter).toEqual(['==', ['get', 'kind'], 'route']);
+    expect(names.filter).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['!', ['in', ['get', 'id'], ['literal', []]]]]);
     expect(names.layout).toMatchObject({ 'symbol-placement': 'line', 'text-field': ['get', 'name'] });
     expect(names.layout!['text-size']).toBeGreaterThanOrEqual(12);
     expect(names.paint).toMatchObject({ 'text-color': LIGHT.label, 'text-halo-color': LIGHT.labelHalo });
@@ -69,8 +69,9 @@ describe('the game layers', () => {
       addOverlays(f.map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
       return f;
     })();
-    expect(layers.indexOf('lines-name')).toBe(layers.indexOf('lines-route') + 1);
-    for (const under of ['lines-stops', 'stops-lone', 'stops-flag-ring', 'stops-flag-word']) expect(layers.indexOf('lines-name')).toBeLessThan(layers.indexOf(under));
+    // Every name over every route, a resting line's faded copy of each just under the running lines' (daylight.test.ts).
+    expect(layers.slice(layers.indexOf('lines-route-resting'), layers.indexOf('lines-name') + 1)).toEqual(['lines-route-resting', 'lines-route', 'lines-name-resting', 'lines-name']);
+    for (const under of ['lines-stops-resting', 'lines-stops', 'stops-lone', 'stops-flag-ring-resting', 'stops-flag-ring', 'stops-flag-word-resting', 'stops-flag-word']) expect(layers.indexOf('lines-name')).toBeLessThan(layers.indexOf(under));
     // The route carries the line's name.
     const line = { id: 2, name: 'Line 2', colour: '#2471a3', route: [[-71.08, 42.35], [-71.09, 42.34]], stops: [], stopIds: [] } as unknown as LineView;
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);

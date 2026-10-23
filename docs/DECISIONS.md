@@ -443,6 +443,43 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-23** (`src/render/map/daylight.test.ts`, `src/render/map/overlays.test.ts`, `src/render/map/loadMap.test.ts`, `src/render/map/fleet.test.ts`, `src/sim/rules/position.test.ts`, `e2e/daylight.spec.ts`; on `main` 4464d22): **the systems audit's eleventh round, its first lane: the day and night tint** (D26, D13). Two finder lanes ran on the code merged since the tenth round: the tint and the time of day (#168), and the edges of the tenth round's fixes (#166, #167). The first found 5 bugs, all minor or nits; the second found 9, with their own entry and pull request. No format change.
+  - **A resting line on a street it shares.** Lines on the same streets draw over one another, the later on top, and the fade was an opacity of each line's id. Where the resting line was the later, the running line under it showed (34, 120, 132): 0.35 of the resting green over 0.65 of the running blue, neither line's colour. At the middle of Huntington Avenue, 168 of its pixels blended and none showed the running blue.
+    - The five layers a resting line fades in are now drawn twice. Under each layer sits a faded copy (`<layer>-resting`) that holds the resting lines' features at 35%, its other paints the layer's own; the layer itself holds the rest. The fade moves features between the two by filter alone (`setResting` in `src/render/map/overlays.ts`).
+    - Now 168 pixels show the running blue and none blend.
+    - MapLibre places the upper layer's names first, so a resting line's name is still placed after the running lines', as the tint's review asked, with no sort key.
+  - **The first night's hold.**
+    - **The cause:** the faded paints went from a number to an expression of each line's id. MapLibre compiles its line, symbol and circle programs for an opacity that depends on the feature the first time it draws one.
+    - **What it cost:** at the first midnight of a session, on the busy scene's 14 lines and 64 buses, one task of 518–1,249 ms in Low graphics, 786–1,528 ms in full 2D and 1,710–1,849 ms in 3D. A CPU profile put 442 ms in getUniformBlockIndex and 371 ms in getProgramParameter. Later midnights cost nothing, the programs being kept.
+    - **The fix:** a constant opacity is a uniform whatever its value (MapLibre 6.11.2's `ProgramConfiguration` keys a program by which paints are constant, not by their values), so each copy draws with its layer's own program.
+    - **Programs linked:** the night test counts them as the line rests: none (14 before and after), and 17 with the opacity of each line's id put back.
+    - **Long tasks after the fix:** on the busy scene in Low graphics the night's rests took none over 200 ms in two runs, and none at all in a third. In 3D in full graphics they took one of 157–170 ms, as did the same night with no line resting (163 ms, and none).
+    - **What remains:** a rest still lays out the lines' tiles again, as before.
+  - **Resting once its last bus is back.**
+    - **Before:** the fade followed the period alone. From 00:00 a line showed faded while its buses ran its last trips: 4 of the debug line's buses at every 5 minutes at 00:00, the last until 00:17, and 16–18 of the busy scene's 64 at 00:10. D13 fades a line "while it is stopped".
+    - **The rule now:** a line rests once its period runs no service and no bus of it is in service (`inServiceAt` in `src/sim/rules/position.ts`). A bus is in service from its first departure until its last trip is back at the first stop, on the plan the costs bill, and on a settling line's merged plan, read in its frame.
+    - **On the busy scene:** its 14 lines rested in six steps from 00:00 to 00:10.
+    - **Depot drives:** a bus driving home to its depot draws on a faded line, as one pulling out before 05:00 does.
+  - **The flags.** A flag is a stop's, so the fade of each line's features never reached it, and a resting line's Loss rings and words stayed whole at 02:00. A stop's flag now rests where only resting lines call (`restingStops`).
+  - **The light's plan:** 93 paints a step (91 before); the two more are the resting names' inks. The game's layers are 23 (18 before).
+  - **Checked and sound by the lane:**
+    - a dusk at 5,400× on the busy scene in Low graphics, full 2D and 3D: four steps each, with no long task and no tile laid out again for the city, the dots or the lines;
+    - every paint with one owner;
+    - the chip's period agreeing with its time at every speed;
+    - I13 with Overnight, the widest of the names (47.9 px): 3.13%, 3.86% and 4.89% at the three sizes;
+    - a night's session replaying to the same game.
+  - **A comment:** the night test's comment said the day card waits with time paused, but nothing pauses at a close. The test now starts after midnight, with no day card.
+  - **Tests** (TS-04):
+    - **Unit, each failing on 4464d22:**
+      - a line rests once no bus of it is in service (failing too with the rest by period alone);
+      - the faded copies, each just under its layer, the same but for its opacities (no copy);
+      - `setResting` by filters alone (`setPaintProperty` called);
+      - a flag rests where only resting lines call;
+      - the fleet reads a settling line in its frame, failing with the day's own seconds.
+    - **Unit, new rules:** `inServiceAt` on a day plan and on a merged plan; MapLibre's style spec validates the filters with lines resting and without.
+    - **e2e** (`e2e/daylight.spec.ts`):
+      - the night, at 00:00:30, failing on 4464d22 (already resting) and with the per-line opacity put back (17 programs against 14);
+      - the shared street, about 7 s, failing on 4464d22 (no pixel in the running blue).
 - **2026-10-23** (`src/render/map/daylight.test.ts`, `src/render/map/style.test.ts`, `src/render/map/loadMap.test.ts`, `e2e/daylight.spec.ts`, `e2e/i13.spec.ts`, `e2e/time.spec.ts`): **the day and night tint** (PLAN §4's charm moments, §8 rule 8; D13), after V1's (`Intralines@7af45b1:src/map/MapView.tsx:341-413`), with the two reads D13 puts beside it. It is look work: the first since the stamp (#165), with round 10's two pull requests between. No format change.
   - **The light** (`src/render/map/daylight.ts`).
     - **When it changes:** the map dims a step each half hour from 19:00, as the evening peak ends, and is night from 20:30 to 03:30. It lightens a step each half hour from 03:30, to day at 05:00, as the service day opens and a new game starts (`darkStep`).
@@ -463,7 +500,7 @@ Filled in as they are measured, with the date and the commit, each by a committe
     - **The warning words** (QUIET, LOSS, roadworks ahead) and the line being drawn's numbers now keep a halo of their own (`wordHalo`), as readable at every step as by day: 4.20:1 for the warning ink. In the labels' halo, which dims while the warning ink does not, they fell to 2.32:1 at night (its review).
     - **The labels:** 4.70:1 on their halos (5.82 by day), and the minor ones 3.32:1 (3.76).
   - **What it costs to go darker:** a filter at 0.9 of this one, [0.45, 0.468, 0.5625], fails three of these: 0.147 apart, the depot tint nearer than by day, and 4.49:1.
-  - **A line resting** (`restsAt` in `sim/rules/periods.ts`, D13's one predicate): a line that runs no service in the period. So a line with overnight off shows its route, name and stops at 35% from 00:00 to 05:00, set as the set of resting lines changes. Its name is placed after the running lines': faded alone, it kept its place on a shared street, and the running line had no name there (its review).
+  - **A line resting** (`restsAt` in `sim/rules/periods.ts`, D13's one predicate): a line that runs no service in the period. So a line with overnight off shows its route, name and stops at 35% from 00:00 to 05:00, set as the set of resting lines changes. Its name is placed after the running lines': faded alone, it kept its place on a shared street, and the running line had no name there (its review). Since amended (the eleventh round, above): it rests once no bus of it is in service, from its last bus's return after 00:00, its stops' flags with it, and draws in faded copies under the running lines.
   - **The clock names the period** after the time: Peak, Off-peak or Overnight, the period of the minute it shows, so the two never disagree as it shows whole hours above 600×.
     - **Without room:** late in a game, with three medals and "3 on offer", the chip row wrapped to two rows (10.09% of 1152×720 on Inner Boston's numbers, against I13's 6%), and the fixture's last chip was cut (5.98%).
     - **With the year moved off the chip:** the chip reads "Q1 Day 1, 02:00 Overnight", with the year in its title ("Year 10, Q1, Day 1") and read to a screen reader, which reads no title. All ten of I13's cases pass, the late game's at 02:00, so the chip shows Overnight, the widest of the three names.

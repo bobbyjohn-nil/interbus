@@ -3,7 +3,7 @@
 // apart from its caches; the numbers come from sim/rules (positionsInEffect), the same plan the costs
 // bill (I6), a line settling after a change on its merged plan (rules/transition.ts). The renderer
 // computes no sim number (AR-04), only where to draw.
-import { mostOut, positionsInEffect, prepareGeometry, type PreparedGeometry } from '../../sim/rules/position';
+import { inServiceAt, mostOut, positionsInEffect, prepareGeometry, type PreparedGeometry } from '../../sim/rules/position';
 import { planInEffect, type PlanInEffect } from '../../sim/rules/transition';
 import type { LineView } from '../../sim/types';
 import { MODEL_GLYPHS } from './glyphs';
@@ -14,6 +14,7 @@ const SECONDS_PER_DAY = 86_400;
 export const BUS_FLOATS = 8;
 
 interface Prepared {
+  readonly id: number;
   readonly plan: PlanInEffect;
   /** Each version's geometry, oldest first, the line's own last. */
   readonly geos: readonly PreparedGeometry[];
@@ -22,6 +23,9 @@ interface Prepared {
   readonly colour: readonly [number, number, number];
   readonly glyph: { readonly lengthPx: number; readonly widthPx: number };
 }
+
+/** A line's second at `absolute` (game seconds since the first day's midnight): of the day, or of its merged plan's frame. */
+const secondOf = (line: Prepared, absolute: number) => (line.frameDay === null ? absolute % SECONDS_PER_DAY : absolute - line.frameDay * SECONDS_PER_DAY);
 
 function rgb(hex: string): [number, number, number] {
   const n = Number.parseInt(hex.replace('#', ''), 16);
@@ -47,6 +51,7 @@ export class Fleet implements BusSource {
       .map((l) => {
         const earlier = l.settling?.earlier ?? [];
         return {
+          id: l.id,
           plan: planInEffect(l.plan, earlier.map((e) => ({ inputs: e.plan, until: e.until, sameModel: e.sameModel, sameStart: e.sameStart }))),
           geos: [...earlier.map((e) => prepareGeometry(e)), prepareGeometry(l)],
           frameDay: l.settling?.frameDay ?? null,
@@ -63,6 +68,15 @@ export class Fleet implements BusSource {
   /** The sim's clock at a snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
   setClock(second: number, rate: number, atMs: number, day = 0): void {
     this.clock = { second, rate, atMs, day };
+  }
+
+  /**
+   * Whether line `id` has a bus in service at the last snapshot's clock (inServiceAt): one still on a trip begun before its period
+   * stopped, as drawn. A line with no plan here (no buses, or under two stops) has none.
+   */
+  inService(id: number): boolean {
+    const line = this.lines.find((l) => l.id === id);
+    return line ? inServiceAt(line.plan, secondOf(line, this.clock.day * SECONDS_PER_DAY + this.clock.second)) : false;
   }
 
   get running(): boolean {
@@ -83,11 +97,9 @@ export class Fleet implements BusSource {
   /** Every bus at `nowMs`: a view of BUS_FLOATS numbers per bus, valid until the next call. */
   frame(nowMs: number): { count: number; data: Float64Array } {
     const absolute = this.absoluteAt(nowMs);
-    const second = absolute % SECONDS_PER_DAY;
     let count = 0;
     for (const line of this.lines) {
-      const at = line.frameDay === null ? second : absolute - line.frameDay * SECONDS_PER_DAY;
-      const n = positionsInEffect(line.plan, line.geos, at, this.scratch);
+      const n = positionsInEffect(line.plan, line.geos, secondOf(line, absolute), this.scratch);
       for (let i = 0; i < n; i++) {
         const at = BUS_FLOATS * count++;
         const d = this.frameData;

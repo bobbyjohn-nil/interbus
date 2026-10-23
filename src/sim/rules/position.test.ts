@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { SECONDS_PER_DAY } from '../config/time';
 import type { LngLatPair } from '../types';
-import { busPositionsAt, prepareGeometry, type LineGeometry } from './position';
+import { busPositionsAt, inServiceAt, prepareGeometry, type LineGeometry } from './position';
 import { busesOut, dayPlan } from './schedule';
+import type { MergedPlan } from './transition';
 
 // The debug line laid straight east along 42.35° N: stops at 0, 1,339, 2,425 and 3,535 m, a point
 // every 100 m between, its depot 1.2 km south of the first stop and the way home 1.5 km.
@@ -103,5 +104,42 @@ describe('busPositionsAt (the M2 spec, item 6)', () => {
     for (let t = 0; t < SECONDS_PER_DAY; t += 30) most = Math.max(most, busPositionsAt(plan, geo, t, out));
     expect(most).toBe(busesOut(plan));
     expect(positions(at(12))).toHaveLength(2);
+  });
+});
+
+// The systems audit's eleventh round: the map faded a line with overnight off at 00:00 while its buses still ran its last trips
+// (render/map/overlays.ts restingLines). D13 fades it "while it is stopped".
+describe('inServiceAt', () => {
+  const p = { periodic: plan, merged: null };
+
+  it('holds from a bus’s first departure until its last trip is back at the first stop, its depot drives aside', () => {
+    expect(inServiceAt(p, at(4, 59))).toBe(false); // the first bus pulling out for 05:00
+    expect(inServiceAt(p, at(5))).toBe(true);
+    expect(inServiceAt(p, at(23, 59))).toBe(true);
+    // The 23:40's run back reaches the first stop at 00:01:39 (half its 1,539 s cycle and its 529.5 s run), and its bus heads home.
+    expect(inServiceAt(p, at(0, 1, 38))).toBe(true);
+    expect(inServiceAt(p, at(0, 1, 39))).toBe(false);
+    expect(inServiceAt(p, at(3))).toBe(false);
+    // A day on, as a frame counts its seconds.
+    expect(inServiceAt(p, SECONDS_PER_DAY + at(0, 1))).toBe(true);
+  });
+
+  it('reads a settling line’s merged plan before its handover, in its frame, and its own day plan from then', () => {
+    const merged: MergedPlan = {
+      versions: [plan.inputs],
+      breaks: [],
+      sameModel: [true],
+      carriesOn: [true],
+      trips: [at(23, 10)],
+      stints: [{ leaveDepot: at(23, 10) - plan.inputs.pullOutS, trips: [at(23, 10)], lastArrival: SECONDS_PER_DAY + at(0, 30), arriveDepot: SECONDS_PER_DAY + at(0, 40) }],
+      handover: SECONDS_PER_DAY + at(1),
+    };
+    const q = { periodic: plan, merged };
+    // At 00:20 the merged plan's bus is still out, where the line's own day plan has every bus home.
+    expect(inServiceAt(q, SECONDS_PER_DAY + at(0, 20))).toBe(true);
+    expect(inServiceAt(p, SECONDS_PER_DAY + at(0, 20))).toBe(false);
+    expect(inServiceAt(q, SECONDS_PER_DAY + at(0, 30))).toBe(false);
+    // Past the handover, the day plan's 05:00.
+    expect(inServiceAt(q, SECONDS_PER_DAY + at(5))).toBe(true);
   });
 });

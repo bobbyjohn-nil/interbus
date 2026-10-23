@@ -4,7 +4,7 @@
 // draw no rings: the Contracts panel lists every offer (D25). GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
-import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+import type { ExpressionSpecification, FilterSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
 import { restsAt } from '../../sim/rules/periods';
 import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
@@ -83,11 +83,10 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-pitch-alignment': 'map',
     },
   });
-  map.addLayer({
+  addResting(map, {
     id: 'lines-route',
     type: 'line',
     source: LINES,
-    filter: ['==', ['get', 'kind'], 'route'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 16, 7] },
   });
@@ -95,19 +94,17 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
   // under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two pairs are
   // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street one name shows (7 of the late game's
   // 18 in its opening view), and a click there lists them all. Under the stops and their flags, which it never covers.
-  map.addLayer({
+  addResting(map, {
     id: 'lines-name',
     type: 'symbol',
     source: LINES,
-    filter: ['==', ['get', 'kind'], 'route'],
     layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
     paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
   });
-  map.addLayer({
+  addResting(map, {
     id: 'lines-stops',
     type: 'circle',
     source: LINES,
-    filter: ['==', ['get', 'kind'], 'stop'],
     paint: {
       'circle-color': t.stopFill,
       'circle-stroke-color': ['get', 'colour'],
@@ -129,11 +126,10 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     },
   });
   // A flagged stop: a ring in the flag's colour around it, and the word above it.
-  map.addLayer({
+  addResting(map, {
     id: 'stops-flag-ring',
     type: 'circle',
     source: LINES,
-    filter: ['==', ['get', 'kind'], 'flag'],
     paint: {
       'circle-color': 'rgba(0, 0, 0, 0)',
       'circle-stroke-color': t.stopFlag,
@@ -141,11 +137,10 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 8, 16, 13],
     },
   });
-  map.addLayer({
+  addResting(map, {
     id: 'stops-flag-word',
     type: 'symbol',
     source: LINES,
-    filter: ['==', ['get', 'kind'], 'flag'],
     layout: { 'text-field': ['get', 'word'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -1.1], 'text-allow-overlap': true },
     paint: { 'text-color': t.stopFlag, 'text-halo-color': t.wordHalo, 'text-halo-width': 1.5 },
   });
@@ -202,37 +197,68 @@ export function overlayLayers(t: GameTokens, base: Pick<MapTokens, 'label' | 'la
   return layers;
 }
 
-/** How much of a line shows while it rests: its route, its name and its stops. */
+/** How much of a line shows while it rests: its route, its name, its stops and their flags. */
 export const RESTING_OPACITY = 0.35;
 /** A paint property's name, as MapLibre takes it. */
 export type PaintName = Parameters<MapLibreMap['setPaintProperty']>[1];
-/** The layers a resting line fades in, and the opacity each fades. */
-const RESTING: readonly (readonly [string, PaintName])[] = [
-  ['lines-route', 'line-opacity'],
-  ['lines-name', 'text-opacity'],
-  ['lines-stops', 'circle-opacity'],
-  ['lines-stops', 'circle-stroke-opacity'],
-];
-
 /**
- * The lines resting at `secondOfDay`: those that run no service in its period, one predicate with the schedule's (runsIn and
- * periodAt, sim/rules), so a line with overnight off rests from 00:00 to 05:00. D13: the map says the time of day without the
- * tint, so it never depends on it.
+ * The layers a resting line fades in, each drawn twice (addResting): under it a faded copy, `<layer>-resting`, which holds the
+ * resting lines' features and draws them at RESTING_OPACITY, and the layer itself, which holds the rest; which features each holds
+ * is its filter's, by each feature's line (`id`) or, for a flag, which is a stop's, by its stop (restingStops). The opacity is the
+ * same for every feature of a layer: faded by an expression of each line's id, the line, symbol and circle programs for it compiled
+ * at the first midnight, and held the page 518–1,249 ms in Low graphics (the systems audit's eleventh round). And drawn under, a
+ * resting line no longer tints a running one on a street they share, and its name is placed after theirs (MapLibre places the
+ * upper layer's names first).
  */
-export function restingLines(lines: readonly Pick<LineView, 'id' | 'headways'>[], secondOfDay: number): number[] {
-  return lines.filter((line) => restsAt(line.headways, secondOfDay)).map((line) => line.id);
+const RESTING: readonly { readonly layer: string; readonly kind: string; readonly by: 'id' | 'stop'; readonly fades: readonly string[] }[] = [
+  { layer: 'lines-route', kind: 'route', by: 'id', fades: ['line-opacity'] },
+  { layer: 'lines-name', kind: 'route', by: 'id', fades: ['text-opacity'] },
+  { layer: 'lines-stops', kind: 'stop', by: 'id', fades: ['circle-opacity', 'circle-stroke-opacity'] },
+  { layer: 'stops-flag-ring', kind: 'flag', by: 'stop', fades: ['circle-stroke-opacity'] },
+  { layer: 'stops-flag-word', kind: 'flag', by: 'stop', fades: ['text-opacity'] },
+];
+/** The faded copies, for the pick under a click: a resting line opens as any other. */
+export const RESTING_LAYERS = RESTING.map((r) => `${r.layer}-resting`);
+
+/** Which of a layer's kind of feature a resting layer's copy holds (`rests`) or the layer itself does: those named by `ids`, or the others. */
+function restingFilter(r: (typeof RESTING)[number], ids: readonly number[], rests: boolean): FilterSpecification {
+  const named: ExpressionSpecification = ['in', ['get', r.by], ['literal', [...ids]]];
+  return ['all', ['==', ['get', 'kind'], r.kind], rests ? named : ['!', named]];
+}
+
+/** Adds `layer` (one of RESTING's) and, just under it, its faded copy, both as no line rests. */
+function addResting(map: MapLibreMap, layer: LayerSpecification): void {
+  const r = RESTING.find((x) => x.layer === layer.id)!;
+  const paint = { ...(layer as { paint?: object }).paint, ...Object.fromEntries(r.fades.map((p) => [p, RESTING_OPACITY])) };
+  map.addLayer({ ...layer, id: `${layer.id}-resting`, filter: restingFilter(r, [], true), paint } as LayerSpecification);
+  map.addLayer({ ...layer, filter: restingFilter(r, [], false) } as LayerSpecification);
 }
 
 /**
- * Fades the resting lines (restingLines), and places their names after the running lines': a name only faded kept its place, so
- * where a resting line shared a street with a running one, the running line had no name there (the review of the day and night
- * tint). Set when they change, at 00:00 and 05:00 or with the lines, never per frame (RN-04).
+ * The lines resting at `secondOfDay`: those whose period runs no service (restsAt, one predicate with the schedule's) and with no
+ * bus in service on a trip begun before it (`inService`: the fleet's plans, inServiceAt), so a line with overnight off rests from
+ * its last bus's return after 00:00 until 05:00. D13: the map says the time of day without the tint, so it never depends on it.
  */
-export function setResting(map: Pick<MapLibreMap, 'setPaintProperty' | 'setLayoutProperty'>, ids: readonly number[]): void {
-  const rests: ExpressionSpecification = ['in', ['get', 'id'], ['literal', [...ids]]];
-  const shows: ExpressionSpecification | number = ids.length ? ['case', rests, RESTING_OPACITY, 1] : 1;
-  for (const [layer, property] of RESTING) map.setPaintProperty(layer, property, shows);
-  map.setLayoutProperty('lines-name', 'symbol-sort-key', ids.length ? ['case', rests, 1, 0] : 0);
+export function restingLines(lines: readonly Pick<LineView, 'id' | 'headways'>[], secondOfDay: number, inService: (id: number) => boolean = () => false): number[] {
+  return lines.filter((line) => restsAt(line.headways, secondOfDay) && !inService(line.id)).map((line) => line.id);
+}
+
+/** The stops only resting lines call at: their flags rest with them, a word on a line that does not run. */
+export function restingStops(stops: readonly Pick<StopView, 'id' | 'lineIds'>[], resting: readonly number[]): number[] {
+  const rests = new Set(resting);
+  return stops.filter((s) => s.lineIds.length > 0 && s.lineIds.every((id) => rests.has(id))).map((s) => s.id);
+}
+
+/**
+ * Moves the resting lines' features, and their stops' flags, into the faded copies, and every other line's back: filters alone, so
+ * no paint changes and no program is compiled (RESTING). Set when they change, at night or with the lines, never per frame (RN-04).
+ */
+export function setResting(map: Pick<MapLibreMap, 'setFilter'>, lines: readonly number[], stops: readonly number[]): void {
+  for (const r of RESTING) {
+    const ids = r.by === 'id' ? lines : stops;
+    map.setFilter(`${r.layer}-resting`, restingFilter(r, ids, true));
+    map.setFilter(r.layer, restingFilter(r, ids, false));
+  }
 }
 
 export function setDepotLand(map: MapLibreMap, rings: readonly (readonly LngLatPair[])[]): void {
