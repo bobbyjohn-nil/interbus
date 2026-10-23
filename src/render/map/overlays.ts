@@ -235,12 +235,13 @@ function addResting(map: MapLibreMap, layer: LayerSpecification): void {
 }
 
 /**
- * The lines resting at `secondOfDay`: those whose period runs no service (restsAt, one predicate with the schedule's) and with no
- * bus in service on a trip begun before it (`inService`: the fleet's plans, inServiceAt), so a line with overnight off rests from
- * its last bus's return after 00:00 until 05:00. D13: the map says the time of day without the tint, so it never depends on it.
+ * The lines resting at `secondOfDay` (restsAt, D13's one predicate, with the schedule's periods): those whose period runs no
+ * service and with no bus in service on a trip begun before it (`inService`: the fleet's plans, inServiceAt), so a line with
+ * overnight off rests from its last bus's return after 00:00 until 05:00. D13: the map says the time of day without the tint,
+ * so it never depends on it.
  */
 export function restingLines(lines: readonly Pick<LineView, 'id' | 'headways'>[], secondOfDay: number, inService: (id: number) => boolean = () => false): number[] {
-  return lines.filter((line) => restsAt(line.headways, secondOfDay) && !inService(line.id)).map((line) => line.id);
+  return lines.filter((line) => restsAt(line.headways, secondOfDay, inService(line.id))).map((line) => line.id);
 }
 
 /** The stops only resting lines call at: their flags rest with them, a word on a line that does not run. */

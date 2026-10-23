@@ -71,8 +71,9 @@ test.describe('the day and night tint', () => {
   });
 
   // One night, as one test for the first quarter's room (three cost about a minute of CI): a line with overnight off rests once its
-  // last bus is back, the clock names each period as it comes, and with less motion asked for each step of the light comes at once.
-  test('through one night: a line with overnight off rests once its last bus is back, its fade compiles nothing, the clock names each period, and with less motion asked for the light steps at once (D13)', async ({ page }) => {
+  // last bus is back, the clock names the night and then the peak (Off-peak is time.spec.ts's), and with less motion asked for
+  // each step of the light comes at once.
+  test('through one night: a line with overnight off rests once its last bus is back, its fade compiles nothing, the clock names the night and the peak, and with less motion asked for the light steps at once (D13)', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     // Every WebGL program linked: the first night's fade compiled MapLibre's programs for an opacity of each line's, and held the
     // page 518–1,249 ms in Low graphics on the busy scene (the systems audit's eleventh round).
@@ -88,7 +89,8 @@ test.describe('the day and night tint', () => {
       }
     });
     const links = () => page.evaluate(() => (window as unknown as { links: number }).links);
-    // Every 5 minutes by day and overnight off, at 00:00:30 on day 3, paused: the 23:40 to 23:55's trips are still under way.
+    // Every 5 minutes by day and overnight off, at 00:00:30 on day 3, paused: the 23:45 to 23:55's trips are still under way, back at
+    // the first stop at 00:03:49 to 00:13:49, and the 23:40's bus is driving home.
     await at(page, hour(24) + 30, (d) => {
       const line = (d.lines as { headways: { peak: number; offpeak: number; overnight: number | null }; buses: number }[])[0]!;
       line.headways = { peak: 300, offpeak: 300, overnight: null };

@@ -65,7 +65,11 @@ export function runsIn(h: Headways, period: Period): boolean {
   return period !== 'overnight' || h.overnight !== null;
 }
 
-/** Whether a line with these headways rests at `secondOfDay`, running no service in its period: the map fades it (D13). */
-export function restsAt(h: Headways, secondOfDay: number): boolean {
-  return !runsIn(h, periodAt(secondOfDay));
+/**
+ * Whether a line with these headways rests at `secondOfDay`, the map fading it (D13: "while it is stopped"): its period runs no
+ * service, and none of its buses is still in service (`inService`: inServiceAt, rules/position.ts, on its plan in effect), as
+ * the trips begun before 00:00 finish after it (the systems audit's eleventh round).
+ */
+export function restsAt(h: Headways, secondOfDay: number, inService = false): boolean {
+  return !runsIn(h, periodAt(secondOfDay)) && !inService;
 }
