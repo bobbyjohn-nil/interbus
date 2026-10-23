@@ -34,7 +34,7 @@ import {
   toggled,
   type ViewMode,
 } from './tilt';
-import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
+import { WARM, type LightTokens, type MapTokens } from './tokens';
 import { LOW_GRAPHICS_FPS, type GraphicsRung } from './gpu';
 import { MAP_LOADED_MARK } from './status';
 import { createVehicleLayer } from './vehicles';
@@ -114,8 +114,11 @@ const TILT_MOVE = 'interbusTilt';
 /** How often full graphics reads the screen's density, so the map follows a window moved to a screen of another (mountMap). */
 const DENSITY_EVERY_MS = 1_000;
 
-/** `rung` is the GPU ladder's (gpu.ts): Low graphics draws at one pixel a pixel and the buses at most 30 times a second. */
-export async function mountMap(container: HTMLElement, city: City, rung: Exclude<GraphicsRung, 'none'> = 'full'): Promise<MountedMap> {
+/**
+ * `rung` is the GPU ladder's (gpu.ts): Low graphics draws at one pixel a pixel and the buses at most 30 times a second. `theme` is
+ * the light theme's token sets: the warm-neutral set, or V1's paper until the owner's Nov 8 pick (tokens.ts).
+ */
+export async function mountMap(container: HTMLElement, city: City, rung: Exclude<GraphicsRung, 'none'> = 'full', theme: LightTokens = WARM): Promise<MountedMap> {
   if (!city.tiles) throw new Error(`${city.name} has no tile file in this build`);
   // MapLibre only logs a worker that fails to load and then waits forever; check it exists first.
   if (await assetGone(mapWorkerUrl)) {
@@ -134,7 +137,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   const styleOf = (tokens: MapTokens) => buildStyle({ tilesUrl: `pmtiles://${tiles.source.getKey()}`, assetBase: assetBase(), tokens, extent: city.extent });
   const map = new MapLibreMap({
     container,
-    style: styleOf(LIGHT),
+    style: styleOf(theme.map),
     center: [city.view.center[0], city.view.center[1]],
     zoom: city.view.zoom,
     minZoom: MIN_ZOOM['2d'],
@@ -349,8 +352,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // marks alike, worked out once. The style loads by day; a step is set when the sim's clock reaches it (setClock), with MapLibre's
   // transition for its fade, or at once with less motion asked for, as the style loads, or as it comes back after a loss.
   const lightPaints = [
-    ...daylightPaints(styleOf, LIGHT),
-    ...paintsAcross(Array.from({ length: NIGHT_STEP + 1 }, (_, step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step))),
+    ...daylightPaints(styleOf, theme.map),
+    ...paintsAcross(Array.from({ length: NIGHT_STEP + 1 }, (_, step) => overlayLayers(theme.game, dimmed(theme.map, step), step))),
   ];
   let light = 0;
   let lightWanted = 0;
@@ -407,7 +410,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let overlaid = false;
   map.once('load', () => {
     performance.mark(MAP_LOADED_MARK);
-    addOverlays(map, GAME_LIGHT, LIGHT);
+    addOverlays(map, theme.game, theme.map);
     addVehicles();
     overlaid = true;
     flush();

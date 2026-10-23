@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { City } from '../../cities';
 import { DAYLIGHT_FADE_MS, dim, NIGHT_STEP } from './daylight';
 import { BUILDINGS_2D, BUILDINGS_3D } from './tilt';
-import { LIGHT } from './tokens';
+import { LIGHT, PAPER, V1_PAPER } from './tokens';
 
 const fake = vi.hoisted(() => {
   type Listener = (event: unknown) => void;
@@ -43,13 +43,18 @@ const fake = vi.hoisted(() => {
     readonly paint = new Map<string, unknown>();
     readonly filters = new Map<string, unknown>();
     readonly layers: string[] = [];
+    /** Each layer added after the style, by id: the overlays. */
+    readonly added = new Map<string, { paint?: Record<string, unknown> }>();
     readonly camera = { pitch: 0, bearing: 0, zoom: 14 };
     readonly touchZoomRotate = { enableRotation: () => {}, disableRotation: () => {} };
     readonly keyboard = { disableRotation: () => {} };
     readonly doubleClickZoom = { enable: () => {}, disable: () => {} };
     private readonly box = new Evented();
-    constructor() {
+    /** The style it was made with. */
+    readonly made: { layers: { id: string; paint?: Record<string, unknown> }[] };
+    constructor(options: { style: { layers: { id: string; paint?: Record<string, unknown> }[] } }) {
       super();
+      this.made = options.style;
       maps.push(this);
     }
     private loadedStyle() {
@@ -70,9 +75,10 @@ const fake = vi.hoisted(() => {
     addSource() {
       this.loadedStyle();
     }
-    addLayer(layer: { id: string }) {
+    addLayer(layer: { id: string; paint?: Record<string, unknown> }) {
       this.loadedStyle();
       this.layers.push(layer.id);
+      this.added.set(layer.id, layer);
     }
     getSource() {
       this.loadedStyle();
@@ -257,5 +263,31 @@ describe('the day and night tint', () => {
     expect(map.filters.size).toBe(0);
     board.setClock(5 * 3_600, 600, 3);
     expect(map.filters.get('lines-route-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['in', ['get', 'id'], ['literal', []]]]);
+  });
+});
+
+describe('the light theme it is given (the owner’s Nov 8 token pick, tokens.ts)', () => {
+  // `?light=paper` (src/platform's lightSwitch) has MapView mount the map in V1's paper: the board's style, the light's steps and
+  // the game's overlays all from its tokens, where the warm-neutral set is the default every test above runs on.
+  it('draws the board, the light’s steps and the game’s words in V1’s paper when given it', async () => {
+    const board = await mountMap({} as HTMLElement, city, 'full', PAPER);
+    const map = fake.maps.at(-1)!;
+    const made = (id: string, property: string) => map.made.layers.find((l) => l.id === id)?.paint?.[property];
+    expect([made('background', 'background-color'), made('earth', 'fill-color')]).toEqual([V1_PAPER.void, V1_PAPER.land]);
+    map.styleLoaded = true;
+    map.fire('load');
+    expect(map.added.get('stops-flag-word')?.paint?.['text-halo-color']).toBe(V1_PAPER.land);
+    // The lines' names in the board's inks: with the overlays given the warm board, the paper map named its lines in the warm ink
+    // on the warm halo until 19:00 (the review of the token pick).
+    expect(map.added.get('lines-name')?.paint).toMatchObject({ 'text-color': V1_PAPER.label, 'text-halo-color': V1_PAPER.labelHalo });
+    board.setClock(22 * 3_600, 0, 2);
+    expect([map.paint.get('background.background-color'), map.paint.get('earth.fill-color')]).toEqual([dim(V1_PAPER.void, NIGHT_STEP), dim(V1_PAPER.land, NIGHT_STEP)]);
+    expect(map.paint.get('lines-name.text-halo-color')).toBe(dim(V1_PAPER.labelHalo, NIGHT_STEP));
+  });
+
+  it('draws the warm-neutral set when given none', async () => {
+    await mountMap({} as HTMLElement, city, 'full');
+    const map = fake.maps.at(-1)!;
+    expect(map.made.layers.find((l) => l.id === 'earth')?.paint?.['fill-color']).toBe(LIGHT.land);
   });
 });

@@ -2,6 +2,7 @@
 // lands in week 13. Values are PLAN §8's starting light tokens until the owner's Nov 8 pick, except
 // four that broke §8's own base-chroma limit (≤0.04): park #d5e4c6, wood #cfdfc2, arterial #f9e9c8 and
 // arterial casing #e3c48d were scaled to chroma 0.039 at the same lightness and hue (style.test.ts).
+// The pick's other candidate, V1's paper, is below (PAPER); `?light=paper` draws it, until the pick.
 
 export interface MapTokens {
   /** Outside the play area. */
@@ -14,8 +15,17 @@ export interface MapTokens {
   readonly buildingOutline: string;
   readonly street: string;
   readonly streetCasing: string;
+  /** Primary and trunk roads, and every major road a set does not colour apart; links take these too. */
   readonly arterial: string;
   readonly arterialCasing: string;
+  /** Motorways. */
+  readonly highway: string;
+  readonly highwayCasing: string;
+  /** Secondary and tertiary roads, drawn apart from the arterials where a set colours them apart (style.ts byClass). */
+  readonly secondary: string;
+  readonly secondaryCasing: string;
+  readonly tertiary: string;
+  readonly tertiaryCasing: string;
   readonly path: string;
   readonly hospital: string;
   readonly school: string;
@@ -27,7 +37,10 @@ export interface MapTokens {
   /** The play area's dashed edge. */
   readonly maskEdge: string;
   readonly label: string;
+  /** Neighbourhoods' and other minor places' names. */
   readonly labelMinor: string;
+  /** Minor streets' and paths' names, from zoom 15. */
+  readonly streetName: string;
   readonly labelHalo: string;
   readonly waterLabel: string;
 }
@@ -67,6 +80,10 @@ export const GAME_LIGHT: GameTokens = {
   wordHalo: '#ebe7df',
 };
 
+const ARTERIAL = '#f7e9ce';
+const ARTERIAL_CASING = '#d6c7ad';
+const LABEL_MINOR = '#7a7468';
+
 export const LIGHT: MapTokens = {
   void: '#d6d2c9',
   land: '#ebe7df',
@@ -77,8 +94,15 @@ export const LIGHT: MapTokens = {
   buildingOutline: '#cfc8ba',
   street: '#ffffff',
   streetCasing: '#cfc8ba',
-  arterial: '#f7e9ce',
-  arterialCasing: '#d6c7ad',
+  arterial: ARTERIAL,
+  arterialCasing: ARTERIAL_CASING,
+  // Every major road, motorways too, in the arterials' pale amber (PLAN §8 rule 2: the hierarchy by width and casing).
+  highway: ARTERIAL,
+  highwayCasing: ARTERIAL_CASING,
+  secondary: ARTERIAL,
+  secondaryCasing: ARTERIAL_CASING,
+  tertiary: ARTERIAL,
+  tertiaryCasing: ARTERIAL_CASING,
   path: '#f4f1eb',
   hospital: '#e9e1dc',
   school: '#e7e1d6',
@@ -89,7 +113,78 @@ export const LIGHT: MapTokens = {
   mask: '#75746e',
   maskEdge: '#3c3728',
   label: '#5c574d',
-  labelMinor: '#7a7468',
+  labelMinor: LABEL_MINOR,
+  streetName: LABEL_MINOR,
   labelHalo: '#ebe7df',
   waterLabel: '#5f7f99',
 };
+
+/** A light theme's two token sets: the board's and the game's. */
+export interface LightTokens {
+  readonly map: MapTokens;
+  readonly game: GameTokens;
+}
+
+/** PLAN §8's starting light tokens, warm-neutral: the light theme until the owner's Nov 8 pick. */
+export const WARM: LightTokens = { map: LIGHT, game: GAME_LIGHT };
+
+/** V1's land, its paper. */
+const V1_LAND = '#f3edda';
+
+/**
+ * V1's paper (`Intralines@7af45b1:src/map/basemapStyle.ts:9-32` and its layers' inline colours; its mask and edge
+ * `src/map/overlays.ts:98, 107`), the Nov 8 pick's other candidate (PLAN §8, D13: "these or pure V1 paper"), as V1 drew it:
+ * - a fill V1 laid at an opacity is that blend over V1's land: parks 0.7, wood 0.55, buildings 0.86 (its only buildings, its 3D
+ *   ones), industrial land 0.5, the names' halo 0.85 of #fffcf0; V1's background was its land, so the void is too;
+ * - its roads by class: motorways a louder amber, primary and trunk roads the arterials' amber, secondary and tertiary roads near
+ *   white (`:160-245`), minor streets white; links take the arterials', as protomaps draws them;
+ * - every road's name in its dark ink (`:298`), neighbourhoods' names in its tan (`:341`), water's names in its blue (`:314`);
+ * - what V1 did not draw: hospitals, schools and airfields were its land; paths, piers and runways (V1 drew runways as grey lines,
+ *   `:116`) take its tertiary roads' fill; building outlines and boundaries its streets' casing.
+ * It is pure, so it breaks PLAN §8 rule 1 (DECISIONS, Measured, 2026-10-23).
+ */
+export const V1_PAPER: MapTokens = {
+  void: V1_LAND,
+  land: V1_LAND,
+  water: '#8ec8ee',
+  park: '#c9e2ad',
+  wood: '#c7deaf',
+  buildingFill: '#e8ddc7',
+  buildingOutline: '#d8cfba',
+  street: '#ffffff',
+  streetCasing: '#d8cfba',
+  arterial: '#fdd8a2',
+  arterialCasing: '#e4b56e',
+  highway: '#f7b267',
+  highwayCasing: '#e08e3c',
+  secondary: '#fff8ea',
+  secondaryCasing: '#d8cfba',
+  tertiary: '#fff3d9',
+  tertiaryCasing: '#dbc9a3',
+  path: '#fff3d9',
+  hospital: V1_LAND,
+  school: V1_LAND,
+  industrial: '#ece7e1',
+  aerodrome: V1_LAND,
+  boundary: '#d8cfba',
+  mask: '#75746e',
+  maskEdge: '#3c3728',
+  label: '#4a4636',
+  labelMinor: '#8a7f63',
+  streetName: '#4a4636',
+  labelHalo: '#fdfaed',
+  waterLabel: '#3d6f9e',
+};
+
+/** The game's colours on V1's paper: the same, but the halo behind the game's own words, which is the land's. */
+export const PAPER: LightTokens = { map: V1_PAPER, game: { ...GAME_LIGHT, wordHalo: V1_LAND } };
+
+/**
+ * D13's placeholder dark land and void, two values the network hues are checked against on Nov 8 so January adds only the dark
+ * base tokens: V1's dark land, which V1 named and never drew (`Intralines@7af45b1:src/map/basemapStyle.ts:11`), and a void as far
+ * below it as the light void is below its land (OKLCH lightness 0.064 lower).
+ */
+export const DARK_PLACEHOLDER = { land: '#20242e', void: '#13151b' } as const;
+
+/** The light theme a page asks for (`?light=paper`; src/platform's lightSwitch): V1's paper, or the warm-neutral set. */
+export const lightTokens = (asked: 'paper' | null): LightTokens => (asked === 'paper' ? PAPER : WARM);

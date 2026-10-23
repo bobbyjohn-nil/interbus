@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fpsSwitch, gpuSwitch, onReplaced, reload } from '../../platform';
+import { fpsSwitch, gpuSwitch, lightSwitch, onReplaced, reload } from '../../platform';
 import { CITIES } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import type { HoveredDot, MapHit, MountedMap } from './loadMap';
@@ -9,6 +9,7 @@ export type { DotKinds, HoveredDot, MapHit };
 import { afterIdle, afterMountError, afterTimeout, MAP_READY_MARK, type MapStatus as Status } from './status';
 import { FpsMeter, probeWebGL, rungFor, type GraphicsRung } from './gpu';
 import { buildingsLayer, toggled, TURN_STEP_DEG, viewKey, type ViewMode } from './tilt';
+import { lightTokens } from './tokens';
 
 /** A map still loading after this long has failed; MapLibre does not always say why. */
 const LOAD_TIMEOUT_MS = 60_000;
@@ -191,7 +192,7 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
     let dispose: (() => void) | undefined;
     let stopMeter: (() => void) | undefined;
     import('./loadMap')
-      .then(({ mountMap }) => mountMap(element, city, rung))
+      .then(({ mountMap }) => mountMap(element, city, rung, lightTokens(lightSwitch())))
       .then((mounted) => {
         if (disposed) return mounted.dispose();
         dispose = mounted.dispose;

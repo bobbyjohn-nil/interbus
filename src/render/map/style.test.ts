@@ -11,10 +11,11 @@ import {
   DEFAULT_HEIGHT_M,
   DROPPED_LAYERS,
   FONT_STACKS,
+  MAJOR_LAYERS,
   MASK_LAYERS,
   SOURCE,
 } from './style';
-import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
+import { GAME_LIGHT, LIGHT, V1_PAPER, type MapTokens } from './tokens';
 import { hexToOklch } from './oklch';
 
 const ASSET_BASE = 'https://example.test/interbus/';
@@ -206,5 +207,48 @@ describe('a fill coloured by each feature, as one layer a colour (byColour)', ()
     ]);
     expect(asExpression(['==', ['get', 'kind'], 'park'])).toEqual(['==', ['get', 'kind'], 'park']);
     expect(() => asExpression(['<', 'rank', 3])).toThrow(/cannot read/);
+  });
+});
+
+// The review of the Nov 8 token pick: protomaps' major roads (trunk, primary, secondary and tertiary) drew in one colour, the
+// arterials', so V1's paper drew its secondary and tertiary roads in its primaries' amber where V1 drew them near white: 57.5% of
+// the major roads' length in the play area. A set that colours a class apart draws it in a layer of its own (byClass).
+describe('the major roads by class (byClass)', () => {
+  const paper = buildStyle({ tilesUrl: 'pmtiles://cities/boston.pmtiles', assetBase: ASSET_BASE, tokens: V1_PAPER, extent: EXTENT });
+  const road = (kind_detail: string, extra: Record<string, unknown> = {}) => ({ type: 2 as const, properties: { kind: 'major_road', kind_detail, ...extra } });
+  const drawing = (layers: typeof paper.layers, feature: ReturnType<typeof road>) =>
+    layers.filter((l) => l.type === 'line' && 'filter' in l && l.filter && featureFilter(l.filter as never, `layers.${l.id}.filter`).filter({ zoom: 15 }, feature as never)) as unknown as { id: string; paint: Record<string, unknown> }[];
+
+  it('keeps each major road layer whole on the warm set, which colours every class as its arterials', () => {
+    for (const id of MAJOR_LAYERS) expect(ids.filter((i) => i === id || i.startsWith(`${id}-`)), id).toEqual([id]);
+  });
+
+  it('draws V1’s secondary and tertiary roads in their own colours, under its primaries, and each road in one layer of each kind', () => {
+    const order = paper.layers.map((l) => l.id);
+    for (const id of MAJOR_LAYERS) expect(order.slice(order.indexOf(id) - 2, order.indexOf(id) + 1), id).toEqual([`${id}-secondary`, `${id}-tertiary`, id]);
+    const of = (l: { id: string }) => l.id.replace(/-(secondary|tertiary)$/, '');
+    const fill = (kind_detail: string, extra?: Record<string, unknown>) => drawing(paper.layers, road(kind_detail, extra)).filter((l) => MAJOR_LAYERS.includes(of(l)) && !of(l).includes('casing'));
+    const casing = (kind_detail: string) => drawing(paper.layers, road(kind_detail)).filter((l) => of(l) === 'roads_major_casing_late');
+    for (const [detail, colour, edge] of [
+      ['secondary', V1_PAPER.secondary, V1_PAPER.secondaryCasing],
+      ['secondary_link', V1_PAPER.secondary, V1_PAPER.secondaryCasing],
+      ['tertiary', V1_PAPER.tertiary, V1_PAPER.tertiaryCasing],
+      ['tertiary_link', V1_PAPER.tertiary, V1_PAPER.tertiaryCasing],
+      ['primary', V1_PAPER.arterial, V1_PAPER.arterialCasing],
+      ['trunk', V1_PAPER.arterial, V1_PAPER.arterialCasing],
+      ['primary_link', V1_PAPER.arterial, V1_PAPER.arterialCasing],
+    ] as const) {
+      expect(fill(detail).map((l) => l.paint['line-color']), detail).toEqual([colour]);
+      expect(casing(detail).map((l) => l.paint['line-color']), detail).toEqual([edge]);
+    }
+    // On a bridge, the bridge's own layers draw it, by class as well.
+    expect(fill('tertiary', { is_bridge: true }).map((l) => l.id)).toEqual(['roads_bridges_major-tertiary']);
+    expect(validateStyleMin(paper).map((e) => e.message)).toEqual([]);
+  });
+
+  it('draws V1’s motorways in its louder amber, and its minor streets’ names in its dark ink', () => {
+    const paint = (id: string, key: string) => (paper.layers.find((l) => l.id === id) as unknown as { paint: Record<string, unknown> }).paint[key];
+    expect([paint('roads_highway', 'line-color'), paint('roads_highway_casing_late', 'line-color')]).toEqual([V1_PAPER.highway, V1_PAPER.highwayCasing]);
+    expect(paint('roads_labels_minor', 'text-color')).toBe(V1_PAPER.streetName);
   });
 });

@@ -443,6 +443,43 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
+- **2026-10-23** (`src/render/map/tokens.test.ts`, `src/render/map/style.test.ts`, `src/render/map/loadMap.test.ts`, `src/platform/web/switches.test.ts`, `e2e/tokens.spec.ts`; on `main` 924ced6): **the Nov 8 light token pick, ready to make** (PLAN §8, §10 week 4; D13). The owner picks the starting light tokens or pure V1 paper, side by side on Boston, with the network hues checked against the light set and a placeholder dark land and void. No format change, and no sim number moves: a token set changes only what is drawn (I16).
+  - **The two candidates:**
+    - **Warm-neutral:** PLAN §8's starting tokens as they ship today (`LIGHT`, four of them brought to rule 1's chroma on 2026-10-12, below). Its style is unchanged, byte for byte at every step of the light.
+    - **V1's paper** (`V1_PAPER`): V1's colours as V1 drew them (`Intralines@7af45b1:src/map/basemapStyle.ts:9-32`). A fill V1 laid at an opacity is that blend over its land: parks 0.7, wood 0.55, buildings 0.86, industrial land 0.5, the names' halo 0.85.
+    - **V1's roads by class:** motorways in its louder amber, primary and trunk roads in the arterials' amber, secondary and tertiary roads near white, minor streets white. The generator now draws a class of major road in layers of its own where a set colours it apart (`byClass` in `style.ts`); the warm set colours none apart. Its review found that in one colour, the arterials' amber had taken the secondary and tertiary roads, 57.5% of the major roads' length in the play area, which V1 drew near white.
+    - **V1's names:** every street's in its dark ink (the review: minor streets' names had taken its neighbourhoods' tan), neighbourhoods' in its tan, water's in its blue.
+    - **What V1 did not draw:** hospitals, schools and airfields were its land. Paths, piers and runways take its tertiary roads' fill; V1 drew runways as grey lines, so Logan's runways read paler than V1's. Building outlines and boundaries take its streets' casing.
+    - **The game's colours** are the same on both, but for the halo behind its own words, which is each set's land.
+  - **To see them side by side:**
+    - the preview draws V1's paper with `?light=paper` (`src/platform`'s `lightSwitch`), and the warm-neutral set without it: https://bobbyjohn-nil.github.io/interbus/?light=paper beside https://bobbyjohn-nil.github.io/interbus/. Home draws the map in each one's colours. Two windows share one autosave, so play in one only (a tab left behind stops saving, the fifth round's two tabs, 2026-10-16, below);
+    - `TOKEN_PICK=1` on `e2e/tokens.spec.ts` writes four pictures of both over a late game's 18 lines on Inner Boston (the fixture's on the fixture build): at zoom 14.0 and 15.8, by day at 12:00 and at 22:00, the tint's darkest step.
+  - **Measured** (`tokens.test.ts` pins each number):
+    - **Rule 1** (base chroma ≤0.04, water ≤0.07): the warm set breaks it nowhere, at any step of the light. V1's paper breaks it in ten colours by day: water 0.081, parks 0.075, wood 0.068, arterials 0.081 and their casing 0.104, motorways 0.122 and their casing 0.138, tertiary roads' casing 0.054, neighbourhoods' names 0.043 and water's names 0.092. It breaks it in nine at dusk and eight at night, as the neighbourhoods' names and then the tertiary casing dim under 0.04.
+    - **Names on their halos:** both hold 4.5:1 and 3:1 at every step.
+      - V1's paper: names and street names 9.04:1 and neighbourhoods 3.79:1 by day; 6.70:1 and 3.40:1 at night.
+      - The warm set: 5.82:1, and street names and neighbourhoods 3.76:1; then 4.70:1 and 3.32:1.
+    - **The network hues on the light sets** (every opaque game colour at least 0.15 in OKLab from each base colour it is drawn over):
+      - The warm set holds it at every step: nearest 0.278 by day and 0.159 at night, the Amber line on a building.
+      - V1's paper holds it by day, nearest 0.190: the Amber line on its motorways' amber, which buses drive between stops.
+      - From 19:30 that pair comes nearer: 0.120, then 0.082, and 0.050 at the darkest step, where its louder base dims toward the lines' own hues.
+      - At the darkest step five more come nearer: the Blue line on water 0.131, the Amber line on arterials 0.128, on parks 0.149 and on wood 0.146, and the flags' ink on motorways 0.141.
+    - **The translucent marks:** on V1's paper only a job's ring over water comes nearer at night than the set's own nearest by day: 0.080, against 0.098 (the depot land's tint on a building). The warm set holds 0.127 against its 0.092.
+    - **The game's words** stand 4.42:1 on V1's land and 4.20:1 on the warm set's, at every step.
+    - **The network hues on a placeholder dark land and void** (`DARK_PLACEHOLDER`): the land is V1's dark land, `#20242e`, which V1 named and never drew (`Intralines@7af45b1:src/map/basemapStyle.ts:11`); the void, `#13151b`, sits 0.064 below it in OKLCH lightness, as the light void sits below its land.
+      - Seven of the eight line colours keep at least 0.261 from the dark land (Line 5's purple), and 0.319 from the void.
+      - Line 8's slate, `#2e4053`, is 0.106 from the dark land (1.46:1), and 0.171 from the void.
+      - The inks dark on the light map are 0.031 (the line being drawn) and 0.027 (a bus's outline) from it. The game's other marks keep at least 0.337.
+  - **What it means for January:** the dark set needs more than its base tokens. The two inks need dark-theme values, as D13 has them (a bus's ink is still written into `vehicles.ts`). Line 8 needs a lighter slate or a colour of its own in dark. A line's colour is saved with it (`src/sim/save/save.ts`), so a lighter slate in both themes reaches new lines only; old saves' slate lines would need the dark theme to map line colours, which D13 makes theme tokens. It goes with the palette for many lines, which Many lines on the map (Open) leaves to the light style pass (recommended).
+  - **What each pick means:**
+    - **The warm-neutral set:** nothing changes. The light style pass (the M5 spec, item 8) starts from it, and V1's paper, its road classes and the switch go.
+    - **V1's paper:** either PLAN §8 rule 1 gives way for V1's ten colours, or the style pass brings its hues to rule 1's chroma, as the warm set's four were. Either way the pass fixes its night: the Amber line on its motorways first, then the other five pairs and the job rings over water. The warm set and the switch go.
+  - **Cost:** the menu's critical path grows from 124.1 to 124.5 KiB gzip with the second token set and the switch; the board grows from 480.5 to 480.7 KiB with the road classes.
+  - **Tests** (TS-04):
+    - The e2e test fails with MapView not passing the switch's tokens: 139 pixels of V1's ground (its land, buildings and water) where it asks for over 6,000. With the switch it finds 57,741, against 98 of the warm set's; without it, 44,068 of the warm set's and 139 of V1's.
+    - The `mountMap` unit test fails with the map drawing the warm set whatever it is given, and, since the review, with the overlays given the warm board, which named the paper map's lines in the warm ink.
+    - The road classes' test fails with `byClass` taken out.
+    - The switch's and `lightTokens`' tests fail with the switch never asking, and with `lightTokens` always the warm set.
 - **2026-10-23** (`e2e/keyboard.spec.ts`, `e2e/start.spec.ts`, `e2e/menus.spec.ts`, `e2e/home.spec.ts`, `e2e/boot.spec.ts`, `src/ui/shell/Panels.test.ts`, `src/ui/brand/boot.test.ts`, `src/ui/onePress.test.ts`, `src/render/map/tilt.test.ts`): **the eleventh round's second lane: the edges of the tenth round's fixes** (D26; the round's entry below). It found 9 bugs, 5 minor and 4 nits, most older than round 10 but each beside one of its fixes, each reproduced in 3 runs of 3. No format change.
   - **Held for the lane:**
     - **The random play** (`src/worker/fuzz.test.ts`) held on 72 seeds of 72, in 309 s: 1,513 lines drawn and 836 closed, 218 sales, 1,457 headway changes and 1,695 whole days.
