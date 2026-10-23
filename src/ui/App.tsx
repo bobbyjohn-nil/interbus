@@ -358,10 +358,11 @@ export function App() {
   }, [loadedAt, choose]);
 
   const ready = sim.status === "ready";
-  // The page's boot splash goes once the game has a screen to show: Home, a game, or a card saying why there is none. Before
-  // the paint that shows it, so no moment shows that screen with the splash still speaking over it (endBoot).
+  // The page's boot splash goes once the game has a screen to show: Home or a game, towed away by its bus, or a card saying
+  // why there is none, at once. Before the paint that shows it, so no moment shows that screen with the splash still speaking
+  // over it (endBoot).
   useLayoutEffect(() => {
-    if (sim.status !== "loading") endBoot();
+    if (sim.status !== "loading") endBoot(sim.status === "ready");
   }, [sim.status]);
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
   // On Home, Saves and Help stand beside Home's card, off the panel layer, so Panels' hand-back never reaches them. One that

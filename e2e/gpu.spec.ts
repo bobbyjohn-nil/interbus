@@ -17,14 +17,16 @@ async function takeGraphics(page: Page): Promise<void> {
   });
 }
 
-/** Site data blocked, for page.addInitScript: the localStorage getter throws a SecurityError, as e2e/saves.spec.ts has it. */
+/** Site data blocked, for page.addInitScript: the localStorage and sessionStorage getters throw a SecurityError, as a browser
+ * blocking the site's data throws from both (the review of #161), and as e2e/saves.spec.ts has it. */
 function blockStorage(): void {
-  Object.defineProperty(window, 'localStorage', {
-    configurable: true,
-    get() {
-      throw new DOMException('The operation is insecure.', 'SecurityError');
-    },
-  });
+  for (const name of ['localStorage', 'sessionStorage'])
+    Object.defineProperty(window, name, {
+      configurable: true,
+      get() {
+        throw new DOMException('The operation is insecure.', 'SecurityError');
+      },
+    });
 }
 
 /** Whether `target` is what is drawn at its middle and near both ends of its middle row, so its words can be read and it pressed. */

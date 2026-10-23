@@ -28,7 +28,7 @@ function page(over: Partial<BootEnv> = {}) {
 describe('the boot splash’s end', () => {
   it('the first time in a tab, its bus tows it away, saying nothing more, and it goes a little past the wipe', () => {
     const p = page();
-    endBoot(p.env);
+    endBoot(true, p.env);
     expect(p.classes.has('leaving')).toBe(true);
     expect(p.state.hidden).toBe('true');
     expect(p.state.gone).toBe(false);
@@ -39,7 +39,7 @@ describe('the boot splash’s end', () => {
 
   it('later in the tab, it goes at once', () => {
     const p = page({ firstInTab: () => false });
-    endBoot(p.env);
+    endBoot(true, p.env);
     expect(p.state.gone).toBe(true);
     expect(p.classes.has('leaving')).toBe(false);
     expect(p.timers).toEqual([]);
@@ -47,7 +47,15 @@ describe('the boot splash’s end', () => {
 
   it('for anyone who asked for less motion, it goes at once and leaves the tab’s first time unspent', () => {
     const p = page({ still: true });
-    endBoot(p.env);
+    endBoot(true, p.env);
+    expect(p.state.gone).toBe(true);
+    expect(p.classes.has('leaving')).toBe(false);
+    expect(p.state.asked).toBe(0);
+  });
+
+  it('for a game that could not start, it goes at once and leaves the tab’s tow for the start that works', () => {
+    const p = page();
+    endBoot(false, p.env);
     expect(p.state.gone).toBe(true);
     expect(p.classes.has('leaving')).toBe(false);
     expect(p.state.asked).toBe(0);
@@ -55,11 +63,11 @@ describe('the boot splash’s end', () => {
 
   it('called again while it leaves, or on a page with none, it does nothing more', () => {
     const p = page();
-    endBoot(p.env);
-    endBoot(p.env);
+    endBoot(true, p.env);
+    endBoot(true, p.env);
     expect(p.timers).toHaveLength(1);
     expect(p.state.asked).toBe(1);
-    expect(() => endBoot({ ...p.env, boot: null })).not.toThrow();
+    expect(() => endBoot(true, { ...p.env, boot: null })).not.toThrow();
   });
 });
 

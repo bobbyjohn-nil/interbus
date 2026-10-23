@@ -15,7 +15,7 @@
     <div id="boot">
       <div class="boot-card">
         <div class="boot-bus" aria-hidden="true"><svg width="118" height="72" viewBox="0 0 42 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 15.6 L 3 6.6 Q 3 4 5.6 4 L 32 4 Q 33.8 4 34.4 5.2 L 37 11.6 L 37 15.8 Q 37 17 35.6 17 L 34.1 17 Q 30.6 12.3 27.1 17L 13.0 17 Q 9.5 12.3 6.0 17L 4.4 17 Q 3 17 3 15.6 Z"/><path d="M 29.8 6.4 L 33.1 6.4 L 35.2 11.1 L 29.8 11.1 Z" stroke-width="1.3" opacity=".85"/><rect x="5.4" y="6.4" width="16.6" height="4.3" rx="1.1" stroke-width="1.3" opacity=".85"/><path d="M 10.9 6.4 V 10.7" stroke-width="1.1" opacity=".5"/><path d="M 16.5 6.4 V 10.7" stroke-width="1.1" opacity=".5"/><rect x="23.1" y="5.9" width="2.6" height="10.2" rx="1" stroke-width="1.3" opacity=".75"/><path d="M 24.4 6.2 V 15.8" stroke-width="1" opacity=".45"/><path d="M 5.4 13.4 H 22.0" stroke-width="1.1" opacity=".4"/><circle cx="35.3" cy="14.3" r=".85" fill="currentColor" stroke="none"/><circle cx="30.6" cy="18.5" r="2.7" fill="currentColor" stroke="none"/><circle cx="9.5" cy="18.5" r="2.7" fill="currentColor" stroke="none"/></svg></div>
-        <b>Interbus</b>
+        <b aria-hidden="true">Interbus</b>
         <span class="boot-line" aria-hidden="true">Warming up the engines…</span>
         <span class="boot-bar" aria-hidden="true"><i></i></span>
         <span class="boot-status" role="status">Loading</span>
@@ -23,7 +23,8 @@
     </div>
     <script>
       // Depot chatter while the game's files load, for company (GD-08): a line every 950 ms from a random start, until the
-      // splash goes. After 20 s with nothing come, it says so instead, to a screen reader too.
+      // splash goes. If the game's code has not run in 20 s (its root still empty), or nothing has come in a minute, as the
+      // city's 2 MB may take on a slow line, it says to reload instead, to a screen reader too.
       (function () {
         var lines = [
           'Warming up the engines…',
@@ -45,10 +46,12 @@
         if (!line || !status) return;
         var i = Math.floor(Math.random() * lines.length);
         var started = Date.now();
+        var root = document.getElementById('root');
         line.textContent = lines[i];
         var every = setInterval(function () {
           if (!document.getElementById('boot')) return clearInterval(every);
-          if (Date.now() - started > 20000) {
+          var waited = Date.now() - started;
+          if (waited > 60000 || (waited > 20000 && root && !root.hasChildNodes())) {
             line.textContent = status.textContent = stuck;
             return clearInterval(every);
           }

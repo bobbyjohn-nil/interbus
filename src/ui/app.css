@@ -35,6 +35,9 @@
   --layer-menus: 20;
   --layer-cards: 100;
   --layer-replaced: 150;
+  /* The boot splash over them all while the game loads, but for the corner: the map's credit shows with any of the map, the
+     wipe's included (index.html, CLAUDE.md). */
+  --layer-boot: 200;
   font-family: 'Afacad Flux', system-ui, sans-serif;
   color: var(--ui-ink);
   background: var(--void);
@@ -1731,12 +1734,12 @@ button.chip.checklist,
   cursor: grabbing;
 }
 
-/* The boot splash (index.html; S18, V1's): the page draws it while the game's own files load, over everything, and it takes
-   no pointer, so nothing under it waits for it. The game ends it (src/ui/brand/boot.ts). */
+/* The boot splash (index.html; S18, V1's): the page draws it while the game's own files load, over everything but the corner,
+   and it takes no pointer, so nothing under it waits for it. The game ends it (src/ui/brand/boot.ts). */
 #boot {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--layer-boot);
   display: grid;
   place-items: center;
   background: var(--ui-paper);
@@ -1791,6 +1794,12 @@ button.chip.checklist,
   100% {
     transform: translateX(350%);
   }
+}
+
+/* The corner over the splash while it stands: the map shows as the bus tows the splash away, and its credit with it, from the
+   wipe's first frame (CLAUDE.md: "© OpenStreetMap contributors" stays visible whenever the map shows; the review of #161). */
+body:has(#boot) .corner {
+  z-index: calc(var(--layer-boot) + 1);
 }
 
 /* What a screen reader says while the splash stands, as no one sees it. */
