@@ -1,7 +1,8 @@
-import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
+import { createExpression, featureFilter, validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import { describe, expect, it } from 'vitest';
 import type { Bbox } from '../../cities';
 import {
+  asExpression,
   BOARD,
   boardFeatures,
   buildStyle,
@@ -163,5 +164,47 @@ describe('hexToOklch', () => {
     expect(hexToOklch('#ffffff').l).toBeCloseTo(1, 3);
     expect(hexToOklch('#ffffff').c).toBeCloseTo(0, 3);
     expect(hexToOklch('#ff0000').c).toBeCloseTo(0.2577, 3);
+  });
+});
+
+// The review of the day and night tint: the parks' colour was a case on each park's kind, so the light's every step laid out every
+// tile again (daylight.ts); the parks are now one layer a colour, each colour the same for every park it draws.
+describe('a fill coloured by each feature, as one layer a colour (byColour)', () => {
+  const parks = style.layers.filter((l) => l.id === 'landuse_park' || l.id.startsWith('landuse_park-')) as unknown as {
+    id: string;
+    filter: unknown[];
+    paint: Record<string, unknown>;
+  }[];
+
+  it('draws every kind the parks draw from one layer, in the colour its case gave it', () => {
+    expect(parks.map((l) => l.id)).toEqual(['landuse_park', 'landuse_park-2', 'landuse_park-3']);
+    for (const l of parks) expect(typeof l.paint['fill-color'], l.id).toBe('string');
+    const [, kept, picked] = parks[0]!.filter as [string, [string, unknown, [string, string[]]], [string, unknown, string]];
+    const cased = createExpression(picked[1], 'layers.landuse_park.paint.fill-color');
+    if (cased.result !== 'success') throw new Error('the parks’ case does not parse');
+    const kinds = kept[2][1];
+    expect(kinds.length).toBeGreaterThan(10);
+    for (const kind of [...kinds, 'a kind no park has']) {
+      const feature = { type: 3 as const, properties: { kind } };
+      const drawing = parks.filter((l) => featureFilter(l.filter as never, `layers.${l.id}.filter`).filter({ zoom: 15 }, feature as never));
+      if (!kinds.includes(kind)) {
+        expect(drawing, kind).toEqual([]);
+        continue;
+      }
+      expect(drawing, kind).toHaveLength(1);
+      expect(drawing[0]!.paint['fill-color'], kind).toBe(cased.value.evaluate({ zoom: 15 }, feature as never));
+    }
+  });
+
+  it('reads the legacy filters protomaps writes, and refuses one it cannot', () => {
+    expect(asExpression(['in', 'kind', 'park', 'wood'])).toEqual(['in', ['get', 'kind'], ['literal', ['park', 'wood']]]);
+    expect(asExpression(['all', ['==', '$type', 'Polygon'], ['!has', 'name'], ['!in', 'kind', 'sand']])).toEqual([
+      'all',
+      ['==', ['geometry-type'], 'Polygon'],
+      ['!', ['has', 'name']],
+      ['!', ['in', ['get', 'kind'], ['literal', ['sand']]]],
+    ]);
+    expect(asExpression(['==', ['get', 'kind'], 'park'])).toEqual(['==', ['get', 'kind'], 'park']);
+    expect(() => asExpression(['<', 'rank', 3])).toThrow(/cannot read/);
   });
 });

@@ -78,8 +78,13 @@ export function clock(hour: number, minute: number): string {
  * be read (D25).
  */
 export function clockText(hour: number, minute: number, rate: number): string {
-  if (rate <= 60) return clock(hour, minute);
-  return clock(hour, rate <= 600 ? minute - (minute % 10) : 0);
+  return clock(hour, shownMinute(minute, rate));
+}
+
+/** The minute the clock shows at a speed: the exact minute up to 60x, the ten minutes at 600x and the hour above (clockText). */
+export function shownMinute(minute: number, rate: number): number {
+  if (rate <= 60) return minute;
+  return rate <= 600 ? minute - (minute % 10) : 0;
 }
 
 /** D7's periods as the clock chip names them (D13: the time of day never rests on the map's tint). */

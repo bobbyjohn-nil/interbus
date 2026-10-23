@@ -48,6 +48,12 @@ export interface GameTokens {
   readonly draft: string;
   /** The warning colour: a QUIET or LOSS stop's ring and word (the M3 spec, item 5), and a city event's street and words (the M4 spec, item 2). */
   readonly stopFlag: string;
+  /**
+   * The halo behind the game's words in its own inks (the flags' and the events' words, the line being drawn's numbers): a game
+   * colour, so it keeps its light at night as they do. In the labels' halo it dimmed with the map while the warning ink did not,
+   * from 4.20:1 by day to 2.32:1 at night (the review of the day and night tint).
+   */
+  readonly wordHalo: string;
 }
 
 export const GAME_LIGHT: GameTokens = {
@@ -58,6 +64,7 @@ export const GAME_LIGHT: GameTokens = {
   depotMark: '#1f8a3a',
   draft: '#2a2723',
   stopFlag: '#c2410c',
+  wordHalo: '#ebe7df',
 };
 
 export const LIGHT: MapTokens = {

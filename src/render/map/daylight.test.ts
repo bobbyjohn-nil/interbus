@@ -2,7 +2,8 @@ import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import { describe, expect, it } from 'vitest';
 import type { Bbox } from '../../cities';
 import { LINE_COLOURS } from '../../sim/rules/line';
-import { darkStep, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
+import { START_SECOND_OF_DAY } from '../../sim/rules/periods';
+import { darkStep, daylightPaints, dim, dimmed, louder, NIGHT_STEP, paintsAcross } from './daylight';
 import { hexToOklch } from './oklch';
 import { overlayLayers, restingLines, RESTING_OPACITY, setResting } from './overlays';
 import { buildStyle, MASK_LAYERS } from './style';
@@ -37,17 +38,24 @@ function contrast(x: string, y: string): number {
 }
 
 describe('the light by the sim’s clock', () => {
-  it('is day from 06:30 to 19:00, a step darker each half hour from 19:00, night from 20:30 to 05:00, and lighter from 05:00', () => {
+  it('is day from 05:00 to 19:00, a step darker each half hour from 19:00, night from 20:30 to 03:30, and lighter from 03:30', () => {
     const steps = [
-      [at(6, 30), 0], [at(12), 0], [at(18, 59), 0],
+      [at(5), 0], [at(12), 0], [at(18, 59), 0],
       [at(19), 1], [at(19, 29), 1], [at(19, 30), 2], [at(20), 3], [at(20, 30), 4], [at(23, 59), 4],
-      [at(0), 4], [at(4, 59), 4],
-      [at(5), 3], [at(5, 30), 2], [at(6), 1], [at(6, 29), 1],
+      [at(0), 4], [at(3, 29), 4],
+      [at(3, 30), 3], [at(4), 2], [at(4, 30), 1], [at(4, 59), 1],
     ] as const;
     for (const [second, step] of steps) expect(darkStep(second), `${second}`).toBe(step);
     // Any day's second, and past a day's end.
     expect(darkStep(at(19) + 86_400 * 3)).toBe(1);
     expect(darkStep(-at(1))).toBe(4);
+  });
+
+  // The review of the day and night tint: dawn from 05:00 left a new company founded, its depot placed and its first line drawn
+  // on a map three quarters of the way to night, where Home and the founding card stood too.
+  it('is day as a new game starts, paused at the service day’s opening', () => {
+    expect(darkStep(START_SECOND_OF_DAY)).toBe(0);
+    expect(darkStep(START_SECOND_OF_DAY - 1)).toBe(1);
   });
 
   it('changes eight times a day, so the paints are set eight times a day at most (RN-04)', () => {
@@ -77,17 +85,17 @@ describe('the palette at every step (D13: light by day and at its darkest)', () 
     }
   });
 
-  // The game's colours stay as they are on a dimmer map: each at least 0.15 apart in OKLab from every base colour it is drawn
-  // over (by day the nearest pair, the Amber line on a building, is 0.278 apart; at night 0.159). Water carries the lines,
-  // the line being drawn and the buses over its bridges; the dots, depots and flags stand on land.
-  it('keeps every game colour clear of the base it is drawn over', () => {
-    const ground: (keyof MapTokens)[] = ['land', 'street', 'arterial', 'buildingFill', 'park', 'wood', 'path', 'hospital', 'school', 'industrial'];
+  // The game's colours stay as they are on a dimmer map. The opaque marks keep at least 0.15 apart in OKLab from every base colour
+  // they are drawn over (by day the nearest pair, the Amber line on a building, is 0.278 apart; at night 0.159). Water carries the
+  // lines, the line being drawn and the buses over its bridges.
+  const ground: (keyof MapTokens)[] = ['land', 'street', 'arterial', 'buildingFill', 'park', 'wood', 'path', 'hospital', 'school', 'industrial'];
+  it('keeps every opaque game colour clear of the base it is drawn over', () => {
     const busInk = '#292624'; // vehicles.ts's glyph outline, vec3(0.16, 0.15, 0.14)
     const game: [string, string, (keyof MapTokens)[]][] = [
       ...LINE_COLOURS.map((c, k): [string, string, (keyof MapTokens)[]] => [`line ${k + 1}`, c, [...ground, 'water']]),
       ['the line being drawn', GAME_LIGHT.draft, [...ground, 'water']],
       ['a bus’s ink', busInk, [...ground, 'water']],
-      ...(['homeDot', 'jobDot', 'depotLand', 'depotMark', 'stopFlag'] as const).map((k): [string, string, (keyof MapTokens)[]] => [k, GAME_LIGHT[k], ground]),
+      ...(['depotMark', 'stopFlag'] as const).map((k): [string, string, (keyof MapTokens)[]] => [k, GAME_LIGHT[k], ground]),
     ];
     let nearest = Infinity;
     for (const step of STEPS) {
@@ -101,6 +109,58 @@ describe('the palette at every step (D13: light by day and at its darkest)', () 
       }
     }
     expect(nearest).toBeLessThan(0.17);
+  });
+
+  // The translucent marks as the map draws them, blended over the base at the opacity each step gives them (overlays.ts, louder):
+  // none comes nearer the base under it at any step than the nearest comes by day, the depot land's tint on a building (0.092).
+  // At their day opacities that tint fell to 0.062 at night, a home dot to 0.124 and a job's ring over water to 0.103 (the
+  // review of the day and night tint). Dots stand on water at the waterfront.
+  it('keeps every translucent mark as drawn no nearer the base at night than the nearest is by day', () => {
+    const marks: [string, string, string, string, (keyof MapTokens)[]][] = [
+      ['a home', 'dots-homes', 'circle-opacity', GAME_LIGHT.homeDot, [...ground, 'water']],
+      ['a job’s ring', 'dots-jobs', 'circle-stroke-opacity', GAME_LIGHT.jobDot, [...ground, 'water']],
+      ['depot land', 'depot-land-fill', 'fill-opacity', GAME_LIGHT.depotLand, ['land', 'industrial', 'buildingFill', 'street']],
+      ['roadworks ahead', 'event-pending', 'line-opacity', GAME_LIGHT.stopFlag, ['street', 'arterial']],
+      ['roadworks on', 'event-on', 'line-opacity', GAME_LIGHT.stopFlag, ['street', 'arterial']],
+    ];
+    const blend = (top: string, alpha: number, under: string) => {
+      const ch = (hex: string) => [16, 8, 0].map((shift) => (Number.parseInt(hex.slice(1), 16) >> shift) & 255);
+      const [a, b] = [ch(top), ch(under)];
+      return `#${a.map((c, i) => Math.round(alpha * c + (1 - alpha) * b[i]!).toString(16).padStart(2, '0')).join('')}`;
+    };
+    const nearestAt = (step: number) => {
+      const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step);
+      const base = dimmed(LIGHT, step);
+      return marks.map(([name, layer, property, colour, under]) => {
+        const alpha = (layers.find((l) => l.id === layer) as unknown as { paint: Record<string, number> }).paint[property]!;
+        return { name, d: Math.min(...under.map((b) => distance(blend(colour, alpha, base[b]), base[b]))) };
+      });
+    };
+    const floor = Math.min(...nearestAt(0).map((m) => m.d));
+    expect(floor).toBeCloseTo(0.092, 3);
+    for (const step of STEPS) for (const { name, d } of nearestAt(step)) expect(d, `${name} at step ${step}`).toBeGreaterThanOrEqual(floor);
+    expect(louder(0.55, NIGHT_STEP)).toBe(0.88);
+    expect(louder(0.7, NIGHT_STEP)).toBe(1);
+  });
+
+  // The review of the day and night tint: in the labels' halo, which dims, the warning ink, which does not, fell from 4.20:1 to
+  // 2.32:1 at night (QUIET, LOSS, roadworks ahead). The game's words in its own inks keep their own halo (wordHalo).
+  it('keeps the game’s words in its own inks on their own halo at every step, as readable as by day', () => {
+    const words = (step: number) => {
+      const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step);
+      return ['stops-flag-word', 'event-label', 'draft-order'].map((id) => {
+        const paint = (layers.find((l) => l.id === id) as unknown as { paint: Record<string, string> }).paint;
+        return { id, halo: paint['text-halo-color'], ratio: contrast(paint['text-color']!, paint['text-halo-color']!) };
+      });
+    };
+    const day = words(0);
+    expect(day.find((w) => w.id === 'stops-flag-word')!.ratio).toBeCloseTo(4.2, 2);
+    for (const step of STEPS) {
+      for (const [k, w] of words(step).entries()) {
+        expect(w.halo, `${w.id} at step ${step}`).toBe(GAME_LIGHT.wordHalo);
+        expect(w.ratio, `${w.id} at step ${step}`).toBe(day[k]!.ratio);
+      }
+    }
   });
 
   it('keeps the labels readable on their halos: 4.5:1 for the names, 3:1 for the minor ones', () => {
@@ -136,11 +196,30 @@ describe('the paints the light changes', () => {
     expect(paints.some((p) => p.property === 'text-halo-color')).toBe(true);
   });
 
-  it('take in the game’s words worn in the labels’ inks, and none of the game’s own colours', () => {
-    const overlays = paintsAcross(STEPS.map((step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step))));
+  it('take in the lines’ names in the labels’ inks and the translucent marks’ opacities, and none of the game’s own colours', () => {
+    const overlays = paintsAcross(STEPS.map((step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step)));
     const names = overlays.map((p) => `${p.layer} ${p.property}`).sort();
-    expect(names).toEqual(['draft-order text-halo-color', 'event-label text-halo-color', 'lines-name text-color', 'lines-name text-halo-color', 'stops-flag-word text-halo-color']);
+    expect(names).toEqual([
+      'depot-land-fill fill-opacity',
+      'dots-homes circle-opacity',
+      'dots-jobs circle-stroke-opacity',
+      'draft-rings fill-opacity',
+      'event-on line-opacity',
+      'event-pending line-opacity',
+      'lines-name text-color',
+      'lines-name text-halo-color',
+    ]);
     expect(overlays.find((p) => p.layer === 'lines-name' && p.property === 'text-color')?.values).toEqual(STEPS.map((step) => dim(LIGHT.label, step)));
+  });
+
+  // The review of the day and night tint: the parks' colour was a case on each park's kind, and a colour that depends on each
+  // feature changes only by laying out again every tile of its source, the 3D buildings' too (612 ms in 3D on software GL), and
+  // takes no transition. Every paint the light changes is the same for every feature now (style.ts, byColour).
+  it('are the same for every feature, so a step lays out no tile again and every one of them fades', () => {
+    const overlays = paintsAcross(STEPS.map((step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step)));
+    for (const p of [...paints, ...overlays]) {
+      for (const value of p.values) expect(JSON.stringify(value), `${p.layer} ${p.property}`).not.toMatch(/"(get|has|feature-state|geometry-type|properties|id|in)"/);
+    }
   });
 });
 
@@ -157,14 +236,20 @@ describe('a line resting while it runs no service (D13)', () => {
     expect(restingLines(lines, at(23, 59))).toEqual([]);
   });
 
-  it('fades its route, its name and its stops, and with none resting every line shows whole', () => {
+  // Its name is placed after the running lines': faded alone, it kept its place on a shared street, and the running line had no
+  // name there (the review of the day and night tint).
+  it('fades its route, its name and its stops, places its name last, and with none resting every line shows whole', () => {
     const set: [string, string, unknown][] = [];
-    const map = { setPaintProperty: (layer: string, property: string, value: unknown) => void set.push([layer, property, value]) };
+    const record = (layer: string, property: string, value: unknown) => void set.push([layer, property, value]);
+    const map = { setPaintProperty: record, setLayoutProperty: record };
     setResting(map as never, [1, 3]);
-    expect(set.map(([layer, property]) => `${layer} ${property}`)).toEqual(['lines-route line-opacity', 'lines-name text-opacity', 'lines-stops circle-opacity', 'lines-stops circle-stroke-opacity']);
-    for (const [, , value] of set) expect(value).toEqual(['case', ['in', ['get', 'id'], ['literal', [1, 3]]], RESTING_OPACITY, 1]);
+    const rests = ['in', ['get', 'id'], ['literal', [1, 3]]];
+    expect(set).toEqual([
+      ...[['lines-route', 'line-opacity'], ['lines-name', 'text-opacity'], ['lines-stops', 'circle-opacity'], ['lines-stops', 'circle-stroke-opacity']].map(([l, p]) => [l, p, ['case', rests, RESTING_OPACITY, 1]]),
+      ['lines-name', 'symbol-sort-key', ['case', rests, 1, 0]],
+    ]);
     set.length = 0;
     setResting(map as never, []);
-    for (const [, , value] of set) expect(value).toBe(1);
+    expect(set.map(([, , value]) => value)).toEqual([1, 1, 1, 1, 0]);
   });
 });

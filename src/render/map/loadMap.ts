@@ -345,12 +345,12 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     event?: EventView | null;
   } = {};
   let shownKinds: DotKinds = { home: true, job: true };
-  // The day and night tint (daylight.ts): every paint the light's steps change, the board's and the game's words alike, worked
-  // out once. The style loads by day; a step is set when the sim's clock reaches it (setClock), with MapLibre's transition for
-  // its fade, or at once with less motion asked for, as the style loads, or as it comes back after a loss.
+  // The day and night tint (daylight.ts): every paint the light's steps change, the board's and the game's names and translucent
+  // marks alike, worked out once. The style loads by day; a step is set when the sim's clock reaches it (setClock), with MapLibre's
+  // transition for its fade, or at once with less motion asked for, as the style loads, or as it comes back after a loss.
   const lightPaints = [
     ...daylightPaints(styleOf, LIGHT),
-    ...paintsAcross(Array.from({ length: NIGHT_STEP + 1 }, (_, step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step)))),
+    ...paintsAcross(Array.from({ length: NIGHT_STEP + 1 }, (_, step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step))),
   ];
   let light = 0;
   let lightWanted = 0;

@@ -212,7 +212,7 @@ describe('the day and night tint', () => {
     map.paint.clear();
     board.setClock(23 * 3_600, 600, 2); // the same step: nothing set
     expect(map.paint.size).toBe(0);
-    board.setClock(5 * 3_600, 600, 3); // dawn's first step, faded by MapLibre
+    board.setClock(3.5 * 3_600, 600, 3); // dawn's first step, faded by MapLibre
     expect(background()).toBe(dim(LIGHT.void, NIGHT_STEP - 1));
     expect(fade()).toEqual({ duration: DAYLIGHT_FADE_MS, delay: 0 });
     // The words the game draws in the labels' inks dim with the map.

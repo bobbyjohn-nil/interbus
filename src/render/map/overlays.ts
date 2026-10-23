@@ -5,7 +5,8 @@
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
-import { periodAt, runsIn } from '../../sim/rules/periods';
+import { restsAt } from '../../sim/rules/periods';
+import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
 import { FONT_SEMIBOLD } from './style';
@@ -28,7 +29,11 @@ export const EVENT_LAYERS = ['event-pending', 'event-on', 'event-label'] as cons
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
 
-export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>): void {
+/**
+ * The game's layers, `step` steps toward night (daylight.ts): its translucent marks grow more opaque as the map dims (louder), and
+ * its words in its own inks keep their own halo (wordHalo); the lines' names, in the labels' inks, dim with the map's labels.
+ */
+export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>, step = 0): void {
   for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, EVENTS]) map.addSource(id, { type: 'geojson', data: empty });
   // A city event's street (the M4 spec, item 2), under the lines and wider than them so it shows on
   // either side of a route: hatched while pending, solid while on, in the warning colour.
@@ -39,7 +44,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       source: EVENTS,
       filter: ['all', ['==', ['get', 'kind'], 'street'], ['==', ['get', 'on'], on]],
       layout: { 'line-cap': 'butt', 'line-join': 'round' },
-      paint: { 'line-color': t.stopFlag, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 7, 16, 15], 'line-opacity': on ? 0.7 : 0.6, ...(on ? {} : { 'line-dasharray': [0.6, 0.6] }) },
+      paint: { 'line-color': t.stopFlag, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 7, 16, 15], 'line-opacity': louder(on ? 0.7 : 0.6, step), ...(on ? {} : { 'line-dasharray': [0.6, 0.6] }) },
     });
   }
   map.addLayer({
@@ -48,10 +53,10 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     source: EVENTS,
     filter: ['==', ['get', 'kind'], 'label'],
     layout: { 'text-field': ['get', 'text'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-allow-overlap': true, 'text-offset': [0, -1.4] },
-    paint: { 'text-color': t.stopFlag, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
+    paint: { 'text-color': t.stopFlag, 'text-halo-color': t.wordHalo, 'text-halo-width': 1.5 },
   });
   // The tint shows only while a depot is being placed (setTint): exactly the land the rule allows.
-  map.addLayer({ id: 'depot-land-fill', type: 'fill', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'fill-color': t.depotLand, 'fill-opacity': 0.28 } });
+  map.addLayer({ id: 'depot-land-fill', type: 'fill', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'fill-color': t.depotLand, 'fill-opacity': louder(0.28, step) } });
   map.addLayer({ id: 'depot-land-edge', type: 'line', source: DEPOT_LAND, layout: { visibility: 'none' }, paint: { 'line-color': t.depotLand, 'line-width': 1.5 } });
   // A dot's area grows with its people: radius by the square root, larger as the map zooms in (pick.ts,
   // which finds the dot under the pointer by the same numbers).
@@ -61,7 +66,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     type: 'circle',
     source: DOTS,
     filter: ['==', ['get', 'kind'], 'home'],
-    paint: { 'circle-color': t.homeDot, 'circle-opacity': 0.55, 'circle-radius': dotRadiusExpression() as never, 'circle-pitch-alignment': 'map' },
+    paint: { 'circle-color': t.homeDot, 'circle-opacity': louder(0.55, step), 'circle-radius': dotRadiusExpression() as never, 'circle-pitch-alignment': 'map' },
   });
   map.addLayer({
     id: 'dots-jobs',
@@ -73,7 +78,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       'circle-color': 'rgba(0, 0, 0, 0)',
       'circle-stroke-color': t.jobDot,
       'circle-stroke-width': ringExpressions().width as never,
-      'circle-stroke-opacity': 0.7,
+      'circle-stroke-opacity': louder(0.7, step),
       'circle-radius': ringExpressions().radius as never,
       'circle-pitch-alignment': 'map',
     },
@@ -142,7 +147,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     source: LINES,
     filter: ['==', ['get', 'kind'], 'flag'],
     layout: { 'text-field': ['get', 'word'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -1.1], 'text-allow-overlap': true },
-    paint: { 'text-color': t.stopFlag, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
+    paint: { 'text-color': t.stopFlag, 'text-halo-color': t.wordHalo, 'text-halo-width': 1.5 },
   });
   map.addLayer({
     id: 'depots',
@@ -156,7 +161,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     },
   });
   // The draft: each stop's walk ring in the residents' colour, the route dashed, the stops hollow and numbered.
-  map.addLayer({ id: 'draft-rings', type: 'fill', source: DRAFT, filter: ['==', ['get', 'kind'], 'ring'], paint: { 'fill-color': t.homeDot, 'fill-opacity': 0.08, 'fill-outline-color': t.homeDot } });
+  map.addLayer({ id: 'draft-rings', type: 'fill', source: DRAFT, filter: ['==', ['get', 'kind'], 'ring'], paint: { 'fill-color': t.homeDot, 'fill-opacity': louder(0.08, step), 'fill-outline-color': t.homeDot } });
   map.addLayer({
     id: 'draft-route',
     type: 'line',
@@ -185,15 +190,15 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     source: DRAFT,
     filter: ['==', ['get', 'kind'], 'stop'],
     layout: { 'text-field': ['to-string', ['get', 'n']], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-anchor': 'bottom', 'text-offset': [0, -0.9], 'text-allow-overlap': true },
-    paint: { 'text-color': t.draft, 'text-halo-color': base.labelHalo, 'text-halo-width': 1.5 },
+    paint: { 'text-color': t.draft, 'text-halo-color': t.wordHalo, 'text-halo-width': 1.5 },
   });
 }
 
-/** The overlays' layers as addOverlays adds them, for the light's steps (daylight.ts): their words wear the labels' inks. */
-export function overlayLayers(t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>): LayerSpecification[] {
+/** The overlays' layers as addOverlays adds them `step` steps toward night, for the light's paints (daylight.ts). */
+export function overlayLayers(t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>, step = 0): LayerSpecification[] {
   const layers: LayerSpecification[] = [];
   const recorder = { addSource: () => undefined, addLayer: (layer: LayerSpecification) => void layers.push(layer) };
-  addOverlays(recorder as unknown as MapLibreMap, t, base);
+  addOverlays(recorder as unknown as MapLibreMap, t, base, step);
   return layers;
 }
 
@@ -215,14 +220,19 @@ const RESTING: readonly (readonly [string, PaintName])[] = [
  * tint, so it never depends on it.
  */
 export function restingLines(lines: readonly Pick<LineView, 'id' | 'headways'>[], secondOfDay: number): number[] {
-  const period = periodAt(secondOfDay);
-  return lines.filter((line) => !runsIn(line.headways, period)).map((line) => line.id);
+  return lines.filter((line) => restsAt(line.headways, secondOfDay)).map((line) => line.id);
 }
 
-/** Fades the resting lines (restingLines): set when they change, at 00:00 and 05:00 or with the lines, never per frame (RN-04). */
-export function setResting(map: Pick<MapLibreMap, 'setPaintProperty'>, ids: readonly number[]): void {
-  const shows: ExpressionSpecification | number = ids.length ? ['case', ['in', ['get', 'id'], ['literal', [...ids]]], RESTING_OPACITY, 1] : 1;
+/**
+ * Fades the resting lines (restingLines), and places their names after the running lines': a name only faded kept its place, so
+ * where a resting line shared a street with a running one, the running line had no name there (the review of the day and night
+ * tint). Set when they change, at 00:00 and 05:00 or with the lines, never per frame (RN-04).
+ */
+export function setResting(map: Pick<MapLibreMap, 'setPaintProperty' | 'setLayoutProperty'>, ids: readonly number[]): void {
+  const rests: ExpressionSpecification = ['in', ['get', 'id'], ['literal', [...ids]]];
+  const shows: ExpressionSpecification | number = ids.length ? ['case', rests, RESTING_OPACITY, 1] : 1;
   for (const [layer, property] of RESTING) map.setPaintProperty(layer, property, shows);
+  map.setLayoutProperty('lines-name', 'symbol-sort-key', ids.length ? ['case', rests, 1, 0] : 0);
 }
 
 export function setDepotLand(map: MapLibreMap, rings: readonly (readonly LngLatPair[])[]): void {

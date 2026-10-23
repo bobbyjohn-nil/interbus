@@ -10,6 +10,9 @@ import { city, withDebugLine, type SaveData } from './shell';
 async function at(page: Page, second: number, edit?: (d: SaveData) => void) {
   await page.goto('./');
   await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  // Home over a new game at 05:00 stands in daylight: dawn ended at 06:30 at first, and Home, the founding card and the first
+  // line all stood on a map three quarters of the way to night (the review of the day and night tint).
+  await expect(page.getByTestId('map')).toHaveAttribute('data-daylight', '0');
   await leaveHome(page);
   await foundCompany(page);
   await withDebugLine(page, (d) => {

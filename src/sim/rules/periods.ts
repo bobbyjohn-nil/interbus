@@ -6,6 +6,8 @@ import { ok, refuse, type Result } from '../core/result';
 
 /** The headways the line card offers, in minutes. */
 export { HEADWAY_MINUTES } from '../config/lines';
+/** When the service day runs (05:00–24:00) and when a new game starts (05:00), for the map's light too (render/map/daylight.ts). */
+export { SERVICE_DAY, START_SECOND_OF_DAY } from '../config/time';
 
 export type Period = 'peak' | 'offpeak' | 'overnight';
 export const PERIODS: readonly Period[] = ['peak', 'offpeak', 'overnight'];
@@ -61,4 +63,9 @@ export function sameHeadways(a: Headways, b: Headways): boolean {
 /** Whether a line with these headways runs at all in `period`. */
 export function runsIn(h: Headways, period: Period): boolean {
   return period !== 'overnight' || h.overnight !== null;
+}
+
+/** Whether a line with these headways rests at `secondOfDay`, running no service in its period: the map fades it (D13). */
+export function restsAt(h: Headways, secondOfDay: number): boolean {
+  return !runsIn(h, periodAt(secondOfDay));
 }

@@ -233,6 +233,52 @@ function boardMask(t: MapTokens): LayerSpecification[] {
   ];
 }
 
+/**
+ * A filter as an expression: the legacy forms protomaps' layers write (a property named by its key), or an expression as it is.
+ * Anything else throws, so a new protomaps form fails the style tests rather than drawing wrong.
+ */
+export function asExpression(filter: unknown): unknown {
+  if (!Array.isArray(filter)) throw new Error(`not a filter: ${JSON.stringify(filter)}`);
+  const [op, key, ...values] = filter as [unknown, unknown, ...unknown[]];
+  if (op === 'all' || op === 'any') return [op, ...filter.slice(1).map(asExpression)];
+  if (typeof key !== 'string') return filter;
+  const get = key === '$type' ? ['geometry-type'] : key === '$id' ? ['id'] : ['get', key];
+  switch (op) {
+    case 'in':
+      return ['in', get, ['literal', values]];
+    case '!in':
+      return ['!', ['in', get, ['literal', values]]];
+    case '==':
+    case '!=':
+      return [op, get, values[0]];
+    case 'has':
+      return ['has', key];
+    case '!has':
+      return ['!', ['has', key]];
+    default:
+      throw new Error(`a filter this style cannot read: ${JSON.stringify(filter)}`);
+  }
+}
+
+/**
+ * A fill whose colour depends on each feature (a case on its kind, as the parks' is), as one layer for each colour it picks, each
+ * with that colour constant and the features its case picks it for. A colour that depends on each feature changes only by laying
+ * out again every tile of its source on screen, the 3D buildings' too, and takes no transition: each step of the light
+ * (daylight.ts) cost a 612 ms task in 3D on software GL and drew the parks a step ahead of the land round them (the review of the
+ * day and night tint).
+ */
+export function byColour(layer: LayerSpecification): LayerSpecification[] {
+  const paint = (layer as { paint?: Record<string, unknown> }).paint;
+  const colour = paint?.['fill-color'];
+  if (layer.type !== 'fill' || !Array.isArray(colour) || colour[0] !== 'case') return [layer];
+  const picks = colour.filter((_, k) => k > 0 && (k % 2 === 0 || k === colour.length - 1));
+  if (!picks.every((c): c is string => typeof c === 'string')) return [layer];
+  const filter = 'filter' in layer && layer.filter ? [asExpression(layer.filter)] : [];
+  return [...new Set(picks)].map(
+    (c, k) => ({ ...layer, id: k === 0 ? layer.id : `${layer.id}-${k + 1}`, filter: ['all', ...filter, ['==', colour, c]], paint: { ...paint, 'fill-color': c } }) as unknown as LayerSpecification,
+  );
+}
+
 export interface StyleOptions {
   /** pmtiles:// URL of the city's tile file. */
   readonly tilesUrl: string;
@@ -246,7 +292,8 @@ export interface StyleOptions {
 export function buildStyle({ tilesUrl, assetBase, tokens, extent }: StyleOptions): StyleSpecification {
   const base = layers(SOURCE, flavorFrom(tokens), { lang: 'en' })
     .filter((l) => !DROPPED_LAYERS.includes(l.id))
-    .map((l) => adjust(l, tokens));
+    .map((l) => adjust(l, tokens))
+    .flatMap(byColour);
   // Extrusions go above every ground layer, so no street draws over a building, and below the labels.
   const firstLabel = base.findIndex((l) => l.type === 'symbol');
   const flat = base.find((l) => l.id === BUILDINGS_2D);

@@ -358,7 +358,7 @@ The questions still open for interbus, first, then the owner's decisions. [PLAN.
   2. **Time:**
      - minutes and days on the clock;
      - 8 days to a quarter, 4 quarters to a year;
-     - 1x is real time, a second a second, with faster speeds above it. [The ladder is 1x, 60x, 600x, 1,800x and 5,400x. 5,400x is today's fastest, and 600x and 1,800x are where every pacing number was measured. The chip shows the day within the quarter: "Year 1 · Q2 · Day 4 · 08:15". Contracts ask for a quarter in a row within two (8 days within 16). The report card's grant and fine are stated per day, so a quarter's card pays what its days earned. The fixed step falls from 30 game seconds to 1, so buses glide at 1x. Saves are set aside once (DP-06).]
+     - 1x is real time, a second a second, with faster speeds above it. [The ladder is 1x, 60x, 600x, 1,800x and 5,400x. 5,400x is today's fastest, and 600x and 1,800x are where every pacing number was measured. The chip shows the day within the quarter: "Year 1 · Q2 · Day 4 · 08:15" (since 2026-10-23 "Q2 Day 4, 08:15 Peak", its year in its title and read to a screen reader: Measured, the day and night tint). Contracts ask for a quarter in a row within two (8 days within 16). The report card's grant and fine are stated per day, so a quarter's card pays what its days earned. The fixed step falls from 30 game seconds to 1, so buses glide at 1x. Saves are set aside once (DP-06).]
   3. **Map:**
      - the demand dots toggle by kind, from a custom menu [homes in purple and jobs in blue, the only two kinds; both on at first, and the choice remembered in that browser; the menu says how many each kind stands for, so it is the legend too];
      - the population count shows only while the pointer is on a dot [a home dot's card names its people and the people within a walk; a job dot's, its jobs and the jobs within a walk];
@@ -443,28 +443,37 @@ Filled in as they are measured, with the date and the commit, each by a committe
 - In week 9, 2D and 3D frame rates on the owner's Mac, in current stable Chrome; from Feb 8 (D18), when Electron is pinned, the same inside the packaged app, and the packaged desktop apps' sizes on disk and to download.
 
 **Measured**
-- **2026-10-23** (`src/render/map/daylight.test.ts`, `src/render/map/loadMap.test.ts`, `e2e/daylight.spec.ts`, `e2e/i13.spec.ts`, `e2e/time.spec.ts`): **the day and night tint** (PLAN §4's charm moments, §8 rule 8; D13), after V1's (`Intralines@7af45b1:src/map/MapView.tsx:341-413`), with the two reads D13 puts beside it. It is look work: the first since the stamp (#165), with round 10's two pull requests between. No format change.
+- **2026-10-23** (`src/render/map/daylight.test.ts`, `src/render/map/style.test.ts`, `src/render/map/loadMap.test.ts`, `e2e/daylight.spec.ts`, `e2e/i13.spec.ts`, `e2e/time.spec.ts`): **the day and night tint** (PLAN §4's charm moments, §8 rule 8; D13), after V1's (`Intralines@7af45b1:src/map/MapView.tsx:341-413`), with the two reads D13 puts beside it. It is look work: the first since the stamp (#165), with round 10's two pull requests between. No format change.
   - **The light** (`src/render/map/daylight.ts`).
-    - **When it changes:** the map dims a step each half hour from 19:00, as the evening peak ends, and is night from 20:30 to 05:00. It lightens a step each half hour from 05:00, to day at 06:30, as the morning peak starts (`darkStep`).
+    - **When it changes:** the map dims a step each half hour from 19:00, as the evening peak ends, and is night from 20:30 to 03:30. It lightens a step each half hour from 03:30, to day at 05:00, as the service day opens and a new game starts (`darkStep`).
+    - **Why dawn ends at 05:00:** dawn first ran from 05:00 to 06:30, so a new game opened on a map three quarters of the way to night. Home, the founding card and the first line all stood on it (its review).
     - **How it changes:** eight changes a game day, each set once. MapLibre's 1.5 s transition carries each step. A step comes at once with less motion asked for, as the style loads, and as the style comes back after a lost context. V1 blended its tint every 1.5 s of real time.
     - **One generator:** it builds every step from the light tokens dimmed. At night each colour keeps 0.5, 0.52 and 0.625 of its red, green and blue in linear light, a cool dusk (`NIGHT_LIGHT`).
-    - **What a step sets:** 86 paints: 81 of the board's, on 69 of its 70 layers, and the 5 that the game's words wear in the labels' inks. The game's own colours (lines, buses, dots, depots and flags) stay as they are.
+    - **What a step sets:** 91 paints: 83 of the board's, on 71 of its 72 layers, and 8 of the game's. The game's are its lines' names, in the labels' inks, and the opacities of its translucent marks. The game's colours (lines, buses, dots, depots and flags) stay as they are.
     - **The night colours:** land #adadb5, streets #bcbfcf and water #859ebc.
-  - **What the darkest step keeps** (`daylight.test.ts`, D13's second tested state):
-    - every base colour within PLAN §8's chroma limits;
-    - every game colour at least 0.15 apart in OKLab from each base colour it is drawn over: 0.159 at night (the Amber line on a building) against 0.278 by day;
-    - the labels at 4.70:1 on their halos (5.82 by day), and the minor ones at 3.32:1 (3.76).
-
-    A darker night, at 0.45 of red, fails two of these: 0.147 apart, and 4.49:1.
-  - **A line resting** (`restingLines` in `src/render/map/overlays.ts`): a line that runs no service in the period, by the schedule's own predicates (`runsIn` and `periodAt`). So a line with overnight off shows its route, name and stops at 35% from 00:00 to 05:00, set as the set of resting lines changes.
-  - **The clock names the period:** Peak, Off-peak or Overnight, after the time.
+    - **The parks:** their colour was a `case` on each park's kind, and a colour that depends on each feature changes only by laying out again every tile of its source, the 3D buildings' too. Its review measured a step re-laying out 12 tiles in 2D and 18 in 3D, with a 612 ms task in 3D on software GL; the parks' paint alone took 294–377 ms. Such a colour also takes no transition, so the parks drew a step ahead of the land round them. The generator now splits such a fill into one layer for each colour it picks, each colour constant (`byColour` in `style.ts`), and no paint the light changes depends on a feature.
+  - **The game's marks at night:**
+    - **Opaque marks:** every one keeps at least 0.15 apart in OKLab from each base colour it is drawn over: 0.159 at night (the Amber line on a building) against 0.278 by day.
+    - **Translucent marks,** as drawn: none comes nearer the base under it at any step than the nearest does by day, which is the depot land's tint on a building, at 0.092. At their day opacities the tint fell to 0.062 at night, a home dot to 0.124 and a job's ring over water to 0.103 (its review). So they grow more opaque as the map dims, up to 1.6 times by night (`louder`), capped at 1:
+      - depot land 0.28 → 0.448;
+      - homes 0.55 → 0.88;
+      - jobs' rings 0.7 → 1;
+      - roadworks ahead 0.6 → 0.96, and on 0.7 → 1;
+      - the walk rings 0.08 → 0.128.
+    - **The warning words** (QUIET, LOSS, roadworks ahead) and the line being drawn's numbers now keep a halo of their own (`wordHalo`), as readable at every step as by day: 4.20:1 for the warning ink. In the labels' halo, which dims while the warning ink does not, they fell to 2.32:1 at night (its review).
+    - **The labels:** 4.70:1 on their halos (5.82 by day), and the minor ones 3.32:1 (3.76).
+  - **What it costs to go darker:** a filter at 0.9 of this one, [0.45, 0.468, 0.5625], fails three of these: 0.147 apart, the depot tint nearer than by day, and 4.49:1.
+  - **A line resting** (`restsAt` in `sim/rules/periods.ts`, D13's one predicate): a line that runs no service in the period. So a line with overnight off shows its route, name and stops at 35% from 00:00 to 05:00, set as the set of resting lines changes. Its name is placed after the running lines': faded alone, it kept its place on a shared street, and the running line had no name there (its review).
+  - **The clock names the period** after the time: Peak, Off-peak or Overnight, the period of the minute it shows, so the two never disagree as it shows whole hours above 600×.
     - **Without room:** late in a game, with three medals and "3 on offer", the chip row wrapped to two rows (10.09% of 1152×720 on Inner Boston's numbers, against I13's 6%), and the fixture's last chip was cut (5.98%).
-    - **With the year moved to the chip's title** ("Q1 Day 1, 04:00 Overnight"), all ten of I13's cases pass. The year stays on the day card, the report card, Home and Saves.
+    - **With the year moved off the chip:** the chip reads "Q1 Day 1, 02:00 Overnight", with the year in its title ("Year 10, Q1, Day 1") and read to a screen reader, which reads no title. All ten of I13's cases pass, the late game's at 02:00, so the chip shows Overnight, the widest of the three names.
+    - **Elsewhere:** the year stays on the day card, the report card, Home and Saves. Whether the year should stay on the chip instead goes to the owner in the batch of Mon Oct 26.
   - **Tests:**
-    - **The e2e dusk**, from 18:55 at 600×: four steps, four sets of the paints, while the map drew 39 frames (software GL, Low graphics), and no error logged. The fade is 1.5 s, and 0 with less motion asked for.
-    - **The e2e night:** the line rests at 00:00 and is whole at 05:00, and the period's name turns from Off-peak to Peak at 06:30.
+    - **The e2e dusk**, from 18:55 at 600×: four steps and four sets of the paints, while the map drew 39 frames (software GL, Low graphics), and no error logged. The fade is 1.5 s.
+    - **The e2e night,** as one test, which saves about 20 s of the first quarter: Home is in daylight before founding; with less motion asked for, the line rests at 00:00 and the clock reads Overnight; the light comes a step lighter at once and the line is whole by 05:00; Peak comes at 06:30.
+    - **The unit tests,** each failing with its fix taken out: day as a new game starts; the translucent marks as drawn; the words' halo; the names placed last; and the parks one layer a colour, every kind drawn in the colour its case gave it.
     - **`loadMap.test.ts`:**
-      - the light waits for the style and comes at once with it, and that test fails with that line taken out;
+      - the light waits for the style and comes at once with it, and fails with that line taken out;
       - a step is set only when it changes;
       - day comes at once after a lost context.
 - **2026-10-23** (`e2e/keyboard.spec.ts`, `e2e/start.spec.ts`, `e2e/floor.spec.ts`, `src/ui/shell/Panels.test.ts`, `src/render/map/tilt.test.ts`): **the tenth round's other eight fixes** (D26; the round's entry below), all from the second lane, where the keyboard's focus fell to the page or a key went past an open list. No format change.

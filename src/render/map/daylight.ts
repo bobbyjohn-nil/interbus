@@ -1,9 +1,11 @@
 // The day and night tint (PLAN §4's charm moments; §8 rule 8; D13), after V1's (`Intralines@7af45b1:src/map/MapView.tsx:341-413`):
-// the light map dims toward a cool dusk from 19:00 and lightens again from 05:00. V1 blended it every 1.5 s; here it moves in
-// half-hour steps of the sim's clock and never per frame (RN-04), and MapLibre's own transition carries each step. Only the base
-// dims: the game's colours stay as they are, loud on a quieter map at night, and the clock and the lines' fade say the time
-// without it (D13). One generator still builds every step, from the light tokens dimmed (style.ts).
+// the light map dims toward a cool dusk from 19:00 and is day again as the service day opens at 05:00. V1 blended it every 1.5 s;
+// here it moves in half-hour steps of the sim's clock and never per frame (RN-04), and MapLibre's own transition carries each
+// step. Only the base dims: the game's colours stay as they are, loud on a quieter map at night (its translucent marks grow more
+// opaque, overlays.ts), and the clock and the lines' fade say the time without it (D13). One generator still builds every step,
+// from the light tokens dimmed (style.ts).
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
+import { SERVICE_DAY } from '../../sim/rules/periods';
 import type { MapTokens } from './tokens';
 
 /** Steps of darkness: 0 by day, NIGHT_STEP all night. */
@@ -14,27 +16,43 @@ export const DAYLIGHT_FADE_MS = 1_500;
 
 /**
  * The share of each colour's red, green and blue, in linear light, that stays at night: a cool dusk. Measured
- * (daylight.test.ts): the darkest step keeps the base within PLAN §8's chroma limits, every game colour at least 0.15 from each
- * base colour it is drawn over in OKLab (0.159, the Amber line on a building, against 0.278 by day), and the labels 4.7:1
- * against their halos (5.8 by day). Darker filters cost those: 0.45 for red and green leaves 4.49:1 and 0.147.
+ * (daylight.test.ts): the darkest step keeps the base within PLAN §8's chroma limits, every opaque game colour at least 0.15
+ * from each base colour it is drawn over in OKLab (0.159, the Amber line on a building, against 0.278 by day), every
+ * translucent mark as drawn no nearer than the nearest by day (louder), and the labels 4.7:1 against their halos (5.8 by day).
+ * A filter at 0.9 of this one, [0.45, 0.468, 0.5625], fails three: 0.147 apart, the depot land's tint nearer than by day, and
+ * 4.49:1.
  */
 export const NIGHT_LIGHT: readonly [number, number, number] = [0.5, 0.52, 0.625];
 
 const HALF_HOUR = 1_800;
 const DAY = 86_400;
-/** Dusk starts as the evening peak ends, and dawn ends as the morning peak starts (D7's periods, rules/periods.ts). */
+/**
+ * Dusk starts as the evening peak ends (D7's periods, rules/periods.ts), and day comes as the service day opens, when a new game
+ * starts: dawn at 05:00 left a new company founded, and its first line drawn, on a map three quarters of the way to night (the
+ * review of the day and night tint).
+ */
 const DUSK_FROM = 19 * 3_600;
-const DAWN_FROM = 5 * 3_600;
+const DAY_FROM = SERVICE_DAY[0];
+const DAWN_FROM = DAY_FROM - (NIGHT_STEP - 1) * HALF_HOUR;
 
 /**
- * The step of darkness at `secondOfDay`: day from 06:30 to 19:00, a step darker each half hour from 19:00, night from 20:30 to
- * 05:00, and a step lighter each half hour from 05:00.
+ * The step of darkness at `secondOfDay`: day from 05:00 to 19:00, a step darker each half hour from 19:00, night from 20:30 to
+ * 03:30, and a step lighter each half hour from 03:30.
  */
 export function darkStep(secondOfDay: number): number {
   const s = ((secondOfDay % DAY) + DAY) % DAY;
   if (s >= DUSK_FROM) return Math.min(NIGHT_STEP, 1 + Math.floor((s - DUSK_FROM) / HALF_HOUR));
   if (s < DAWN_FROM) return NIGHT_STEP;
-  return Math.max(0, NIGHT_STEP - 1 - Math.floor((s - DAWN_FROM) / HALF_HOUR));
+  if (s < DAY_FROM) return NIGHT_STEP - 1 - Math.floor((s - DAWN_FROM) / HALF_HOUR);
+  return 0;
+}
+
+/** How much more opaque the game's translucent marks grow by night, so none comes nearer the dimmed base than the nearest does by day. */
+export const LOUDER_BY_NIGHT = 0.6;
+
+/** A translucent mark's opacity `step` steps toward night: up to 1.6 times its day's, and never past 1. */
+export function louder(opacity: number, step: number): number {
+  return Math.min(1, Math.round(opacity * (1 + (LOUDER_BY_NIGHT * step) / NIGHT_STEP) * 1_000) / 1_000);
 }
 
 const linear = (c: number) => {
