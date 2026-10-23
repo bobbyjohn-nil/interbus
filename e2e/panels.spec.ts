@@ -276,7 +276,11 @@ test.describe('the panels by keyboard', () => {
 
   // The box holds the focus only while the keyboard put it there: always focusable, it took the focus from a press on a panel's
   // text, so the arrows no longer scrolled the panel (the review of the ninth round: Contracts 0 px where it scrolled 158).
-  // Shown failing (TS-04) with every box focusable.
+  // Shown failing (TS-04) with every box focusable. In a panel's first moments on screen Chromium can drop the arrows' scroll
+  // with nothing on the page to blame: four arrows scrolled no element in 3 of 12 runs on four workers (#163's CI once), the
+  // page changing nothing after the press, and none failed with the press a second after the panel showed (0 of 24) or the
+  // arrows 500 ms after the press (0 of 20). So the arrows go on, as a player's would, until the panel moves, which a page that
+  // takes the focus or swallows the arrows never lets it do (TS-04 too).
   test('a press on a panel’s text leaves the arrows scrolling the panel', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 480 });
     await page.goto('./');
@@ -290,7 +294,14 @@ test.describe('the panels by keyboard', () => {
     await contracts.locator('[data-testid=contract] strong').first().click();
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
     for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowDown');
-    await expect.poll(() => contracts.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        const top = await contracts.evaluate((el) => el.scrollTop);
+        if (top === 0) await page.keyboard.press('ArrowDown');
+        return top;
+      })
+      .toBeGreaterThan(0);
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
   });
 
   test('a panel opened from the keyboard takes the focus, and Finance’s views take the arrows as one Tab stop', async ({ page }) => {
