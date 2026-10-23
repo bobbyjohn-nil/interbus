@@ -67,3 +67,38 @@ describe('the fleet the vehicle layer draws', () => {
     expect(fleet.frame(0).count).toBe(0);
   });
 });
+
+// The systems audit's eleventh round: a line resting at 00:00 while its buses ran its last trips (overlays.ts restingLines).
+describe('a line’s buses in service', () => {
+  it('are out on its trips until the last is back at its first stop, at the last snapshot’s clock', () => {
+    const fleet = new Fleet();
+    fleet.setLines([line()]);
+    // The 23:40's run back reaches the first stop at 00:01:39.
+    fleet.setClock(60, 600, 0, 3);
+    expect(fleet.inService(1)).toBe(true);
+    fleet.setClock(100, 600, 0, 3);
+    expect(fleet.inService(1)).toBe(false);
+    fleet.setClock(5 * 3_600, 600, 0, 3);
+    expect(fleet.inService(1)).toBe(true);
+    // A line it draws no plan for has none.
+    expect(fleet.inService(2)).toBe(false);
+    fleet.setLines([line(0)]);
+    expect(fleet.inService(1)).toBe(false);
+  });
+
+  it('count a settling line’s seconds from its frame’s day, as its buses are drawn', () => {
+    const fleet = new Fleet();
+    // Every 20 minutes cut to every 10 at 23:00 on day 2: its merged plan's frame counts from day 2's midnight and hands over to
+    // the new day plan at 23:20, whose 23:50 is back at its first stop at 00:11:39. Read by day 3's own seconds instead, 00:05 would
+    // fall in the merged plan, on day 2 at 00:05, with no bus out.
+    const was = line();
+    const now = { ...was, plan: { ...was.plan, timing: { ...was.plan.timing, headways: { peak: 600, offpeak: 600, overnight: null }, buses: 3 } } };
+    const { route, stopAt, stopDistM, pullOut, pullIn } = was;
+    fleet.setLines([{ ...now, settling: { frameDay: 2, earlier: [{ plan: was.plan, until: 23 * 3_600, sameModel: true, sameStart: true, route, stopAt, stopDistM, pullOut, pullIn }] } }]);
+    fleet.setClock(5 * 60, 600, 0, 3);
+    expect(fleet.inService(1)).toBe(true);
+    fleet.setClock(12 * 60, 600, 0, 3);
+    expect(fleet.inService(1)).toBe(false);
+  });
+});
+

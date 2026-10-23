@@ -41,6 +41,7 @@ const fake = vi.hoisted(() => {
     styleLoaded = false;
     readonly layout = new Map<string, unknown>();
     readonly paint = new Map<string, unknown>();
+    readonly filters = new Map<string, unknown>();
     readonly layers: string[] = [];
     readonly camera = { pitch: 0, bearing: 0, zoom: 14 };
     readonly touchZoomRotate = { enableRotation: () => {}, disableRotation: () => {} };
@@ -61,6 +62,10 @@ const fake = vi.hoisted(() => {
     setPaintProperty(id: string, name: string, value: unknown) {
       this.loadedStyle();
       this.paint.set(`${id}.${name}`, value);
+    }
+    setFilter(id: string, filter: unknown) {
+      this.loadedStyle();
+      this.filters.set(id, filter);
     }
     addSource() {
       this.loadedStyle();
@@ -232,20 +237,25 @@ describe('the day and night tint', () => {
     expect(fade()).toEqual({ duration: 0, delay: 0 });
   });
 
-  it('fades the lines with overnight off from 00:00 to 05:00, set as the lines resting change', async () => {
+  it('fades the lines with overnight off from 00:00 to 05:00 with no bus in service, set as the lines resting change', async () => {
     const { mounted: board, map } = await mounted();
     map.styleLoaded = true;
     map.fire('load');
     const line = (id: number, overnight: number | null) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [], headways: { peak: 900, offpeak: 1_200, overnight }, stopAt: [], stopDistM: [] });
-    board.setLines([line(1, null), line(2, 3_600)] as never, []);
+    const stop = { id: 7, lineIds: [1] };
+    board.setLines([line(1, null), line(2, 3_600)] as never, [stop] as never);
     board.setClock(23 * 3_600, 600, 2);
-    expect(map.paint.has('lines-route.line-opacity')).toBe(false);
-    board.setClock(0, 600, 3);
-    expect(map.paint.get('lines-route.line-opacity')).toEqual(['case', ['in', ['get', 'id'], ['literal', [1]]], 0.35, 1]);
+    expect(map.filters.size).toBe(0);
     map.paint.clear();
+    board.setClock(0, 600, 3);
+    // Filters alone, no paint (overlays.ts setResting): its features and its stop's flag in the faded copies.
+    expect(map.filters.get('lines-route-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['in', ['get', 'id'], ['literal', [1]]]]);
+    expect(map.filters.get('stops-flag-ring-resting')).toEqual(['all', ['==', ['get', 'kind'], 'flag'], ['in', ['get', 'stop'], ['literal', [7]]]]);
+    expect([...map.paint.keys()]).toEqual([]);
+    map.filters.clear();
     board.setClock(3 * 3_600, 600, 3);
-    expect(map.paint.has('lines-route.line-opacity')).toBe(false);
+    expect(map.filters.size).toBe(0);
     board.setClock(5 * 3_600, 600, 3);
-    expect(map.paint.get('lines-route.line-opacity')).toBe(1);
+    expect(map.filters.get('lines-route-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['in', ['get', 'id'], ['literal', []]]]);
   });
 });

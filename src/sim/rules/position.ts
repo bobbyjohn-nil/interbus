@@ -189,6 +189,20 @@ export function positionsInEffect(p: PlanInEffect, geos: readonly PreparedGeomet
   );
 }
 
+/**
+ * Whether a bus of a line's plan in effect is in service at `second` of the frame (positionsInEffect's): from its first departure
+ * from the first stop until its last trip is back there, the layovers between included; a bus driving out of its depot or home to
+ * it is not. A line with overnight off is still in service after 00:00 while its last evening trips finish, so the map fades it
+ * only once its last bus is back (D13: "while it is stopped"; render/map/overlays.ts restingLines).
+ */
+export function inServiceAt(p: PlanInEffect, second: number): boolean {
+  const m = p.merged;
+  const periodic = !m || second >= m.handover;
+  const stints = periodic ? p.periodic.stints : m.stints;
+  const at = periodic ? ((second % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY : second;
+  return stints.some((s) => s.trips.length > 0 && s.trips[0]! <= at && at < s.lastArrival);
+}
+
 /** At most how many buses a plan in effect has out at once, for the caller's buffer: the merged plan's stints bound it. */
 export function mostOut(p: PlanInEffect): number {
   return Math.max(busesOut(p.periodic), p.merged?.stints.length ?? 0);

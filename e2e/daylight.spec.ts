@@ -1,10 +1,11 @@
 // The day and night tint (PLAN §4's charm moments, §8 rule 8; D13; src/render/map/daylight.ts): the map dims from 19:00 a
 // step each half hour to night at 20:30, and lightens from 05:00, its paints set once a step and never per frame (RN-04), each
-// step carried by MapLibre's transition, at once with less motion asked for. A line with overnight off rests, faded, from 00:00
-// to 05:00, so the time of day never rests on the tint alone.
+// step carried by MapLibre's transition, at once with less motion asked for. A line with overnight off rests, faded, from its
+// last bus's return after 00:00 until 05:00, so the time of day never rests on the tint alone.
 import { expect, test, type Page } from './base';
 import { foundCompany, leaveHome } from './found';
-import { city, withDebugLine, type SaveData } from './shell';
+import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
+import { city, frames, toScreen, withDebugLine, type SaveData } from './shell';
 
 /** The debug line's game past Home, paused at `second` of day 2's clock (a second past 24:00 is the night after it). */
 async function at(page: Page, second: number, edit?: (d: SaveData) => void) {
@@ -22,6 +23,31 @@ async function at(page: Page, second: number, edit?: (d: SaveData) => void) {
 }
 
 const hour = (h: number, m = 0) => h * 3_600 + m * 60;
+
+/** How many of the screen's pixels in a 40 px box around `at` are within 10 of each colour. */
+async function pixels(page: Page, at: readonly [number, number], colours: Record<string, readonly number[]>): Promise<Record<string, number>> {
+  const [x, y] = await toScreen(page, at);
+  const png = await page.screenshot({ clip: { x: x - 20, y: y - 20, width: 40, height: 40 } });
+  return page.evaluate(
+    async ([b64, colours]) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const canvas = Object.assign(document.createElement('canvas'), { width: img.width, height: img.height });
+      const g = canvas.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, canvas.width, canvas.height).data;
+      return Object.fromEntries(
+        Object.entries(colours).map(([name, [r, gr, b]]) => {
+          let n = 0;
+          for (let k = 0; k < d.length; k += 4) if (Math.hypot(d[k]! - r!, d[k + 1]! - gr!, d[k + 2]! - b!) < 10) n++;
+          return [name, n];
+        }),
+      );
+    },
+    [png.toString('base64'), colours] as const,
+  );
+}
 
 test.describe('the day and night tint', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -44,30 +70,76 @@ test.describe('the day and night tint', () => {
     expect(errors).toEqual([]);
   });
 
-  // One night, as one test for the first quarter's room (three cost about a minute of CI): a line with overnight off rests from
-  // 00:00 to 05:00, the clock names each period as it comes, and with less motion asked for each step of the light comes at once.
-  test('through one night: a line with overnight off rests from 00:00 to 05:00, the clock names each period, and with less motion asked for the light steps at once (D13)', async ({ page }) => {
+  // One night, as one test for the first quarter's room (three cost about a minute of CI): a line with overnight off rests once its
+  // last bus is back, the clock names the night and then the peak (Off-peak is time.spec.ts's), and with less motion asked for
+  // each step of the light comes at once.
+  test('through one night: a line with overnight off rests once its last bus is back, its fade compiles nothing, the clock names the night and the peak, and with less motion asked for the light steps at once (D13)', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await at(page, hour(23, 58), (d) => {
-      (d.lines as { headways: { overnight: number | null } }[])[0]!.headways.overnight = null;
+    // Every WebGL program linked: the first night's fade compiled MapLibre's programs for an opacity of each line's, and held the
+    // page 518–1,249 ms in Low graphics on the busy scene (the systems audit's eleventh round).
+    await page.addInitScript(() => {
+      const w = window as unknown as { links: number };
+      w.links = 0;
+      for (const gl of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+        const link = gl.linkProgram;
+        gl.linkProgram = function (this: WebGLRenderingContext, program: WebGLProgram) {
+          w.links++;
+          link.call(this, program);
+        };
+      }
+    });
+    const links = () => page.evaluate(() => (window as unknown as { links: number }).links);
+    // Every 5 minutes by day and overnight off, at 00:00:30 on day 3, paused: the 23:45 to 23:55's trips are still under way, back at
+    // the first stop at 00:03:49 to 00:13:49, and the 23:40's bus is driving home.
+    await at(page, hour(24) + 30, (d) => {
+      const line = (d.lines as { headways: { peak: number; offpeak: number; overnight: number | null }; buses: number }[])[0]!;
+      line.headways = { peak: 300, offpeak: 300, overnight: null };
+      line.buses = 6;
     });
     const map = page.getByTestId('map');
     const period = page.getByTestId('period');
     await expect(map).toHaveAttribute('data-daylight', '4');
-    await expect(period).toHaveText('Off-peak');
-    expect(await map.getAttribute('data-resting')).toBeNull();
-    await page.keyboard.press('3');
-    // Midnight closes day 2, and its card waits with time paused.
-    const day = page.getByTestId('day-card');
-    await expect(day).toBeVisible({ timeout: 30_000 });
-    await expect(map).toHaveAttribute('data-resting', '1');
     await expect(period).toHaveText('Overnight');
-    await day.getByRole('button', { name: 'Continue' }).click();
-    await page.keyboard.press('4'); // 2,700×: 05:00 in about seven seconds, then the peak from 06:30 for four
+    // Not faded while it runs its last trips: it rested at 00:00 under 4 of its buses (D13: faded "while it is stopped").
+    await frames(page);
+    expect(Number(await map.getAttribute('data-buses'))).toBeGreaterThan(0);
+    expect(await map.getAttribute('data-resting')).toBeNull();
+    const before = await links();
+    await page.keyboard.press('3'); // 600×: the 23:55's trip back at its first stop at about 00:13, a second and a half on
+    await expect(map).toHaveAttribute('data-resting', '1', { timeout: 30_000 });
+    await frames(page);
+    expect(await links()).toBe(before);
+    await page.keyboard.press('4'); // 2,700×: 05:00 in about seven seconds, then the peak from 06:30 for two
     await expect(map).toHaveAttribute('data-resting', '', { timeout: 30_000 });
     // Lighter than night, at once: at 2,700× each step's half hour passes in two thirds of a second.
     await expect(map).toHaveAttribute('data-daylight', /^[0-3]$/);
     await expect(map).toHaveAttribute('data-daylight-fade', '0');
     await expect(period).toHaveText('Peak', { timeout: 30_000 });
+  });
+
+  // The systems audit's eleventh round: a resting line drawn later on a street it shared with a running one tinted it: the running
+  // blue showed (34, 120, 132), 0.35 of the resting green over 0.65 of the blue, neither line's colour. The resting lines draw
+  // under the running ones now (overlays.ts, the faded copies).
+  test('a resting line on a street it shares with a running one leaves the running line its own colour', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    // 02:00 on day 3, paused: Line 1 runs overnight, and Line 2 on the same four stops, drawn after it, rests.
+    await at(page, hour(26), (d) => {
+      const one = (d.lines as Record<string, unknown>[])[0]!;
+      d.lines = [
+        { ...one, id: 1, name: 'Line 1', colour: '#2471a3', headways: { peak: 1_200, offpeak: 1_200, overnight: 1_800 } },
+        { ...one, id: 2, name: 'Line 2', colour: '#1e8449', headways: { peak: 1_200, offpeak: 1_200, overnight: null } },
+      ];
+      d.nextIds = { ...d.nextIds, line: 3 };
+    });
+    await expect(page.getByTestId('map')).toHaveAttribute('data-resting', '2');
+    // Halfway along Huntington Avenue from Copley to Symphony, where both run.
+    const [a, b] = [DEBUG_STOPS[0]!.at, DEBUG_STOPS[1]!.at];
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const;
+    const blue = [0x24, 0x71, 0xa3];
+    const green = [0x1e, 0x84, 0x49];
+    const colours = { running: blue, blend: green.map((g, k) => Math.round(0.35 * g + 0.65 * blue[k]!)), resting: green };
+    // Once the lines' tiles are laid out again with Line 2 resting.
+    await expect.poll(async () => (await pixels(page, mid, colours)).running, { timeout: 15_000 }).toBeGreaterThan(20);
+    expect((await pixels(page, mid, colours)).blend).toBe(0);
   });
 });

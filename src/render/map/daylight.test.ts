@@ -5,7 +5,7 @@ import { LINE_COLOURS } from '../../sim/rules/line';
 import { START_SECOND_OF_DAY } from '../../sim/rules/periods';
 import { darkStep, daylightPaints, dim, dimmed, louder, NIGHT_STEP, paintsAcross } from './daylight';
 import { hexToOklch } from './oklch';
-import { overlayLayers, restingLines, RESTING_OPACITY, setResting } from './overlays';
+import { overlayLayers, restingLines, RESTING_OPACITY, restingStops, setResting } from './overlays';
 import { buildStyle, MASK_LAYERS } from './style';
 import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
 
@@ -208,6 +208,8 @@ describe('the paints the light changes', () => {
       'event-pending line-opacity',
       'lines-name text-color',
       'lines-name text-halo-color',
+      'lines-name-resting text-color',
+      'lines-name-resting text-halo-color',
     ]);
     expect(overlays.find((p) => p.layer === 'lines-name' && p.property === 'text-color')?.values).toEqual(STEPS.map((step) => dim(LIGHT.label, step)));
   });
@@ -229,27 +231,100 @@ describe('a line resting while it runs no service (D13)', () => {
     { id: 2, headways: { peak: 900, offpeak: 1_200, overnight: 3_600 } },
   ];
 
-  it('is a line with overnight off, from 00:00 to 05:00, by the schedule’s own periods', () => {
+  it('is a line with overnight off, from 00:00 to 05:00 by the schedule’s own periods, its buses all in', () => {
     expect(restingLines(lines, at(0))).toEqual([1]);
     expect(restingLines(lines, at(4, 59))).toEqual([1]);
     expect(restingLines(lines, at(5))).toEqual([]);
     expect(restingLines(lines, at(23, 59))).toEqual([]);
   });
 
-  // Its name is placed after the running lines': faded alone, it kept its place on a shared street, and the running line had no
-  // name there (the review of the day and night tint).
-  it('fades its route, its name and its stops, places its name last, and with none resting every line shows whole', () => {
+  // The systems audit's eleventh round: a line faded at 00:00 while its buses still ran its last trips (4 buses at 00:00 on the
+  // debug line every 5 minutes, the last until 00:17; 16–18 of the busy scene's 64 at 00:10). D13 fades it "while it is stopped".
+  it('rests only once no bus of it is in service on a trip begun before 00:00', () => {
+    const still = new Set([1]);
+    expect(restingLines(lines, at(0, 10), (id) => still.has(id))).toEqual([]);
+    still.clear();
+    expect(restingLines(lines, at(0, 40), (id) => still.has(id))).toEqual([1]);
+  });
+
+  // The systems audit's eleventh round: the fade was a paint of each line's id (['case', ['in', ['get', 'id'], …], 0.35, 1]). A
+  // resting line drawn later on a street it shared with a running one tinted it, (34, 120, 132): 0.35 of the green over 0.65 of the
+  // blue, neither line's colour. And MapLibre compiled the programs for an opacity of each feature's at the first midnight, which
+  // held the page 518–1,249 ms in Low graphics on the busy scene (442 ms in getUniformBlockIndex, 371 in getProgramParameter).
+  it('draws its route, name, stops and their flags in faded copies just under the running lines’, the same but their opacity', () => {
+    const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, 0), 0);
+    const ids = layers.map((l) => l.id);
+    const faded: Record<string, string[]> = {
+      'lines-route': ['line-opacity'],
+      'lines-name': ['text-opacity'],
+      'lines-stops': ['circle-opacity', 'circle-stroke-opacity'],
+      'stops-flag-ring': ['circle-stroke-opacity'],
+      'stops-flag-word': ['text-opacity'],
+    };
+    for (const [id, opacities] of Object.entries(faded)) {
+      const layer = layers.find((l) => l.id === id) as { paint?: Record<string, unknown>; layout?: unknown; type: string };
+      const copy = layers.find((l) => l.id === `${id}-resting`) as typeof layer | undefined;
+      expect(copy, `${id} has a faded copy`).toBeDefined();
+      expect(ids.indexOf(`${id}-resting`), `${id}'s copy is just under it`).toBe(ids.indexOf(id) - 1);
+      expect(copy!.type).toBe(layer.type);
+      expect(copy!.layout).toEqual(layer.layout);
+      // The same for every feature, so the copy draws with the layer's own program.
+      expect(copy!.paint).toEqual({ ...layer.paint, ...Object.fromEntries(opacities.map((p) => [p, RESTING_OPACITY])) });
+      for (const value of Object.values(layer.paint ?? {})) expect(JSON.stringify(value)).not.toMatch(/"in"/);
+    }
+    // Every name over every route, the running lines' placed first: MapLibre places the upper layer's names first.
+    expect(ids.indexOf('lines-name-resting')).toBe(ids.indexOf('lines-route') + 1);
+  });
+
+  it('moves its features, and the flags of the stops only it calls at, into the copies by their filters alone', () => {
     const set: [string, string, unknown][] = [];
-    const record = (layer: string, property: string, value: unknown) => void set.push([layer, property, value]);
-    const map = { setPaintProperty: record, setLayoutProperty: record };
-    setResting(map as never, [1, 3]);
-    const rests = ['in', ['get', 'id'], ['literal', [1, 3]]];
-    expect(set).toEqual([
-      ...[['lines-route', 'line-opacity'], ['lines-name', 'text-opacity'], ['lines-stops', 'circle-opacity'], ['lines-stops', 'circle-stroke-opacity']].map(([l, p]) => [l, p, ['case', rests, RESTING_OPACITY, 1]]),
-      ['lines-name', 'symbol-sort-key', ['case', rests, 1, 0]],
-    ]);
+    const map = {
+      setFilter: (layer: string, filter: unknown) => void set.push([layer, 'filter', filter]),
+      setPaintProperty: (layer: string, property: string, value: unknown) => void set.push([layer, property, value]),
+      setLayoutProperty: (layer: string, property: string, value: unknown) => void set.push([layer, property, value]),
+    };
+    setResting(map as never, [1, 3], [7]);
+    // Filters only: no paint or layout changes, so no program is compiled at night.
+    expect(set.every(([, property]) => property === 'filter')).toBe(true);
+    const filter = (layer: string) => set.find(([l]) => l === layer)?.[2];
+    const lines = ['in', ['get', 'id'], ['literal', [1, 3]]];
+    const stops = ['in', ['get', 'stop'], ['literal', [7]]];
+    expect(filter('lines-route-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], lines]);
+    expect(filter('lines-route')).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['!', lines]]);
+    expect(filter('lines-name-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], lines]);
+    expect(filter('lines-stops-resting')).toEqual(['all', ['==', ['get', 'kind'], 'stop'], lines]);
+    expect(filter('stops-flag-ring-resting')).toEqual(['all', ['==', ['get', 'kind'], 'flag'], stops]);
+    expect(filter('stops-flag-word')).toEqual(['all', ['==', ['get', 'kind'], 'flag'], ['!', stops]]);
+    expect(set).toHaveLength(10);
+    // With none resting the copies hold nothing, and each layer every feature of its kind.
     set.length = 0;
-    setResting(map as never, []);
-    expect(set.map(([, , value]) => value)).toEqual([1, 1, 1, 1, 0]);
+    setResting(map as never, [], []);
+    expect(filter('lines-route-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['in', ['get', 'id'], ['literal', []]]]);
+    expect(filter('stops-flag-word')).toEqual(['all', ['==', ['get', 'kind'], 'flag'], ['!', ['in', ['get', 'stop'], ['literal', []]]]]);
+  });
+
+  // The systems audit's eleventh round: a flag is a stop's, so the fade of each line's features never reached it, and a resting
+  // line's Loss rings and words stayed whole at 02:00, the eye drawn to a line that does not run.
+  it('rests a stop’s flag where only resting lines call', () => {
+    const stops = [
+      { id: 7, lineIds: [1] },
+      { id: 8, lineIds: [1, 2] },
+      { id: 9, lineIds: [] },
+    ];
+    expect(restingStops(stops, [1])).toEqual([7]);
+    expect(restingStops(stops, [1, 2])).toEqual([7, 8]);
+    expect(restingStops(stops, [])).toEqual([]);
+  });
+
+  it('keeps the filters MapLibre takes, with lines resting and without', () => {
+    const style = styleOf(LIGHT);
+    const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, 0), 0);
+    const set = new Map<string, unknown>();
+    setResting({ setFilter: (layer: string, filter: unknown) => void set.set(layer, filter) } as never, [1], [7]);
+    const resting = layers.map((l) => (set.has(l.id) ? { ...l, filter: set.get(l.id) } : l));
+    for (const extra of [layers, resting]) {
+      const sources = { ...style.sources, ...Object.fromEntries(['dots', 'lines', 'depot-land', 'depots', 'draft', 'events'].map((id) => [id, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }])) };
+      expect(validateStyleMin({ ...style, sources, layers: [...style.layers, ...extra] } as never)).toEqual([]);
+    }
   });
 });

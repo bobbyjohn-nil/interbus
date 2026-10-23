@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A splash while the game loads: a bus idles over a line of depot chatter, and when the game is ready it pulls away and tows the splash off the screen. It plays once a tab; on a reload in the same tab, or with your computer set to reduce motion, the splash simply goes.
 - The city stamps each quarter's report card as it opens: Approved when it pays you, Fined when it fines you, Noted when it does neither. With your computer set to reduce motion, the stamp is simply there.
 - The map dims through the evening, from 19:00 to night at 20:30, and brightens again from 03:30 to full day at 05:00, as the buses start. Your lines, stops and buses keep their colors, and the homes, jobs and roadworks on the map grow bolder as it dims. With your computer set to reduce motion, each step comes at once.
-- A line with no overnight service shows faded from 00:00 to 05:00.
+- A line with no overnight service shows faded at night, with the Quiet and Loss flags of the stops only it serves, from when its last bus of the evening is back until 05:00.
 
 ### Changed
 
@@ -267,6 +267,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - With a list open, such as the speed list, the game's keys wait for it to close, as ? does: T no longer tilts the map behind it, and 1 to 5 no longer change the speed under it.
 - The founding card shows which color the keyboard is on.
 - Escape in the company's name closes Saves or Help left open beside the founding card.
+- A line resting at night no longer tints a running line on a street they share: it draws under the running lines, which keep their own colors there.
+- The first night of a session no longer holds the game still for a moment as your lines rest. On a computer that draws the map without a graphics card, it took up to a second and a quarter.
 
 ### Removed
 

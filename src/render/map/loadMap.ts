@@ -12,7 +12,7 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { addOverlays, DOT_LAYER, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, restingLines, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setTint, type DotKinds, type PaintName } from './overlays';
+import { addOverlays, DOT_LAYER, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
 import {
@@ -370,21 +370,24 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     box.daylightSets = String(++lightSets);
     box.daylightFade = String(duration);
   };
-  // The lines resting now (restingLines: overnight off, from 00:00 to 05:00), faded; set only when they change.
-  let clockSecond: number | null = null;
-  let linesNow: readonly LineView[] = [];
-  let restingShown = '';
-  const rest = () => {
-    if (!loaded || clockSecond === null) return;
-    const ids = restingLines(linesNow, clockSecond);
-    const key = ids.join(' ');
-    if (key === restingShown) return;
-    setResting(map, ids);
-    restingShown = key;
-    map.getContainer().dataset.resting = key;
-  };
   // Every bus, drawn by one custom layer from the lines' day plans (vehicles.ts).
   const fleet = new Fleet();
+  // The lines resting now (restingLines: overnight off, from their last bus's return after 00:00 until 05:00), faded with the flags
+  // of the stops only they call at; set only when they change.
+  let clockSecond: number | null = null;
+  let linesNow: readonly LineView[] = [];
+  let stopsNow: readonly StopView[] = [];
+  let restingShown = '|';
+  const rest = () => {
+    if (!loaded || clockSecond === null) return;
+    const ids = restingLines(linesNow, clockSecond, (id) => fleet.inService(id));
+    const stops = restingStops(stopsNow, ids);
+    const key = `${ids.join(' ')}|${stops.join(' ')}`;
+    if (key === restingShown) return;
+    setResting(map, ids, stops);
+    restingShown = key;
+    map.getContainer().dataset.resting = ids.join(' ');
+  };
   const addVehicles = () => map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
   const flush = () => {
     loaded = true;
@@ -504,7 +507,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     if (swallow) return;
     const double = e.originalEvent.detail > 1 && heardBefore;
     heardLast = true;
-    const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS, 'lines-name'] }) : [];
+    const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS, 'lines-name', ...RESTING_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
     const lineIds = [...new Set(hits.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
@@ -535,6 +538,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       fleet.setLines(lines);
       map.triggerRepaint();
       linesNow = lines;
+      stopsNow = stops;
       if (loaded) setLines(map, lines, stops);
       else pending.lines = { lines, stops };
       rest();

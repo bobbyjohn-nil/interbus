@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkHeadways, periodAt, runsIn, secondsPerDay } from './periods';
+import { checkHeadways, periodAt, restsAt, runsIn, secondsPerDay } from './periods';
 
 const at = (h: number, m = 0) => h * 3600 + m * 60;
 
@@ -65,5 +65,17 @@ describe('headway limits (D7)', () => {
     const h = { peak: twenty, offpeak: twenty, overnight: null };
     expect(runsIn(h, 'overnight')).toBe(false);
     expect(runsIn(h, 'peak') && runsIn(h, 'offpeak')).toBe(true);
+  });
+});
+
+// D13's one predicate for the map's fade: a line rests while it is stopped. The systems audit's eleventh round: from 00:00 it
+// faded while its buses still ran the trips begun before (inServiceAt, rules/position.ts).
+describe('a line resting (D13)', () => {
+  const h = { peak: 900, offpeak: 1_200, overnight: null };
+  it('runs no service in its period, and has no bus still in service', () => {
+    expect(restsAt(h, 2 * 3_600)).toBe(true);
+    expect(restsAt(h, 10 * 60, true)).toBe(false);
+    expect(restsAt(h, 12 * 3_600)).toBe(false);
+    expect(restsAt({ ...h, overnight: 3_600 }, 2 * 3_600)).toBe(false);
   });
 });
