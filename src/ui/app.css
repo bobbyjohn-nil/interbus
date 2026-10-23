@@ -1442,6 +1442,12 @@ button.chip.checklist,
   outline-offset: 2px;
 }
 
+/* Where the keyboard is among the colours (WCAG 2.4.7): the radio is unseen in its swatch, so nothing showed as Tab reached
+   them (round 10). A ring of paper inside the swatch, on any colour, beside the chosen one's ring outside. */
+.swatch-choice:has(input:focus-visible) {
+  box-shadow: inset 0 0 0 3px var(--ui-paper);
+}
+
 .swatch-choice input {
   opacity: 0;
   margin: 0;

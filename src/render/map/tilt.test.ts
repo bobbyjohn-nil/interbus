@@ -147,6 +147,14 @@ describe('double-click and hold, and turning in 3D', () => {
     expect(viewKey(press({ key: 'q', repeat: true }))).toBeNull();
     expect(viewKey(press({ key: 'n', target: { tagName: 'INPUT' } as unknown as EventTarget }))).toBeNull();
   });
+
+  it('leaves T, N, Q and E to an open list or menu, as App leaves it the game’s keys', () => {
+    // Round 10: T pressed in the open speed list tilted the map behind it.
+    const inside = (role: string | null) => ({ tagName: 'LI', closest: (selector: string) => (role && selector.includes(`[role="${role}"]`) ? {} : null) }) as unknown as EventTarget;
+    expect(viewKey(press({ key: 't', target: inside('listbox') }))).toBeNull();
+    expect(viewKey(press({ key: 'q', target: inside('menu') }))).toBeNull();
+    expect(viewKey(press({ key: 't', target: inside(null) }))).toBe('tilt');
+  });
 });
 
 // The systems audit (D26): Q, E, N or a pan inside the 600 ms tilt stopped the ease where it was, and

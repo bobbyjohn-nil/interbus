@@ -15,7 +15,7 @@
 // fourth round, where Tab scrolled the whole page instead): shown failing (TS-04) on abb5f2f, which has no
 // such rule.
 import { describe, expect, it } from 'vitest';
-import { freePlace, inReach, keptWhole, roomBelow, showing } from './Panels';
+import { freePlace, handBackTo, inReach, keptWhole, roomBelow, showing, type Opener } from './Panels';
 
 const [W, H] = [1366, 768];
 
@@ -139,5 +139,45 @@ describe('a dragged panel’s place', () => {
     // On screen, if only just: nothing moves.
     expect(showing({ x: 900, y: 56 }, { left: 1000, right: w }, w)).toBeNull();
     expect(showing({ x: -20, y: 56 }, { left: 0, right: 80 }, w)).toBeNull();
+  });
+});
+
+// The focus handed back as a panel the keyboard opened closes (round 10): the route editor took the focus from Lines as Lines
+// went, the checklist's last step went as Take it completed it, and Lines after the editor's Cancel took the focus from the
+// editor. Shown failing (TS-04) with no step to the panel that held a gone opener, and with no successor; e2e/keyboard.spec.ts
+// plays each on the build before.
+describe('where the focus goes back to as a panel closes', () => {
+  const button = (name: string, usable = true) => ({ name, usable }) as unknown as Element;
+  const usable = (el: Element) => (el as unknown as { usable: boolean }).usable;
+  const none = () => null;
+  const walk = (id: string, openers: [string, Opener][], opens: (panel: string) => Element | null = none) =>
+    (handBackTo(id, new Map(openers), opens, usable) as unknown as { name: string } | null)?.name ?? null;
+
+  it('gives it to what opened the panel, or, gone, to what opened the panel that held that', () => {
+    expect(walk('lines', [['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
+    // The route editor took the focus from Lines as Lines went; Lines' opener is kept past its close.
+    const editor: [string, Opener][] = [
+      ['tool', { at: null, in: 'lines' }],
+      ['lines', { at: button('dock Lines'), in: null }],
+    ];
+    expect(walk('tool', editor)).toBe('dock Lines');
+    expect(walk('stop', [['stop', { at: button('Stop 2', false), in: 'lines' }], ['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
+  });
+
+  it('goes round no panel twice, and then to what opens one of them now, the first first', () => {
+    // Lines after the editor's Cancel took the focus from the editor, which had taken it from Lines.
+    const round: [string, Opener][] = [
+      ['lines', { at: null, in: 'tool' }],
+      ['tool', { at: null, in: 'lines' }],
+    ];
+    expect(walk('lines', round)).toBeNull();
+    expect(walk('lines', round, (panel) => (panel === 'lines' ? button('dock Lines') : null))).toBe('dock Lines');
+    // The checklist's last step, gone once Take it completed it: the Contracts chip opens Contracts now.
+    expect(walk('contracts', [['contracts', { at: button('checklist', false), in: null }]], (panel) => (panel === 'contracts' ? button('Contracts chip') : null))).toBe('Contracts chip');
+    expect(walk('contracts', [['contracts', { at: button('checklist', false), in: null }]], () => button('Contracts chip', false))).toBeNull();
+  });
+
+  it('hands back nothing for a panel the keyboard did not open', () => {
+    expect(walk('lines', [], () => button('dock Lines'))).toBeNull();
   });
 });

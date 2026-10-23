@@ -476,5 +476,102 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     await expect(card).toHaveCount(0);
     await expect(page.getByTestId('inspector')).toHaveCount(0);
     await expect(dockLines).toBeFocused();
+    // Round 10: the stop card's own line button showed Lines, open already, and made itself Lines' opener, so Escape went
+    // round from Lines to the stop card and back to a gone button, and gave the page the focus.
+    await page.keyboard.press('Enter');
+    for (let k = 0; k < 40 && !(await stop2.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(card).toBeVisible();
+    const line1 = card.getByRole('button', { name: 'Line 1', exact: true });
+    for (let k = 0; k < 40 && !(await line1.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(line1).toBeFocused();
+    await page.keyboard.press('Enter');
+    const lines = page.getByTestId('inspector');
+    await expect.poll(() => lines.evaluate((el) => el.closest('[data-movable]') === document.activeElement)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(lines).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+  });
+
+  /** Tabs on from where the focus is until `target` has it, as a keyboard player reaches it. */
+  async function tabTo(page: Page, target: Locator) {
+    for (let k = 0; k < 40 && !(await target.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(target).toBeFocused();
+  }
+
+  // Round 10: the checklist's "5/5 Take a contract" opened Contracts, and Take it completes it, so the Contracts chip takes
+  // its place: the opener gone, Escape gave the page the focus. What opens a panel now takes it (data-opens).
+  test('Contracts opened from the checklist: after Take it, Escape gives the focus to the Contracts chip in its place', async ({ page }) => {
+    await game(page);
+    const checklist = page.getByTestId('checklist');
+    await expect(checklist).toHaveJSProperty('tagName', 'BUTTON');
+    await tabOnto(page, checklist);
+    await page.keyboard.press('Enter');
+    const contracts = page.getByTestId('contracts');
+    await expect(contracts).toBeVisible();
+    await tabTo(page, contracts.getByRole('button', { name: 'Take it' }).first());
+    await page.keyboard.press('Enter');
+    await expect(contracts.locator('[data-held="yes"]')).toHaveCount(1);
+    const chip = page.getByTestId('contracts-chip');
+    await expect(chip).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(contracts).toHaveCount(0);
+    await expect(chip).toBeFocused();
+  });
+
+  // Round 10: the route editor stands in for Lines, which closes as it opens and comes back with its Cancel or Save route, and
+  // the openers went with their panels: Escape from the editor, or from Lines after its Cancel, gave the page the focus. And its
+  // × took the focus with its row, so the next Space ran time behind the editor.
+  test('the route editor hands the focus on: from its ×, and from Escape, or from Lines after its Cancel, to the dock’s Lines', async ({ page }) => {
+    await game(page);
+    const dockLines = page.getByRole('button', { name: 'Lines', exact: true });
+    const lines = page.getByTestId('inspector');
+    const editor = page.getByTestId('route-editor');
+    await tabOnto(page, dockLines);
+    await page.keyboard.press('Enter');
+    await tabTo(page, lines.getByRole('button', { name: 'Edit route' }));
+    await page.keyboard.press('Enter');
+    await expect(editor).toBeVisible();
+    const remove = editor.getByRole('button', { name: 'Remove Stop 2' });
+    await tabTo(page, remove);
+    await page.keyboard.press('Enter');
+    await expect(remove).toHaveCount(0);
+    await expect.poll(() => editor.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await page.keyboard.press('Escape');
+    await expect(editor).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+    await page.keyboard.press('Enter');
+    await tabTo(page, lines.getByRole('button', { name: 'Edit route' }));
+    await page.keyboard.press('Enter');
+    await expect(editor).toBeVisible();
+    await tabTo(page, editor.getByRole('button', { name: 'Cancel' }));
+    await page.keyboard.press('Enter');
+    await expect(editor).toHaveCount(0);
+    await expect(lines).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(lines).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+  });
+
+  // Round 10: an open list kept ? from the game (the review of #157) but not its other keys: T tilted the map behind it, and 2
+  // picked 60× under the speed list, which stayed open, so its Enter then picked the old speed again.
+  test('an open list keeps T and the number keys, as it keeps ?', async ({ page }) => {
+    await page.goto('./?gpu=full'); // in Low graphics T says the map stays flat instead
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const map = page.getByTestId('map');
+    await page.getByTestId('speed-menu').focus();
+    await page.keyboard.press('ArrowDown');
+    const list = page.getByRole('listbox');
+    await expect(list).toBeVisible();
+    await page.keyboard.press('t');
+    await page.keyboard.press('2');
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+    await expect(list).toBeVisible();
+    expect(await map.getAttribute('data-mode')).toBe('2d');
+    expect(await page.getByTestId('sim-panel').getAttribute('data-speed')).toBe('0');
   });
 });

@@ -123,13 +123,20 @@ export function RouteEditor({
   const [dragging, setDragging] = useState<number | null>(null);
   // A stop moved with its arrow keeps the focus there, so Space or Enter moves it again: on the same
   // arrow, or on its other one at the top or the bottom of the list, where that arrow shuts. A held key
-  // moves it once: the page drops a held Enter's repeats on a control (onePress.ts).
+  // moves it once: the page drops a held Enter's repeats on a control (onePress.ts). A stop taken off with its × hands the focus
+  // to the × of the stop that takes its row, or of the row above at the list's end: the focus went with its row, and the next
+  // Space ran time behind the editor (round 10; DECISIONS, 2026-10-15, had left it).
   const list = useRef<HTMLOListElement>(null);
-  const refocus = useRef<{ readonly at: number; readonly up: boolean } | null>(null);
+  const refocus = useRef<{ readonly at: number; readonly up: boolean } | { readonly at: number; readonly removed: true } | null>(null);
   useLayoutEffect(() => {
     const r = refocus.current;
     refocus.current = null;
     if (!r) return;
+    if ("removed" in r) {
+      const rows = list.current?.children;
+      rows?.[Math.min(r.at, rows.length - 1)]?.querySelector<HTMLButtonElement>('button[aria-label^="Remove"]')?.focus();
+      return;
+    }
     const arrows = list.current?.children[r.at]?.querySelectorAll("button");
     const [same, other] = r.up ? [arrows?.[0], arrows?.[1]] : [arrows?.[1], arrows?.[0]];
     (same?.disabled ? other : same)?.focus();
@@ -194,7 +201,14 @@ export function RouteEditor({
               <button type="button" aria-label={`Move ${label} down`} disabled={k === points.length - 1} onClick={(e) => move(k, k + 1, e.currentTarget)}>
                 ↓
               </button>
-              <button type="button" aria-label={`Remove ${label}`} onClick={() => onPoints(points.filter((_, j) => j !== k))}>
+              <button
+                type="button"
+                aria-label={`Remove ${label}`}
+                onClick={(e) => {
+                  if (document.activeElement === e.currentTarget) refocus.current = { at: k, removed: true };
+                  onPoints(points.filter((_, j) => j !== k));
+                }}
+              >
                 ×
               </button>
             </li>

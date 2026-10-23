@@ -108,6 +108,40 @@ function put(box: HTMLElement, at: { x: number; y: number }): void {
   box.style.setProperty("--room", `${roomBelow(at.y, window.innerHeight)}px`);
 }
 
+/**
+ * What a panel took the keyboard's focus from as it opened (`at`), and the panel that held it (`in`). One that took it from a
+ * panel going as it opened, as the route editor takes Lines' place and Lines the editor's, has no control (`at` null), only
+ * that panel.
+ */
+export interface Opener {
+  readonly at: Element | null;
+  readonly in: string | null;
+}
+
+/**
+ * Where the keyboard's focus goes back to as panel `id` closes with the player in it, for a panel the keyboard opened: what
+ * opened it, while it can take the focus (`usable`); or, gone, what opened the panel it was in, and so on, never round a panel
+ * twice; or, with none of those left, what opens one of those panels now (`opens`), the first first. A panel stood in for
+ * another kept that one's opener: Escape from the route editor, or from Lines after its Cancel, gave the page the focus. And
+ * the checklist's last step opens Contracts until Take it completes it, when the Contracts chip takes its place (round 10).
+ */
+export function handBackTo(id: string, openers: ReadonlyMap<string, Opener>, opens: (panel: string) => Element | null, usable: (el: Element) => boolean): Element | null {
+  if (!openers.has(id)) return null;
+  const chain: string[] = [];
+  for (let panel: string | null = id; panel !== null && !chain.includes(panel); ) {
+    chain.push(panel);
+    const opener = openers.get(panel);
+    if (!opener) break;
+    if (opener.at && usable(opener.at)) return opener.at;
+    panel = opener.in;
+  }
+  for (const panel of chain) {
+    const at = opens(panel);
+    if (at && usable(at)) return at;
+  }
+  return null;
+}
+
 /** The panel shown last, and how many panels have been shown: a new one each time, even for a panel already open. */
 export interface PanelFront {
   readonly id: string;
@@ -185,8 +219,10 @@ export function Panels({
   // leaves: always focusable, it took the focus from a press on a panel's text, so the keys no longer scrolled the panel and
   // the run's end found the focus held, not lost, and gave Continue none (the review of the ninth audit round).
   const takes = useRef(takesFocus);
+  const itemIds = useRef<readonly string[]>([]);
   useLayoutEffect(() => {
     takes.current = takesFocus;
+    itemIds.current = items.map((i) => i.id);
   });
   // What each panel the keyboard opened took the focus from, and the panel the player was last in, by the focus or a press.
   // One that closes while the player was in it, by its Close, Escape or the game, hands the focus back to what opened it, as
@@ -194,7 +230,12 @@ export function Panels({
   // went with it hands on to that panel's own: a stop's card opened from Lines' stops, both closed by one Escape, gives the
   // dock's Lines the focus (the review of #156). Checked after the layout effects, so a card's own hand-off (useFocusBack,
   // App) goes first.
-  const openers = useRef(new Map<string, { readonly at: HTMLElement; readonly in: string | null }>());
+  // Each kept past its panel's close, for a panel that stood in for it to hand back through (handBackTo), and let go when the
+  // panel opens again without the keyboard. A panel asked for again while open keeps what opened it: a stop card's line
+  // button made itself Lines' opener, and Escape went round from Lines to the stop card and back to a gone button (round 10).
+  const openers = useRef(new Map<string, Opener>());
+  // The panel the keyboard opened in this render, whose opener the layout effect has just set.
+  const opened = useRef<string | null>(null);
   const lastIn = useRef<string | null>(null);
   useEffect(() => {
     const at = (event: Event) => {
@@ -211,22 +252,34 @@ export function Panels({
   useEffect(() => {
     const now = items.map((i) => i.id);
     const went = wereOpen.current.filter((id) => !now.includes(id));
+    for (const id of now) if (!wereOpen.current.includes(id) && id !== opened.current) openers.current.delete(id);
+    opened.current = null;
     wereOpen.current = now;
     if (!went.length) return;
     const left = lastIn.current;
-    let opener = left && went.includes(left) ? openers.current.get(left) : undefined;
-    for (let hop = 0; opener && !opener.at.isConnected && opener.in && went.includes(opener.in) && hop < went.length; hop++) opener = openers.current.get(opener.in);
-    for (const id of went) openers.current.delete(id);
-    if (left && went.includes(left)) lastIn.current = null;
-    const to = opener?.at;
-    if (to?.isConnected && !to.matches(":disabled") && focusLost()) to.focus();
+    if (!left || !went.includes(left)) return;
+    lastIn.current = null;
+    const usable = (el: Element) => el.isConnected && !el.matches(":disabled");
+    const to = handBackTo(left, openers.current, (panel) => document.querySelector(`[data-opens="${panel}"]`), usable);
+    if (to instanceof HTMLElement && focusLost()) to.focus();
   });
   useLayoutEffect(() => {
     const box = focus && takes.current() ? boxes.current.get(focus.id) : undefined;
     if (!box) return;
+    const id = focus!.id;
     const from = document.activeElement;
-    if (from instanceof HTMLElement && from !== document.body && !box.contains(from))
-      openers.current.set(focus!.id, { at: from, in: from.closest("[data-movable]")?.getAttribute("data-movable") ?? null });
+    const kept = wereOpen.current.includes(id) && openers.current.get(id);
+    const left = lastIn.current;
+    if (kept && (!kept.at || kept.at.isConnected)) {
+      // Asked for again while open: it keeps what opened it.
+    } else if (from instanceof HTMLElement && from !== document.body && !box.contains(from)) {
+      openers.current.set(id, { at: from, in: from.closest("[data-movable]")?.getAttribute("data-movable") ?? null });
+      opened.current = id;
+    } else if (left && left !== id && !itemIds.current.includes(left)) {
+      // From a panel that went as this one opened, the focus with it.
+      openers.current.set(id, { at: null, in: left });
+      opened.current = id;
+    }
     box.tabIndex = -1;
     box.addEventListener("blur", () => box.removeAttribute("tabindex"), { once: true });
     box.focus();

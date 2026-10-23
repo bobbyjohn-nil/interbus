@@ -255,6 +255,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An undo that brings back a closed line keeps the tool you have out: a line you are drawing stays, and so does another line's route editor.
 - With every line closed in the snow, the snow's words stay among your depots instead of moving to the corner of the map.
 - Finance's chart says a day when you sold more than you bought brought money back, instead of a minus amount spent on buying and building.
+- After you take a contract from the checklist's last step with the keyboard, closing Contracts puts the focus on the Contracts chip that took the step's place, instead of the top of the page.
+- Closing the route editor with Escape, or Lines after the route editor's Cancel, puts the focus back on the dock's Lines, instead of the top of the page.
+- After a stop card's line button, Escape closing Lines and the stop card puts the focus back on the dock's Lines, instead of the top of the page.
+- Back to Home, from Saves or the founding card, puts the focus on Home's first button, instead of the top of the page.
+- The route editor's × keeps your place on the keyboard: the focus goes to the next stop's ×, and Space no longer runs time behind the editor.
+- With a list open, such as the speed list, the game's keys wait for it to close, as ? does: T no longer tilts the map behind it, and 1 to 5 no longer change the speed under it.
+- The founding card shows which color the keyboard is on.
+- Escape in the company's name closes Saves or Help left open beside the founding card.
 
 ### Removed
 

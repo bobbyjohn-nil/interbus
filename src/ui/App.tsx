@@ -385,6 +385,17 @@ export function App() {
     if (!was || was === homeSide || !focusLost()) return;
     document.querySelector<HTMLElement>(homeSide ? `[data-testid="${homeSide === "saves" ? "saves" : "help"}"] .close` : `[data-testid="home-${was}"]`)?.focus();
   });
+  // Back to Home, from Saves or the founding card, takes the button pressed with the game's screen, and the focus fell to the
+  // page: its next Tab went to the map's credits, and Home's Continue was the sixth (round 10). Home's first button takes it
+  // as the game gives way to Home, when the keyboard pressed it: a press of the mouse hands Space no button (focusSource), and
+  // never on the page's first Home, where the focus is the browser's.
+  const homeWas = useRef({ atHome, inGame: false });
+  useEffect(() => {
+    const was = homeWas.current;
+    homeWas.current = { atHome, inGame: ready && !atHome };
+    if (!atHome || was.atHome || !was.inGame || !focus.current.byKey || !focusLost()) return;
+    document.querySelector<HTMLElement>('[data-testid="home"] button')?.focus();
+  });
   // Help asked for again while it shows opens afresh on the view asked for, keyed by the asking. A press that leaves the focus
   // in it, as Safari's and Firefox's on macOS do (they focus no button they click), would leave it on the page as Help
   // remounts: Help's Close takes it, at Home and in the game (the review of the credits).
@@ -453,9 +464,14 @@ export function App() {
         toggle("help");
         return;
       }
+      // An open list or menu keeps every key, as it keeps ?: T tilted the map behind the speed list, and 2 picked 60× under it,
+      // its Enter then picking the old speed again (round 10). It takes Escape, Tab and its own keys itself.
+      if (inList) return;
       // Home stands over a paused game: its keys are Home's (Escape closes Saves and Help), not the game's.
       if (atHome && event.key !== "Escape") return;
-      if (typing) return;
+      // Typed into a field, a key is the field's, but for Escape: in the company's name, which has the focus whenever the
+      // founding card shows, Escape closed nothing, not even Saves left open beside the card (round 10).
+      if (typing && event.key !== "Escape") return;
       // Space pauses and plays; 1 to 5 pick a speed, real time up (D25). A button the keyboard reached
       // keeps Space, so Space still presses it; one pressed with the mouse does not, or Space pressed it
       // again (opening the speed menu, closing Finance, taking back one more command). A held Space
@@ -773,6 +789,7 @@ export function App() {
           aria-label={autosaveOff ? AUTOSAVE_OFF_NAME : undefined}
           title={autosaveOff ? AUTOSAVE_OFF_TITLE : undefined}
           data-testid="saves-chip"
+          data-opens="saves"
           data-chrome="rest"
           onClick={() => toggle("saves")}
         >
