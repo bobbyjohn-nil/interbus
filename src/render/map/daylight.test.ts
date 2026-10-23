@@ -7,35 +7,13 @@ import { darkStep, daylightPaints, dim, dimmed, louder, NIGHT_STEP, paintsAcross
 import { hexToOklch } from './oklch';
 import { overlayLayers, restingLines, RESTING_OPACITY, restingStops, setResting } from './overlays';
 import { buildStyle, MASK_LAYERS } from './style';
+import { blend, contrast, distance } from './testing';
 import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
 
 const EXTENT: Bbox = [-71.16, 42.315, -70.98, 42.405];
 const styleOf = (tokens: MapTokens) => buildStyle({ tilesUrl: 'pmtiles://cities/boston.pmtiles', assetBase: 'https://example.test/interbus/', tokens, extent: EXTENT });
 const STEPS = Array.from({ length: NIGHT_STEP + 1 }, (_, step) => step);
 const at = (h: number, m = 0) => h * 3_600 + m * 60;
-
-/** OKLab distance between two colours (×100 is about one just-noticeable step). */
-function distance(x: string, y: string): number {
-  const [p, q] = [hexToOklch(x), hexToOklch(y)];
-  const ab = (c: { c: number; h: number }) => [c.c * Math.cos((c.h * Math.PI) / 180), c.c * Math.sin((c.h * Math.PI) / 180)];
-  const [pa, pb] = ab(p);
-  const [qa, qb] = ab(q);
-  return Math.hypot(p.l - q.l, pa! - qa!, pb! - qb!);
-}
-
-/** WCAG 2's contrast ratio. */
-function contrast(x: string, y: string): number {
-  const luminance = (hex: string) => {
-    const n = Number.parseInt(hex.slice(1), 16);
-    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
-      const v = c / 255;
-      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
-  };
-  const [a, b] = [luminance(x), luminance(y)];
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-}
 
 describe('the light by the sim’s clock', () => {
   it('is day from 05:00 to 19:00, a step darker each half hour from 19:00, night from 20:30 to 03:30, and lighter from 03:30', () => {
@@ -123,11 +101,6 @@ describe('the palette at every step (D13: light by day and at its darkest)', () 
       ['roadworks ahead', 'event-pending', 'line-opacity', GAME_LIGHT.stopFlag, ['street', 'arterial']],
       ['roadworks on', 'event-on', 'line-opacity', GAME_LIGHT.stopFlag, ['street', 'arterial']],
     ];
-    const blend = (top: string, alpha: number, under: string) => {
-      const ch = (hex: string) => [16, 8, 0].map((shift) => (Number.parseInt(hex.slice(1), 16) >> shift) & 255);
-      const [a, b] = [ch(top), ch(under)];
-      return `#${a.map((c, i) => Math.round(alpha * c + (1 - alpha) * b[i]!).toString(16).padStart(2, '0')).join('')}`;
-    };
     const nearestAt = (step: number) => {
       const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step);
       const base = dimmed(LIGHT, step);
