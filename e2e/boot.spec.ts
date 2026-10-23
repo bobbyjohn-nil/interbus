@@ -170,9 +170,13 @@ test.describe('the boot splash', () => {
     const newGame = home.getByRole('button', { name: 'New game' });
     const at = (await newGame.boundingBox())!;
     await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
-    // Nor does the keyboard: Tab reached Home's buttons under it, and Enter pressed New game unseen (round 11).
-    for (let k = 0; k < 4 && !(await newGame.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
-    expect(await page.evaluate(() => document.activeElement === document.body), 'the focus on nothing the splash hides').toBe(true);
+    // Nor does the keyboard: Tab reached Home's buttons under it, and Enter pressed New game unseen (round 11). It moves among
+    // what the splash leaves in sight alone, the corner's credits (the review of the twelfth round's fixes).
+    for (let k = 0; k < 4; k++) {
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate(() => document.activeElement?.closest('.corner') !== null), 'the focus on the corner').toBe(true);
+    }
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('Enter');
     // Once its timer asks for the splash to go, it goes.
     await page.waitForFunction(() => typeof (window as unknown as { letBootGo?: unknown }).letBootGo === 'function');
@@ -185,6 +189,69 @@ test.describe('the boot splash', () => {
     expect(await page.evaluate(() => document.activeElement !== document.body), 'Tab reaches something').toBe(true);
   });
 
+  // The systems audit's twelfth round: the keys were held only from the tow, so keys pressed while the game loaded under the
+  // splash reached the map: T tilted it, the arrows moved it, Tab reached its canvas and ? opened Help, all unseen.
+  test('keys pressed while the game loads under the splash reach nothing it hides', async ({ page }) => {
+    const sim = await holdCity(page);
+    await page.goto('./?gpu=full');
+    const map = page.getByTestId('map');
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await expect(page.locator('#boot')).toBeVisible();
+    const view = (await map.getAttribute('data-view'))!;
+    for (const key of ['t', '?', 'Tab', 'ArrowLeft', 'ArrowLeft']) await page.keyboard.press(key);
+    // Tab took the focus to the corner's first credit, drawn over the splash; Shift+Tab from it went to the map's canvas under the
+    // splash, and stayed there (the review of the twelfth round's fixes): it goes round to the corner's last.
+    await expect(page.locator('.corner a').first()).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('.corner a').last()).toBeFocused();
+    sim.release();
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#boot')).toHaveCount(0, { timeout: 10_000 });
+    await expect(map).toHaveAttribute('data-mode', '2d');
+    await expect(map).toHaveAttribute('data-view', view);
+    await expect(page.getByTestId('help')).toHaveCount(0);
+  });
+
+  // The twelfth round: what the tow uncovers takes presses at once (app.css), but the keys after them were held till the splash
+  // went, so the name typed into the founding card that a press on the uncovered New game opened was lost.
+  test('a key on what the tow has uncovered is its own: a name typed into the founding card the uncovered New game opened', async ({ page }) => {
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await holdRemoval(page);
+    await page.goto('./');
+    await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    // The tow held 2.1 s in: the splash's edge at 750 px, past New game (436-716 px) and the founding card it opens (406-746 px).
+    await holdTow(page, 2_100);
+    const newGame = page.getByTestId('home').getByRole('button', { name: 'New game' });
+    const at = (await newGame.boundingBox())!;
+    const [x, y] = [at.x + at.width / 2, at.y + at.height / 2];
+    expect(await page.evaluate(([px, py]) => document.elementFromPoint(px!, py!)?.closest('button')?.textContent, [x, y]), 'New game uncovered').toBe('New game');
+    await page.mouse.click(x, y);
+    const name = page.getByTestId('founding-card').getByLabel('Name');
+    await expect(name).toBeFocused();
+    await page.keyboard.type('Back Bay');
+    await expect(name).toHaveValue('Back Bay');
+    await expect(page.locator('#boot')).toBeAttached();
+  });
+
+  // The twelfth round: a key on the corner passed the hold whole, so ? there opened Help under the standing splash.
+  test('a key on the corner over the splash is the corner’s alone: ? there opens no Help under it', async ({ page }) => {
+    await holdRemoval(page);
+    const sim = await holdCity(page);
+    await page.goto('./');
+    const credit = page.locator('.corner a').first();
+    await expect(credit).toBeVisible({ timeout: 30_000 });
+    await credit.focus();
+    sim.release();
+    await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    // The tow held at its start, the splash over everything but the corner.
+    await holdTow(page, 0);
+    await expect(credit).toBeFocused();
+    await page.keyboard.press('?');
+    await page.waitForTimeout(300);
+    await expect(page.locator('#boot')).toBeVisible();
+    await expect(page.getByTestId('help')).toHaveCount(0);
+  });
+
   // Round 10: the replaced build's card stood under the splash, unseen until the city's 2 MB came, or for good on a stalled load.
   test('a file of this build gone while the city loads: its card shows at once, over the splash', async ({ page }) => {
     await page.route('**/assets/loadMap-*.js', (route) => route.fulfill({ status: 404, body: 'Not Found' }));
@@ -195,11 +262,16 @@ test.describe('the boot splash', () => {
     await expect(page.locator('#boot')).toBeVisible();
     expect(await zIndex(page, '.replaced')).toBeGreaterThan(await zIndex(page, '#boot'));
     // What is drawn at the middle of its Reload: the button itself, not the splash.
-    const top = await card.getByRole('button', { name: 'Reload' }).evaluate((el) => {
+    const reload = card.getByRole('button', { name: 'Reload' });
+    const top = await reload.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
     });
     expect(top).toBe(true);
+    // The keyboard reaches it too: Tab moves among what the splash leaves in sight, the corner's credits then the card (the review
+    // of the twelfth round's fixes: with the keys held from the page's start, Tab reached nothing while the city loaded).
+    for (let k = 0; k < 6 && !(await reload.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(reload).toBeFocused();
   });
 
   // Round 10: the reduced-motion rule stopped the tow, so the half-gone splash stood back over the whole screen until its timer

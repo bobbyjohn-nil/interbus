@@ -33,7 +33,7 @@ import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
 import { Notices } from "./shell/Notices";
 import { TopBar } from "./shell/TopBar";
-import { endBoot } from "./brand/boot";
+import { endBoot, hearHeldKeys } from "./brand/boot";
 
 export function App() {
   const sim = useSim(CITIES[0]);
@@ -97,11 +97,13 @@ export function App() {
   const [homeAt, setHomeAt] = useState<number | null>(0);
   // Start a new game leaves Home once the worker's unnamed company has come, which it always sends (worker/host.ts): left at
   // once, the old company's game drew a frame of its chips and dock before the founding card (round 11). During render, as
-  // state that follows the game.
+  // state that follows the game. Leaving Home closes Help, as Continue and New game do: ? pressed while the new game was on its
+  // way carried Help onto the founding card, the two at 31.6% of 1152×720 (I13; the systems audit's twelfth round).
   const [starting, setStarting] = useState(false);
   if (starting && sim.snapshot && !sim.snapshot.company.name) {
     setStarting(false);
     setHomeAt(null);
+    hide("help");
   }
   const { probeAt, depotSiteAt, stopSiteAt, draftFor, send } = sim;
   // Play resumes the speed last played at, 600x the first time (D25).
@@ -451,7 +453,10 @@ export function App() {
     window.addEventListener("keydown", input, true);
     window.addEventListener("focusin", arrived, true);
     window.addEventListener("blur", left);
+    // The keys the splash's hold stops before this listener hears them, Tab among what it leaves in sight among them (boot.ts).
+    const unhear = hearHeldKeys(input);
     return () => {
+      unhear();
       window.removeEventListener("pointerdown", input, true);
       window.removeEventListener("keydown", input, true);
       window.removeEventListener("focusin", arrived, true);

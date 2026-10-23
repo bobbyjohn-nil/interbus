@@ -54,7 +54,7 @@ export function onControl(target: unknown): boolean {
 }
 
 /** Whether a key down on `target` presses something (KEYED): on a control or a dropdown's list, but not on the map's canvas. */
-function keyed(target: unknown): boolean {
+export function keyed(target: unknown): boolean {
   const at = target as { closest?: (selector: string) => unknown } | null;
   return typeof at?.closest === 'function' && at.closest(KEYED) !== null && !onCanvas(target);
 }
