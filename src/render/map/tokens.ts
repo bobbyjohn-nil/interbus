@@ -67,6 +67,15 @@ export interface GameTokens {
    * from 4.20:1 by day to 2.32:1 at night (the review of the day and night tint).
    */
   readonly wordHalo: string;
+  /**
+   * What a resting line's route and stops are mixed with (overlays.ts, restingColour): the main roads' colour at night, the light
+   * theme's arterials dimmed to the darkest step, as lines run on them. Opaque, lines resting on a street they share hide one
+   * another as they do by day, where each laid over the other blended into neither's colour (the systems audit's twelfth round).
+   * Mixed with the minor streets' instead, the Amber line on a main road came to 0.037 in OKLab from it at night, against 0.074
+   * laid over it (its review); on the arterials' it is the 0.074 it was, and farther on every other street. The same at every
+   * step, so the light's steps lay out nothing for it; only at dawn, while a line still rests, does the map mix it with the step's.
+   */
+  readonly restingGround: string;
 }
 
 export const GAME_LIGHT: GameTokens = {
@@ -78,6 +87,7 @@ export const GAME_LIGHT: GameTokens = {
   draft: '#2a2723',
   stopFlag: '#c2410c',
   wordHalo: '#ebe7df',
+  restingGround: '#b6aea7',
 };
 
 const ARTERIAL = '#f7e9ce';
@@ -176,8 +186,8 @@ export const V1_PAPER: MapTokens = {
   waterLabel: '#3d6f9e',
 };
 
-/** The game's colours on V1's paper: the same, but the halo behind the game's own words, which is the land's. */
-export const PAPER: LightTokens = { map: V1_PAPER, game: { ...GAME_LIGHT, wordHalo: V1_LAND } };
+/** The game's colours on V1's paper: the same, but the halo behind the game's own words, which is the land's, and the resting ground, its arterials'. */
+export const PAPER: LightTokens = { map: V1_PAPER, game: { ...GAME_LIGHT, wordHalo: V1_LAND, restingGround: '#baa183' } };
 
 /**
  * D13's placeholder dark land and void, two values the network hues are checked against on Nov 8 so January adds only the dark

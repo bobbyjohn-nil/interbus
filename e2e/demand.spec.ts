@@ -6,13 +6,13 @@
 // with the mouse no longer kept Space.
 import { expect, test } from './base';
 import { foundCompany, leaveHome } from './found';
-import { city } from './shell';
+import { city, setSpeed, withDebugLine } from './shell';
 
 test.describe('the demand menu', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
 
   test('shows and hides homes and jobs separately, remembers the choice, and keeps an open panel on Escape', async ({ page }) => {
-    await page.goto('./');
+    await page.goto('./?counts'); // the map counts the dots it draws only when asked
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);
@@ -75,5 +75,34 @@ test.describe('the demand menu', () => {
     await jobs.click();
     await expect(map).toHaveAttribute('data-dot-kinds', 'home,job');
     await expect.poll(async () => Number(await map.getAttribute('data-dots')), { timeout: 10_000 }).toBe(all);
+  });
+
+  // The systems audit's twelfth round: MapLibre settles after every frame that leaves nothing to load, and while time runs the
+  // buses ask for frame after frame, so the map counted the dots it drew after each: 15–17 ms a frame on Inner Boston, 57–70
+  // times in 10 s in Low graphics, for this spec's counts alone.
+  test('a player’s page counts no dots, and asked, the map counts them once a settle, never at a frame the buses alone ask for', async ({ page }) => {
+    await page.goto('./');
+    const map = page.getByTestId('map');
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await setSpeed(page, '600×');
+    // Frames the buses ask for, one after another (vehicles.ts counts them on the map's container): 2 to 30 a second here.
+    const frames = async () => Number((await map.getAttribute('data-asked')) ?? 0);
+    const asked = await frames();
+    await expect.poll(async () => (await frames()) - asked, { timeout: 30_000 }).toBeGreaterThanOrEqual(10);
+    expect(await map.getAttribute('data-dots'), 'no count in a player’s page').toBe('');
+    expect(await map.getAttribute('data-dots-counted')).toBeNull();
+
+    await page.goto('./?counts');
+    await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await leaveHome(page, 'continue');
+    await expect.poll(async () => Number(await map.getAttribute('data-dots')), { timeout: 30_000 }).toBeGreaterThan(100);
+    await setSpeed(page, '600×');
+    // Once the menu has gone and the map has settled, the buses alone draw: ten of their frames, each of which ended in a settle.
+    await page.waitForTimeout(1_000);
+    const [counted, from] = [Number(await map.getAttribute('data-dots-counted')), await frames()];
+    await expect.poll(async () => (await frames()) - from, { timeout: 30_000 }).toBeGreaterThanOrEqual(10);
+    expect(Number(await map.getAttribute('data-dots-counted')) - counted, 'counts as the buses alone drew').toBeLessThanOrEqual(1);
   });
 });

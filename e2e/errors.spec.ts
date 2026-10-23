@@ -132,7 +132,7 @@ test('with blocked site data, the map card that cannot start and the replaced bu
   expect(copyProblems(await card.locator('p, button').allInnerTexts())).toEqual([]);
   const download = page.waitForEvent('download');
   await card.getByRole('button', { name: 'Export this game' }).click();
-  expect((await download).suggestedFilename()).toBe('interbus-boston-day-1.json');
+  expect((await download).suggestedFilename()).toBe('interbus-boston-year-1-q1-day-1.json');
   // Day 1 closes, its card waiting for an answer at the board's top; then a lazy chunk of this build is gone (Vite's
   // preloadError). The replaced build's card, the map's own card gone, says the same, its words over its buttons, at the
   // board's foot while the day card is up, so neither hides the other. Shown failing (TS-04) with the card at the top, where
@@ -148,7 +148,7 @@ test('with blocked site data, the map card that cannot start and the replaced bu
   expect({ card: await inFront(replaced), heading: await inFront(dayCard.locator('h2')), continue: await inFront(dayCard.getByRole('button', { name: 'Continue' })) }).toEqual({ card: true, heading: true, continue: true });
   const again = page.waitForEvent('download');
   await replaced.getByRole('button', { name: 'Export this game' }).click();
-  expect((await again).suggestedFilename()).toMatch(/^interbus-boston-day-\d+\.json$/);
+  expect((await again).suggestedFilename()).toMatch(/^interbus-boston-year-\d+-q[1-4]-day-\d+\.json$/);
 });
 
 // The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on

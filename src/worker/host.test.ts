@@ -11,7 +11,7 @@ import { KENMORE } from '../sim/testing';
 import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
 import type { Sim } from '../ui/game/useSim';
 import { Finance } from '../ui/shell/Finance';
-import { createHost, MAX_SLICE_MS, SPEEDS } from './host';
+import { createHost, fileDate, MAX_SLICE_MS, SPEEDS } from './host';
 
 const baked = bakeSim('boston', 'mini-boston');
 const CITY = { id: 'boston', revision: 'mini-boston', hash: baked.sha256 };
@@ -947,11 +947,19 @@ describe('save slots, export and import', () => {
     expect(last('snapshot')!.snapshot.company.name).toBe('Kenmore Lines');
   });
 
+  // The systems audit's twelfth round: the file took its name from the days since founding, which the game shows nowhere: at
+  // Year 2, Q1, Day 8 on its clock it was day 40, and Q2's first day of the first year was day 9.
+  it('names an exported file by the game’s date, as its clock shows it', () => {
+    expect(fileDate(0)).toBe('year-1-q1-day-1');
+    expect(fileDate(39 * 86_400 + 7 * 3_600)).toBe('year-2-q1-day-8');
+    expect(fileDate(8 * 86_400)).toBe('year-1-q2-day-1');
+  });
+
   it('exports this game as a file that imports back to the same game', () => {
     const { send, last, store } = withStore();
     send({ type: 'export' });
     const file = last('export')!;
-    expect(file.name).toBe('interbus-boston-day-1.json');
+    expect(file.name).toBe('interbus-boston-year-1-q1-day-1.json');
     expect(file.text).toBe(store.get(KEY));
     send({ type: 'create-line', clicks: CLICKS });
     send({ type: 'import', text: file.text });

@@ -4,7 +4,7 @@
 // warm set's rules as it ships are daylight.test.ts's; here it stands beside V1's paper.
 import { describe, expect, it } from 'vitest';
 import { LINE_COLOURS } from '../../sim/rules/line';
-import { dimmed, NIGHT_STEP } from './daylight';
+import { dim, dimmed, NIGHT_STEP } from './daylight';
 import { hexToOklch } from './oklch';
 import { overlayLayers } from './overlays';
 import { blend, contrast, distance } from './testing';
@@ -87,8 +87,9 @@ describe('V1’s paper (the Nov 8 pick’s other candidate)', () => {
       labelMinor: V1.suburbLabel,
       waterLabel: V1.waterLabel,
     });
-    // The game's own words stand on V1's land; every other game colour is the warm set's.
-    expect(PAPER.game).toEqual({ ...GAME_LIGHT, wordHalo: V1.land });
+    // The game's own words stand on V1's land, and its resting lines on its arterials at night; every other game colour is the
+    // warm set's.
+    expect(PAPER.game).toEqual({ ...GAME_LIGHT, wordHalo: V1.land, restingGround: dim(V1_PAPER.arterial, NIGHT_STEP) });
   });
 
   it('breaks PLAN §8 rule 1 in ten colours by day, nine at dusk and eight at night, where the warm set breaks none', () => {
@@ -193,6 +194,8 @@ describe('both candidates at every step of the light', () => {
           return { halo: paint['text-halo-color'], ratio: contrast(paint['text-color']!, paint['text-halo-color']!) };
         });
     expect(theme.game.wordHalo).toBe(theme.map.land);
+    // One ground for a resting line in each set, the night's of the roads the map mixes it with at dawn (loadMap.ts).
+    expect(theme.game.restingGround).toBe(dim(theme.map.arterial, NIGHT_STEP));
     for (const step of STEPS) expect(words(step), `step ${step}`).toEqual(words(0));
     expect(Math.min(...words(0).map((w) => w.ratio))).toBeCloseTo(theme === PAPER ? 4.42 : 4.2, 2);
   });

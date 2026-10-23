@@ -10,7 +10,7 @@ import { Dropdown } from '../Dropdown';
 import { useFocusBack } from '../focusBack';
 import { showInBody } from '../showWhole';
 import { runOver } from './runOver';
-import { about, busCount, clock, duration, PERIOD_NAMES, usd, usdK } from '../format';
+import { about, busCount, clock, duration, PERIOD_NAMES, streetName, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /** Headways a player picks from, in minutes; overnight adds "off". */
@@ -131,7 +131,7 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
     : null;
   // The same round trip on clear streets: what today's roadworks or snow add is the difference (sim/rules/cycle.ts).
   const clear = cyclesOf(line.stopDistM[line.stopDistM.length - 1] ?? 0, line.stops.length, model.kmh, line.rush);
-  const works = line.worksM > 0 && s.event ? { street: s.event.street, addS: line.cycles.peak - clear.peak } : null;
+  const works = line.worksM > 0 && s.event ? { street: streetName(s.event.street), addS: line.cycles.peak - clear.peak } : null;
   const snowAddS = snow ? line.cycles.peak - clear.peak : 0;
   const pick = (period: Period, value: string) => {
     lastPeriod.current = period;

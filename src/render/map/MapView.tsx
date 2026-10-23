@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fpsSwitch, gpuSwitch, lightSwitch, onReplaced, reload } from '../../platform';
+import { countsSwitch, fpsSwitch, gpuSwitch, lightSwitch, onReplaced, reload } from '../../platform';
 import { CITIES } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import type { HoveredDot, MapHit, MountedMap } from './loadMap';
@@ -118,6 +118,8 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
   const city = CITIES[0];
   // The GPU ladder's rung, once, before the map mounts (gpu.ts); `?gpu=` can pick one.
   const [rung] = useState<GraphicsRung>(() => rungFor(probeWebGL(), gpuSwitch()));
+  // Whether the map counts what it draws, for the e2e tests alone (`?counts`): the dots and the buildings.
+  const [counting] = useState(countsSwitch);
   const [status, setStatus] = useState<Status>(rung === 'none' ? 'no-gpu' : city?.tiles ? 'loading' : 'no-city-file');
   // Low graphics keeps the map flat; `T` says so for a moment instead.
   const [flatNotice, setFlatNotice] = useState(false);
@@ -128,8 +130,8 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
   /** Set once the board is ready, so `T` never reaches a style still loading. */
   const ready = useRef<MountedMap | null>(null);
   const [mode, setMode] = useState<ViewMode>('2d');
-  // What the camera settled on after the last mode change, for the e2e tests.
-  const [settled, setSettled] = useState<{ pitch: number; buildings: number; measured: number } | null>(null);
+  // What the camera settled on after the last mode change, for the e2e tests: the buildings only with `?counts`.
+  const [settled, setSettled] = useState<{ pitch: number; buildings: number | null; measured: number | null } | null>(null);
   // Where the camera rests after each move ("lon,lat,zoom"), so the e2e tests can aim at a place, and
   // which way it faces and how far it leans, for the compass.
   const [view, setView] = useState('');
@@ -170,14 +172,15 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
     mounted.setMode(mode);
     const { map } = mounted;
     // Idle waits for the ease to end and the swapped layer's tiles to draw. Measured: those in view
-    // with a height of their own, OSM's or Overture's (PLAN §5), not the style's default.
+    // with a height of their own, OSM's or Overture's (PLAN §5), not the style's default. Counted only
+    // with `?counts`: the count took 130–217 ms of each tilt on Inner Boston (the twelfth round).
     const onIdle = () => {
-      const drawn = map.queryRenderedFeatures({ layers: [buildingsLayer(mode)] });
-      setSettled({ pitch: Math.round(map.getPitch()), buildings: drawn.length, measured: drawn.filter((f) => typeof f.properties.height === 'number').length });
+      const drawn = counting ? map.queryRenderedFeatures({ layers: [buildingsLayer(mode)] }) : null;
+      setSettled({ pitch: Math.round(map.getPitch()), buildings: drawn?.length ?? null, measured: drawn?.filter((f) => typeof f.properties.height === 'number').length ?? null });
     };
     map.once('idle', onIdle);
     return () => void map.off('idle', onIdle);
-  }, [mode]);
+  }, [mode, counting]);
 
   useEffect(() => {
     if (status !== 'loading') return;
@@ -219,9 +222,10 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
         mounted.setDotKinds(now.dotKinds);
         mounted.setTiltGesture(now.tiltGesture);
         if (now.dots) showDots(mounted, now.dots);
-        // Drawn rather than merely sent (TS-07): every settled frame counts the dots it shows, so the
-        // count follows the dots, the kinds shown and the tiles as they arrive. Once a settle, never a frame.
-        mounted.map.on('idle', () => setDotsDrawn(mounted.dotsDrawn()));
+        // Drawn rather than merely sent (TS-07): with `?counts`, every settle counts the dots it shows, so
+        // the count follows the dots, the kinds shown and the tiles as they arrive. Once a settle, never a
+        // frame (dotsDrawn, loadMap.ts), and never in a player's page.
+        if (counting) mounted.map.on('idle', () => setDotsDrawn(mounted.dotsDrawn()));
         mounted.setLines(now.lines, now.stops);
         if (now.depotLand) mounted.setDepotLand(now.depotLand);
         drawDepots(mounted, now.depots);
@@ -262,7 +266,7 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
       stopMeter?.();
       dispose?.();
     };
-  }, [city, rung]);
+  }, [city, rung, counting]);
 
   useEffect(() => {
     const mounted = mountedRef.current;
