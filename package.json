@@ -19,6 +19,7 @@
     "test:scripts": "node --test \"scripts/*.test.mjs\" \"tools/bake/*.test.mjs\"",
     "e2e": "playwright test",
     "measure:bundle": "node scripts/measure/bundle.mjs",
+    "measure:sessions": "node scripts/measure/sessions.mjs",
     "bake:plan": "node tools/bake/plan.mjs",
     "bake:fetch": "node tools/bake/fetch.mjs",
     "bake:sources": "node tools/bake/sources.mjs",
