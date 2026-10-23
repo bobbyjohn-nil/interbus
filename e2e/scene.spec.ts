@@ -4,7 +4,7 @@
 // the fixture's scene; CI's smoke step runs this on the shipped build too, with Inner Boston's 200
 // buses, the file bench/scene.ts writes for the run.
 import { createHash } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { CORRIDORS } from '../bench/inner';
 import { loadCity } from '../src/sim/city/simfile';
 import { DEPOT_CAPACITY, MAX_DEPOTS } from '../src/sim/config/depots';

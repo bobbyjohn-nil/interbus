@@ -76,7 +76,9 @@ export function FinanceChart({ finance: f }: { finance: FinanceView }) {
         const soFar = d.day === today;
         return (
           <g key={d.day} className={soFar ? 'day today' : 'day'} data-day={d.day} data-in={d.inCents} data-out={d.outCents} data-capital={d.capitalCents}>
-            <title>{`${dayName(d.day)}${soFar ? ' so far' : ''}: ${usd(d.inCents)} in, ${usd(-d.outCents)} running costs${d.capitalCents ? `, ${usd(-d.capitalCents)} on buying and building` : ''}`}</title>
+            {/* A day that sold more than it bought brought money back: Close line and Sell them made it every sale's day, and it
+                read "-$103,000 on buying and building" (round 10). */}
+            <title>{`${dayName(d.day)}${soFar ? ' so far' : ''}: ${usd(d.inCents)} in, ${usd(-d.outCents)} running costs${d.capitalCents < 0 ? `, ${usd(-d.capitalCents)} on buying and building` : d.capitalCents > 0 ? `, ${usd(d.capitalCents)} back from selling` : ''}`}</title>
             <rect className="in" x={cx - w / 2} y={mid - barH(d.inCents)} width={w} height={barH(d.inCents)} />
             <rect className="out" x={cx - w / 2} y={mid} width={w} height={barH(d.outCents)} />
             {d.capitalCents !== 0 ? <path className="capital" d={`M${cx} ${BARS_TOP + BARS_H + 2} l3 4 h-6 z`} /> : null}

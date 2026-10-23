@@ -1,7 +1,7 @@
 // Home (the M5 spec, item 3; exit check 1's first step): the first screen over the paused map. New
 // game leads to the founding card; Saves' Back to Home returns to it, where Continue names the game
 // and goes on with it; New game asks before it replaces that game, and the slots stay.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { BACK_HOME_ASK_COPY, NEWER_LINE_COPY } from '../src/ui/copy';
 import { usd } from '../src/ui/format';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
@@ -229,5 +229,49 @@ test.describe('Home', () => {
     await a.bringToFront();
     await expect(slotA).toHaveAttribute('data-empty', 'yes');
     await expect(slotA.getByRole('button', { name: 'Save here' })).toBeVisible();
+  });
+
+  test("New game's question keeps the keyboard's place, and goes with the game it names when another tab replaces that game", async ({ context }) => {
+    test.setTimeout(90_000);
+    const a = await context.newPage();
+    await a.goto('./');
+    await foundCompany(a);
+    await a.getByRole('button', { name: 'Saves' }).click();
+    await a.getByRole('button', { name: 'Back to Home' }).click();
+    const home = a.getByTestId('home');
+    await expect(home).toBeVisible();
+    const newGame = home.getByRole('button', { name: 'New game' });
+    const ask = home.getByRole('group', { name: 'Start over' });
+    // The question takes New game's place, and an answer the question's: the focus goes to Keep it, then back to New game,
+    // where it fell to the page (round 10).
+    await newGame.focus();
+    await a.keyboard.press('Enter');
+    await expect(ask).toContainText('Start over? Back Bay Transit, on Year 1, Q1, Day 1, will be replaced.');
+    await expect(ask.getByRole('button', { name: 'Keep it' })).toBeFocused();
+    await a.keyboard.press('Enter');
+    await expect(ask).toHaveCount(0);
+    await expect(newGame).toBeFocused();
+    // Asked again, then another tab starts a new game, which Home takes up: nothing the question named is left to replace, and
+    // it read "Start over? , on Year 1, Q1, Day 1, will be replaced." (round 10).
+    await newGame.click();
+    await expect(ask).toBeVisible();
+    const b = await context.newPage();
+    await b.goto('./');
+    const homeB = b.getByTestId('home');
+    await expect(homeB.getByTestId('home-continue')).toBeVisible({ timeout: 30_000 });
+    await homeB.getByRole('button', { name: 'New game' }).click();
+    await homeB.getByRole('button', { name: 'Start a new game' }).click();
+    await expect(b.getByTestId('founding-card')).toBeVisible();
+    await expect(home.getByTestId('home-continue')).toHaveCount(0, { timeout: 10_000 });
+    await expect(ask).toHaveCount(0);
+    await expect(home).not.toContainText('Start over?');
+    await expect(newGame).toBeVisible();
+    await expect(newGame).toBeFocused();
+    // That tab founds its company under the same name, as a player starting over often would: the question this tab asked
+    // about another game stays gone, and the focus stays where it is (the review of round 10).
+    await foundCompany(b);
+    await expect(home.getByTestId('home-continue')).toContainText('Back Bay Transit', { timeout: 10_000 });
+    await expect(ask).toHaveCount(0);
+    await expect(newGame).toBeFocused();
   });
 });

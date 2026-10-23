@@ -2,7 +2,7 @@
 // Create's own rule along its corridors both ways (src/sim/scene.ts lateScene), imported through Saves at 1152×720, I13's
 // tightest size. Each test was shown failing (TS-04) with its fix taken out.
 import { createHash } from 'node:crypto';
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { loadCity } from '../src/sim/city/simfile';
 import { toLngLat, toXY, type XY } from '../src/sim/core/geo';
 import { encode } from '../src/sim/save/save';

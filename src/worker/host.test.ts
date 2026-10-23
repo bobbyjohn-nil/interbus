@@ -1401,6 +1401,28 @@ describe('city events (the M4 spec, item 2)', () => {
     expect(last('snapshot')!.snapshot.stops).toHaveLength(3);
     expectAmid();
   });
+
+  it('puts snow’s words amid the company’s depots once Close line takes its last stop down, never at the frame’s corner', () => {
+    // With no stops left the words stood at the frame's origin, the extent's south-west corner: Close line can take a
+    // company's last stop down in the snow, which nothing could before (round 10).
+    const run = started();
+    run.host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    run.host.handle({ type: 'place-depot', at: depotSpot(run.last('ready')!.depotLand as [number, number][][]) });
+    run.host.handle({ type: 'create-line', clicks: CLICKS });
+    run.host.handle({ type: 'export' });
+    const file = JSON.parse(run.last('export')!.text) as { data: { event: unknown } };
+    file.data.event = { kind: 'snow', startDay: 1, endDay: 2, street: '', edges: [], at: null };
+    const { host, last } = started();
+    host.handle({ type: 'import', text: JSON.stringify(file) });
+    const snowy = last('snapshot')!.snapshot;
+    expect(snowy.event).toMatchObject({ kind: 'snow', phase: 'on' });
+    host.handle({ type: 'close-line', lineId: snowy.lines[0]!.id });
+    const after = last('snapshot')!.snapshot;
+    expect(after).toMatchObject({ lines: [], stops: [] });
+    expect(after.depots).toHaveLength(1);
+    expect(after.event!.at[0]).toBeCloseTo(after.depots[0]!.at[0], 6);
+    expect(after.event!.at[1]).toBeCloseTo(after.depots[0]!.at[1], 6);
+  });
 });
 
 // The late game at the bus ceiling (DECISIONS, Open, its recommended (a)): a line's spare buses sold, and a line closed, at half

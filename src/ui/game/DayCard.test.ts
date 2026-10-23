@@ -103,4 +103,14 @@ describe('the report card’s stamp', () => {
     expect(card(-1_200_000)).toContain('The city fines $12,000');
     expect(render({ day: 9, rows, cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [], medals: [] })).not.toContain('stamp');
   });
+
+  it('reads a payout or a fine under a dollar in cents, never Approved over "$0"', () => {
+    // An overall a hair over the grant's bar pays cents: whole dollars read $0 under the city's Approved (round 10).
+    const card = (payoutCents: number) => render({ day: 8, rows, cashBeforeCents: 0, cashAfterCents: 0, report: { ...report, payoutCents }, contracts: [], events: [], medals: [] });
+    expect(card(64)).toContain('data-stamp="Approved"');
+    expect(card(64)).toContain('The city pays $0.64<');
+    expect(card(-37)).toContain('data-stamp="Fined"');
+    expect(card(-37)).toContain('The city fines $0.37<');
+    expect(card(100)).toContain('The city pays $1<');
+  });
 });

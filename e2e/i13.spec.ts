@@ -4,7 +4,7 @@
 // and the demand chip, and the one panel (Home, the founding card, the demand menu, the Build menu,
 // the draft card, the inspector, the route editor, a stop's card, Finance, Saves, Help, the day card). Home's
 // Saves, Help and Credits (Help on its credits) open beside Home's card, in turn, so each is measured with it.
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { AUTOSAVE_OFF_CHIP, UNBACKED_COPY } from '../src/ui/copy';

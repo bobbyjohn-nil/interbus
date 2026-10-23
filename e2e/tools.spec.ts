@@ -3,7 +3,7 @@
 // under them, and Escape or a press meant only to close a menu also put the tool down or used it.
 // Each test here failed before its fix. (Place a depot's card and the cash it needs are the depot
 // rule's unit tests: src/sim/rules/depot.test.ts and src/worker/host.test.ts.)
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, pointAt, toScreen, zoomOutOnce } from './shell';

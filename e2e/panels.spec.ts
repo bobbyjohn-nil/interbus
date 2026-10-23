@@ -9,7 +9,7 @@
 // Lines, pressed before it opened; and a narrower window left a panel dragged near the right edge out
 // of sight and cut off one that opened in a free place. The systems audit's fourth round: Tab into a
 // panel dragged past the window's edge scrolls nothing (shown failing below).
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { LINE_COLOURS } from '../src/sim/config/lines';
 import { foundCompany } from './found';

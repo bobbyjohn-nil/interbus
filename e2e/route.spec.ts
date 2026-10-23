@@ -9,7 +9,7 @@
 // count read 5 after the route's undo, not 4. A list that only dropped stops read 3 after the undo chip, not 4.
 // The systems audit's third round: a stop moved with the keyboard keeps the focus on its arrow, and a
 // Save route and an Undo answered together leave the edit open to save again (each shown failing below).
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';

@@ -3,7 +3,7 @@
 // line card. The medals held are dots on the Contracts chip, and the shell keeps to I13's budget at
 // 1152×720, the tightest screen. A quarter is eight game days (D25), so the game is a save file edited to the
 // evening of its last, its checklist done (a day in profit and a contract paid).
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
 import { chromeShare, city, onDepotLand, setFare, setSpeed } from './shell';

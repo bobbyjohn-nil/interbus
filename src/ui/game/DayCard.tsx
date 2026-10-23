@@ -22,6 +22,9 @@ export function stampOf(payoutCents: number): 'Approved' | 'Noted' | 'Fined' {
   return payoutCents > 0 ? 'Approved' : payoutCents < 0 ? 'Fined' : 'Noted';
 }
 
+/** A payout or fine as the line under the grades says it: whole dollars, or cents under a dollar, which whole dollars read as $0 beside the stamp (round 10). */
+const amountSaid = (cents: number) => usd(cents, { cents: Math.abs(cents) < 100 });
+
 /**
  * The daily close (PLAN §3): every figure a ledger row, adding up to the change in cash (I1). A
  * quarter's last day closes with its report card above the rows (the M3 spec, item 9), whose payout
@@ -91,7 +94,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
                 </tr>
               </tbody>
             </table>
-            <p>{stamp === 'Approved' ? `The city pays ${usd(card.report.payoutCents)}` : stamp === 'Fined' ? `The city fines ${usd(-card.report.payoutCents)}` : 'The city neither pays nor fines'}</p>
+            <p>{stamp === 'Approved' ? `The city pays ${amountSaid(card.report.payoutCents)}` : stamp === 'Fined' ? `The city fines ${amountSaid(-card.report.payoutCents)}` : 'The city neither pays nor fines'}</p>
           </section>
         ) : null}
         {card.contracts.map((c) => (

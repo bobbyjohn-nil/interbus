@@ -247,6 +247,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More of the buttons that go with their card keep your place on the keyboard. A stop card's Remove from a line moves the focus to the stop's first remaining line. Once the stop has come down, it goes back to the line's stops you opened the card from. Take it down moves it to Build, and a step down to a Sign or up to a Transfer Hub moves it to the other step's button. Take it in Contracts moves it to the contract you took. The day card's Continue moves it back to the control the keyboard was on when the card showed. Before, each dropped it to the top of the page.
 - Closing a panel you opened from the keyboard, with its Close or Escape, puts the focus back on the button that opened it, or on the one that opened the panel it came from when Escape closes both. A stop's step up to the top its lines allow keeps the focus on the step, refused in words, and an undo from the keyboard that brings back a line you closed puts it on that line's tab. Before, each dropped the focus to the top of the page.
 - Closing Saves or Help beside Home, with Escape or Close, puts the focus back on Home's button for it, instead of the top of the page.
+- A click on the splash while its bus tows it away no longer presses Home's New game or Continue, hidden under it.
+- If a file of the game turns out to be gone while the city is still loading, the "This build was replaced" card shows at once, over the splash, instead of waiting unseen under it until the city has loaded.
+- Turning on reduce motion while the splash's bus tows it away takes the splash away at once, instead of putting it back over the whole screen for a moment.
+- Home's Start over question goes away when another tab starts a new game, instead of asking to replace a company with no name. From the keyboard, it puts the focus on Keep it, and Keep it puts the focus back on New game.
+- A report card that pays less than a dollar says so in cents, instead of the city paying $0 under its Approved stamp.
+- An undo that brings back a closed line keeps the tool you have out: a line you are drawing stays, and so does another line's route editor.
+- With every line closed in the snow, the snow's words stay among your depots instead of moving to the corner of the map.
+- Finance's chart says a day when you sold more than you bought brought money back, instead of a minus amount spent on buying and building.
 
 ### Removed
 

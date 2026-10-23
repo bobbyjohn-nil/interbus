@@ -3,7 +3,7 @@
 // most 30 frames a second; with no WebGL2 a calm card asks for hardware acceleration while Home, Saves
 // and Export still work; a context lost mid-game says so with Reload, and one given back draws the buses
 // again. `?gpu=` forces each rung.
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, setSpeed, toScreen, withDebugLine, zoomOutOnce } from './shell';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';

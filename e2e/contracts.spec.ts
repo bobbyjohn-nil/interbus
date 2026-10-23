@@ -3,7 +3,7 @@
 // 15 minutes, meets its eighth at midnight and pays as one ledger row (a quarter in a row, D25).
 // Eight game days are too long for the e2e, so the game is a save file edited to that evening: a depot,
 // the debug line's four stops every 15 minutes (two Sparrows run it), and the contract seven days in.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
 import { chromeShare, city, onDepotLand, setSpeed } from './shell';

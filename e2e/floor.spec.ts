@@ -3,7 +3,7 @@
 // quarter reopens the game where it began (here, where the file was loaded). The game is a save file
 // edited to owe $200k at 23:50 with four closes already behind it, so the run ends within seconds;
 // its closing day's card is read first, then the failure card shows.
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator } from './base';
 import { foundCompany, STARTING_CENTS } from './found';
 import { city, setSpeed, withDebugLine } from './shell';
 

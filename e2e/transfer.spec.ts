@@ -7,7 +7,7 @@
 // route editor puts the editor and its tool down together, so a click on a stop opens its card again.
 // Shown failing (TS-04) on d6e81e6: the line card's data-line read 1 after the second Create, not 2;
 // and, with that check cut, the clicks on Kenmore's stop after the undo opened no stop card in 10 s.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { foundCompany } from './found';
 import { build, city, onDepotLand, toScreen, zoomOutOnce } from './shell';
 

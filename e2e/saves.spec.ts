@@ -7,7 +7,7 @@
 // with the way out. A save file replaces a founded company only after the question Load asks, one
 // question at a time, and an older save the disk has no room to set aside is never written over. A
 // question keeps the keyboard's place (the systems audit's fourth round, shown failing below).
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { usd } from '../src/ui/format';

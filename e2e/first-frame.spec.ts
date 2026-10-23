@@ -3,7 +3,7 @@
 // loads. The board ready, every overlay drawn and idle (interbus:map-ready), comes later and is
 // printed beside it. CI's Chromium renders in software (SwiftShader), as the budget asks. The budget is
 // the shipped build's, so this runs only where SHIPPED_BUILD=1: CI's smoke step, on Inner Boston.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { MAP_LOADED_MARK, MAP_READY_MARK } from '../src/render/map/status';
 
 /** I14: the first frame on software GL, in milliseconds from the page's start. */

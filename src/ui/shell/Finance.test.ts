@@ -95,6 +95,15 @@ describe('Finance’s views', () => {
     expect(axis(html)).toEqual(['Day 0', 'Day 1', 'Day 3']);
   });
 
+  // Round 10: a day of selling, from Close line or Sell them, read "-$103,000 on buying and building" on its bar.
+  it('says a day that sold more than it bought brought money back, and a day that bought what it spent', () => {
+    const sold = days.map((d) => (d.day === 3 ? { ...d, capitalCents: 10_300_000 } : d));
+    const html = render({ ...base, days: sold }, 'overview');
+    expect(html).toContain('<title>Year 1, Q1, Day 3 so far: $2,000 in, $1,500 running costs, $103,000 back from selling</title>');
+    expect(html).toContain('<title>Year 1, Q1, Day 1: $2,000 in, $1,500 running costs, $356,000 on buying and building</title>');
+    expect(html).not.toMatch(/-\$[\d,]+ on buying and building/);
+  });
+
   // The systems audit (D26): the chart named a day by its count since founding ("Day 9", "Day 10")
   // while the top bar read "Year 1, Q2 Day 1" and the day card "Year 1, Q2, Day 1 closed". Shown failing
   // (TS-04) on the chart before: its axis read Day 0, Day 1, Day 9 and Day 10, and its titles and

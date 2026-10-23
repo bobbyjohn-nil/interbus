@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { foundCompany } from './found';
 import { bootGone, build } from './shell';
 

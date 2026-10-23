@@ -7,7 +7,7 @@
 // `.app:has(.day-card)` rule in app.css, is measured by putting that rule back (DECISIONS, Measured).
 // Then Back to Home's question in a tab another tab's saves have left behind (the systems audit's sixth round), with every slot
 // full, so Saves reaches its height and scrolls: its share of the window, and its answers' reach after a press of the mouse.
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { BACK_HOME_ASK_COPY, NEWER_LINE_COPY } from '../src/ui/copy';
 import { usd } from '../src/ui/format';
 import { foundCompany } from './found';

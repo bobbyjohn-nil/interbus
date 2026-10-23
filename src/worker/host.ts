@@ -239,9 +239,11 @@ function eventView(world: World, event: CityEvent | null, day: number): EventVie
     return { ...base, path: [ring], at: [event.at.lon, event.at.lat] };
   }
   if (event.kind === 'snow') {
-    // Over the whole city: no shape, its words amid the company's stops.
-    const stops = world.state.stops.map((s) => toXY(city.frame, [s.lon, s.lat]));
-    const mid: XY = stops.length ? [stops.reduce((x, p) => x + p[0], 0) / stops.length, stops.reduce((y, p) => y + p[1], 0) / stops.length] : [0, 0];
+    // Over the whole city: no shape, its words amid the company's stops, or amid its depots once Close line has taken its last
+    // stop down. With neither they stood at [0, 0], the frame's origin and the extent's south-west corner (round 10); the
+    // city's landmarks stand in for a company with no depot, which snow never comes to.
+    const amid = [world.state.stops, world.state.depots].map((places) => places.map((p) => toXY(city.frame, [p.lon, p.lat]))).find((at) => at.length > 0) ?? city.landmarks.map((l) => l.at);
+    const mid: XY = amid.length ? [amid.reduce((x, p) => x + p[0], 0) / amid.length, amid.reduce((y, p) => y + p[1], 0) / amid.length] : [0, 0];
     return { ...base, path: [], at: lngLat(mid) };
   }
   const pieces = event.edges.map((e) => city.streets[e]?.points ?? []).filter((pts) => pts.length > 1);
