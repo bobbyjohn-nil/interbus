@@ -185,14 +185,18 @@ test.describe('the failure floor', () => {
     };
 
     // The keyboard in Finance's fare list as the run ends: the list closes, so ArrowDown and Enter pick no fare, and the focus
-    // goes to the closing day's Continue, then to Restart this quarter.
+    // goes to the closing day's Continue, then to Restart this quarter. Time runs first, at 60× (2), so the close is about
+    // 10 s away as the list opens: an open list keeps every key from the game (round 10), so 5 pressed in it runs nothing.
+    await page.keyboard.press('2');
+    await expect(panel).toHaveAttribute('data-speed', '2');
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     const finance = page.getByTestId('finance');
     await finance.getByTestId('finance-lines').click();
     await finance.getByTestId('fare-1').focus();
     await page.keyboard.press('ArrowDown');
     await expect(page.getByRole('listbox')).toBeVisible();
-    await endTheRun();
+    await expect(dayCard).toBeVisible({ timeout: 30_000 });
+    await expect(panel).toHaveAttribute('data-speed', '0');
     await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(dayCard.getByRole('button', { name: 'Continue' })).toBeFocused();
     const fares = await posted('set-fare');
