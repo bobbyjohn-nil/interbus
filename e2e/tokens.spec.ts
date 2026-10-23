@@ -7,7 +7,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from './base';
 import { CORRIDORS } from '../bench/inner';
-import { LIGHT, V1_PAPER } from '../src/render/map/tokens';
+import { NIGHT_STEP } from '../src/render/map/daylight';
+import { LIGHT, V1_PAPER, type MapTokens } from '../src/render/map/tokens';
 import { loadCity } from '../src/sim/city/simfile';
 import { encode } from '../src/sim/save/save';
 import { FIXTURE_CORRIDORS, lateScene } from '../src/sim/scene';
@@ -15,8 +16,11 @@ import { foundCompany } from './found';
 
 const rgb = (hex: string) => [16, 8, 0].map((shift) => (Number.parseInt(hex.slice(1), 16) >> shift) & 255);
 
-/** How many pixels in the map's top left quarter are within 3 of each land colour: the ground between the streets. */
-async function landPixels(page: Page): Promise<{ paper: number; warm: number }> {
+/** Each set's land, buildings and water, which fill most of the map between its streets. */
+const ground = (t: MapTokens) => [t.land, t.buildingFill, t.water].map(rgb);
+
+/** How many pixels in the map's top left corner (400×250 px: Cambridgeport, MIT and the Charles) are within 3 of a set's ground. */
+async function groundPixels(page: Page): Promise<{ paper: number; warm: number }> {
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 400, height: 250 } });
   return page.evaluate(
     async ([b64, paper, warm]) => {
@@ -27,14 +31,14 @@ async function landPixels(page: Page): Promise<{ paper: number; warm: number }> 
       const g = canvas.getContext('2d')!;
       g.drawImage(img, 0, 0);
       const d = g.getImageData(0, 0, canvas.width, canvas.height).data;
-      const near = ([r, gr, b]: number[]) => {
+      const near = (colours: number[][]) => {
         let n = 0;
-        for (let k = 0; k < d.length; k += 4) if (Math.hypot(d[k]! - r!, d[k + 1]! - gr!, d[k + 2]! - b!) <= 3) n++;
+        for (let k = 0; k < d.length; k += 4) if (colours.some(([r, gr, b]) => Math.hypot(d[k]! - r!, d[k + 1]! - gr!, d[k + 2]! - b!) <= 3)) n++;
         return n;
       };
       return { paper: near(paper), warm: near(warm) };
     },
-    [png.toString('base64'), rgb(V1_PAPER.land), rgb(LIGHT.land)] as const,
+    [png.toString('base64'), ground(V1_PAPER), ground(LIGHT)] as const,
   );
 }
 
@@ -43,9 +47,9 @@ test('`?light=paper` draws the board in V1’s paper, and the page without it in
   for (const [search, mine, other] of [['?light=paper', 'paper', 'warm'], ['', 'warm', 'paper']] as const) {
     await page.goto(`./${search}`);
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-    // Home over the paused, flat map (the M5 spec, item 3): the land shows between Cambridgeport's streets.
-    await expect.poll(async () => (await landPixels(page))[mine], { timeout: 15_000 }).toBeGreaterThan(5_000);
-    const counts = await landPixels(page);
+    // Home over the paused, flat map (the M5 spec, item 3): its land, buildings and water between Cambridgeport's streets.
+    await expect.poll(async () => (await groundPixels(page))[mine], { timeout: 15_000 }).toBeGreaterThan(6_000);
+    const counts = await groundPixels(page);
     expect(counts[other], `${search || 'no switch'}: ${JSON.stringify(counts)}`).toBeLessThan(counts[mine] / 20);
   }
 });
@@ -72,7 +76,7 @@ test.describe('the side-by-side’s pictures (TOKEN_PICK=1)', () => {
     await (await chooser).setFiles({ name: 'late.json', mimeType: 'application/json', buffer: Buffer.from(encode(world.state, { sha: 'late', version: '0.0.0' })) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
     await page.getByTestId('saves').getByRole('button', { name: 'Close', exact: true }).click();
-    await expect(page.getByTestId('map')).toHaveAttribute('data-daylight', hour >= 20 ? '4' : '0', { timeout: 15_000 });
+    await expect(page.getByTestId('map')).toHaveAttribute('data-daylight', String(hour >= 20 ? NIGHT_STEP : 0), { timeout: 15_000 });
   }
 
   test('both candidates at the same views, by day and at night', async ({ browser, page }) => {

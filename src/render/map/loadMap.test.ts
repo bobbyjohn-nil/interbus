@@ -277,6 +277,9 @@ describe('the light theme it is given (the owner’s Nov 8 token pick, tokens.ts
     map.styleLoaded = true;
     map.fire('load');
     expect(map.added.get('stops-flag-word')?.paint?.['text-halo-color']).toBe(V1_PAPER.land);
+    // The lines' names in the board's inks: with the overlays given the warm board, the paper map named its lines in the warm ink
+    // on the warm halo until 19:00 (the review of the token pick).
+    expect(map.added.get('lines-name')?.paint).toMatchObject({ 'text-color': V1_PAPER.label, 'text-halo-color': V1_PAPER.labelHalo });
     board.setClock(22 * 3_600, 0, 2);
     expect([map.paint.get('background.background-color'), map.paint.get('earth.fill-color')]).toEqual([dim(V1_PAPER.void, NIGHT_STEP), dim(V1_PAPER.land, NIGHT_STEP)]);
     expect(map.paint.get('lines-name.text-halo-color')).toBe(dim(V1_PAPER.labelHalo, NIGHT_STEP));

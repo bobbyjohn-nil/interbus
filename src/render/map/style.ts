@@ -73,14 +73,14 @@ function flavorFrom(t: MapTokens): Flavor {
     minor_b: t.street,
     link: t.arterial,
     major: t.arterial,
-    highway: t.arterial,
+    highway: t.highway,
     minor_service_casing: t.streetCasing,
     minor_casing: t.streetCasing,
     link_casing: t.arterialCasing,
     major_casing_early: t.arterialCasing,
     major_casing_late: t.arterialCasing,
-    highway_casing_early: t.arterialCasing,
-    highway_casing_late: t.arterialCasing,
+    highway_casing_early: t.highwayCasing,
+    highway_casing_late: t.highwayCasing,
     tunnel_other: t.path,
     tunnel_minor: t.path,
     tunnel_link: t.path,
@@ -95,15 +95,15 @@ function flavorFrom(t: MapTokens): Flavor {
     bridges_minor: t.street,
     bridges_link: t.arterial,
     bridges_major: t.arterial,
-    bridges_highway: t.arterial,
+    bridges_highway: t.highway,
     bridges_other_casing: t.streetCasing,
     bridges_minor_casing: t.streetCasing,
     bridges_link_casing: t.arterialCasing,
     bridges_major_casing: t.arterialCasing,
-    bridges_highway_casing: t.arterialCasing,
+    bridges_highway_casing: t.highwayCasing,
     railway: t.land,
     boundaries: t.boundary,
-    roads_label_minor: t.labelMinor,
+    roads_label_minor: t.streetName,
     roads_label_minor_halo: t.labelHalo,
     roads_label_major: t.label,
     roads_label_major_halo: t.labelHalo,
@@ -279,6 +279,34 @@ export function byColour(layer: LayerSpecification): LayerSpecification[] {
   );
 }
 
+/** Protomaps' layers of major roads (its `major_road` kind: trunk, primary, secondary and tertiary roads and their links), each a line in one colour. */
+export const MAJOR_LAYERS: readonly string[] = ['roads_major_casing_early', 'roads_major_casing_late', 'roads_major', 'roads_bridges_major_casing', 'roads_bridges_major'];
+
+/** The classes of major road a token set may colour apart from its arterials, by protomaps' `kind_detail`. */
+const CLASSES = [
+  { details: ['secondary', 'secondary_link'], fill: 'secondary', casing: 'secondaryCasing' },
+  { details: ['tertiary', 'tertiary_link'], fill: 'tertiary', casing: 'tertiaryCasing' },
+] as const;
+
+/**
+ * A major road layer as one layer for each class `t` colours apart from its arterials (V1 drew secondary and tertiary roads near
+ * white, below its amber primaries), each with its colour constant and its class's roads, under the layer, which keeps the rest. A
+ * set that colours no class apart keeps the layer as it is. Constant colours, as byColour's reason: a colour by each feature would
+ * lay out every road tile again at each step of the light.
+ */
+export function byClass(layer: LayerSpecification, t: MapTokens): LayerSpecification[] {
+  if (!MAJOR_LAYERS.includes(layer.id) || layer.type !== 'line') return [layer];
+  const casing = layer.id.includes('casing');
+  const apart = CLASSES.filter((c) => (casing ? t[c.casing] !== t.arterialCasing : t[c.fill] !== t.arterial));
+  if (apart.length === 0) return [layer];
+  const filter = 'filter' in layer && layer.filter ? [asExpression(layer.filter)] : [];
+  const of = (details: readonly string[]) => ['in', ['get', 'kind_detail'], ['literal', [...details]]];
+  return [
+    ...apart.map((c) => ({ ...layer, id: `${layer.id}-${c.fill}`, filter: ['all', ...filter, of(c.details)], paint: { ...layer.paint, 'line-color': casing ? t[c.casing] : t[c.fill] } })),
+    { ...layer, filter: ['all', ...filter, ['!', of(apart.flatMap((c) => c.details))]] },
+  ] as LayerSpecification[];
+}
+
 export interface StyleOptions {
   /** pmtiles:// URL of the city's tile file. */
   readonly tilesUrl: string;
@@ -293,7 +321,8 @@ export function buildStyle({ tilesUrl, assetBase, tokens, extent }: StyleOptions
   const base = layers(SOURCE, flavorFrom(tokens), { lang: 'en' })
     .filter((l) => !DROPPED_LAYERS.includes(l.id))
     .map((l) => adjust(l, tokens))
-    .flatMap(byColour);
+    .flatMap(byColour)
+    .flatMap((l) => byClass(l, tokens));
   // Extrusions go above every ground layer, so no street draws over a building, and below the labels.
   const firstLabel = base.findIndex((l) => l.type === 'symbol');
   const flat = base.find((l) => l.id === BUILDINGS_2D);
