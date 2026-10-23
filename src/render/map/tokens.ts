@@ -67,6 +67,13 @@ export interface GameTokens {
    * from 4.20:1 by day to 2.32:1 at night (the review of the day and night tint).
    */
   readonly wordHalo: string;
+  /**
+   * What a resting line's route and stops are mixed with (overlays.ts, restingColour): its streets' colour at night, the light
+   * theme's dimmed to the darkest step. Opaque, lines resting on a street they share hide one another as they do by day, where
+   * each laid over the other blended into neither's colour (the systems audit's twelfth round). The same at every step, so the
+   * light's steps lay out nothing for it; only at dawn, while a line still rests, does the map mix it with the step's streets.
+   */
+  readonly restingGround: string;
 }
 
 export const GAME_LIGHT: GameTokens = {
@@ -78,6 +85,7 @@ export const GAME_LIGHT: GameTokens = {
   draft: '#2a2723',
   stopFlag: '#c2410c',
   wordHalo: '#ebe7df',
+  restingGround: '#bcbfcf',
 };
 
 const ARTERIAL = '#f7e9ce';

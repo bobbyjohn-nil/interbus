@@ -96,7 +96,7 @@ test.describe('the GPU ladder', () => {
     await home.getByRole('button', { name: 'Saves' }).click();
     const download = page.waitForEvent('download');
     await page.getByTestId('saves').getByRole('button', { name: 'Export this game' }).click();
-    expect((await download).suggestedFilename()).toBe('interbus-boston-day-1.json');
+    expect((await download).suggestedFilename()).toBe('interbus-boston-year-1-q1-day-1.json');
   });
 
   // The systems audit's fifth round: the GPU ladder's cards said "your game is saved" while the Saves chip beside them said
@@ -111,7 +111,7 @@ test.describe('the GPU ladder', () => {
     await foundCompany(page);
     await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
     await takeGraphics(page);
-    expect(await saysUnsaved(page)).toBe('interbus-boston-day-1.json');
+    expect(await saysUnsaved(page)).toBe('interbus-boston-year-1-q1-day-1.json');
     await expect(page.getByTestId('gpu-card').getByRole('button')).toHaveText(['Export this game', 'Reload']);
   });
 
@@ -135,7 +135,7 @@ test.describe('the GPU ladder', () => {
     await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off', { timeout: 30_000 });
     await page.getByTestId('play').click();
     await takeGraphics(page);
-    expect(await saysUnsaved(page)).toMatch(/^interbus-boston-day-\d+\.json$/);
+    expect(await saysUnsaved(page)).toMatch(/^interbus-boston-year-\d+-q[1-4]-day-\d+\.json$/);
     await expect(page.getByTestId('gpu-card').getByRole('button')).toHaveText(['Export this game', 'Reload']);
   });
 
@@ -145,7 +145,7 @@ test.describe('the GPU ladder', () => {
     await foundCompany(page);
     await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
     await expect(page.getByTestId('gpu-card')).toContainText('Turn on hardware acceleration to see the map.');
-    expect(await saysUnsaved(page)).toBe('interbus-boston-day-1.json');
+    expect(await saysUnsaved(page)).toBe('interbus-boston-year-1-q1-day-1.json');
     await expect(page.getByTestId('gpu-card').getByRole('button')).toHaveText(['Export this game']);
   });
 
@@ -284,7 +284,7 @@ test.describe('the GPU ladder', () => {
     page.on('console', (m) => {
       if (m.type() === 'error') errors.push(m.text());
     });
-    await page.goto('./?gpu=full');
+    await page.goto('./?gpu=full&counts'); // the map counts the buildings it draws only when asked
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await foundCompany(page);

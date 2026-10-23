@@ -1,5 +1,7 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { about, clock, every, figureText, km, usd, usdK } from './format';
+import { about, clock, eventNewsText, every, figureText, km, streetName, usd, usdK } from './format';
+import { copyProblem } from './copyRules';
 import { contractMet } from '../sim/rules/contract';
 
 describe('number copy', () => {
@@ -64,5 +66,39 @@ describe('number copy', () => {
         expect(shown(figureText('headway', figure, ask)) <= ask, `${figure} s against ${ask} s`).toBe(contractMet('headway', figure, ask));
       }
     }
+  });
+});
+
+// The systems audit's twelfth round: the city's street names are OpenStreetMap's, and 25 of Inner Boston's 3,535 broke the copy
+// convention in the game's own sentences (D25): "Roadworks on Monsignor O'Brien Highway tomorrow, for 4 days" on the day card, and
+// "roadworks on Monsignor O'Brien Highway add 1 min 1 s" on the line card. 19 had a straight apostrophe, 6 were a route's number
+// in capitals (MA 2A, US 1), and one a street's initials (RC Kelley Street).
+describe('a street’s name in the game’s sentences', () => {
+  // The day card's notices take the event's street as the sim names it; the line card's words typeset it as LineCard.tsx does.
+  const sentences = (street: string) => [
+    eventNewsText({ kind: 'roadworks', street, days: 4, news: 'tomorrow' }),
+    eventNewsText({ kind: 'roadworks', street, days: 1, news: 'over' }),
+    eventNewsText({ kind: 'festival', street, days: 2, news: 'tomorrow' }),
+    `Round trip 15 min at peak, 13 min off-peak · roadworks on ${streetName(street)} add 1 min 1 s`,
+  ];
+
+  it('takes a curly apostrophe, and a route’s number as Boston says it', () => {
+    expect(streetName("Monsignor O'Brien Highway")).toBe('Monsignor O’Brien Highway');
+    expect(streetName("Saint John's Road Extension")).toBe('Saint John’s Road Extension');
+    expect(streetName('MA 2A')).toBe('Route 2A');
+    expect(streetName('US 1')).toBe('Route 1');
+    expect(streetName('Massachusetts Avenue')).toBe('Massachusetts Avenue');
+    for (const street of ["Monsignor O'Brien Highway", 'MA 2A', 'US 1', 'RC Kelley Street']) {
+      for (const text of sentences(street)) expect(copyProblem(text), text).toBeNull();
+    }
+  });
+
+  const index = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { sim: { file: string } }[] };
+  const innerFile = `public/cities/${index.cities[0]!.sim.file}`;
+  it.skipIf(!existsSync(innerFile))('keeps the convention for every street of Inner Boston', () => {
+    const names = (JSON.parse(readFileSync(innerFile, 'utf8')) as { names: string[] }).names.filter(Boolean);
+    expect(names.length).toBeGreaterThan(3_000);
+    const broken = names.flatMap((street) => sentences(street).flatMap((text) => (copyProblem(text) ? [`${copyProblem(text)}: ${text}`] : [])));
+    expect(broken).toEqual([]);
   });
 });

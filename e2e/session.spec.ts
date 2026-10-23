@@ -41,7 +41,7 @@ test.describe('Export session', () => {
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export session' }).click();
     const file = await download;
-    expect(file.suggestedFilename()).toMatch(/^interbus-boston-session-day-\d+\.json$/);
+    expect(file.suggestedFilename()).toMatch(/^interbus-boston-session-year-\d+-q[1-4]-day-\d+\.json$/);
     const text = Buffer.concat((await (await file.createReadStream()).toArray()) as Buffer[]).toString();
     const session = JSON.parse(text) as { commands: { message: { type: string } }[]; end: { elapsed: number; hash: string } };
     expect(session.commands.map((c) => c.message.type)).toEqual(['place-depot', 'create-line', 'speed', 'set-fare', 'speed']);

@@ -64,7 +64,7 @@ test.describe('saves: slots, export and import', () => {
     const download = page.waitForEvent('download');
     await saves.getByRole('button', { name: 'Export this game' }).click();
     const file = await download;
-    expect(file.suggestedFilename()).toBe('interbus-boston-day-1.json');
+    expect(file.suggestedFilename()).toBe('interbus-boston-year-1-q1-day-1.json');
     const exported = await (await file.createReadStream()).toArray();
 
     // A line, then slot 1 back: the line is gone and the cash is the slot's.
@@ -95,7 +95,7 @@ test.describe('saves: slots, export and import', () => {
     chooser = page.waitForEvent('filechooser');
     await saves.getByRole('button', { name: 'Import a save file' }).click();
     await saves.getByRole('button', { name: 'Replace this game' }).click();
-    await (await chooser).setFiles({ name: 'interbus-boston-day-1.json', mimeType: 'application/json', buffer: Buffer.concat(exported as Buffer[]) });
+    await (await chooser).setFiles({ name: 'interbus-boston-year-1-q1-day-1.json', mimeType: 'application/json', buffer: Buffer.concat(exported as Buffer[]) });
     await expect(page.getByTestId('notice')).toContainText('Save file loaded');
     await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
 

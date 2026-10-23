@@ -68,7 +68,7 @@ describe('Export session', () => {
     g.runTo(40 * 3_600);
     const live = g.host.stateHash()!;
     const file = exported(g);
-    expect(file.name).toBe('interbus-boston-session-day-2.json');
+    expect(file.name).toBe('interbus-boston-session-year-1-q1-day-2.json');
     const session = JSON.parse(file.text) as SessionFile;
     expect(session.end.hash).toBe(live);
     expect(replaySession(baked.text, file.text)).toEqual({ ok: true, hash: live, matches: true });

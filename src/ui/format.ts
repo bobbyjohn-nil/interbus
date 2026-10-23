@@ -182,15 +182,26 @@ export function moreBuses(n: number, model: string): string {
   return `${n} more ${n === 1 ? model : `${model}s`}`;
 }
 
+/**
+ * A street's name as the game's sentences give it, after D25's copy convention: OpenStreetMap's, as the bake keeps it, with a
+ * curly apostrophe for its straight one (Monsignor O’Brien Highway), and a state or US route's number as Boston says it (MA 2A
+ * is Route 2A, US 1 is Route 1). Inner Boston's 3,535 names held 25 that broke the convention (the systems audit's twelfth round).
+ */
+export function streetName(name: string): string {
+  const route = /^(?:US|MA) (\d+[A-Z]?)$/.exec(name);
+  return route ? `Route ${route[1]}` : name.replace(/'/g, '’');
+}
+
 /** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */
 export function eventNewsText(e: { readonly kind: 'roadworks' | 'festival' | 'snow'; readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
   const forDays = `for ${e.days} ${e.days === 1 ? 'day' : 'days'}`;
+  const street = streetName(e.street);
   if (e.kind === 'festival') {
-    const near = e.street ? ` near ${e.street}` : '';
+    const near = street ? ` near ${street}` : '';
     return e.news === 'tomorrow' ? `A festival${near} tomorrow, ${forDays}: more riders to and from there` : `The festival${near} is over`;
   }
   if (e.kind === 'snow') return e.news === 'tomorrow' ? `Snow tomorrow, ${forDays}: every bus drives slower` : 'The snow is over';
-  return e.news === 'tomorrow' ? `Roadworks on ${e.street} tomorrow, ${forDays}` : `Roadworks on ${e.street} are over`;
+  return e.news === 'tomorrow' ? `Roadworks on ${street} tomorrow, ${forDays}` : `Roadworks on ${street} are over`;
 }
 
 export const MEDAL_NAMES: Readonly<Record<MedalId, string>> = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };

@@ -1,11 +1,11 @@
-import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
+import { createExpression, validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import { describe, expect, it } from 'vitest';
 import type { Bbox } from '../../cities';
 import { LINE_COLOURS } from '../../sim/rules/line';
 import { START_SECOND_OF_DAY } from '../../sim/rules/periods';
 import { darkStep, daylightPaints, dim, dimmed, louder, NIGHT_STEP, paintsAcross } from './daylight';
 import { hexToOklch } from './oklch';
-import { overlayLayers, restingLines, RESTING_OPACITY, restingStops, setResting } from './overlays';
+import { overlayLayers, restingColour, restingLines, RESTING_OPACITY, restingStops, setResting, setRestingGround } from './overlays';
 import { buildStyle, MASK_LAYERS } from './style';
 import { blend, contrast, distance } from './testing';
 import { GAME_LIGHT, LIGHT, type MapTokens } from './tokens';
@@ -224,29 +224,68 @@ describe('a line resting while it runs no service (D13)', () => {
   // resting line drawn later on a street it shared with a running one tinted it, (34, 120, 132): 0.35 of the green over 0.65 of the
   // blue, neither line's colour. And MapLibre compiled the programs for an opacity of each feature's at the first midnight, which
   // held the page 518–1,249 ms in Low graphics on the busy scene (442 ms in getUniformBlockIndex, 371 in getProgramParameter).
-  it('draws its route, name, stops and their flags in faded copies just under the running lines’, the same but their opacity', () => {
+  it('draws its route, name, stops and their flags in faded copies just under the running lines’, the same but their fade', () => {
     const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, 0), 0);
     const ids = layers.map((l) => l.id);
-    const faded: Record<string, string[]> = {
-      'lines-route': ['line-opacity'],
-      'lines-name': ['text-opacity'],
-      'lines-stops': ['circle-opacity', 'circle-stroke-opacity'],
-      'stops-flag-ring': ['circle-stroke-opacity'],
-      'stops-flag-word': ['text-opacity'],
+    // The names and the flags laid at RESTING_OPACITY; the route and the stops opaque, mixed with the resting ground.
+    const faded: Record<string, { opacities: string[]; mixed: string[] }> = {
+      'lines-route': { opacities: [], mixed: ['line-color'] },
+      'lines-name': { opacities: ['text-opacity'], mixed: [] },
+      'lines-stops': { opacities: [], mixed: ['circle-color', 'circle-stroke-color'] },
+      'stops-flag-ring': { opacities: ['circle-stroke-opacity'], mixed: [] },
+      'stops-flag-word': { opacities: ['text-opacity'], mixed: [] },
     };
-    for (const [id, opacities] of Object.entries(faded)) {
+    for (const [id, { opacities, mixed }] of Object.entries(faded)) {
       const layer = layers.find((l) => l.id === id) as { paint?: Record<string, unknown>; layout?: unknown; type: string };
       const copy = layers.find((l) => l.id === `${id}-resting`) as typeof layer | undefined;
       expect(copy, `${id} has a faded copy`).toBeDefined();
       expect(ids.indexOf(`${id}-resting`), `${id}'s copy is just under it`).toBe(ids.indexOf(id) - 1);
       expect(copy!.type).toBe(layer.type);
       expect(copy!.layout).toEqual(layer.layout);
-      // The same for every feature, so the copy draws with the layer's own program.
-      expect(copy!.paint).toEqual({ ...layer.paint, ...Object.fromEntries(opacities.map((p) => [p, RESTING_OPACITY])) });
+      // The same for every feature but the line's own colour, as the layer's, so the copy draws with the layer's own program.
+      const own = layer.paint ?? {};
+      expect(copy!.paint).toEqual({
+        ...own,
+        ...Object.fromEntries(opacities.map((p) => [p, RESTING_OPACITY])),
+        ...Object.fromEntries(mixed.map((p) => [p, restingColour(own[p], GAME_LIGHT.restingGround)])),
+      });
       for (const value of Object.values(layer.paint ?? {})) expect(JSON.stringify(value)).not.toMatch(/"in"/);
     }
     // Every name over every route, the running lines' placed first: MapLibre places the upper layer's names first.
     expect(ids.indexOf('lines-name-resting')).toBe(ids.indexOf('lines-route') + 1);
+  });
+
+  // The systems audit's twelfth round: laid at RESTING_OPACITY over the streets, two lines resting on a street they share blended,
+  // each over the other, into neither's colour: Line 2's green over Line 1's blue drew (96, 146, 133), 0.058 in OKLab from Line 2's
+  // own faded colour and about as far as Line 1's (0.056). Every new line rests at night, overnight off.
+  it('draws a resting route and its stops opaque, each line its own colour faded over the streets at night, so the later hides the earlier', () => {
+    const layers = overlayLayers(GAME_LIGHT, dimmed(LIGHT, NIGHT_STEP), NIGHT_STEP);
+    const paint = (id: string) => (layers.find((l) => l.id === id) as unknown as { paint: Record<string, unknown> }).paint;
+    for (const id of ['lines-route-resting', 'lines-stops-resting']) {
+      for (const [property, value] of Object.entries(paint(id))) if (property.endsWith('-opacity')) expect(value, `${id} ${property}`).toBe(1);
+    }
+    // The ground is the streets at the darkest step, so a line resting alone looks as it did laid over them.
+    expect(GAME_LIGHT.restingGround).toBe(dim(LIGHT.street, NIGHT_STEP));
+    const colourOf = (expression: unknown, colour: string) => {
+      const made = createExpression(expression as never, 'paint.line-color' as never);
+      if (made.result !== 'success') throw new Error(made.value.map((e) => e.message).join('; '));
+      const c = made.value.evaluate({ zoom: 14 }, { type: 'LineString', properties: { colour } } as never) as { r: number; g: number; b: number };
+      return `#${[c.r, c.g, c.b].map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
+    };
+    for (const colour of LINE_COLOURS) {
+      const faded = blend(colour, RESTING_OPACITY, GAME_LIGHT.restingGround);
+      expect(colourOf(paint('lines-route-resting')['line-color'], colour), colour).toBe(faded);
+      expect(colourOf(paint('lines-stops-resting')['circle-stroke-color'], colour), colour).toBe(faded);
+    }
+    expect(paint('lines-stops-resting')['circle-color']).toBe(blend(GAME_LIGHT.stopFill, RESTING_OPACITY, GAME_LIGHT.restingGround));
+    // Not a paint the light's steps change: the steps lay out nothing for it (only the map's dawn does, loadMap.ts).
+    const steps = paintsAcross(STEPS.map((step) => overlayLayers(GAME_LIGHT, dimmed(LIGHT, step), step)));
+    expect(steps.filter((p) => p.layer.endsWith('-resting') && !p.layer.startsWith('lines-name'))).toEqual([]);
+    // And mixed with another ground on asking (setRestingGround): the route's colour and the stops' two, nothing else.
+    const set: [string, string, unknown][] = [];
+    setRestingGround({ setPaintProperty: (layer: string, property: string, value: unknown) => void set.push([layer, property, value]) } as never, GAME_LIGHT, LIGHT, dim(LIGHT.street, 1));
+    expect(set.map(([layer, property]) => `${layer} ${property}`)).toEqual(['lines-route-resting line-color', 'lines-stops-resting circle-color', 'lines-stops-resting circle-stroke-color']);
+    expect(colourOf(set[0]![2], LINE_COLOURS[2]!)).toBe(blend(LINE_COLOURS[2]!, RESTING_OPACITY, dim(LIGHT.street, 1)));
   });
 
   it('moves its features, and the flags of the stops only it calls at, into the copies by their filters alone', () => {

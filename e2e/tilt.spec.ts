@@ -14,7 +14,8 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
     if (m.type() === 'error') errors.push(m.text());
   });
 
-  await page.goto('./?gpu=full'); // 3D needs the full rung; CI's browser draws in software (gpu.ts)
+  // 3D needs the full rung; CI's browser draws in software (gpu.ts). The map counts the buildings it draws only when asked.
+  await page.goto('./?gpu=full&counts');
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await expect(map).toHaveAttribute('data-mode', '2d');
@@ -38,6 +39,20 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
   expect(Number(await map.getAttribute('data-buildings')), 'flat buildings drawn').toBeGreaterThan(0);
 
   expect(errors).toEqual([]);
+});
+
+// The systems audit's twelfth round: the buildings in view were counted as each tilt settled, for the tests above alone, and
+// the count took 130–217 ms of the tilt on Inner Boston, over the 200 ms of a long task.
+test('a player’s page counts no buildings as a tilt settles', async ({ page }) => {
+  await page.goto('./?gpu=full');
+  const map = page.getByTestId('map');
+  await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  await page.keyboard.press('t');
+  await expect(map).toHaveAttribute('data-pitch', '50', { timeout: 30_000 });
+  await page.keyboard.press('Shift+T');
+  await expect(map).toHaveAttribute('data-pitch', '0', { timeout: 30_000 });
+  expect([await map.getAttribute('data-buildings'), await map.getAttribute('data-measured')]).toEqual(['', '']);
 });
 
 // The compass, the right-drag and the snap flat below 12° (the M5 spec, item 6; exit check 3). The
@@ -251,7 +266,8 @@ const MEASURED_SHARE = 0.9;
 
 test('tilted at zoom 15, most buildings stand at their own height', async ({ page }) => {
   test.skip(!registry.cities[0]?.tiles, 'no city file in this build');
-  await page.goto('./?gpu=full'); // 3D needs the full rung; CI's browser draws in software (gpu.ts)
+  // 3D needs the full rung; CI's browser draws in software (gpu.ts). The map counts the buildings it draws only when asked.
+  await page.goto('./?gpu=full&counts');
   const map = page.getByTestId('map');
   await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await foundCompany(page);

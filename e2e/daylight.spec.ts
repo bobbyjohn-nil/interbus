@@ -5,6 +5,9 @@
 import { expect, test, type Page } from './base';
 import { foundCompany, leaveHome } from './found';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
+import { RESTING_OPACITY } from '../src/render/map/overlays';
+import { dim, NIGHT_STEP } from '../src/render/map/daylight';
+import { GAME_LIGHT, LIGHT } from '../src/render/map/tokens';
 import { city, frames, toScreen, withDebugLine, type SaveData } from './shell';
 
 /** The debug line's game past Home, paused at `second` of day 2's clock (a second past 24:00 is the night after it). */
@@ -140,6 +143,33 @@ test.describe('the day and night tint', () => {
     const colours = { running: blue, blend: green.map((g, k) => Math.round(0.35 * g + 0.65 * blue[k]!)), resting: green };
     // Once the lines' tiles are laid out again with Line 2 resting.
     await expect.poll(async () => (await pixels(page, mid, colours)).running, { timeout: 15_000 }).toBeGreaterThan(20);
+    expect((await pixels(page, mid, colours)).blend).toBe(0);
+  });
+
+  // The systems audit's twelfth round: each resting line was laid at 0.35 over the streets, so two resting on a street they share
+  // blended, the later over the earlier, into neither's colour: (96, 146, 133) on Huntington Avenue, 0.058 in OKLab from Line 2's
+  // own faded colour. Every new line rests at night, overnight off. Opaque, the later hides the earlier, as by day.
+  test('two lines resting on a street they share show the later one alone, faded, as by day it hides the earlier', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    // 02:00 on day 3, paused: Line 1 and Line 2, drawn after it, on the same four stops, both overnight off.
+    await at(page, hour(26), (d) => {
+      const one = (d.lines as Record<string, unknown>[])[0]!;
+      d.lines = [
+        { ...one, id: 1, name: 'Line 1', colour: '#2471a3' },
+        { ...one, id: 2, name: 'Line 2', colour: '#1e8449' },
+      ];
+      d.nextIds = { ...d.nextIds, line: 3 };
+    });
+    await expect(page.getByTestId('map')).toHaveAttribute('data-resting', '1 2');
+    const [a, b] = [DEBUG_STOPS[0]!.at, DEBUG_STOPS[1]!.at];
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const;
+    const rgb = (hex: string) => [16, 8, 0].map((shift) => (Number.parseInt(hex.slice(1), 16) >> shift) & 255);
+    const over = (top: number[], under: number[]) => top.map((c, k) => Math.round(RESTING_OPACITY * c + (1 - RESTING_OPACITY) * under[k]!));
+    const [blue, green, ground] = [rgb('#2471a3'), rgb('#1e8449'), rgb(GAME_LIGHT.restingGround)];
+    // Line 2's own faded colour, and Line 2 laid over Line 1 as they were, on Huntington Avenue at night (the arterials' colour).
+    const street = rgb(dim(LIGHT.arterial, NIGHT_STEP));
+    const colours = { own: over(green, ground), blend: over(green, over(blue, street)) };
+    await expect.poll(async () => (await pixels(page, mid, colours)).own, { timeout: 15_000 }).toBeGreaterThan(20);
     expect((await pixels(page, mid, colours)).blend).toBe(0);
   });
 });

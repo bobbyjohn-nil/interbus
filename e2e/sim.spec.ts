@@ -19,7 +19,7 @@ test.describe('the city on the fixture', () => {
   test.skip(!sim, 'no sim file in this build yet');
 
   test('draws the dots, and on a dot, and only there, tells you how many live or work within a walk', async ({ page }) => {
-    await page.goto('./');
+    await page.goto('./?counts'); // the map counts the dots it draws only when asked
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
@@ -79,7 +79,7 @@ test.describe('the city on the fixture', () => {
     test.setTimeout(90_000);
     const [W, H] = [1152, 720]; // I13's tightest size
     await page.setViewportSize({ width: W, height: H });
-    await page.goto('./');
+    await page.goto('./?counts'); // the map counts the dots it draws only when asked
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await expect.poll(async () => Number(await map.getAttribute('data-dots')), { timeout: 30_000 }).toBeGreaterThan(100);

@@ -11,8 +11,8 @@ import { CityFetchSource } from './cityTiles';
 import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
-import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { addOverlays, DOT_LAYER, DOT_LAYERS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setTint, type DotKinds, type PaintName } from './overlays';
+import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
+import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
 import {
@@ -77,7 +77,7 @@ export interface MountedMap {
   setEvent(event: EventView | null): void;
   /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day, game seconds per real second, and the game day. */
   setClock(second: number, rate: number, day: number): void;
-  /** How many distinct dots the last settled frame drew. */
+  /** How many distinct dots the last settled frame drew: counted again only once something they hang on has changed. */
   dotsDrawn(): number;
   /** Where the pointer is over the map (null when it leaves), and the dot it is on, if any: at most every 100 ms and always its last position. */
   onPointer(listener: (at: LngLatPair | null, screen: [number, number] | null, dot: HoveredDot | null) => void): void;
@@ -367,6 +367,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       map.setPaintProperty(layer, property as PaintName, values[step] as never);
     }
     light = step;
+    showGround();
     // For the e2e tests: the step shown, how many times the light has been set, never once a frame (RN-04), and its fade.
     const box = map.getContainer().dataset;
     box.daylight = String(step);
@@ -381,6 +382,16 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let linesNow: readonly LineView[] = [];
   let stopsNow: readonly StopView[] = [];
   let restingShown = '|';
+  let restingNow: readonly number[] = [];
+  // What the resting lines' routes and stops are mixed with (overlays.ts): their streets at night, as the style holds them, and at
+  // dawn, while a line still rests, the streets at the step shown, as the base lightens toward 05:00; set only as it changes.
+  let groundShown = theme.game.restingGround;
+  const showGround = () => {
+    const ground = restingNow.length > 0 && light > 0 && light < NIGHT_STEP ? dim(theme.map.street, light) : theme.game.restingGround;
+    if (!loaded || ground === groundShown) return;
+    setRestingGround(map, theme.game, theme.map, ground);
+    groundShown = ground;
+  };
   const rest = () => {
     if (!loaded || clockSecond === null) return;
     const ids = restingLines(linesNow, clockSecond, (id) => fleet.inService(id));
@@ -389,9 +400,25 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     if (key === restingShown) return;
     setResting(map, ids, stops);
     restingShown = key;
+    restingNow = ids;
+    showGround();
     map.getContainer().dataset.resting = ids.join(' ');
   };
   const addVehicles = () => map.addLayer(createVehicleLayer(fleet, rung === 'low' ? LOW_GRAPHICS_FPS : undefined));
+  // The dots drawn change only with the camera, the map's size, the dots, the kinds shown or a style coming back, so they are
+  // counted at the first settle after one of those (dotsDrawn). MapLibre settles after every frame that leaves nothing to load,
+  // and while time runs the buses ask for frame after frame: counted at each, the count took 15–17 ms a frame on Inner Boston
+  // (the systems audit's twelfth round). The container counts the counts, for the e2e tests.
+  let dotsCount = 0;
+  let dotsStale = true;
+  let dotsCounted = 0;
+  const staleDots = () => void (dotsStale = true);
+  map.on('move', staleDots);
+  map.on('resize', staleDots);
+  map.on('style.load', staleDots);
+  map.on('sourcedata', (event) => {
+    if (event.sourceId === DOTS) staleDots();
+  });
   const flush = () => {
     loaded = true;
     const waiting = pending;
@@ -531,8 +558,13 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       aim = { bearing: normalBearing(from + degrees), until: performance.now() + TURN_MS };
       map.easeTo({ bearing: aim.bearing, duration: TURN_MS });
     },
-    setDots: (dots) => (loaded ? setDots(map, dots) : void (pending.dots = dots)),
+    setDots: (dots) => {
+      staleDots();
+      if (loaded) setDots(map, dots);
+      else pending.dots = dots;
+    },
     setDotKinds: (shown) => {
+      staleDots();
       shownKinds = shown;
       if (loaded) setDotKinds(map, shown);
       else pending.dotKinds = shown;
@@ -561,7 +593,15 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     setEvent: (event) => (loaded ? setEvent(map, event) : void (pending.event = event)),
     // Asked of both layers whatever is shown: MapLibre leaves a hidden layer out, so this counts what draws.
     // Distinct dots: a dot near a tile's edge is drawn in each tile it reaches, and counted once.
-    dotsDrawn: () => (loaded ? new Set(map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).map((f) => `${f.properties.kind}:${f.properties.i}`)).size : 0),
+    dotsDrawn: () => {
+      if (!loaded) return 0;
+      if (dotsStale) {
+        dotsStale = false;
+        dotsCount = new Set(map.queryRenderedFeatures({ layers: [...DOT_LAYERS] }).map((f) => `${f.properties.kind}:${f.properties.i}`)).size;
+        map.getContainer().dataset.dotsCounted = String(++dotsCounted);
+      }
+      return dotsCount;
+    },
     onPointer: (listener) => void (pointer = listener),
     onClick: (listener) => void (click = listener),
     dispose: () => {

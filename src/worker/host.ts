@@ -115,6 +115,15 @@ const SESSION_COMMANDS: ReadonlySet<ToWorker['type']> = new Set([
 ]);
 
 /** Appends the streets from node `from` to node `to` to `route` as [lon, lat] points, routed by `drive` (the router's own by default). */
+/**
+ * An exported file's date, as the game's clock gives it: Year 2, Q1, Day 8 is `year-2-q1-day-8`. The days since founding the file
+ * took its name from (day 40 there) are shown nowhere in the game (the systems audit's twelfth round).
+ */
+export function fileDate(elapsed: number): string {
+  const t = toCalendarTime(elapsed);
+  return `year-${t.year}-q${t.quarter}-day-${t.dayOfQuarter}`;
+}
+
 function appendPath(world: World, from: number | null, to: number | null, route: LngLatPair[], drive = (a: number, b: number): Path | null => world.router.route(a, b)): void {
   const { city } = world;
   const path = from === null || to === null ? null : drive(from, to);
@@ -1018,12 +1027,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         loadText(message.text, 'file');
       } else if (message.type === 'export-session') {
         if (!session) return post({ type: 'refused', command: message.type, reason: 'no_session' });
-        const t = toCalendarTime(world.state.elapsed);
         const file: SessionFile = { kind: 'interbus-session', format: 1, build, city: playing!.ref, ...session, end: { elapsed: world.state.elapsed, hash: stateHash(world.state) } };
-        post({ type: 'export', name: `interbus-${playing!.ref.id}-session-day-${t.day}.json`, text: JSON.stringify(file) });
+        post({ type: 'export', name: `interbus-${playing!.ref.id}-session-${fileDate(world.state.elapsed)}.json`, text: JSON.stringify(file) });
       } else if (message.type === 'export') {
-        const t = toCalendarTime(world.state.elapsed);
-        post({ type: 'export', name: `interbus-${playing!.ref.id}-day-${t.day}.json`, text: encode(world.state, build, stamp()) });
+        post({ type: 'export', name: `interbus-${playing!.ref.id}-${fileDate(world.state.elapsed)}.json`, text: encode(world.state, build, stamp()) });
       } else if (message.type === 'fare-band') {
         // A band forgotten (Finance closed, or another line opened) is dropped, not worked out to the end for nobody.
         band = message.lineId === null ? null : { id: message.id, lineId: message.lineId, steps: fareBandSteps(world, message.lineId as LineId) };
