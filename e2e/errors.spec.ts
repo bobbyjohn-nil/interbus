@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Route } from './base';
 import { copyProblems } from '../src/ui/copyRules';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';

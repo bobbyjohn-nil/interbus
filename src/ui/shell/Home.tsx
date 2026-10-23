@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { focusLost } from '../focusLost';
 import { dateText, usd } from '../format';
 import type { Sim } from '../game/useSim';
 
@@ -12,15 +13,30 @@ import type { Sim } from '../game/useSim';
  * tab opened (the systems audit's fifth round).
  */
 export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }: { sim: Sim; onContinue: () => void; onNewGame: () => void; onSaves: () => void; onHelp: () => void; onCredits: () => void }) {
-  const [asking, setAsking] = useState(false);
+  // The company New game's question names, until it is answered: a game another tab puts in its place closes the question,
+  // as nothing it asked about is left to replace. It stayed, and read "Start over? , on Year 1, Q1, Day 1, will be
+  // replaced." over an unnamed game (round 10).
+  const [asking, setAsking] = useState<string | null>(null);
   const { followNewest } = sim;
   useEffect(() => {
     followNewest(true);
     return () => followNewest(false);
   }, [followNewest]);
   const s = sim.snapshot;
+  const company = s?.company.name ?? '';
+  const shown = company !== '' && asking === company;
+  // The keyboard keeps its place, as in Saves' questions: the question takes the place of New game, and an answer the
+  // question's, so the focus fell to the page (round 10). It goes to Keep it as the question opens, and back to New game as
+  // it closes, unless the player has put it somewhere else.
+  const newGame = useRef<HTMLButtonElement>(null);
+  const keepIt = useRef<HTMLButtonElement>(null);
+  const wasShown = useRef(shown);
+  useLayoutEffect(() => {
+    if (wasShown.current === shown) return;
+    wasShown.current = shown;
+    if (focusLost()) (shown ? keepIt.current : newGame.current)?.focus();
+  });
   if (sim.status !== 'ready' || !s) return null;
-  const company = s.company.name;
   return (
     <section className="home" role="dialog" aria-label="Interbus" data-testid="home" data-chrome="panel">
       <h1>Interbus</h1>
@@ -33,7 +49,7 @@ export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }:
           </span>
         </button>
       ) : null}
-      {asking ? (
+      {shown ? (
         <div className="ask" role="group" aria-label="Start over">
           <p>
             Start over? {company}, on {dateText(s.day)}, will be replaced. Your slots stay.
@@ -42,19 +58,19 @@ export function Home({ sim, onContinue, onNewGame, onSaves, onHelp, onCredits }:
             <button
               type="button"
               onClick={() => {
-                setAsking(false);
+                setAsking(null);
                 onNewGame();
               }}
             >
               Start a new game
             </button>
-            <button type="button" onClick={() => setAsking(false)}>
+            <button type="button" ref={keepIt} onClick={() => setAsking(null)}>
               Keep it
             </button>
           </span>
         </div>
       ) : (
-        <button type="button" className={company ? undefined : 'primary'} onClick={() => (company ? setAsking(true) : onNewGame())}>
+        <button type="button" ref={newGame} className={company ? undefined : 'primary'} onClick={() => (company ? setAsking(company) : onNewGame())}>
           New game
         </button>
       )}

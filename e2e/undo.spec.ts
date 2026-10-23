@@ -1,7 +1,7 @@
 // Undo while paused (I9; the M3 spec, item 7) on the page: the chip names what it takes back, Ctrl+Z
 // does the same, Ctrl+Shift+Z does nothing (there is no redo), and once time has run the notice says
 // why it cannot.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, pointAt, toScreen, zoomOutOnce } from './shell';

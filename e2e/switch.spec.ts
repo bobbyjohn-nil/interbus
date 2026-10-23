@@ -8,7 +8,7 @@
 // game's founding card, "Goliath · … · locked" on the card after a slot and after a new game, Finance
 // back at its free place, Lines left pressed and disabled with no panel, and Stop 3's card and Line 1's
 // inspector open over the game the slot and the file brought.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, withDebugLine, zoomOutOnce } from './shell';

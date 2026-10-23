@@ -1,7 +1,7 @@
 // Saves on the web preview (D12; the M2 spec, item 9). A save from an older build is set aside under a
 // backup key with a one-line notice, and a new game starts; only that new game writes the live key
 // again. Reload and compare, the exit check's last step, is in line.spec.ts.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { backupKey, saveKey } from '../src/sim/save/save';
 import { foundCompany, leaveHome } from './found';
 import { city } from './shell';

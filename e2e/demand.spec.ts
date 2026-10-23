@@ -4,7 +4,7 @@
 // map still drew every dot; with Escape left to the page, where it also closed the open panel; and with
 // Space left to the page after the mouse pressed an item, where it played instead once a button pressed
 // with the mouse no longer kept Space.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { foundCompany, leaveHome } from './found';
 import { city } from './shell';
 

@@ -132,4 +132,56 @@ test.describe('the boot splash', () => {
     await page.clock.runFor(40_000);
     await expect(boot.locator('.boot-line')).toHaveText(STUCK);
   });
+
+  // Round 10. Home stands under the splash as its bus tows it away, and the splash took no pointer, so a press on it pressed
+  // the button under it unseen: New game on a first visit, Continue with a company. It takes the pointer where it stands now.
+  test('a press on the splash as its bus tows it away presses nothing it hides', async ({ page }) => {
+    const sim = await holdCity(page);
+    await page.goto('./');
+    sim.release();
+    await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    // The tow held where it stands, Home's New game under its middle.
+    await page.evaluate(() => document.getElementById('boot')?.getAnimations({ subtree: true }).forEach((a) => a.pause()));
+    const home = page.getByTestId('home');
+    const at = (await home.getByRole('button', { name: 'New game' }).boundingBox())!;
+    await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+    await expect(page.locator('#boot')).toHaveCount(0, { timeout: 5_000 });
+    await expect(page.getByTestId('founding-card')).toHaveCount(0);
+    await expect(home).toBeVisible();
+  });
+
+  // Round 10: the replaced build's card stood under the splash, unseen until the city's 2 MB came, or for good on a stalled load.
+  test('a file of this build gone while the city loads: its card shows at once, over the splash', async ({ page }) => {
+    await page.route('**/assets/loadMap-*.js', (route) => route.fulfill({ status: 404, body: 'Not Found' }));
+    await holdCity(page);
+    await page.goto('./');
+    const card = page.getByTestId('replaced-card');
+    await expect(card).toBeAttached({ timeout: 15_000 });
+    await expect(page.locator('#boot')).toBeVisible();
+    expect(await zIndex(page, '.replaced')).toBeGreaterThan(await zIndex(page, '#boot'));
+    // What is drawn at the middle of its Reload: the button itself, not the splash.
+    const top = await card.getByRole('button', { name: 'Reload' }).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    });
+    expect(top).toBe(true);
+  });
+
+  // Round 10: the reduced-motion rule stopped the tow, so the half-gone splash stood back over the whole screen until its timer
+  // took it, up to 2.5 s.
+  test('less motion asked for as the bus tows the splash away: it goes, never back over the screen', async ({ page }) => {
+    const sim = await holdCity(page);
+    await page.goto('./');
+    sim.release();
+    await expect(page.locator('#boot.leaving')).toBeAttached({ timeout: 30_000 });
+    const left = () =>
+      page.evaluate(() => {
+        const r = document.getElementById('boot')?.getBoundingClientRect();
+        return r && r.width > 0 ? r.left : null;
+      });
+    await expect.poll(left, { intervals: [50], timeout: 5_000 }).toBeGreaterThan(200);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const now = await left();
+    expect(now === null || now > 200, `the splash's left edge at ${now} px`).toBe(true);
+  });
 });

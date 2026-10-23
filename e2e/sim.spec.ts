@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator } from './base';
 import { fixtureCity, gapTo, inMiddle, screenDots } from './dots';
 import { foundCompany } from './found';
 import { build, city, projector } from './shell';

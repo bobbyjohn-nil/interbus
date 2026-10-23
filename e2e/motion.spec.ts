@@ -1,7 +1,7 @@
 // Reduced motion (PLAN §8, the accessibility pass): when the system asks for it, nothing in the chrome eases, the compass's
 // turn included, and it eases as before when the system does not. The map's camera and the tilt's cross-fade read the same
 // setting (loadMap.ts; its tests). Shown failing (TS-04) on the style sheet before it, whose compass turned over 200 ms.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { foundCompany } from './found';
 
 /** Every element whose style eases or animates, by its test id, or its tag and class. */

@@ -3,7 +3,7 @@
 // started again from its top (the review of Close line). Each now hands it to the control the card came from, or, as a line
 // closes, to the line shown in its place, and to Build once the last line has gone. Shown failing (TS-04) with the focus
 // left where it fell; the undo's and the double presses' with their fixes taken out (the review of the hand-back).
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, setSpeed, toScreen, withDebugLine, zoomOutOnce, type SaveData } from './shell';

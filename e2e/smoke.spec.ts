@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { bootGone } from './shell';
 
 /** Distinct colours in a PNG, counted inside the page so no image library is needed. */

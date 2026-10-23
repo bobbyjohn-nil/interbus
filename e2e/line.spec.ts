@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { usd } from '../src/ui/format';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';

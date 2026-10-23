@@ -3,7 +3,7 @@
 // all, to the same game fingerprint, and its commands hold no tilt. session.spec.ts plays the same in
 // Low graphics, which is where the e2e tests' software-rendering browser runs by default (gpu.ts).
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { replaySession } from '../src/worker/replay';
 import { foundCompany } from './found';

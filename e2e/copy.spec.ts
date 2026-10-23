@@ -10,7 +10,7 @@
 // descriptions, the route editor's 22 px buttons and 11 px stop numbers, Finance's chart labels at
 // 9.3 px, axe-core's region rule on the speed menu, whose list sat loose in the body, and its
 // empty-table-header on Finance's Breakdown.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { copyProblems } from '../src/ui/copyRules';
 import { axeProblems, smallThings } from './a11y';

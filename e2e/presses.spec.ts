@@ -14,7 +14,7 @@
 // the quick double-click's second remove was refused as no_such_stop.
 // The systems audit's fourth round: a held key presses once on every control, and a Create that brought no line
 // opens no Lines for a game loaded later (each shown failing below).
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, toScreen, withDebugLine, zoomOutOnce } from './shell';

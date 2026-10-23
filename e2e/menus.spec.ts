@@ -7,7 +7,7 @@
 // the board staying flat; Tab out of the speed list went to the map's canvas; and Tab from Build went
 // on past its open menu, Place a stop never focused. The systems audit's fourth round: Escape closing
 // a menu the mouse opened leaves Space to time, arrows or not (shown failing below).
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { foundCompany } from './found';
 import { city } from './shell';
 

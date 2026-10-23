@@ -7,7 +7,7 @@
 // Measured on 2026-10-15 in Chromium 141.0.7390.37 (the container's preinstalled browser, run with PW_CHROMIUM;
 // the pinned Playwright's own Chromium may differ) on the fixture build: 5,242,880 characters, which is
 // 5 × 1,024 × 1,024 (bench/savesize.ts CHROMIUM_STORAGE_CHARS); five saves of 92,160 fill 0.088 of it.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { GROWN_SAVE_MOST_CHARS } from '../src/sim/testing';
 
 test('five copies of a long game’s largest save fit in an origin’s localStorage', async ({ page, browser }) => {

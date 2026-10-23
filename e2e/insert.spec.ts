@@ -3,7 +3,7 @@
 // put it between Symphony and the MFA, the editor's card prices it, Save route adds it, no bus on the
 // map moves more than a few metres, and one undo takes it back with every bus where it was. The
 // vehicle layer writes where it draws each bus while paused (TS-07).
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany } from './found';
 import { city, onDepotLand, toScreen, zoomOutOnce } from './shell';

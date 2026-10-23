@@ -305,11 +305,17 @@ export function App() {
   }
 
   // Set when Create is pressed: the new line, and only a created one, opens in the inspector (a line
-  // that arrives with a loaded save opens no panel). A load lets it go too: a Create refused, or undone
-  // with it in one render, brings no line to let it go, and the game loaded later opened Lines on its
-  // newest line (the systems audit's fourth round).
+  // that arrives with a loaded save opens no panel). A load lets it go too: a Create undone with it in
+  // one render brings no line to let it go, and the game loaded later opened Lines on its newest line
+  // (the systems audit's fourth round). So does a Create refused, which brings no line either, so a line
+  // an undo brings back later is not taken for its answer (round 10).
   const creating = useRef(false);
-  // A tool closes once its purchase lands: a new depot, or a new line.
+  useEffect(() => {
+    creating.current = false;
+  }, [sim.createRefusals]);
+  // A tool closes once its purchase lands: a new depot, or a new line from Create. A line an undo brings back is no purchase:
+  // since Close line, an undo grows the count too, and it put down the line half drawn, or the route editor another line had
+  // out, Lines with it (round 10).
   const started = sim.snapshot !== null;
   const depots = sim.snapshot?.depots.length ?? 0;
   const lines = sim.snapshot?.lines.length ?? 0;
@@ -327,7 +333,7 @@ export function App() {
       counts.current = { depots, lines };
       return;
     }
-    if (depots > counts.current.depots || lines > counts.current.lines) {
+    if (depots > counts.current.depots || (lines > counts.current.lines && creating.current)) {
       setTool("none");
       setClicks([]);
       depotSiteAt(null);

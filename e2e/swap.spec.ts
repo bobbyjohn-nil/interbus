@@ -4,7 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, copyFileSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { retain } from '../scripts/deploy/retain-assets.mjs';
 import { serve, type StaticSite } from './staticServer';
 

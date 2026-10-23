@@ -5,7 +5,7 @@
 // each worker's (the sim's and MapLibre's), each read after a garbage collection, are set against
 // themselves at the end.
 import { createHash } from 'node:crypto';
-import { expect, test, type CDPSession } from '@playwright/test';
+import { expect, test, type CDPSession } from './base';
 import { CORRIDORS } from '../bench/inner';
 import { loadCity } from '../src/sim/city/simfile';
 import { encode } from '../src/sim/save/save';

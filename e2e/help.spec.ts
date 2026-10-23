@@ -4,7 +4,7 @@
 // and hands it back as it closes, and its tables are a Tab stop the arrows scroll while they scroll; and it holds the
 // accessibility floor. Shown failing (TS-04) on the build before Help, which had none of it, and each of its review's cases
 // (#157) with its fix taken out.
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { axeProblems, smallThings } from './a11y';
 import { foundCompany, leaveHome } from './found';
 import { city } from './shell';

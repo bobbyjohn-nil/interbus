@@ -1,7 +1,7 @@
 // Export session replayed (the M3 spec, item 12; I15; AR-06): a game played on the page, exported as
 // a session, replays in Node, on the same sim file, to the same game fingerprint.
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { replaySession } from '../src/worker/replay';
 import { foundCompany } from './found';

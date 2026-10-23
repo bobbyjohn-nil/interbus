@@ -2,7 +2,7 @@
 // window at 1152×720 (Panels.tsx), with the debug line. A change picked there opens its card below the panel's foot, so the card
 // is scrolled into view; its body scrolls, never the heading (the drag handle) and Close above it. Each test was shown failing
 // (TS-04) with its fix taken out.
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './base';
 import { foundCompany } from './found';
 import { withDebugLine } from './shell';
 

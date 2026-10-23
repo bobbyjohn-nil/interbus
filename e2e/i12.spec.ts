@@ -1,7 +1,7 @@
 // I12 (PLAN §6, docs/specs/m2-first-line.md item 6): 50 buses of each family heading away from the camera
 // are each at least the family's minimum length at three cameras, at 1366×768 in the light theme,
 // measured from the pixels drawn (TS-07); and the same check fails a 4 px glyph, so it can bite.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { createServer, type ViteDevServer } from 'vite';
 
 const CAMERAS = [

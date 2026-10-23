@@ -1,7 +1,7 @@
 // The late game at the bus ceiling (DECISIONS, Open, its recommended (a)): a line's spare buses sold from its card, and a line
 // closed from Lines, each at half price as a model change sells (V1's resale), and its stops no other line uses taken down for
 // half their cost. New verbs: without them neither control is there.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
 import { build, city, toScreen, withDebugLine, type SaveData } from './shell';
@@ -86,6 +86,54 @@ test.describe('selling spare buses and closing a line', () => {
   });
 
   // Once the lender has ended the run the host refuses both (D10), so the page offers neither (floor.spec.ts sweeps the rest).
+  // Round 10: a tool closes once its purchase lands, which the page read as the line count growing, and since Close line an
+  // undo grows it too. The undo put the tool down: the line half drawn, and the route editor another line had out, with Lines,
+  // which it stood in for.
+  test('an undo that brings back a closed line keeps a line half drawn', async ({ page }) => {
+    await debugGame(page);
+    // The day's running costs with the line, which it takes when it goes and brings back with the undo.
+    const panel = page.getByTestId('sim-panel');
+    const costs = (await panel.getAttribute('data-costs'))!;
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await lines.getByRole('button', { name: 'Close line' }).click();
+    await lines.getByTestId('close-line').getByRole('button', { name: 'Close it' }).click();
+    const undo = page.getByRole('button', { name: 'Undo: Close Line 1' });
+    await expect(undo).toBeVisible();
+    await expect(panel).not.toHaveAttribute('data-costs', costs);
+    await build(page, 'Draw a line');
+    for (const at of [[-71.0866, 42.3427], [-71.0985, 42.3452]] as const) await page.mouse.click(...(await toScreen(page, at)));
+    const draft = page.getByTestId('draft-card');
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await undo.click();
+    await expect(undo).toHaveCount(0);
+    await expect(panel).toHaveAttribute('data-costs', costs);
+    await expect(draft).toBeVisible();
+    await expect(draft).toContainText('2 stops');
+  });
+
+  test('an undo that brings back a closed line keeps another line’s route editor out', async ({ page }) => {
+    await debugGame(page);
+    await build(page, 'Draw a line');
+    for (const at of [[-71.077, 42.3499], [-71.0857, 42.3424]] as const) await page.mouse.click(...(await toScreen(page, at)));
+    const draft = page.getByTestId('draft-card');
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await draft.getByRole('button', { name: 'Create' }).click();
+    const lines = page.getByTestId('inspector');
+    await expect(lines.getByRole('tab', { name: 'Line 2', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await lines.getByRole('button', { name: 'Close line' }).click();
+    await lines.getByTestId('close-line').getByRole('button', { name: 'Close it' }).click();
+    const undo = page.getByRole('button', { name: 'Undo: Close Line 2' });
+    await expect(undo).toBeVisible();
+    // Line 1's route editor out, in Lines' place.
+    await lines.getByRole('button', { name: 'Edit route' }).click();
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    await undo.click();
+    await expect(undo).toHaveCount(0);
+    await expect(editor).toBeVisible();
+  });
+
   test('an ended run offers neither Sell them nor Close line', async ({ page }) => {
     await debugGame(page, (d) => {
       (d.lines as { buses: number }[])[0]!.buses = 4;

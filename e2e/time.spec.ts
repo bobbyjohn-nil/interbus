@@ -1,6 +1,6 @@
 // The owner's initial playtest (D25): time in minutes and days, eight days to a quarter, and a speed
 // ladder from real time up; and a panel opened from the dock while a tool is out is seen and usable.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { foundCompany } from './found';
 import { city, setSpeed } from './shell';
 

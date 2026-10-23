@@ -4,7 +4,7 @@
 // stops"). Build opens its three tools; Place a stop shows its verdict at the pointer and places a
 // Sign for $4k, standing alone with a card that says so and takes it down; the line tool joins it;
 // and the line's Edit route reorders by drag and takes a stop off, priced on its card.
-import { expect, test } from '@playwright/test';
+import { expect, test } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, pointAt, toScreen, zoomOutOnce } from './shell';

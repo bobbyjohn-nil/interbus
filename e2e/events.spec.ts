@@ -3,7 +3,7 @@
 // line card's round trip is slower by what the works add; after the works' last day the marker clears.
 // Waiting for a roll would take game weeks, so the game is a save file edited to an evening whose
 // close rolls them: the events' stream at a state whose next draws roll roadworks for three days.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { EVENT_CHANCE_PER_DAY, EVENT_DAYS, EVENT_KINDS, type EventKind } from '../src/sim/config/events';
 import { createRng } from '../src/sim/core/rng';

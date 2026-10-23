@@ -4,7 +4,7 @@
 // do, what does not fit scrolls inside it, and Continue stays in view. Shown failing (TS-04) before the
 // fix: the card ran from 60 px to 800, Continue lay below the window's edge where no press reached it,
 // nothing scrolled, and the card lay over the dock's buttons until the next close replaced it.
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator } from './base';
 import { axeProblems } from './a11y';
 import { foundCompany } from './found';
 import { city, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';

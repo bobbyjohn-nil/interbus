@@ -4,7 +4,7 @@
 // every option in reach of the mouse. Shown failing (TS-04) on the dropdown before the systems
 // audit's (D26) fix: End left the highlighted $5.00 hidden in the list, and under a button low in the
 // window the fare list ran past the window's bottom, its last fares out of reach.
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator } from './base';
 import { FARES_CENTS } from '../src/sim/rules/fare';
 import { usd } from '../src/ui/format';
 import { foundCompany } from './found';

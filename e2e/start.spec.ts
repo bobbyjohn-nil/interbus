@@ -5,7 +5,7 @@
 // the game; and Home's buttons are drawn in the game's own type. Shown failing (TS-04) on main before
 // the fix: Space ran time behind Home, Ctrl+Z took back the depot, the old route and day card came
 // into the new game, a draft outlived a slot's load, and "Slot loaded" came back on Home.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { usd } from '../src/ui/format';
 import { gapTo, fixtureCity, inMiddle, screenDots } from './dots';

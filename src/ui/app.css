@@ -28,16 +28,19 @@
      among themselves inside a layer of their own (shell/Panels.tsx), so however many are raised they
      stay under the next; the menus (the dock with Build's, the demand menu, every dropdown's list) and
      the cards beside the pointer, so a press on a menu's item never lands on a panel under it (the
-     systems audit, D26); the cards that wait for an answer (the founding card and the day's close); and
-     the replaced build's card. The run's end has its card on the panels' layer, in a free place beside
-     them, as it stays until Restart this quarter (App.tsx). */
+     systems audit, D26); the cards that wait for an answer (the founding card and the day's close); the
+     boot splash; and the replaced build's card. The run's end has its card on the panels' layer, in a free
+     place beside them, as it stays until Restart this quarter (App.tsx). */
   --layer-panels: 10;
   --layer-menus: 20;
   --layer-cards: 100;
-  --layer-replaced: 150;
   /* The boot splash over them all while the game loads, but for the corner: the map's credit shows with any of the map, the
      wipe's included (index.html, CLAUDE.md). */
   --layer-boot: 200;
+  /* The replaced build's card over the splash too: a file of this build found gone while the city still loads says so at once
+     (CLAUDE.md's platform rule). Under the splash it waited unseen for the city's 2 MB, or for good if the load stalled
+     (round 10). */
+  --layer-replaced: 250;
   font-family: 'Afacad Flux', system-ui, sans-serif;
   color: var(--ui-ink);
   background: var(--void);
@@ -1782,8 +1785,10 @@ button.chip.checklist,
   cursor: grabbing;
 }
 
-/* The boot splash (index.html; S18, V1's): the page draws it while the game's own files load, over everything but the corner,
-   and it takes no pointer, so nothing under it waits for it. The game ends it (src/ui/brand/boot.ts). */
+/* The boot splash (index.html; S18, V1's): the page draws it while the game's own files load, over everything but the corner
+   and the replaced build's card. The game ends it (src/ui/brand/boot.ts). It takes the pointer where it stands, so a press on
+   it presses nothing it hides: as its bus towed it away, a press on it pressed Home's New game or Continue under it, unseen
+   (round 10). Towed, it uncovers Home a strip at a time, and what it has uncovered takes presses at once. */
 #boot {
   position: fixed;
   inset: 0;
@@ -1792,7 +1797,6 @@ button.chip.checklist,
   place-items: center;
   background: var(--ui-paper);
   color: var(--ui-ink);
-  pointer-events: none;
 }
 
 .boot-card {
@@ -1949,5 +1953,12 @@ body:has(#boot) .corner {
   *::after {
     transition: none !important;
     animation: none !important;
+  }
+
+  /* Less motion asked for as the bus tows the splash away: it goes, as it goes at once for anyone who asked before (boot.ts).
+     The rule above stopped the tow, and the half-gone splash stood back over the whole screen until its timer took it, up to
+     2.5 s (round 10). */
+  #boot.leaving {
+    display: none;
   }
 }
