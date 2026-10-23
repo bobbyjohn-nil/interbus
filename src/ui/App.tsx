@@ -33,7 +33,7 @@ import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
 import { Notices } from "./shell/Notices";
 import { TopBar } from "./shell/TopBar";
-import { endBoot } from "./brand/boot";
+import { endBoot, hearHeldKeys } from "./brand/boot";
 
 export function App() {
   const sim = useSim(CITIES[0]);
@@ -453,7 +453,10 @@ export function App() {
     window.addEventListener("keydown", input, true);
     window.addEventListener("focusin", arrived, true);
     window.addEventListener("blur", left);
+    // The keys the splash's hold stops before this listener hears them, Tab among what it leaves in sight among them (boot.ts).
+    const unhear = hearHeldKeys(input);
     return () => {
+      unhear();
       window.removeEventListener("pointerdown", input, true);
       window.removeEventListener("keydown", input, true);
       window.removeEventListener("focusin", arrived, true);

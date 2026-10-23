@@ -170,9 +170,13 @@ test.describe('the boot splash', () => {
     const newGame = home.getByRole('button', { name: 'New game' });
     const at = (await newGame.boundingBox())!;
     await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
-    // Nor does the keyboard: Tab reached Home's buttons under it, and Enter pressed New game unseen (round 11).
-    for (let k = 0; k < 4 && !(await newGame.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
-    expect(await page.evaluate(() => document.activeElement === document.body), 'the focus on nothing the splash hides').toBe(true);
+    // Nor does the keyboard: Tab reached Home's buttons under it, and Enter pressed New game unseen (round 11). It moves among
+    // what the splash leaves in sight alone, the corner's credits (the review of the twelfth round's fixes).
+    for (let k = 0; k < 4; k++) {
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate(() => document.activeElement?.closest('.corner') !== null), 'the focus on the corner').toBe(true);
+    }
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('Enter');
     // Once its timer asks for the splash to go, it goes.
     await page.waitForFunction(() => typeof (window as unknown as { letBootGo?: unknown }).letBootGo === 'function');
@@ -195,7 +199,11 @@ test.describe('the boot splash', () => {
     await expect(page.locator('#boot')).toBeVisible();
     const view = (await map.getAttribute('data-view'))!;
     for (const key of ['t', '?', 'Tab', 'ArrowLeft', 'ArrowLeft']) await page.keyboard.press(key);
-    expect(await page.evaluate(() => document.activeElement === document.body), 'the focus on nothing the splash hides').toBe(true);
+    // Tab took the focus to the corner's first credit, drawn over the splash; Shift+Tab from it went to the map's canvas under the
+    // splash, and stayed there (the review of the twelfth round's fixes): it goes round to the corner's last.
+    await expect(page.locator('.corner a').first()).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('.corner a').last()).toBeFocused();
     sim.release();
     await expect(page.getByTestId('home')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#boot')).toHaveCount(0, { timeout: 10_000 });
@@ -254,11 +262,16 @@ test.describe('the boot splash', () => {
     await expect(page.locator('#boot')).toBeVisible();
     expect(await zIndex(page, '.replaced')).toBeGreaterThan(await zIndex(page, '#boot'));
     // What is drawn at the middle of its Reload: the button itself, not the splash.
-    const top = await card.getByRole('button', { name: 'Reload' }).evaluate((el) => {
+    const reload = card.getByRole('button', { name: 'Reload' });
+    const top = await reload.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
     });
     expect(top).toBe(true);
+    // The keyboard reaches it too: Tab moves among what the splash leaves in sight, the corner's credits then the card (the review
+    // of the twelfth round's fixes: with the keys held from the page's start, Tab reached nothing while the city loaded).
+    for (let k = 0; k < 6 && !(await reload.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(reload).toBeFocused();
   });
 
   // Round 10: the reduced-motion rule stopped the tow, so the half-gone splash stood back over the whole screen until its timer

@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { copyProblem } from '../copyRules';
-import { endBoot, holdKeys, WIPE_MS, type BootEnv } from './boot';
+import { endBoot, hearHeldKeys, holdKeys, WIPE_MS, type BootEnv } from './boot';
 
 /** A splash that keeps its classes and whether it has gone, and the timers asked for, to run by hand. */
 function page(over: Partial<BootEnv> = {}) {
@@ -77,29 +77,43 @@ describe('the boot splash’s end', () => {
 describe('the keys held while the splash stands', () => {
   const W = 1152;
   const H = 720;
+  type Control = { name: string; tagName: string; tabIndex: number; focus: () => void; closest: (selector: string) => unknown; getBoundingClientRect: () => DOMRect };
   /** A screen 1152×720 whose splash stands from `x` to its right edge (x = 0 before the tow, more as its bus tows it away). */
   function page() {
     const listeners: ((e: KeyboardEvent) => void)[] = [];
-    const state = { boot: true, display: 'grid', x: 0 };
+    const state = { boot: true, display: 'grid', x: 0, focused: null as Control | null };
+    const controls: Control[] = [];
     const rect = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom, x: left, y: top, width: right - left, height: bottom - top }) as DOMRect;
     const win = {
       innerWidth: W,
       innerHeight: H,
       addEventListener: (_type: string, l: (e: KeyboardEvent) => void) => void listeners.push(l),
       removeEventListener: (_type: string, l: (e: KeyboardEvent) => void) => void listeners.splice(listeners.indexOf(l), 1),
-      document: { getElementById: (id: string) => (id === 'boot' && state.boot ? { getBoundingClientRect: () => rect(state.x, 0, state.x + W, H) } : null) },
+      document: {
+        getElementById: (id: string) => (id === 'boot' && state.boot ? { getBoundingClientRect: () => rect(state.x, 0, state.x + W, H) } : null),
+        querySelectorAll: () => controls,
+      },
       getComputedStyle: () => ({ display: state.display }),
     } as unknown as Window;
-    /** A control from `left` to `right` across the screen's middle, inside `inside` if given. */
-    const control = (left: number, right: number, inside: string | null = null) => ({
-      tagName: 'BUTTON',
-      closest: (selector: string) => (inside && selector.includes(inside) ? {} : null),
-      getBoundingClientRect: () => rect(left, 300, right, 340),
-    });
+    /** A button from `left` to `right` across the screen's middle, inside `inside` if given, in the page's order as made. */
+    const control = (name: string, left: number, right: number, inside: string | null = null) => {
+      const c: Control = {
+        name,
+        tagName: 'BUTTON',
+        tabIndex: 0,
+        focus: () => void (state.focused = c),
+        // A button is a control (onePress's KEYED); `inside` is the corner or the replaced build's card.
+        closest: (selector: string) => ((inside && selector.includes(inside)) || selector.startsWith('button') ? {} : null),
+        getBoundingClientRect: () => rect(left, 300, right, 340),
+      };
+      controls.push(c);
+      return c;
+    };
     const body = { tagName: 'BODY', closest: () => null, getBoundingClientRect: () => rect(0, 0, W, H) };
     /** What became of `key` (with `mods`) on `target`: its default stopped, and its way on to the page's own keys. */
-    const press = (key: string, mods: Partial<KeyboardEvent> = {}, target: object = body) => {
-      const e = { key, ctrlKey: false, metaKey: false, altKey: false, ...mods, target, prevented: false, stopped: false };
+    const press = (key: string, mods: Partial<KeyboardEvent> & { altGr?: boolean } = {}, target: object = body) => {
+      const { altGr = false, ...rest } = mods;
+      const e = { key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, repeat: false, ...rest, getModifierState: (m: string) => m === 'AltGraph' && altGr, target, prevented: false, stopped: false };
       Object.assign(e, { preventDefault: () => void (e.prevented = true), stopImmediatePropagation: () => void (e.stopped = true) });
       for (const l of [...listeners]) l(e as unknown as KeyboardEvent);
       return { prevented: e.prevented, stopped: e.stopped };
@@ -129,12 +143,20 @@ describe('the keys held while the splash stands', () => {
     expect(p.listeners).toHaveLength(0);
   });
 
+  // The review of the twelfth round's fixes: ? typed with AltGr, as some keyboards type it, passed as the browser's own key and
+  // opened Help under the splash, App counting it as ?.
+  it('holds a key typed with AltGr, which is no browser shortcut', () => {
+    const p = page();
+    holdKeys(p.win);
+    expect(p.press('?', { ctrlKey: true, altKey: true, altGr: true })).toEqual(p.HELD);
+  });
+
   // The twelfth round: ? on the corner's credit opened Help under the standing splash.
   it('leaves the corner and the replaced build’s card their own keys, but not the page’s', () => {
     const p = page();
     holdKeys(p.win);
     for (const inside of ['.corner', '.replaced']) {
-      for (const key of ['Enter', 'Tab', '?', 't']) expect(p.press(key, {}, p.control(900, 1100, inside)), `${key} in ${inside}`).toEqual(p.OWN);
+      for (const key of ['Enter', ' ', '?', 't']) expect(p.press(key, {}, p.control(`${key} in ${inside}`, 900, 1100, inside)), `${key} in ${inside}`).toEqual(p.OWN);
     }
   });
 
@@ -144,15 +166,59 @@ describe('the keys held while the splash stands', () => {
     const p = page();
     holdKeys(p.win);
     p.state.x = 750;
-    const card = p.control(406, 746);
-    for (const key of ['B', ' ', 'Enter', 'Tab', '?']) expect(p.press(key, {}, card), key).toEqual(p.OWN);
-    expect(p.press('Enter', {}, p.control(436, 900)), 'half uncovered').toEqual(p.OWN);
-    expect(p.press('Enter', {}, p.control(800, 900)), 'still under it').toEqual(p.HELD);
-    expect(p.press('Enter', {}, p.control(-10_000, -9_000)), 'off the screen').toEqual(p.HELD);
+    const card = p.control('card', 406, 746);
+    for (const key of ['B', ' ', 'Enter', '?']) expect(p.press(key, {}, card), key).toEqual(p.OWN);
+    expect(p.press('Enter', {}, p.control('half', 436, 900)), 'half uncovered').toEqual(p.OWN);
+    expect(p.press('Enter', {}, p.control('under', 800, 900)), 'still under it').toEqual(p.HELD);
+    expect(p.press('Enter', {}, p.control('away', -10_000, -9_000)), 'off the screen').toEqual(p.HELD);
     expect(p.press('Enter'), 'nothing focused').toEqual(p.HELD);
     // Before the tow the splash covers the whole screen, the card with it.
     p.state.x = 0;
     expect(p.press('B', {}, card)).toEqual(p.HELD);
+  });
+
+  // The review of the twelfth round's fixes: with the hold from the page's start, Tab from the page reached nothing while the city
+  // loaded, so the keyboard lost the replaced build's card's Reload and the corner's credits; and Shift+Tab from the corner went
+  // to the map's canvas under the splash, and stayed there.
+  it('moves Tab among what the splash leaves in sight alone, round and round, and never under it', () => {
+    const p = page();
+    holdKeys(p.win);
+    p.state.x = 750;
+    p.control('covered', 800, 900);
+    const shown = p.control('uncovered', 406, 746);
+    const credit = p.control('credit', 900, 1000, '.corner');
+    const reload = p.control('reload', 950, 1050, '.replaced');
+    const tab = (target: object, shiftKey = false) => (p.press('Tab', { shiftKey }, target), p.state.focused?.name);
+    expect(tab({ tagName: 'BODY', closest: () => null, getBoundingClientRect: () => ({}) })).toBe('uncovered');
+    expect(tab(shown)).toBe('credit');
+    expect(tab(credit)).toBe('reload');
+    expect(tab(reload)).toBe('uncovered');
+    expect(tab(shown, true)).toBe('reload');
+    expect(tab(reload, true)).toBe('credit');
+    expect(p.press('Tab', {}, credit)).toEqual(p.HELD);
+  });
+
+  it('lets a held Enter or Space press a control in sight once: its repeats go nowhere', () => {
+    const p = page();
+    holdKeys(p.win);
+    const credit = p.control('credit', 900, 1000, '.corner');
+    expect(p.press('Enter', {}, credit)).toEqual(p.OWN);
+    expect(p.press('Enter', { repeat: true }, credit)).toEqual(p.HELD);
+    expect(p.press(' ', { repeat: true }, credit)).toEqual(p.HELD);
+    expect(p.press('a', { repeat: true }, credit)).toEqual(p.OWN);
+  });
+
+  it('tells its hearers every key it stops, as the window’s listeners it stops would have heard them', () => {
+    const p = page();
+    holdKeys(p.win);
+    const heard: string[] = [];
+    const stop = hearHeldKeys((e) => void heard.push(e.key));
+    p.press('Tab');
+    p.press('Enter', {}, p.control('credit', 900, 1000, '.corner'));
+    p.press('r', { ctrlKey: true });
+    stop();
+    p.press('x');
+    expect(heard).toEqual(['Tab', 'Enter']);
   });
 
   it('lets every key go once the tow has taken the splash off the screen, before its timer takes it away', () => {

@@ -276,7 +276,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - With the keyboard on Home's Continue, when another tab starts a new game, the focus goes to New game instead of the top of the page.
 - With the keyboard on the Build menu's tools, the game's keys wait for the menu to close, as with the other menus and lists: T no longer tilts the map behind it, and 1 to 5 no longer change the speed. Space still plays and pauses from a tool the mouse pressed without letting go on it.
 - Start a new game goes from Home straight to the founding card, without a moment of the old company's game, its chips and its dock, in between.
-- While the game loads under the splash, the keyboard reaches nothing hidden under it either: T no longer tilts the map, the arrows no longer move it, and ? no longer opens Help, all unseen. On the map's credits, drawn over the splash, a key is the link's alone, so ? there no longer opens Help under it.
+- While the game loads under the splash, the keyboard reaches nothing hidden under it either: T no longer tilts the map, the arrows no longer move it, and ? no longer opens Help, all unseen, also where ? is typed with AltGr. Tab and Shift+Tab go round what is drawn over the splash alone: the map's credits, and the card that says this build of the game was replaced, with its Reload. A key there is the link's or the button's alone, so ? on the credits no longer opens Help under the splash.
 - A name typed into the founding card as the splash's bus pulls away is kept: a click on New game, already uncovered, opened the card, but the keys typed into it were lost until the splash had gone.
 - Pressing ? while a new game is on its way no longer leaves Help open beside the founding card.
 
