@@ -32,6 +32,7 @@ import { Saves } from "./shell/Saves";
 import { Inspector } from "./shell/Inspector";
 import { Notices } from "./shell/Notices";
 import { TopBar } from "./shell/TopBar";
+import { endBoot } from "./brand/boot";
 
 export function App() {
   const sim = useSim(CITIES[0]);
@@ -357,6 +358,10 @@ export function App() {
   }, [loadedAt, choose]);
 
   const ready = sim.status === "ready";
+  // The page's boot splash goes once the game has a screen to show: Home, a game, or a card saying why there is none.
+  useEffect(() => {
+    if (sim.status !== "loading") endBoot();
+  }, [sim.status]);
   const atHome = ready && homeAt !== null && !(sim.loaded && sim.loaded.at > homeAt);
   // On Home, Saves and Help stand beside Home's card, off the panel layer, so Panels' hand-back never reaches them. One that
   // goes with the focus in it hands the focus to Home's button for it (Credits for Help asked on its credits), or to the Close

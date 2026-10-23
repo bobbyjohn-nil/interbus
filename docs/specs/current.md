@@ -60,6 +60,7 @@ Work starts now, ahead of the calendar. The pacing harness and the shell come fi
      - **Saves**;
      - the build chip.
    - **What waits:** settings wait for week 14. Help and the credits screen came ahead under D25's clearance: Home's Saves, Help and Credits sit side by side, each opening beside Home's card in Saves' place, Credits as Help on its credits; Continue and New game close Help, and ? opens it anywhere but a field or an open list (DECISIONS, Measured).
+   - **Before it:** the page's own splash while the game loads, which its bus tows away as Home arrives, once a tab and never with less motion asked for (S18, ahead under D25's clearance; DECISIONS, Measured).
    - **Getting back:** "Back to Home" in Saves, which saves first (in a tab another tab's saves have left behind, it asks first instead, if the game has run on since: the systems audit's sixth round), and on the founding card, so New game can be left for a slot or a file (the systems audit's fifth round).
    - **Cost:** Home is gone once a game plays, so it costs nothing in I13 at rest. Its code counts toward the menu's 200 KiB.
    - **Built so** (DECISIONS, Measured): the chip row and the dock wait for the game; New game replaces the autosave with an unnamed company at once; a slot loaded from Home's Saves goes straight into that game. Home takes 8.0% of 1152×720 and adds 0.5 KiB to the menu's 95.9 KiB.

@@ -12,6 +12,11 @@ const entry = registry.cities[0]!;
 export const city = { ...entry, sim: entry.fixture ?? entry.sim };
 
 /** Where [lon, lat] lands on screen with the camera at rest (the map's data-view; Web Mercator, 512 px tiles). */
+/** Waits for the page's boot splash to have gone, towed away or not (src/ui/brand/boot.ts), before a test reads the screen's pixels. */
+export async function bootGone(page: Page): Promise<void> {
+  await expect(page.locator('#boot')).toHaveCount(0, { timeout: 10_000 });
+}
+
 export async function toScreen(page: Page, at: readonly [number, number]): Promise<[number, number]> {
   return (await projector(page)).project(at);
 }

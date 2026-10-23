@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { foundCompany } from './found';
-import { build } from './shell';
+import { bootGone, build } from './shell';
 
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { tiles: unknown }[] };
 
@@ -21,6 +21,7 @@ test('T tilts the board to 50° with 3D buildings, and T again flattens it', asy
   // Founded first: until then the founding card's name field holds the keyboard.
   await foundCompany(page);
   const shot = () => page.screenshot({ mask: [page.locator('.corner')] });
+  await bootGone(page);
   const flat = await shot();
 
   await page.keyboard.press('t');
