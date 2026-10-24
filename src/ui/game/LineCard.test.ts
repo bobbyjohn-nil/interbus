@@ -1,7 +1,7 @@
 // The line card names when a line's buses fill (K27; the M3 spec, item 3), the fares that net the
-// most (item 4) and its round trip with what roadworks add (the M4 spec, item 2). The fixture's lines
-// never fill, so the e2e tests cannot reach the first; the card is rendered here from a snapshot that
-// says so.
+// most (item 4), its round trip with what roadworks add (the M4 spec, item 2), and the headway it runs
+// while snow or roadworks leave it short of buses. The fixture's lines never fill, so the e2e tests
+// cannot reach the first; the card is rendered here from a snapshot that says so.
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -96,6 +96,13 @@ describe('the line card', () => {
     expect(two).toContain('>2 buses short in the snow: runs every 16.1 min at peak<');
     // On a clear day the 2 run every 15 min as set, and the card says nothing more.
     expect(render({ ...snowy, cycle: 1_549, cycles: { peak: 1_549, offpeak: 1_400, overnight: 1_400 } })).not.toContain('short');
+    // In Contracts' words for the same seconds (figureText): within a minute of the headway set, to the second, where the card
+    // read "every 10.8 min", "every 15.0 min" and "every 16.0 min" (the review of the round's fixes).
+    const snowing = { kind: 'snow', street: '', phase: 'on' } as const;
+    const near = (headway: number, buses: number, cycle: number) => render({ headways: { peak: headway, offpeak: headway, overnight: null }, buses, cycle, cycles: { peak: cycle, offpeak: cycle, overnight: cycle } }, null, snowing);
+    expect(near(600, 3, 1_935)).toContain(': runs every 10 min 45 s at peak and off-peak<');
+    expect(near(900, 2, 1_802)).toContain(': runs every 15 min 1 s at peak and off-peak<');
+    expect(near(900, 2, 1_916)).toContain(': runs every 15 min 58 s at peak and off-peak<');
   });
 
   it('says Express beside the name of a line of 5 km or more with its stops 1.2 km apart, and nothing beside a local one', () => {

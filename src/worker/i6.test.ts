@@ -205,6 +205,15 @@ describe('I6 across route edits mid-run (the M4 spec, item 4)', () => {
   checkChange('Copley taken off, then every 15 minutes at once', EIGHT, send(EVERY_15), false, run({ type: 'remove-stop', lineId: 1, stopId: 1 }));
   checkChange('Longwood made the first stop, every 15 minutes two minutes later, then every 12 minutes', EIGHT, send(EVERY_12), false, steps(reversed, wait(2), run(EVERY_15)));
   checkChange('Longwood made the first stop, every 15 minutes, that undone, then every 12 minutes', EIGHT, send(EVERY_12), false, steps(reversed, run(EVERY_15), run({ type: 'undo' })));
+  // Spare buses sold after a cut to every 15 minutes, at once and 5 and 20 minutes later (the late game's (a)): no bus moves at
+  // the sale, and every one drives on. The systems audit's fourteenth round held this with a copy of this file; each sale sells.
+  const sold = (s: Game) => {
+    const before = s.now().lines[0]!.buses;
+    const after = send({ type: 'sell-spares', lineId: 1 })(s);
+    expect(after.lines[0]!.buses).toBeLessThan(before);
+    return after;
+  };
+  for (const minutes of [0, 5, 20]) checkChange(`every 15 minutes, then its spare Sparrows sold ${minutes ? `${minutes} minutes later` : 'at once'}`, EIGHT, sold, false, steps(run(EVERY_15), wait(minutes)));
   it('a swap to Metro 40s, then every 15 minutes at once: the sold Sparrows go home after their trips, and never more Metro 40s out than owned', () => {
     const s = started();
     s.host.handle({ type: 'import', text: save(EIGHT) });

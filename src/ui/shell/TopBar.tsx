@@ -1,6 +1,6 @@
 import type { Speed } from '../../sim/types';
 import { runOver } from '../game/runOver';
-import { CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
+import { belowFloor, CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
 import { MEDAL_IDS } from '../../sim/rules/medal';
 import { calendarOfDay } from '../../sim/rules/calendar';
 import { periodAt } from '../../sim/rules/periods';
@@ -17,7 +17,8 @@ const SPEED_OPTIONS = RUNNING_SPEEDS.map((speed) => ({ value: speed, label: spee
  * The calm shell's chip row (PLAN §8, the M2 spec item 7): labelled chips for the date and clock,
  * the speed, Cash, Riders/day and the day's costs, and the checklist's next step (K20). The speed
  * waits until the company is founded. While paused, Undo names the command it would take back (I9);
- * below the credit line's floor, a countdown names the day closes left (D10). The checklist's last
+ * below the credit line's floor, a countdown names the day closes left (D10), and back above it with a
+ * close below behind, says to stay above tonight. The checklist's last
  * step opens Contracts, and once the checklist is done its place is the Contracts chip (the M3 spec,
  * items 11 and 12), so contracts add nothing to the shell at rest (I13). The medals held show there
  * too, a dot of each one's metal; the Contracts panel names the ladder and the trips left to silver
@@ -81,8 +82,12 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
         </span>
       ) : null}
       {s.floor && !s.floor.ended ? (
-        <span className="chip countdown" data-testid="countdown" data-left={s.floor.closesLeft}>
-          {s.floor.closesLeft} {s.floor.closesLeft === 1 ? 'day' : 'days'} to get above {usdK(-CREDIT_LIMIT_CENTS)}
+        // Back above the floor with a close below behind, a close above clears the count and one below goes on with it: it said
+        // the days to get above, there already (the systems audit's fourteenth round).
+        <span className="chip countdown" data-testid="countdown" data-left={s.floor.closesLeft} data-above={belowFloor(s.cashCents) ? 'no' : 'yes'}>
+          {belowFloor(s.cashCents)
+            ? `${s.floor.closesLeft} ${s.floor.closesLeft === 1 ? 'day' : 'days'} to get above ${usdK(-CREDIT_LIMIT_CENTS)}`
+            : `Stay above ${usdK(-CREDIT_LIMIT_CENTS)} tonight`}
         </span>
       ) : null}
       {undo ? (

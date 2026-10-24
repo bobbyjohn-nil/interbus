@@ -1216,10 +1216,10 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false });
   });
 
-  // A sale that brought cash back above the floor between closes left the chip counting the days to get above it, until the
-  // next close reset the count (the systems audit's fourteenth round). Shown failing (TS-04) with the countdown kept while a
-  // close below is behind it: { closesLeft: 4, ended: false } at -$97,000.
-  it('counts down only while cash is below the floor: a sale back above it clears the chip, and the close after the count', () => {
+  // Back above the floor with a close below behind, the countdown stays, its words the cash's (TopBar), until a close above
+  // clears it: hidden above the floor, a company four closes behind and $50 above it saw no word as tonight's interest ended the
+  // run (the review of the fourteenth round's fixes). Shown failing (TS-04) with the countdown only below the floor.
+  it('keeps the countdown while a close below is behind, whatever the cash, until a close above the floor clears it', () => {
     const { send, last, store, host } = founded();
     send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     send({ type: 'create-line', clicks: CLICKS });
@@ -1229,8 +1229,8 @@ describe('the failure floor', () => {
     send({ type: 'import', text: JSON.stringify(save) });
     expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -20_000_000, floor: { closesLeft: 4, ended: false } });
     send({ type: 'close-line', lineId: 1 }); // its 2 Sparrows sold for $95k and 4 stops for $8k
-    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -9_700_000, floor: null });
-    // Still above at midnight: the close resets the count, and no chip comes back.
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -9_700_000, floor: { closesLeft: 4, ended: false } });
+    // Still above at midnight: the close resets the count, and the countdown goes.
     send({ type: 'speed', speed: 5 });
     for (let t = 0; last('snapshot')!.snapshot.day < 2 && t < 600_000; t += 250) host.tick(t);
     send({ type: 'export' });
