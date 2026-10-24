@@ -56,13 +56,19 @@ describe('the assignment’s memo', () => {
     const ridersOf = (plans: readonly LinePlan[]) => assign(world.city, world.commuters, plans).lines.get(base[2]!.id)!.perDay;
     expect(ridersOf(penalty)).not.toBe(ridersOf(base));
     check(penalty);
-    // A Sign made a Shelter: the walk to it shorter, a change there as long as before, so only the catchments tell.
+    // A Sign made a Shelter: the walk to it shorter, a change there as long as before, so only the catchments tell, from the
+    // plans as they were (after the penalty, its line's catchments would be worked out afresh anyway).
+    check(base);
     check(at(2, { walkBonusMin: base[2]!.stops.map((_, q) => (q === 1 ? STOP_TIERS[2].walkBonusMin : (base[2]!.walkBonusMin?.[q] ?? 0))) }));
     check(at(4, { rush: 0.5 }));
     // A line gone and back, and one more drawn beside the first.
     check(base.filter((_, m) => m !== 2));
     check(base);
     check([...base, { ...base[0]!, id: 99 as LineId, stops: base[0]!.stops.map(([x, y]) => [x + 200, y + 150] as const) }]);
+    // A twin of the first line, the same plan under another id: it uses the first line's ride tables, and a change onto it or off
+    // it the same tables as one onto or off the first line.
+    check([...base, { ...base[0]!, id: 98 as LineId }]);
+    check(base);
     // Two lines in the other order, as nothing in the game does yet: the memo starts again rather than add in another order.
     check([base[1]!, base[0]!, ...base.slice(2)]);
     check(base);

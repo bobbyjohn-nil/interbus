@@ -248,8 +248,8 @@ function sidesOf(city: City): { homes: Side[]; work: Side[] } {
 
 /**
  * Who can walk to which stops: each line's groups of sub-points in every cell (Access), by home cell
- * and by line for work cells. They depend only on where the stops stand, so assignments that change
- * only headways or fares can share them.
+ * and by line for work cells. They depend only on where the stops stand and their tiers, so assignments
+ * that change only headways or fares can share them.
  */
 export interface Catchments {
   readonly homeLines: readonly (readonly { readonly line: number; readonly groups: readonly Access[] }[])[];
@@ -415,7 +415,9 @@ interface ChangeTables {
 
 interface KeptTables {
   readonly lines: Map<string, LineTables>;
-  /** By the two lines' ids, first and second. */
+  /**
+   * By the two lines' tables' ids (LineTables.id), first and second: a line's own id would not do, as its tables change with it.
+   */
   readonly changes: Map<string, ChangeTables>;
   readonly nextId: number;
 }
@@ -640,8 +642,8 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   // both: the rides, the first line's fare felt once over both rides' km, and the change's walk and
   // penalty, before the second line's wait, at [a * stops + b] (the second line's stops), with the
   // change taken at the same place in `via`. None ends within TRANSFER_REACH_M of where it began:
-  // that rider would walk, and the captive share would otherwise send some round a loop. Fares
-  // differ between assignments, so these are made here.
+  // that rider would walk, and the captive share would otherwise send some round a loop. Made here
+  // only for a change whose lines' tables are not kept (changeMin, below).
   const changeAt = (first: number, t: Transfer, period: number) => {
     const stopsA = plans[first]!.stops.length;
     const stops = plans[t.line]!.stops.length;

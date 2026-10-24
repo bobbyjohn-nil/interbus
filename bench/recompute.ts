@@ -9,7 +9,7 @@
 // card-building companies at the bus ceiling (bench/fixtures). The whole recompute is timed from nothing, its memo let go first,
 // as a load or an event's start runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
 // assignment carries the rides of the cell pairs no changed line has a route in, and the catchments and ride tables nothing
-// changed, AssignMemo), and on the late companies a fare's and a Shelter's too, which keep the catchments and work them out
+// changed, AssignMemo), and on the late companies a fare's, which keeps the catchments, and a Shelter's, which works them out
 // afresh. Results go to .cache/bench/recompute.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
@@ -62,9 +62,13 @@ function time(name: string, run: () => void, gate = true): { p50: number; p95: n
   return out;
 }
 
-/** The whole recompute from nothing, as a load or an event's start runs it: the memo of the last assignment let go first. */
+/**
+ * The whole recompute from nothing, as a load runs it: the memo's last assignment and its kept tables let go first (its arenas
+ * kept, as the game keeps them once it has run). A festival's start keeps the catchments and the tables as well.
+ */
 const fromNothing = (w: World) => () => {
   w.assignMemo!.last = null;
+  delete w.assignMemo!.tables;
   recompute(w);
 };
 
@@ -110,6 +114,29 @@ const aShelter = (w: World) => {
 };
 
 /**
+ * Whether the memo's riders are a whole assignment's, number for number, after a run of one kind of command, each kind in turn,
+ * so a stale ride one kind leaves cannot hide behind the next (memo.test.ts holds the rule step by step).
+ */
+function exactAfter(what: string, w: World, seed: number): void {
+  const fresh = assign(w.city, commutersToday(w), runningPlans(w));
+  const differ = (a: unknown, b: unknown): boolean => {
+    if (typeof a === 'number' || typeof b === 'number') return !Object.is(a, b);
+    if (a instanceof Map && b instanceof Map) return a.size !== b.size || [...a].some(([k, v]) => differ(v, b.get(k)));
+    if (ArrayBuffer.isView(a) || Array.isArray(a)) {
+      const x = a as ArrayLike<unknown>;
+      const y = b as ArrayLike<unknown>;
+      return x.length !== y.length || Array.from(x).some((v, k) => differ(v, y[k]));
+    }
+    if (a && typeof a === 'object') return Object.keys(a).some((k) => differ((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+    return a !== b;
+  };
+  const same = !differ(w.assignment, fresh);
+  results[`memo matches a whole assignment after ${what} commands, seed ${seed}`] = same;
+  console.log(`bench: after ${what} commands, the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
+  if (!same) process.exitCode = 1;
+}
+
+/**
  * What keeping the rides costs a whole assignment: one keeping them, from nothing, against one keeping none, taking turns in the
  * same runs, the first of them each run in turn, so the machine's load falls on both alike. The world is recomputed after.
  */
@@ -118,6 +145,7 @@ function keepingAgainstNot(name: string, w: World): void {
   const commuters = commutersToday(w);
   const keep = () => {
     w.assignMemo!.last = null;
+    delete w.assignMemo!.tables;
     const t0 = performance.now();
     assign(w.city, commuters, plans, { memo: w.assignMemo });
     return performance.now() - t0;
@@ -247,25 +275,11 @@ if (inner) {
     const name = `the pacing run's company on seed ${seed} at the bus ceiling, ${company.state.lines.length} lines on ${company.state.stops.length} stops, at most ${Math.max(...at.values())} at a stop`;
     time(`Inner Boston's whole recompute, ${name}`, fromNothing(company), false);
     time(`Inner Boston, a command's recompute, ${name}`, aCommand(company), false);
+    exactAfter(`its headways'`, company, seed);
     time(`Inner Boston, a fare's recompute, ${name}`, aFare(company), false);
+    exactAfter(`its fares'`, company, seed);
     time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company), false);
-    // The memo's riders are a whole assignment's, number for number, after all those commands (memo.test.ts holds the rule).
-    const fresh = assign(company.city, commutersToday(company), runningPlans(company));
-    const differ = (a: unknown, b: unknown): boolean => {
-      if (typeof a === 'number' || typeof b === 'number') return !Object.is(a, b);
-      if (a instanceof Map && b instanceof Map) return a.size !== b.size || [...a].some(([k, v]) => differ(v, b.get(k)));
-      if (ArrayBuffer.isView(a) || Array.isArray(a)) {
-        const x = a as ArrayLike<unknown>;
-        const y = b as ArrayLike<unknown>;
-        return x.length !== y.length || Array.from(x).some((v, k) => differ(v, y[k]));
-      }
-      if (a && typeof a === 'object') return Object.keys(a).some((k) => differ((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
-      return a !== b;
-    };
-    const same = !differ(company.assignment, fresh);
-    results[`memo matches a whole assignment, seed ${seed}`] = same;
-    console.log(`bench: after them, the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
-    if (!same) process.exitCode = 1;
+    exactAfter(`its Shelters'`, company, seed);
     keepingAgainstNot(`of the pacing run's company on seed ${seed}`, company);
     // What the memo holds: its two arenas, the last assignment's rides and the next one's.
     const memo = company.assignMemo!;
