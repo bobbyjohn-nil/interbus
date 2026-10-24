@@ -1,7 +1,7 @@
 // The running game: the city it plays on, the sim state the save holds, and what is derived from
 // both (routes, the commuter matrix, who rides which line). Owned by the worker (PLAN §6).
 import { buildCommuters, centre, type Commuters } from './demand/commuters';
-import { assign, type Assignment, type LinePlan } from './demand/assign';
+import { assign, type AssignMemo, type Assignment, type LinePlan } from './demand/assign';
 import { distXY, SpatialGrid, toLngLat, toXY, type XY } from './core/geo';
 import type { City } from './city/simfile';
 import { createRouter, type Path, type Router } from './city/route';
@@ -49,6 +49,8 @@ export interface World {
   state: SimState;
   /** Recomputed whenever the network changes (recompute()). */
   assignment: Assignment;
+  /** What the last assignment kept for the next (demand/assign.ts AssignMemo): a pure cache, never saved. */
+  readonly assignMemo?: AssignMemo;
   services: Map<LineId, LineService>;
 }
 
@@ -359,7 +361,7 @@ export function runningPlans(world: Pick<World, 'services'>): LinePlan[] {
 
 export function recompute(world: World): void {
   world.services = lineServices(world);
-  world.assignment = assign(world.city, commutersToday(world), runningPlans(world));
+  world.assignment = assign(world.city, commutersToday(world), runningPlans(world), { memo: world.assignMemo });
 }
 
 /**
@@ -464,6 +466,7 @@ export function createWorld(city: City, state: SimState): World {
     nodes,
     state,
     assignment: { lines: new Map(), tripsPerDay: 0 },
+    assignMemo: { last: null },
     services: new Map(),
   };
   recompute(world);

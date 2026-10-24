@@ -367,6 +367,90 @@ export interface AssignOptions {
   readonly only?: LinePlan['id'];
   /** The catchments of these plans' stops, worked out once for several assignments of the same stops. */
   readonly reach?: Catchments;
+  /**
+   * What the last assignment of these commuters kept (AssignMemo), read and replaced; not with `only`, nor with `reach`, whose
+   * catchments the memo cannot tell from the plans'.
+   */
+  readonly memo?: AssignMemo | undefined;
+}
+
+/**
+ * What an assignment keeps for the next one of the same world (I14 on the late game; DECISIONS, Open): each cell pair's rides,
+ * in the order it carried them, and what they were worked out from. A cell pair's riders depend only on the lines of its routes
+ * (a line, or a line and the one it changes onto), so the next assignment carries again the rides of every pair whose routes'
+ * lines are as they were, in the same order, and works out afresh only the pairs a changed line has a route in, then or now. The
+ * sums come out as a whole assignment's, to the last bit, since every ride is added in the same order (memo.test.ts): a reload,
+ * which assigns from nothing, finds the same riders (I8).
+ */
+export interface AssignMemo {
+  last: AssignKept | null;
+  /**
+   * The two arenas the rides are kept in, the last assignment's and the one the next writes over, so that once both have grown to
+   * a network's size an assignment allocates no rides of its own: allocated afresh for each assignment, a late game's took a whole
+   * one 8–14% longer than keeping none, and pooled 2–8% (DECISIONS, Measured).
+   */
+  arenas?: RideArena[];
+}
+
+/**
+ * Rides as assignments keep them, in the order they were carried. A ride is 3 words of where it goes, each two numbers below
+ * 2^15 (PACK): its line's id and 1 + the id of the line it changes onto (0 for none), the stops it boards and alights at, and
+ * the stops it changes between; and 3 of its riders, in PERIODS order. Pair p's work cell is pairWork[p], and its rides are
+ * pairRide[p] to pairRide[p + 1].
+ */
+interface RideArena {
+  stops: Int32Array;
+  riders: Float64Array;
+  pairWork: Int32Array;
+  pairRide: Int32Array;
+}
+
+/** Two numbers below 2^15 in one word, and the bound: line ids and a line's stops stay far below it. */
+const PACK = 32_768;
+
+interface AssignKept {
+  readonly commuters: Commuters;
+  readonly rushy: boolean;
+  /** Each line's signature (lineSignature), by id. */
+  readonly signatures: ReadonlyMap<LineId, string>;
+  /** The lines by the places it numbered them, with its catchments and changes. */
+  readonly ids: readonly LineId[];
+  readonly homeLines: Catchments['homeLines'];
+  readonly workAccess: Catchments['workAccess'];
+  readonly transfers: Catchments['transfers'];
+  readonly arena: RideArena;
+  /** Home cell i's pairs are cellPairs[i] to cellPairs[i + 1] of the arena's. */
+  readonly cellPairs: Int32Array;
+  /** The home cells it worked out afresh, the rest carried again whole: all of them from nothing. */
+  readonly freshCells: number;
+}
+
+/**
+ * The fields of a line's plan its rides do not depend on: its id, by which the memo keys it; its seats, read only after the rides,
+ * as the buses fill (spread); and its metres through roadworks, which only its round trip drives.
+ */
+const NOT_RIDDEN = ['id', 'seats', 'worksM'] as const;
+
+/**
+ * Everything else of a line's plan, as text: two lines with the same signature carry the same rides. A field a plan gains is in
+ * it until it is shown to belong with NOT_RIDDEN, so one left in costs the memo only speed.
+ */
+function lineSignature(plan: LinePlan): string {
+  const ridden: Record<string, unknown> = { ...plan };
+  for (const key of NOT_RIDDEN) delete ridden[key];
+  return JSON.stringify(ridden);
+}
+
+/**
+ * Whether the lines of both lists come in the same order in each. A pair's options come in the order of its lines, and its rides
+ * are carried again in the order they were found, so a whole assignment adds them in that order only while it holds.
+ */
+function sameOrder(was: readonly LineId[], now: readonly LineId[]): boolean {
+  const inNow = new Set(now);
+  const inWas = new Set(was);
+  const before = was.filter((id) => inNow.has(id));
+  const after = now.filter((id) => inWas.has(id));
+  return before.length === after.length && before.every((id, k) => id === after[k]);
 }
 
 /**
@@ -519,6 +603,116 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
 
   const n = commuters.n;
   const scale = city.tripScalePermille / 1000;
+  // The memo (AssignMemo): the last assignment's rides, reused for the pairs no changed line has a route in. A pair's route is
+  // a line from a home cell and, for a change, the line it changes onto to the work cell, so the pairs a changed line has a route
+  // in are found from the catchments, the last assignment's and this one's: a route gone or come is in one of them.
+  // Not with `only` (the fare band's), whose assignment rides one line, nor with catchments given (`reach`), which the memo
+  // cannot tell from the plans', nor with a line id or a line's stops past what a ride's words hold (PACK), which no game comes near.
+  const memo = onlyLine >= 0 || options.reach || plans.some((plan) => plan.id >= PACK || plan.stops.length >= PACK) ? undefined : options.memo;
+  const ids = plans.map((plan) => plan.id);
+  const signatures = memo ? new Map(plans.map((plan) => [plan.id, lineSignature(plan)] as const)) : null;
+  const last = memo?.last;
+  const kept = last && last.commuters === commuters && last.rushy === rushy && last.homeLines.length === n && sameOrder(last.ids, ids) ? last : null;
+  let freshPair: Uint8Array | null = null;
+  let freshCell: Uint8Array | null = null;
+  if (kept && signatures) {
+    const changed = new Set<LineId>();
+    for (const [id, signature] of signatures) if (kept.signatures.get(id) !== signature) changed.add(id);
+    for (const id of kept.signatures.keys()) if (!signatures.has(id)) changed.add(id);
+    const pairsFresh = new Uint8Array(n * n);
+    const cellsFresh = new Uint8Array(n);
+    freshPair = pairsFresh;
+    freshCell = cellsFresh;
+    const mark = (lineIds: readonly LineId[], cells: Catchments['homeLines'], reach: Catchments['workAccess'], changes: Catchments['transfers']) => {
+      const touched = lineIds.map((id) => changed.has(id));
+      for (let i = 0; i < n; i++) {
+        for (const { line } of cells[i]!) {
+          const list = changes[line]!;
+          for (let x = -1; x < list.length; x++) {
+            const second = x < 0 ? line : list[x]!.line;
+            if (!touched[line] && !touched[second]) continue;
+            for (const { cell: j } of reach[second]!) {
+              pairsFresh[i * n + j] = 1;
+              cellsFresh[i] = 1;
+            }
+          }
+        }
+      }
+    };
+    if (changed.size) {
+      mark(kept.ids, kept.homeLines, kept.workAccess, kept.transfers);
+      mark(ids, homeLines, workAccess, transfers);
+    }
+  }
+  // This assignment's rides, kept for the next (AssignKept), in an arena of the memo's that the last assignment is not in: the
+  // spare, or the stale last's when it is of other commuters. And the places of the lines by id, for the rides carried again.
+  const reading = kept ? kept.arena : null;
+  let arena: RideArena = { stops: new Int32Array(0), riders: new Float64Array(0), pairWork: new Int32Array(0), pairRide: new Int32Array(1) };
+  if (memo) {
+    // A last assignment this one cannot carry from is let go before its arena is written over, so that one stopped halfway
+    // leaves nothing to carry from.
+    if (!kept) memo.last = null;
+    const pool = (memo.arenas ??= []);
+    const free = pool.find((a) => a !== reading);
+    if (free) arena = free;
+    else {
+      arena = { stops: new Int32Array(3 * 4_096), riders: new Float64Array(3 * 4_096), pairWork: new Int32Array(1_024), pairRide: new Int32Array(1_025) };
+      pool.push(arena);
+    }
+  }
+  let rides = 0;
+  let pairs = 0;
+  let freshCells = 0;
+  const cellPairs = new Int32Array(memo ? n + 1 : 0);
+  let maxId = 0;
+  for (const id of ids) maxId = Math.max(maxId, id);
+  if (kept) for (const id of kept.ids) maxId = Math.max(maxId, id);
+  const placeById = new Int32Array(maxId + 1).fill(-1);
+  ids.forEach((id, line) => (placeById[id] = line));
+  /** Room in the arena for `more` rides past those kept so far. */
+  const roomFor = (more: number) => {
+    if (3 * (rides + more) <= arena.stops.length) return;
+    let size = arena.stops.length / 3 || 4_096;
+    while (size < rides + more) size *= 2;
+    const stops = new Int32Array(3 * size);
+    stops.set(arena.stops.subarray(0, 3 * rides));
+    const riders = new Float64Array(3 * size);
+    riders.set(arena.riders.subarray(0, 3 * rides));
+    arena.stops = stops;
+    arena.riders = riders;
+  };
+  /** A pair's rides begin: those carried from here until the next pair's are its own. */
+  const beginPair = (j: number) => {
+    if (pairs + 1 >= arena.pairWork.length) {
+      const size = 2 * Math.max(arena.pairWork.length, 512);
+      const work = new Int32Array(size);
+      work.set(arena.pairWork.subarray(0, pairs));
+      const ride = new Int32Array(size + 1);
+      ride.set(arena.pairRide.subarray(0, pairs));
+      arena.pairWork = work;
+      arena.pairRide = ride;
+    }
+    arena.pairWork[pairs] = j;
+    arena.pairRide[pairs++] = rides;
+  };
+  /** The last assignment's rides `from` to `to` carried again in their order, as ride3 carried them, and kept in this one's arena. */
+  const carryKept = (from: number, to: number) => {
+    const at = reading!.stops;
+    const by = reading!.riders;
+    roomFor(to - from);
+    arena.stops.set(at.subarray(3 * from, 3 * to), 3 * rides);
+    arena.riders.set(by.subarray(3 * from, 3 * to), 3 * rides);
+    rides += to - from;
+    for (let r = from; r < to; r++) {
+      const lines = at[3 * r]!;
+      const ends = at[3 * r + 1]!;
+      const change = at[3 * r + 2]!;
+      const second = (lines >>> 15) - 1;
+      carry(placeById[lines & (PACK - 1)]!, second < 0 ? -1 : placeById[second]!, ends & (PACK - 1), ends >>> 15, change & (PACK - 1), change >>> 15, by[3 * r]!, by[3 * r + 1]!, by[3 * r + 2]!);
+    }
+  };
+  // For a home cell worked out afresh, where each of its pairs is among the last assignment's (1 + its place; 0 for none).
+  const keptPair = new Int32Array(kept ? n : 0);
   // Riders per line per period at [line * 3 + period], as if the whole day's trips fell in that
   // period; spread over the period's half-hours by the commute profile at the end, since a choice
   // depends only on the wait. And those who pay there: all but the riders changing onto it.
@@ -565,9 +759,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   let optAlight = new Int32Array(room);
   let optChangeFrom = new Int32Array(room);
   let optChangeTo = new Int32Array(room);
-  // Each option's route's rush table (rushTable), and where its stops sit in it.
-  let optRoute = new Int32Array(room);
-  let optCell = new Int32Array(room);
+  // Each option's minutes period k's traffic adds to its rides at [option * 6 + k], and exp(that / τ) at [option * 6 + 3 + k],
+  // read from its route's rush table (rushTable) as the option is found: 0 and 1 without rush.
+  let optRush = new Float64Array(room * 6);
   const grow = () => {
     room *= 2;
     const more = <A extends Int32Array | Float64Array>(old: A, make: (size: number) => A): A => {
@@ -588,8 +782,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     optAlight = more(optAlight, (k) => new Int32Array(k));
     optChangeFrom = more(optChangeFrom, (k) => new Int32Array(k));
     optChangeTo = more(optChangeTo, (k) => new Int32Array(k));
-    optRoute = more(optRoute, (k) => new Int32Array(k));
-    optCell = more(optCell, (k) => new Int32Array(k));
+    const rushes = new Float64Array(room * 6);
+    rushes.set(optRush);
+    optRush = rushes;
   };
   /**
    * Carries riders on `line` from stop `board` to stop `alight`, `r0` to `r2` in PERIODS order: who
@@ -616,8 +811,22 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     d[4 * stops + dir + lo]! += r2;
     d[4 * stops + dir + hi]! -= r2;
   };
-  /** Carries an option's riders in each period: on its line, and on the one it changes onto, as a change there. */
+  /** Carries an option's riders in each period, keeping the ride for the next assignment where there is a memo (AssignMemo). */
   const ride3 = (line: number, second: number, board: number, alight: number, changeFrom: number, changeTo: number, r0: number, r1: number, r2: number) => {
+    if (memo) {
+      if (3 * rides === arena.stops.length) roomFor(1);
+      const at = 3 * rides++;
+      arena.stops[at] = ids[line]! | (second < 0 ? 0 : (ids[second]! + 1) << 15);
+      arena.stops[at + 1] = board | (alight << 15);
+      arena.stops[at + 2] = changeFrom | (changeTo << 15);
+      arena.riders[at] = r0;
+      arena.riders[at + 1] = r1;
+      arena.riders[at + 2] = r2;
+    }
+    carry(line, second, board, alight, changeFrom, changeTo, r0, r1, r2);
+  };
+  /** Carries riders in each period: on their line, and on the one they change onto, as a change there. */
+  const carry = (line: number, second: number, board: number, alight: number, changeFrom: number, changeTo: number, r0: number, r1: number, r2: number) => {
     const at = line * 3;
     riders[at]! += r0;
     riders[at + 1]! += r1;
@@ -655,11 +864,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     if (w === Infinity) return 0;
     return shareGiven(base + w + rush, (second < 0 ? lead * expWait[at]! : lead * expWait[at]! * expWait[second * 3 + k]!) * expRush, walkMin);
   };
-  /** Minutes period `k`'s traffic adds to a stored option's rides (fewer off-peak). */
-  const optionRush = (q: number, k: number) => (rushy ? rushTable[optRoute[q]!]![optCell[q]! + k]! : 0);
   /** shareAlone() for a stored option. */
   const optionAlone = (q: number, k: number, walkMin: number) =>
-    shareAlone(optLine[q]!, optSecond[q]!, optBase[q]!, optLead[q]!, k, walkMin, optionRush(q, k), rushy ? rushTable[optRoute[q]!]![optCell[q]! + 3 + k]! : 1);
+    shareAlone(optLine[q]!, optSecond[q]!, optBase[q]!, optLead[q]!, k, walkMin, optRush[q * 6 + k]!, optRush[q * 6 + 3 + k]!);
   // Scratch for several routes: each sub-point's options as a bitmask, the sets of options pairs of
   // sub-points share (at most 64 pairs) and their shares of the cell pair, and one set's options
   // (a pair has at most one per route), and the quickest of them on each first line, with how many
@@ -671,6 +878,13 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   let pairMask = new Int32Array(2);
   let setKey = new Int32Array(128);
   const setWeight = new Float64Array(64);
+  // A pair's sets on single words found by their key in an open-addressed table of 128 slots, each slot stamped with the pair
+  // it was filled for, so nothing is cleared between pairs: the sets come out in the order the scan meets them, as a search of
+  // the list found them.
+  const slotKey = new Int32Array(128);
+  const slotSet = new Int32Array(128);
+  const slotPair = new Int32Array(128).fill(-1);
+  let pairStamp = 0;
   let members = new Int32Array(Math.max(lineCount, 32));
   let picked = new Int32Array(members.length);
   let tied = new Int32Array(members.length);
@@ -704,7 +918,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         const line = optLine[q]!;
         if (headway[line * 3 + k] === Infinity) continue;
         const second = optSecond[q]!;
-        const base = (second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!) + optionRush(q, k);
+        const base = (second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!) + optRush[q * 6 + k]!;
         if (base === Infinity) continue;
         let at = 0;
         while (at < lines && optLine[picked[at]!] !== line) at++;
@@ -738,7 +952,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
           const q = set[p]!;
           if (optLine[q] !== line) continue;
           const second = optSecond[q]!;
-          if ((second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!) + optionRush(q, k) === memberBase[m]) optRide[q * 3 + k]! += each;
+          if ((second < 0 ? optBase[q]! : optBase[q]! + wait[second * 3 + k]!) + optRush[q * 6 + k]! === memberBase[m]) optRide[q * 3 + k]! += each;
         }
       }
     }
@@ -761,6 +975,19 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     const from = homes[i]!;
     touchedCount = 0;
     entries = 0;
+    if (memo) cellPairs[i] = pairs;
+    // A home cell no changed line has a route from: its pairs as the last assignment carried them, in its order.
+    const wasFrom = kept ? kept.cellPairs[i]! : 0;
+    const wasTo = kept ? kept.cellPairs[i + 1]! : 0;
+    if (kept && freshCell && !freshCell[i]) {
+      for (let p = wasFrom; p < wasTo; p++) {
+        beginPair(reading!.pairWork[p]!);
+        carryKept(reading!.pairRide[p]!, reading!.pairRide[p + 1]!);
+      }
+      continue;
+    }
+    freshCells++;
+    for (let p = wasFrom; p < wasTo; p++) keptPair[reading!.pairWork[p]!] = p + 1;
     if (onlyLine >= 0 && !homeLines[i]!.some((h) => feedsOnly[h.line])) continue;
     homeReach.fill(0);
     reachUsed = 0;
@@ -838,6 +1065,13 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       hasOnly[j] = 0;
       const flow = commuters.flow[i * n + j]!;
       if (flow <= 0 || skip) continue;
+      if (memo) beginPair(j);
+      // A pair no changed line has a route in, then or now: its rides as the last assignment carried them.
+      if (kept && !freshPair![i * n + j] && keptPair[j]) {
+        const p = keptPair[j]! - 1;
+        carryKept(reading!.pairRide[p]!, reading!.pairRide[p + 1]!);
+        continue;
+      }
       // Straight-line km between the cells' centres, which no stop can move (I2), and the car and
       // walking minutes it gives.
       const km = commuters.km[i * n + j]!;
@@ -859,6 +1093,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
         const stops = stopCount[rideOn]!;
         const expTable = x < 0 ? expRideFare[line]! : expChangeMin[line]![x]!;
         const via = x < 0 ? null : changeMin[line]![x]!.via;
+        const change = x < 0 ? null : transfers[line]![x]!;
         const reach = entryReach[e]!;
         // This route's rush table, read once for all its options.
         const route = rushy ? routeOf[line]! + x + 1 : 0;
@@ -897,8 +1132,8 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
             const board = a.pos[at]!;
             const lead = a.expWalk[at]! * expTable[board * stops + alight]! * b.expWalk[y]! * expCar;
             const k = via ? via[board * stops + alight]! : 0;
-            const changeFrom = via ? transfers[line]![x]!.from[k]! : 0;
-            const changeTo = via ? transfers[line]![x]!.to[k]! : 0;
+            const changeFrom = change ? change.from[k]! : 0;
+            const changeTo = change ? change.to[k]! : 0;
             if (alone) {
               let r0: number;
               let r1: number;
@@ -927,8 +1162,17 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
             optAlight[count] = alight;
             optChangeFrom[count] = changeFrom;
             optChangeTo[count] = changeTo;
-            optRoute[count] = route;
-            optCell[count] = 6 * (board * stops + alight);
+            if (rush) {
+              const at = 6 * (board * stops + alight);
+              for (let r = 0; r < 6; r++) optRush[count * 6 + r] = rush[at + r]!;
+            } else {
+              optRush[count * 6] = 0;
+              optRush[count * 6 + 1] = 0;
+              optRush[count * 6 + 2] = 0;
+              optRush[count * 6 + 3] = 1;
+              optRush[count * 6 + 4] = 1;
+              optRush[count * 6 + 5] = 1;
+            }
             count++;
           }
         }
@@ -981,6 +1225,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
           for (let bits = optTo[q]!; bits; bits &= bits - 1) workWord[31 - Math.clz32(bits & -bits)]! |= 1 << q;
         }
         let sets = 0;
+        const stamp = pairStamp++;
         for (let h = 0; h < from.share.length; h++) {
           const hs = from.share[h]!;
           if (hs === 0) continue;
@@ -988,9 +1233,14 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
             const ws = to.share[w]!;
             const key = homeWord[h]! & workWord[w]!;
             if (ws === 0 || key === 0) continue;
-            let at = 0;
-            while (at < sets && setKey[at] !== key) at++;
-            if (at === sets) {
+            let slot = Math.imul(key, 0x9e3779b1) >>> 25;
+            while (slotPair[slot] === stamp && slotKey[slot] !== key) slot = (slot + 1) & 127;
+            let at: number;
+            if (slotPair[slot] === stamp) at = slotSet[slot]!;
+            else {
+              slotPair[slot] = stamp;
+              slotKey[slot] = key;
+              slotSet[slot] = at = sets;
               setKey[sets] = key;
               setWeight[sets++] = 0;
             }
@@ -1051,6 +1301,35 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       }
       rideScanned(count);
     }
+    for (let p = wasFrom; p < wasTo; p++) keptPair[reading!.pairWork[p]!] = 0;
+  }
+  if (memo) {
+    cellPairs[n] = pairs;
+    arena.pairRide[pairs] = rides;
+    // Grown by doubling as it fills, an arena is trimmed to a tenth over what it holds once it is a quarter over (the two hold 30.5
+    // and 33.7 MB of the late companies' rides; DECISIONS, Measured); the next that needs more grows it again.
+    if (arena.stops.length > 3 * (1.25 * rides + 4_096)) {
+      const size = Math.ceil(1.1 * rides) + 4_096;
+      arena.stops = arena.stops.slice(0, 3 * size);
+      arena.riders = arena.riders.slice(0, 3 * size);
+    }
+    if (arena.pairWork.length > 1.25 * pairs + 1_024) {
+      const size = Math.ceil(1.1 * pairs) + 1_024;
+      arena.pairWork = arena.pairWork.slice(0, size);
+      arena.pairRide = arena.pairRide.slice(0, size + 1);
+    }
+    memo.last = {
+      commuters,
+      rushy,
+      signatures: signatures!,
+      ids,
+      homeLines,
+      workAccess,
+      transfers,
+      arena,
+      cellPairs,
+      freshCells,
+    };
   }
   const perLine = (by: Float64Array) => plans.map((_, line) => [by[line * 3]!, by[line * 3 + 1]!, by[line * 3 + 2]!]);
   return spread(

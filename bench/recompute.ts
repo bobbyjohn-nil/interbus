@@ -6,7 +6,10 @@
 // synthetic Inner-Boston-sized grid with T03's network, and, once `node tools/bake/sim.mjs boston
 // inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
 // whole recompute there with five depots, on hubs of lines out of one stop, on a late game's many lines, and on the pacing run's
-// card-building companies at the bus ceiling (bench/fixtures). Results go to .cache/bench/recompute.json.
+// card-building companies at the bus ceiling (bench/fixtures). The whole recompute is timed from nothing, its memo let go first,
+// as a load or an event's start runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
+// assignment carries the rides of the cell pairs no changed line has a route in, AssignMemo). Results go to
+// .cache/bench/recompute.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
@@ -27,7 +30,7 @@ import { lateScene } from '../src/sim/scene';
 import { fromSaveData } from '../src/sim/save/save';
 import type { SaveData } from '../src/sim/save/schema';
 import { newGame } from '../src/sim/state';
-import { commutersToday, createWorld, planLine, recompute } from '../src/sim/world';
+import { commutersToday, createWorld, planLine, recompute, runningPlans, type World } from '../src/sim/world';
 import { CORRIDORS, innerBoston } from './inner';
 import { syntheticCity, t03Network } from './synthetic';
 
@@ -56,6 +59,63 @@ function time(name: string, run: () => void, gate = true): { p50: number; p95: n
     process.exitCode = 1;
   }
   return out;
+}
+
+/** The whole recompute from nothing, as a load or an event's start runs it: the memo of the last assignment let go first. */
+const fromNothing = (w: World) => () => {
+  w.assignMemo!.last = null;
+  recompute(w);
+};
+
+/**
+ * A command's recompute: each run one line's headways a half slower, or back, line after line, the memo kept between runs as the
+ * game keeps it. A slower headway needs no more buses, so every line still runs.
+ */
+const aCommand = (w: World) => {
+  const set = w.state.lines.map((line) => line.headways);
+  let k = 0;
+  return () => {
+    const at = Math.floor(k / 2) % w.state.lines.length;
+    const line = w.state.lines[at]!;
+    const h = set[at]!;
+    line.headways = k % 2 === 0 ? { peak: Math.round(h.peak * 1.5), offpeak: Math.round(h.offpeak * 1.5), overnight: h.overnight === null ? null : Math.round(h.overnight * 1.5) } : h;
+    k++;
+    recompute(w);
+  };
+};
+
+/**
+ * What keeping the rides costs a whole assignment: one keeping them, from nothing, against one keeping none, taking turns in the
+ * same runs, the first of them each run in turn, so the machine's load falls on both alike. The world is recomputed after.
+ */
+function keepingAgainstNot(name: string, w: World): void {
+  const plans = runningPlans(w);
+  const commuters = commutersToday(w);
+  const keep = () => {
+    w.assignMemo!.last = null;
+    const t0 = performance.now();
+    assign(w.city, commuters, plans, { memo: w.assignMemo });
+    return performance.now() - t0;
+  };
+  const none = () => {
+    const t0 = performance.now();
+    assign(w.city, commuters, plans);
+    return performance.now() - t0;
+  };
+  const keeping: number[] = [];
+  const not: number[] = [];
+  for (let k = 0; k < RUNS + 3; k++) {
+    const keptFirst = k % 2 === 0;
+    const a = keptFirst ? keep() : none();
+    const b = keptFirst ? none() : keep();
+    if (k < 3) continue;
+    keeping.push(keptFirst ? a : b);
+    not.push(keptFirst ? b : a);
+  }
+  const at = (xs: number[], q: number) => [...xs].sort((x, y) => x - y)[Math.ceil(xs.length * q) - 1]!;
+  results[`keeping the rides, ${name}`] = { keeping: { p50: at(keeping, 0.5), p95: at(keeping, 0.95) }, not: { p50: at(not, 0.5), p95: at(not, 0.95) } };
+  console.log(`bench: a whole assignment ${name} keeping its rides p50 ${at(keeping, 0.5).toFixed(1)} ms, p95 ${at(keeping, 0.95).toFixed(1)} ms; keeping none p50 ${at(not, 0.5).toFixed(1)} ms, p95 ${at(not, 0.95).toFixed(1)} ms, taking turns over ${RUNS} runs`);
+  recompute(w);
 }
 
 const loaded = loadCity(bakeSim('boston', 'mini-boston').text);
@@ -102,7 +162,9 @@ if (inner) {
     boston.state.nextIds = next;
     boston.state.depots.push({ id, lon, lat });
   }
-  time(`Inner Boston's whole recompute, ${boston.state.lines.length} lines of 3 Sparrows and ${boston.state.depots.length} depots`, () => recompute(boston));
+  time(`Inner Boston's whole recompute, ${boston.state.lines.length} lines of 3 Sparrows and ${boston.state.depots.length} depots`, fromNothing(boston));
+  time(`Inner Boston, a command's recompute, ${boston.state.lines.length} lines of 3 Sparrows and ${boston.state.depots.length} depots`, aCommand(boston));
+  keepingAgainstNot(`of Inner Boston's ${boston.state.lines.length} lines of 3 Sparrows`, boston);
 
   // Hubs (the systems audit's seventh round): spokes out of Copley Square, each Copley and the next four stops along the
   // streets toward a bearing 3 km out, about 600 m apart (corridorStops), drawn as Create draws them with one Sparrow at
@@ -130,7 +192,7 @@ if (inner) {
     }
     if (hub.state.lines.length !== size) throw new Error(`bench: the hub has ${hub.state.lines.length} lines, not ${size}`);
     const buses = hub.state.lines.reduce((n, l) => n + l.buses, 0);
-    time(`Inner Boston's whole recompute, a hub of ${size} spokes out of Copley Square, ${buses} buses`, () => recompute(hub), size <= 8);
+    time(`Inner Boston's whole recompute, a hub of ${size} spokes out of Copley Square, ${buses} buses`, fromNothing(hub), size <= 8);
   }
 
   // A late game with no hub (the systems audit's seventh round, the screens with many lines; scene.ts lateScene): line after
@@ -141,7 +203,8 @@ if (inner) {
     const late = lateScene(boston.city, { id: 'boston', revision: 'inner-boston', hash: '-' }, CORRIDORS, n);
     const at = new Map<number, number>();
     for (const line of late.state.lines) for (const stop of new Set(line.stopIds)) at.set(stop, (at.get(stop) ?? 0) + 1);
-    time(`Inner Boston's whole recompute, a late game of ${late.state.lines.length} lines, at most ${Math.max(...at.values())} at a stop`, () => recompute(late), n <= 15);
+    time(`Inner Boston's whole recompute, a late game of ${late.state.lines.length} lines, at most ${Math.max(...at.values())} at a stop`, fromNothing(late), n <= 15);
+    if (n === 30) time(`Inner Boston, a command's recompute, a late game of ${late.state.lines.length} lines`, aCommand(late), false);
   }
 
   // The late game the pacing run builds (the systems audit's fifteenth round): bench/lategame.ts's card-building company
@@ -156,7 +219,33 @@ if (inner) {
     recompute(company);
     const at = new Map<number, number>();
     for (const line of company.state.lines) for (const stop of new Set(line.stopIds)) at.set(stop, (at.get(stop) ?? 0) + 1);
-    time(`Inner Boston's whole recompute, the pacing run's company on seed ${seed} at the bus ceiling, ${company.state.lines.length} lines on ${company.state.stops.length} stops, at most ${Math.max(...at.values())} at a stop`, () => recompute(company), false);
+    const name = `the pacing run's company on seed ${seed} at the bus ceiling, ${company.state.lines.length} lines on ${company.state.stops.length} stops, at most ${Math.max(...at.values())} at a stop`;
+    time(`Inner Boston's whole recompute, ${name}`, fromNothing(company), false);
+    time(`Inner Boston, a command's recompute, ${name}`, aCommand(company), false);
+    // The memo's riders are a whole assignment's, number for number, after all those commands (memo.test.ts holds the rule).
+    const fresh = assign(company.city, commutersToday(company), runningPlans(company));
+    const differ = (a: unknown, b: unknown): boolean => {
+      if (typeof a === 'number' || typeof b === 'number') return !Object.is(a, b);
+      if (a instanceof Map && b instanceof Map) return a.size !== b.size || [...a].some(([k, v]) => differ(v, b.get(k)));
+      if (ArrayBuffer.isView(a) || Array.isArray(a)) {
+        const x = a as ArrayLike<unknown>;
+        const y = b as ArrayLike<unknown>;
+        return x.length !== y.length || Array.from(x).some((v, k) => differ(v, y[k]));
+      }
+      if (a && typeof a === 'object') return Object.keys(a).some((k) => differ((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+      return a !== b;
+    };
+    const same = !differ(company.assignment, fresh);
+    results[`memo matches a whole assignment, seed ${seed}`] = same;
+    console.log(`bench: after them, the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
+    if (!same) process.exitCode = 1;
+    keepingAgainstNot(`of the pacing run's company on seed ${seed}`, company);
+    // What the memo holds: its two arenas, the last assignment's rides and the next one's.
+    const memo = company.assignMemo!;
+    let bytes = 0;
+    for (const arena of memo.arenas ?? []) bytes += arena.stops.byteLength + arena.riders.byteLength + arena.pairWork.byteLength + arena.pairRide.byteLength;
+    results[`memo bytes, seed ${seed}`] = bytes;
+    console.log(`bench: the memo of the pacing run's company on seed ${seed} holds ${(bytes / 1e6).toFixed(1)} MB in its two arenas`);
   }
 }
 
