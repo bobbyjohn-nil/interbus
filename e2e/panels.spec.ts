@@ -13,7 +13,7 @@ import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { LINE_COLOURS } from '../src/sim/config/lines';
 import { foundCompany } from './found';
-import { build, city, toScreen, withDebugLine, zoomOutOnce } from './shell';
+import { build, city, resizeTo, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
 const apart = async (a: Locator, b: Locator) => {
   const [p, q] = [(await a.boundingBox())!, (await b.boundingBox())!];
@@ -235,7 +235,7 @@ test.describe('movable panels', () => {
     // below), and Saves, never dragged, comes back whole, its Close button free to press. Kept whole, it
     // lay over Finance's strip: placed afresh beside it, as on opening, it lies clear of it (the systems
     // audit's seventeenth round, where panels a zoom left over each other stayed piled).
-    await page.setViewportSize({ width: 1152, height: 720 });
+    await resizeTo(page, 1152, 720);
     const heading = finance.getByRole('heading', { name: 'Finance' });
     const grabbed = async () => {
       const r = (await heading.boundingBox())!;
@@ -258,7 +258,7 @@ test.describe('movable panels', () => {
 
   // Kept whole one by one as the window changed size, panels piled up: as Chrome's zoom went to 110%, Finance lay 119×302 px over
   // Lines, and stayed there once it was back at 100% (the systems audit's seventeenth round). One that the change leaves over
-  // another is placed afresh beside the rest, as on opening. Shown failing (TS-04) with the panels kept whole alone.
+  // another is placed afresh beside the rest, as on opening. Shown failing (TS-04) with the panels kept whole alone, at 1309×718.
   test('keep panels in free places apart as the window shrinks, as Chrome’s zoom does, and grows again', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 790 });
     await page.goto('./');
@@ -272,9 +272,29 @@ test.describe('movable panels', () => {
     const allApart = async () => (await apart(panels[0]!, panels[1]!)) && (await apart(panels[0]!, panels[2]!)) && (await apart(panels[1]!, panels[2]!));
     expect(await allApart()).toBe(true);
     for (const [width, height] of [[1309, 718], [1440, 790], [1366, 768], [1440, 790]] as const) {
-      await page.setViewportSize({ width, height });
-      await expect.poll(allApart, { message: `at ${width}×${height}` }).toBe(true);
+      await resizeTo(page, width, height);
+      expect(await allApart(), `at ${width}×${height}`).toBe(true);
     }
+  });
+
+  // One that a drag left lying over another stays where it is as the window changes size: placed afresh at any change of size,
+  // Saves, with Finance dragged onto it, jumped from x 582 to 1108 as the window grew (the review of the systems audit's
+  // seventeenth round's fixes). Shown failing (TS-04) with every panel lying over another placed afresh.
+  test('leave a panel where it is as the window grows, with another dragged over it before', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const finance = page.getByTestId('finance');
+    const saves = page.getByTestId('saves');
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByRole('button', { name: 'Saves' }).click();
+    const [s, f] = [(await saves.boundingBox())!, (await finance.boundingBox())!];
+    await dragBy(page, finance, 'Finance', s.x - f.x + 40, 100);
+    expect(await apart(finance, saves)).toBe(false);
+    await resizeTo(page, 1440, 790);
+    const now = (await saves.boundingBox())!;
+    expect([Math.round(now.x), Math.round(now.y)]).toEqual([Math.round(s.x), Math.round(s.y)]);
   });
 });
 

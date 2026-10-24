@@ -7,7 +7,7 @@
 import { expect, test, type Locator, type Page } from './base';
 import { axeProblems } from './a11y';
 import { foundCompany } from './found';
-import { city, frames, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';
+import { city, resizeTo, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';
 
 /** The report's words and figures that the stamp, as drawn, lies over. */
 const coveredBy = (stamp: Locator) =>
@@ -329,10 +329,9 @@ test.describe('the day card', () => {
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await expect(page.locator('.panel h2')).toHaveCount(2);
     await expect.poll(() => clearOfPanels(card)).toBe(true);
-    await page.setViewportSize({ width: 1152, height: 720 });
-    // The page hears the resize at its next frame, when Finance, kept whole, would lie over Lines and goes beside it (Panels):
-    // read before then, the card stood where it was at 1366 px, clear of both.
-    await frames(page);
+    // Finance, kept whole, would lie over Lines at 1152 px, and goes beside it (Panels): read before the page heard the resize,
+    // the card stood where it was at 1366 px, clear of both, and moved at the drag's first step.
+    await resizeTo(page, 1152, 720);
     await expect.poll(() => clearOfPanels(card)).toBe(true);
     // Finance dragged 400 px left in twenty steps: the card stays where it is through the drag, then stands clear of where Finance
     // went, in the room it leaves beside Lines.
