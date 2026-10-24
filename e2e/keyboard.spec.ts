@@ -6,7 +6,7 @@
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, setSpeed, toScreen, withDebugLine, zoomOutOnce, type SaveData } from './shell';
+import { build, city, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce, type SaveData } from './shell';
 
 /** A founded company with the debug line, edited by `edit`, past Home, and Lines open on it. */
 async function lines(page: Page, edit?: (data: SaveData) => void) {
@@ -341,6 +341,51 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(taken).toBeFocused();
   });
 
+  /** The busy quarter's close ten minutes off (shell.ts), `edit` on it, with Contracts open from the keyboard on the Take it of the offer the close withdraws, at 60×. */
+  async function onTheOfferWithdrawn(page: Page, edit?: (data: SaveData) => void) {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await leaveHome(page);
+    await foundCompany(page);
+    await withBusyQuarterClose(page, edit);
+    const chip = page.getByTestId('contracts-chip');
+    await chip.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(chip).toBeFocused();
+    await page.keyboard.press('Enter');
+    const contracts = page.getByTestId('contracts');
+    const offer = contracts.getByTestId('contract').filter({ has: page.getByRole('button', { name: 'Take it' }) }).first();
+    const id = (await offer.getAttribute('data-contract'))!;
+    await tabTo(page, offer.getByRole('button', { name: 'Take it' }));
+    await page.keyboard.press('2'); // 60×: the close in 10 s
+    const day = page.getByTestId('day-card');
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
+    return { contracts, day };
+  }
+
+  test('a close that withdraws the offer the keyboard is on hands the focus to the row in its place', async ({ page }) => {
+    // The close took the row and its Take it away, and the focus fell to the page with Contracts open (the systems audit's
+    // fourteenth round). Shown failing (TS-04) with the focus left where it fell.
+    test.setTimeout(90_000);
+    const { contracts } = await onTheOfferWithdrawn(page);
+    await expect(contracts.locator('[data-contract]:focus')).toHaveCount(1);
+  });
+
+  test('the close that ends the run, withdrawing the offer the keyboard is on, gives the focus to Continue', async ({ page }) => {
+    // Contracts' hand-off ran before the day card's, so the row in the offer's place took the focus, its Take it turned off, and
+    // Continue, which takes the focus at the run's end, had none (the review of the fourteenth round's fixes). Shown failing
+    // (TS-04) with the hand-off at the run's end too.
+    test.setTimeout(90_000);
+    const { day } = await onTheOfferWithdrawn(page, (d) => {
+      d.closesBelowFloor = 4; // the fifth close below the floor
+      d.ledger.push({ day: 8, kind: 'buses', amountCents: -100_000_000, lineId: null });
+    });
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await expect(day.getByRole('button', { name: 'Continue' })).toBeFocused();
+  });
+
   /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×; the day card and its Continue. */
   async function toTheClose(page: Page) {
     await page.goto('./');
@@ -369,6 +414,27 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(dockLines).toBeFocused();
     await expect(day).toBeVisible({ timeout: 30_000 });
     await tabTo(page, go);
+    await page.keyboard.press('Enter');
+    await expect(day).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+  });
+
+  test('the next close’s card keeps the focus on Continue, which hands it back where it came from', async ({ page }) => {
+    // The next close built its card anew, and the focus on the last one's Continue fell to the page, where Enter did nothing and
+    // Space paused (the systems audit's fourteenth round). Shown failing (TS-04) with the card built anew at each close.
+    test.setTimeout(90_000);
+    const { day, go } = await toTheClose(page);
+    const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
+    await dockLines.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(dockLines).toBeFocused();
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    const first = (await day.getAttribute('aria-label'))!;
+    await tabTo(page, go);
+    await page.keyboard.press('5'); // 5,400×: the next close in about 16 s
+    await expect(day).not.toHaveAttribute('aria-label', first, { timeout: 40_000 });
+    await expect(go).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(day).toHaveCount(0);
     await expect(dockLines).toBeFocused();

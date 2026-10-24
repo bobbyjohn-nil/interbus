@@ -20,8 +20,9 @@ export function FailureCard({ sim }: { sim: Sim }) {
   useEffect(() => {
     if (shown && focusLost()) restart.current?.focus();
   }, [shown]);
-  // Its words scroll in a short window, as a day card's rows do (useScrollStop).
-  const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();
+  // Its words scroll in a short window, as a day card's rows do (useScrollStop), and Restart this quarter takes the focus on them
+  // as they stop: it fell to the page as the window grew (the review of the fourteenth round's fixes).
+  const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>(undefined, () => restart.current);
   const heading = useId();
   if (!shown) return null;
   return (

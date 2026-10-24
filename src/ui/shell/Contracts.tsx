@@ -1,6 +1,8 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
+import type { ContractView } from '../../sim/types';
 import { useFocusBack } from '../focusBack';
+import { focusLost } from '../focusLost';
 import { runOver } from '../game/runOver';
 import { askText, capitalise, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
@@ -20,12 +22,21 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
   const root = useRef<HTMLElement>(null);
   const toRow = (id: number) => () => {
     const row = root.current?.querySelector<HTMLElement>(`[data-contract="${id}"]`);
-    if (row) {
-      row.tabIndex = -1;
-      row.addEventListener('blur', () => row.removeAttribute('tabindex'), { once: true });
-    }
-    return row;
+    return row && focusable(row);
   };
+  // A close takes rows away (an offer withdrawn, a contract paid or lapsed): one going with the keyboard's focus in it says where
+  // it stood, and the row now there takes the focus, or the one above, or the panel, rather than the page (the systems audit's
+  // fourteenth round). The close that ends the run leaves it to the day card's Continue (DayCard), whose layout effect runs after
+  // this one: the row took it first, its Take it turned off (the review of the round's fixes).
+  const gone = useRef<number | null>(null);
+  const over = runOver(sim);
+  useLayoutEffect(() => {
+    const at = gone.current;
+    gone.current = null;
+    if (at === null || over || !focusLost() || !root.current) return;
+    const rows = root.current.querySelectorAll<HTMLElement>('[data-contract]');
+    focusable(rows[Math.min(at, rows.length - 1)] ?? root.current).focus();
+  });
   const s = sim.snapshot;
   if (!s) return null;
   const toSilver = tripsToSilver(s.medals, s.tripsCarried);
@@ -36,8 +47,8 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
       </button>
       <h2>Contracts</h2>
       <ul className="contract-list">
-        {s.contracts.map((c) => (
-          <li key={c.id} data-contract={c.id} data-testid="contract" data-landmark={c.landmark} data-kind={c.kind} data-held={c.held ? 'yes' : 'no'} data-met={c.met ? 'yes' : 'no'} data-days-met={c.daysMet}>
+        {s.contracts.map((c, k) => (
+          <Row key={c.id} c={c} at={k} gone={gone}>
             <strong>
               {capitalise(askText(c.kind, c.ask))} at {c.landmark}
             </strong>
@@ -56,7 +67,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
               <span className="controls">
                 <button
                   type="button"
-                  disabled={runOver(sim)}
+                  disabled={over}
                   onClick={(e) => {
                     handBack(e.currentTarget, toRow(c.id));
                     sim.send({ type: 'accept-contract', contractId: c.id });
@@ -66,7 +77,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
                 </button>
               </span>
             )}
-          </li>
+          </Row>
         ))}
       </ul>
       <section className="medal-ladder" aria-label="Medals" data-testid="medal-ladder" data-to-silver={toSilver}>
@@ -95,5 +106,35 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
         </ul>
       </section>
     </aside>
+  );
+}
+
+/** Makes `el` take the focus until the focus leaves it, as Panels' box does: a row or the panel is no stop of its own. */
+function focusable(el: HTMLElement): HTMLElement {
+  el.tabIndex = -1;
+  el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
+  return el;
+}
+
+/**
+ * A contract's row, `at` in the list. Going with the keyboard's focus in it, it says where it stood (`gone`), while it is still
+ * on the page: its cleanup runs before React takes it off.
+ */
+function Row({ c, at, gone, children }: { c: ContractView; at: number; gone: MutableRefObject<number | null>; children: ReactNode }) {
+  const row = useRef<HTMLLIElement>(null);
+  const place = useRef(at);
+  useLayoutEffect(() => {
+    place.current = at;
+  });
+  useLayoutEffect(
+    () => () => {
+      if (row.current?.contains(document.activeElement)) gone.current = place.current;
+    },
+    [gone],
+  );
+  return (
+    <li ref={row} data-contract={c.id} data-testid="contract" data-landmark={c.landmark} data-kind={c.kind} data-held={c.held ? 'yes' : 'no'} data-met={c.met ? 'yes' : 'no'} data-days-met={c.daysMet}>
+      {children}
+    </li>
   );
 }

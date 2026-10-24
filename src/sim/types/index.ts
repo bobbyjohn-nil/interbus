@@ -223,7 +223,7 @@ export interface Snapshot {
   readonly speed: Speed;
   /** The company, unnamed until founded. */
   readonly company: { readonly name: string; readonly colour: string };
-  /** Seconds since midnight of the game day, with the part-step run so far, and game seconds per real second (0 paused): the vehicle layer runs the clock on between snapshots. */
+  /** Seconds since midnight of the game day, with the part-step run so far, and game seconds per real second (0 paused, or held while the page is out of sight): the vehicle layer runs the clock on between snapshots. */
   readonly secondOfDay: number;
   readonly rate: number;
   readonly cashCents: number;
@@ -373,6 +373,8 @@ export type ToWorker =
   /** The page's answer to read-save: the text under that key, or null. */
   | { readonly type: 'save-text'; readonly text: string | null }
   | { readonly type: 'speed'; readonly speed: Speed }
+  /** The page out of sight (a tab in the background, a window minimised), or in sight again: time holds while it is out, at its speed (useSim). */
+  | { readonly type: 'hold'; readonly held: boolean }
   /** How many live (a home dot) or work (a job dot) within a walk of `at`. */
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair; readonly kind: 'home' | 'job' }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }

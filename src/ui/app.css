@@ -111,7 +111,11 @@ body,
 .replaced {
   position: absolute;
   z-index: var(--layer-replaced);
-  top: 16px;
+  /* At the board's foot, above the dock, where the map's cards drop while a card that waits for an answer is up. At the board's
+     top it hid the chips' middle, the floor's countdown among them (the systems audit's fourteenth round), as it had the Cash
+     chip (the seventh); under the chips, at 72 px, it hid the panels' headings and Finance's tabs, and Low graphics' notice
+     (the review of the round's fixes); high on the board, a day card's heading (the review of the seventh's). */
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -135,14 +139,6 @@ body,
 
 .replaced.unsaved span {
   flex-basis: 100%;
-}
-
-/* Stacked, it reached 118 px, over the heading and first row of a day card or the lender's card at 60 px (the review of the
-   seventh round's fixes), so while one is up it drops to the board's foot as the map's cards do. One row, it ends at 66 px,
-   clear of their headings. The lender's card is on the panels' layer now, in a free place from 56 px down, and the same holds. */
-.app:has(.day-card) .replaced.unsaved {
-  top: auto;
-  bottom: 80px;
 }
 
 .replaced button,

@@ -1,7 +1,7 @@
-import { expect, test, type Locator, type Route } from './base';
+import { expect, test, type Locator, type Page, type Route } from './base';
 import { copyProblems } from '../src/ui/copyRules';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
+import { bootGone, build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
 
 // The error bus is installed at boot (V3 never registered a sink, so its reports reached only the
 // console, S07): an uncaught error anywhere on the page lands on the bus as ui/uncaught.
@@ -150,6 +150,61 @@ test('with blocked site data, the map card that cannot start and the replaced bu
   await replaced.getByRole('button', { name: 'Export this game' }).click();
   expect((await again).suggestedFilename()).toMatch(/^interbus-boston-year-\d+-q[1-4]-day-\d+\.json$/);
 });
+
+/** Of the controls and words that `selector` finds, those a card lies over the middle of, by their text. */
+const covered = (page: Page, selector: string) =>
+  page.evaluate(
+    (selector) =>
+      [...document.querySelectorAll<HTMLElement>(selector)].flatMap((el) => {
+        const r = el.getBoundingClientRect();
+        if (!r.width) return [];
+        return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) ? [] : [el.textContent ?? ''];
+      }),
+    selector,
+  );
+/** The top bar's chips and the Saves chip; the open panels' headings and Finance's views; the dock's buttons. */
+const CHROME = '[data-testid="sim-panel"] > *, [data-testid="saves-chip"], .panel h2, [data-testid="finance"] [role="tab"], [data-testid="dock"] button';
+
+// The replaced build's card stood at the board's top over the chips' middle: the floor's countdown at 1366×768 and 1440×900,
+// Costs/day too at 1152×720, and the checklist with no countdown; saying the game isn't saving itself, Riders/day and the
+// Contracts chip as well (the systems audit's fourteenth round). Under the chips, at 72 px, it lay over the panels' headings and
+// Finance's views with three panels open (the review of its fixes). It stands at the board's foot now, above the dock. Shown
+// failing (TS-04) with the card at the top: at 1152×720 it lay over Costs/day and the countdown, and saying the game isn't
+// saving itself, over Riders/day and the checklist; and at 72 px, over Finance's heading and views.
+for (const blocked of [false, true]) {
+  test(`the replaced build’s card leaves the chips, the panels’ headings and the dock in sight at I13’s three sizes${blocked ? ', saying the game isn’t saving itself' : ', the floor’s countdown among them'}`, async ({ page }) => {
+    test.skip(!city.sim, 'no sim file in this build yet');
+    test.setTimeout(90_000);
+    if (blocked) await page.addInitScript(blockStorage);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    if (blocked) await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
+    else {
+      // Owing $1m more on day 2, a close below the floor behind it.
+      await withDebugLine(page, (d) => {
+        d.ledger.push({ day: 2, kind: 'buses', amountCents: -100_000_000, lineId: null });
+        d.closesBelowFloor = 1;
+      });
+      await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
+      // Lines, Finance and Contracts open side by side.
+      await page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true }).click();
+      await page.getByTestId('dock').getByRole('button', { name: 'Finance', exact: true }).click();
+      await page.getByTestId('checklist').or(page.getByTestId('contracts-chip')).click();
+      await expect(page.locator('.panel h2')).toHaveCount(3);
+    }
+    // The splash's bus tows it off to the right, over the Saves chip last: it has gone before the chips are read.
+    await bootGone(page);
+    await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
+    const replaced = page.getByTestId('replaced-card');
+    await expect(replaced).toBeVisible();
+    for (const [width, height] of [[1152, 720], [1366, 768], [1440, 900]] as const) {
+      await page.setViewportSize({ width, height });
+      expect(await covered(page, CHROME), `at ${width}×${height}`).toEqual([]);
+      expect(await inFront(replaced), `at ${width}×${height}`).toBe(true);
+    }
+  });
+}
 
 // The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on
 // the board where the cards that wait for an answer sit, under them, so a day card and the lender's card hid its words and its

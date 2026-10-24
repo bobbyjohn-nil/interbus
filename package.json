@@ -20,6 +20,7 @@
     "e2e": "playwright test",
     "measure:bundle": "node scripts/measure/bundle.mjs",
     "measure:sessions": "node scripts/measure/sessions.mjs",
+    "measure:hidden": "node scripts/measure/hidden-tab.mjs",
     "bake:plan": "node tools/bake/plan.mjs",
     "bake:fetch": "node tools/bake/fetch.mjs",
     "bake:sources": "node tools/bake/sources.mjs",

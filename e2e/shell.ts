@@ -179,9 +179,9 @@ function snowNext(): number {
  * Copley Square seven days met, the events' stream about to name snow, and a day of buying and
  * selling that leaves cash below zero, so the lender charges interest: the close's day card holds the
  * report card, a contract paid, a medal, snow named for tomorrow, interest and every kind of buying
- * and selling.
+ * and selling. `edit` changes it further before the import.
  */
-export async function withBusyQuarterClose(page: Page): Promise<void> {
+export async function withBusyQuarterClose(page: Page, edit?: (data: SaveData) => void): Promise<void> {
   await page.getByRole('button', { name: 'Saves' }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export this game' }).click();
@@ -200,6 +200,7 @@ export async function withBusyQuarterClose(page: Page): Promise<void> {
   d.ledger.sort((a, b) => a.day - b.day);
   for (const [kind, amountCents] of [['buses', -26_000_000], ['busSales', 4_750_000], ['stops', -1_600_000], ['stopUpgrades', -1_200_000], ['stopSales', 200_000], ['depots', -36_000_000]] as const) d.ledger.push({ day: 8, kind, amountCents, lineId: null });
   d.clock.elapsed = 7 * 86_400 + 18 * 3_600 + 50 * 60; // day 8, 23:50
+  edit?.(d as unknown as SaveData);
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import a save file' }).click();
   await page.getByRole('button', { name: 'Replace this game' }).click();

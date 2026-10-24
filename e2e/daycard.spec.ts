@@ -142,6 +142,37 @@ test.describe('the day card', () => {
     await expect(card).toHaveCount(0);
   });
 
+  test('keeps the keyboard on its rows at the next close, back at their top, and hands it to Continue once they fit', async ({ page }) => {
+    // The next close built its card anew, and the focus on its rows fell to the page (the systems audit's fourteenth round). In
+    // a window 400 px high the next close's rows scroll too; back at 720 they fit, and the rows stop being a stop. Shown
+    // failing (TS-04) with the card built anew at each close, without the rows' return to their top (29 px down), and without the
+    // hand-off to Continue.
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withBusyQuarterClose(page);
+    await setSpeed(page, '600×');
+    const card = page.getByTestId('day-card');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    const first = (await card.getAttribute('aria-label'))!;
+    const rows = card.locator('.day-card-scroll');
+    await expect(rows).toHaveAttribute('tabindex', '0');
+    await rows.focus();
+    await page.keyboard.press('End');
+    await expect.poll(() => rows.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await page.setViewportSize({ width: 1152, height: 400 });
+    await page.keyboard.press('5'); // 5,400×: the next close in about 16 s
+    await expect(card).not.toHaveAttribute('aria-label', first, { timeout: 40_000 });
+    await expect(rows).toHaveAttribute('tabindex', '0');
+    await expect(rows).toBeFocused();
+    expect(await rows.evaluate((el) => el.scrollTop)).toBe(0);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await expect(rows).not.toHaveAttribute('tabindex');
+    await expect(card.getByRole('button', { name: 'Continue' })).toBeFocused();
+  });
+
   test('adds no Tab stop on a close whose rows fit', async ({ page }) => {
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });

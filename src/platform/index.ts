@@ -11,5 +11,6 @@ export { applyEffects, type SaveStore, type StoreEffect, type StoreRefusal } fro
 export { readSimFile, startSimWorker } from './web/simFile';
 export { downloadText, pickTextFile } from './web/files';
 export { countsSwitch, fpsSwitch, gpuSwitch, lightSwitch, type GpuSwitch, type LightSwitch } from './web/switches';
-export { readDotPrefs, writeDotPrefs, type DotPrefs } from './web/prefs';
+export { readDotPrefs, readPlaySpeed, writeDotPrefs, writePlaySpeed, type DotPrefs } from './web/prefs';
 export { firstInTab } from './web/tab';
+export { watchHidden } from './web/visibility';
