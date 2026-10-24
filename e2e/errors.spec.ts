@@ -238,6 +238,33 @@ for (const blocked of [false, true]) {
   });
 }
 
+// The card lay over an open list's options too: with Lines and Finance open at 1152×720, a fare list's $2.75 under its Reload, a
+// press there reloading the page, and while the game wasn't saving itself $2.25 to $2.75 (the systems audit's sixteenth round).
+// An open list stands over the card now, as the Build menu does, and the card is whole again as it shuts. Shown failing (TS-04)
+// on main, the list's last options under the card.
+test('an open list keeps its options in sight over the replaced build’s card', async ({ page }) => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1152, height: 720 });
+  await page.goto('./');
+  await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  await foundCompany(page);
+  await bootGone(page);
+  await page.getByTestId('speed-menu').click();
+  const list = page.getByRole('listbox');
+  await expect(list).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
+  const replaced = page.getByTestId('replaced-card');
+  await expect(replaced).toBeVisible();
+  // The list's foot laid just under the card's Reload, as a fare list low in Finance lies there.
+  const r = (await replaced.getByRole('button', { name: 'Reload' }).boundingBox())!;
+  await list.evaluate((el, [x, foot]) => Object.assign(el.style, { left: `${x}px`, top: 'auto', bottom: `${window.innerHeight - foot!}px` }), [r.x, r.y + r.height + 8]);
+  expect(await covered(page, '[role="listbox"] [role="option"]')).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(list).toHaveCount(0);
+  expect(await inFront(replaced)).toBe(true);
+});
+
 // The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on
 // the board where the cards that wait for an answer sit, under them, so a day card and the lender's card hid its words and its
 // Reload. While such a card is up it drops to the board's foot now, as the GPU ladder's cards have since the fifth round

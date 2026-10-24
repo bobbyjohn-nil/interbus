@@ -9,7 +9,7 @@ import { BUS_MODELS } from '../../sim/rules/line';
 import { cyclesOf } from '../../sim/rules/cycle';
 import { NO_MEDALS } from '../../sim/rules/medal';
 import type { EventView, FareBandView, HeadwaysData, LineView, Snapshot } from '../../sim/types';
-import { headwayChange, heldModel, heldPick, LineCard, LineHeading, pickHeadway } from './LineCard';
+import { buysBuses, headwayChange, heldModel, heldPick, LineCard, LineHeading, pickHeadway } from './LineCard';
 import type { Sim } from './useSim';
 
 /** Line 1 as the snapshot shows it, with `change`. */
@@ -161,6 +161,28 @@ describe('the line card’s headway pick', () => {
     expect(headwayChange(fleet, twenty, fifteen)).toEqual({ ok: true, needed: 2, extra: 0, priceCents: 0 });
     expect(headwayChange(fleet, twenty, pickHeadway(fifteen, twenty, null, 'peak', 1_200))).toBeNull();
     expect(headwayChange(fleet, twenty, null)).toBeNull();
+  });
+
+  // A change that buys keeps its name refused: a close that left the cash short of its price renamed Buy and run to Run it under
+  // the keyboard (the review of the systems audit's sixteenth round). Shown failing (TS-04) with the name read off the verdict's
+  // `ok` alone, as it was.
+  it('names a change that buys buses Buy and run, refused for the cash or the depots’ room too', () => {
+    const twenty = line(TWENTY);
+    const ten = pickHeadway(null, twenty, null, 'peak', 600);
+    const buys = headwayChange(fleet, twenty, ten)!;
+    expect(buys).toEqual({ ok: true, needed: 3, extra: 1, priceCents: 9_500_000 });
+    expect(buysBuses(buys)).toBe(true);
+    // Cash may go down to the floor's −$150k for it: $60,000 under, its $95,000 is $5,000 short.
+    const short = headwayChange({ ...fleet, cashCents: -6_000_000 }, twenty, ten)!;
+    expect(short).toMatchObject({ shortCents: 500_000 });
+    expect(short).toMatchObject({ ok: false, reason: 'insufficient_funds' });
+    expect(buysBuses(short)).toBe(true);
+    const full = headwayChange({ ...fleet, busesOwned: 6 }, twenty, ten)!;
+    expect(full).toMatchObject({ ok: false, reason: 'depot_full' });
+    expect(buysBuses(full)).toBe(true);
+    const thirty = headwayChange(fleet, twenty, pickHeadway(null, twenty, null, 'peak', 1_800))!;
+    expect(thirty).toMatchObject({ ok: true, extra: 0 });
+    expect(buysBuses(thirty)).toBe(false);
   });
 
   // The model menu's pick likewise. Shown failing (TS-04) with the pick kept through any change: Buy and swap sent a Metro 40

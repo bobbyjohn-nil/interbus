@@ -131,8 +131,10 @@ body,
 /* An open Build menu stands over the card, as the menus stand over what is under them, so a press on a tool lands on it: the
    menu opens up from the dock to where the card stands, and the card lay over its three tools while it said the game isn't
    saving itself, over Place a depot while it did not (the systems audit's fifteenth round). The menu shuts as a tool is
-   picked, or at Escape, and the card is whole again. */
-.app:has(.dock .build-menu) .replaced {
+   picked, or at Escape, and the card is whole again. So does an open list: an option under the card's Reload reloaded the page
+   at its press, and while the game wasn't saving itself the card lay over three of a fare list's options (the systems audit's
+   sixteenth round). */
+.app:has(.dock .build-menu, .dropdown-list) .replaced {
   z-index: calc(var(--layer-menus) - 1);
 }
 
@@ -345,6 +347,13 @@ body,
    under it, every option covered at 1152×720 with Lines and Finance open (the review of the fifteenth round's fixes). */
 .app:has(.day-card) .dropdown-list {
   z-index: calc(var(--layer-cards) + 1);
+}
+
+/* And the map's credit and the build chip over those lists, as over the menus: raised over the card, a fare list open in Finance
+   lay over "Protomaps" at 1152×720, and with Finance dragged left over "© OpenStreetMap contributors" (the systems audit's
+   sixteenth round). The card ends 72 px or more above the board's foot (its max-height and padding), clear of the corner. */
+.app:has(.day-card) .corner {
+  z-index: calc(var(--layer-cards) + 2);
 }
 
 .dropdown-list.below {

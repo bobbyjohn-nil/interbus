@@ -35,17 +35,27 @@ const placeOf = (at: HTMLElement): Place => ({ at, in: at.closest('[data-movable
 const inPanel = (panel: string | null, at: Element | null) => panel !== null && !!at?.closest(`[data-movable="${panel}"]`);
 
 /**
- * What Continue hands the focus back to: where it came from while that can take it; gone, the panel that held it, or with that
- * closed too, what opens it (as Panels' handBackTo goes on to); or nothing, the focus left on the page.
+ * What Continue hands the focus back to: where it came from while that can take it; gone, the panel that held it; with that
+ * closed too, where Panels hands the focus back to as that panel closes (`panelBack`, its handBackTo), so the two agree: a stop
+ * card closed with the Lines it was opened from gives the dock's Lines, and closed alone the stops row that opened it (the
+ * review of the systems audit's sixteenth round, where Continue gave Build); else what opens that panel; a control gone that
+ * opened a panel, what opens that panel now, as the checklist's last step gives way to the Contracts chip; and with none of
+ * those, Build, as the stop card's and Close line's own hand-backs go on to: a stop's card opened by the mouse has no opener
+ * on the page, and Continue gave the page the focus from it and from the checklist (the systems audit's sixteenth round).
+ * With no place, the focus stays on the page.
  */
-function back(from: Place | null): HTMLElement | null {
+function back(from: Place | null, panelBack: (panel: string) => Element | null): HTMLElement | null {
   if (!from) return null;
-  const usable = (el: Element | null): el is HTMLElement => el instanceof HTMLElement && el.isConnected && !el.matches(':disabled');
+  const usable = (el: Element | null | undefined): el is HTMLElement => el instanceof HTMLElement && el.isConnected && !el.matches(':disabled');
+  const opened = from.at.getAttribute('data-opens');
   if (usable(from.at)) return from.at;
-  if (from.in === null) return null;
-  const box = document.querySelector(`[data-movable="${from.in}"]`);
+  const box = from.in === null ? null : document.querySelector(`[data-movable="${from.in}"]`);
   if (usable(box)) return box;
-  return [...document.querySelectorAll(`[data-opens="${from.in}"]`)].find(usable) ?? null;
+  const panels = from.in === null ? null : panelBack(from.in);
+  if (usable(panels)) return panels;
+  const opener = (panel: string | null) => (panel === null ? undefined : [...document.querySelectorAll(`[data-opens="${panel}"]`)].find(usable));
+  const build = document.querySelector('[data-testid="build"]');
+  return opener(from.in) ?? opener(opened) ?? (usable(build) ? build : null);
 }
 
 /** A payout or fine as the line under the grades says it: whole dollars, or cents under a dollar, which whole dollars read as $0 beside the stamp (round 10). */
@@ -59,7 +69,19 @@ const amountSaid = (cents: number) => usd(cents, { cents: Math.abs(cents) < 100 
  * it above Continue scrolls inside the card when it is taller than its cap (52vh, and the room above
  * the dock), so Continue stays in view; a long line wraps at its width (app.css, I13).
  */
-export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
+export function DayCard({
+  sim,
+  handBack,
+  byKey,
+  panelBack,
+}: {
+  sim: Sim;
+  handBack: HandBack;
+  /** Whether the keyboard brought the focus where it is (App's focusSource). */
+  byKey: () => boolean;
+  /** Where Panels hands the focus back to as panel `panel` closes (Panels' `backToRef`). */
+  panelBack: (panel: string) => Element | null;
+}) {
   const card = sim.dayCard;
   // The close that ends the run turns off the control the keyboard was on: Continue takes the focus, rather than the page.
   // Any other close leaves the focus where it is, so Space still plays and pauses as the day's card shows. Before the panels'
@@ -77,9 +99,16 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   useBesidePanels(self, card?.day);
   // Where the keyboard had the focus as the card showed, and the panel that held it, so Continue's goes back there as the card
   // goes (App holds the hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where
-  // the focus came into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's
-  // end the lender's card takes it instead. A close while the focus is in the card leaves where it came from as it was.
+  // the focus came into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). The mouse's
+  // is told apart as Space tells it (App's focusSource): :focus-visible matched a step the mouse pressed once a speed key was
+  // down, and Continue pressed by the mouse gave Build the focus, where Enter opened the Build menu (the review of the systems
+  // audit's sixteenth round). At the run's end the lender's card takes it instead. A close while the focus is in the card leaves
+  // where it came from as it was.
   const cameFrom = useRef<Place | null>(null);
+  const keyed = useRef(byKey);
+  useLayoutEffect(() => {
+    keyed.current = byKey;
+  });
   // The panel the focus went to straight from the card and has stayed in, as Help does from Continue's ?, which hands it back
   // into the card as it closes: a close while the focus is there is a close with the focus in the card. Taken for where the focus
   // came from, Help's box was gone as Continue handed the focus back, and the focus went to the page (the review of the fifteenth
@@ -100,7 +129,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   useEffect(() => {
     const at = document.activeElement;
     if (at && (self.current?.contains(at) || inPanel(wentTo.current, at))) return;
-    cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? placeOf(at) : null;
+    cameFrom.current = at instanceof HTMLElement && at !== document.body && keyed.current() ? placeOf(at) : null;
   }, [card?.day]);
   // Where the focus came from, taken away with the focus on it, hands the focus on, an offer's Take it to the row now in its
   // place (Contracts), and where it went is where the focus came from now: the card often shows a render before the snapshot
@@ -199,7 +228,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
         ref={go}
         type="button"
         onClick={(e) => {
-          if (!over) handBack(e.currentTarget, () => back(cameFrom.current));
+          if (!over) handBack(e.currentTarget, () => back(cameFrom.current, panelBack));
           sim.closeDayCard();
         }}
       >

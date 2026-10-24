@@ -260,6 +260,41 @@ test.describe('a late game of many lines', () => {
     await expect(fare).toContainText(`$${(first.fareCents / 100).toFixed(2)}`);
   });
 
+  // Under Finance's headings, which stay in view as the rows scroll, a fare list's button was hidden while still in the body's
+  // view, and its list stayed open beside the headings: ArrowDown and Enter there set a fare out of sight (the systems audit's
+  // sixteenth round). The list closes once its button has gone under them, and opened again from the keyboard it brings the
+  // button back into view below them first. Shown failing (TS-04) on main, the list open with its button wholly under them.
+  test('a fare list closes once its button has gone under Finance’s headings, and opens again with the button in view', async ({ page }) => {
+    const world = await lateGame(page);
+    const line = world.state.lines[2]!;
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const finance = page.getByTestId('finance');
+    const body = finance.getByTestId('finance-body');
+    const fare = finance.getByTestId(`fare-${line.id}`);
+    await fare.focus();
+    await page.keyboard.press('ArrowDown');
+    const list = page.getByRole('listbox', { name: `Fare for ${line.name}` });
+    await expect(list).toBeVisible();
+    /** How far the button's foot lies below the headings' foot. */
+    const below = async () => {
+      const [b, h] = [(await fare.boundingBox())!, (await finance.locator('thead th').first().boundingBox())!];
+      return b.y + b.height - (h.y + h.height);
+    };
+    // 4 px a step, as a slow wheel goes, until the button is wholly under the headings.
+    for (let k = 0; k < 100 && (await below()) > 0; k++) {
+      await body.evaluate((el) => void (el.scrollTop += 4));
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+    }
+    expect(await below()).toBeLessThanOrEqual(0);
+    await expect(list).toHaveCount(0);
+    await expect(fare).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(list).toBeVisible();
+    // The whole button below the headings: its foot at least its height below theirs.
+    expect(await below()).toBeGreaterThanOrEqual((await fare.boundingBox())!.height - 0.5);
+  });
+
   // Placed again at each scroll, the list showed the chosen option again, taking from view the one the keyboard was on: End
   // reached $5.00, a 30 px scroll hid it, and Enter set it unseen (the review of the eighth round's fixes).
   test('a fare list placed again by a scroll keeps the keyboard’s option in view', async ({ page }) => {

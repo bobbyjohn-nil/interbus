@@ -233,6 +233,60 @@ test.describe('the focus as a card’s button goes', () => {
     // Nor did a second command's refusal say so (copy.ts); the load's notice may still show, for 6 s.
     await expect(page.getByText(/That line is gone|The line needs every bus it has/)).toHaveCount(0);
   });
+
+  // A close that took the cash under a change's price turned its Buy and run off under the keyboard: the focus fell to the page,
+  // where Space paused the game with the card up (the systems audit's sixteenth round). Refused, the button keeps the focus
+  // now, and its name, described by the words why, as a stop's tier steps are, and Space presses nothing. Shown failing (TS-04)
+  // on main, the focus on the page and the game paused; and named Run it, with no description (the round's review).
+  test('a close that refuses the change the keyboard is on leaves the focus on its button, where Space presses nothing', async ({ page }) => {
+    test.setTimeout(90_000);
+    // The debug line's game a minute before day 2 closes, paused.
+    const CLOCK = 86_400 + 18 * 3_600 + 59 * 60;
+    const panel = await lines(page, (d) => void (d.clock.elapsed = CLOCK));
+    const peak = panel.getByTestId('headway-peak');
+    const change = panel.getByTestId('headway-change');
+    /** Every 10 minutes in the peak, picked from the keyboard, the focus on the peak's button. */
+    const every10 = async () => {
+      await page.keyboard.press('ArrowDown');
+      for (let k = 0; k < 12 && (await page.locator('.dropdown-option.active .dropdown-label').textContent()) !== 'Every 10 min'; k++) await page.keyboard.press('ArrowUp');
+      await page.keyboard.press('Enter');
+    };
+    // Its price, read once.
+    await peak.focus();
+    await every10();
+    const price = Number(/·\s*\$([\d.]+)k/.exec((await change.locator('p').textContent())!)![1]) * 100_000;
+    await change.getByRole('button', { name: 'Keep as is' }).click();
+    // Again, with the cash $20 over what the change may spend, the floor's $150k under it; the close takes more than $20.
+    await withDebugLine(page, (d) => {
+      d.clock.elapsed = CLOCK;
+      const cash = (d.ledger as { amountCents: number }[]).reduce((sum, row) => sum + row.amountCents, 0);
+      (d.ledger as Record<string, unknown>[]).push({ day: 2, kind: 'buses', amountCents: price - 15_000_000 + 2_000 - cash, lineId: null });
+    });
+    await expect(page.locator('[data-movable]')).toHaveCount(0);
+    const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
+    await dockLines.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    for (let k = 0; k < 40 && !(await peak.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(peak).toBeFocused();
+    await every10();
+    await expect(change).toHaveAttribute('data-ok', 'yes');
+    const buy = change.getByRole('button', { name: 'Buy and run' });
+    for (let k = 0; k < 10 && !(await buy.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(buy).toBeFocused();
+    await page.keyboard.press('2'); // 60×: the close in a game minute
+    await expect(page.getByTestId('day-card')).toBeVisible({ timeout: 30_000 });
+    await expect(change).toHaveAttribute('data-ok', 'no');
+    const button = change.getByRole('button', { name: 'Buy and run', exact: true });
+    await expect(button).toBeFocused();
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    await expect(button).toHaveAccessibleDescription(/^\$[\d,.]+ short$/);
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
+    await expect(change).toHaveAttribute('data-ok', 'no');
+    await expect(button).toBeFocused();
+  });
 });
 
 // The keyboard's way to a stop (the accessibility pass): the map opens a stop's card only on a press on it, so each line's card
@@ -486,14 +540,14 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(page.locator('[data-movable="contracts"]')).toBeFocused();
   });
 
-  /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×; the day card and its Continue. */
-  async function toTheClose(page: Page) {
+  /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×, or paused at 23:`minute`; the day card and its Continue. */
+  async function toTheClose(page: Page, minute?: number) {
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await leaveHome(page);
     await foundCompany(page);
-    await withDebugLine(page, (d) => void (d.clock.elapsed = 86_400 + 18 * 3_600 + 30 * 60));
-    await setSpeed(page, '600×');
+    await withDebugLine(page, (d) => void (d.clock.elapsed = 86_400 + 18 * 3_600 + (minute ?? 30) * 60));
+    if (minute === undefined) await setSpeed(page, '600×');
     const day = page.getByTestId('day-card');
     return { day, go: day.getByRole('button', { name: 'Continue' }) };
   }
@@ -554,6 +608,164 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await page.keyboard.press(' ');
     await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
     await expect(page.getByTestId('saves')).toHaveCount(0);
+  });
+
+  /** The keyboard on a stop card's first step as the day card shows: Lines and the card opened from the keyboard, or by the mouse. */
+  async function stepAtTheClose(page: Page, mouse = false) {
+    const { day, go } = await toTheClose(page, 58);
+    const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
+    const stop2 = page.getByTestId('line-stops').getByRole('button', { name: 'Stop 2', exact: true });
+    if (mouse) {
+      await dockLines.click();
+      await stop2.click();
+    } else {
+      await dockLines.focus();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Enter');
+      await tabTo(page, stop2);
+      await page.keyboard.press('Enter');
+    }
+    const card = page.getByTestId('stop-card');
+    const step = card.locator('.tiers button').first();
+    await tabTo(page, step);
+    await page.keyboard.press('2'); // 60×: the close in two game minutes
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect(step).toBeFocused();
+    return { day, go, card, dockLines, stop2 };
+  }
+
+  // Where the focus came from, gone with its panel, left Continue nothing to hand it to: from a stop's card closed with the card
+  // up, the focus fell to the page (the systems audit's sixteenth round). Continue hands it where the stop card's own close does
+  // (Panels' handBackTo): to Stop 2 while Lines is open, and to the dock's Lines once Escape has closed Lines too. The round's
+  // fix gave Build for both, the first once the card had drawn again with the keyboard on the stop card's × (its review). Shown
+  // failing (TS-04) on main, the focus on the page, and with Build in place of Panels' hand-back.
+  test('Continue hands the focus to the stop’s button in Lines, once the stop card it came from has closed by its ×', async ({ page }) => {
+    test.setTimeout(90_000);
+    const at = await stepAtTheClose(page);
+    const close = at.card.getByRole('button', { name: 'Close', exact: true });
+    for (let k = 0; k < 20 && !(await close.evaluate((el) => el === document.activeElement)); k++) await page.keyboard.press('Shift+Tab');
+    await expect(close).toBeFocused();
+    // The day card drawn again since, with the keyboard on the ×.
+    const date = page.getByTestId('date');
+    await expect(date).not.toHaveText((await date.textContent())!, { timeout: 10_000 });
+    await page.keyboard.press('Enter');
+    await expect(at.card).toHaveCount(0);
+    await expect(at.stop2).toBeFocused();
+    await tabTo(page, at.go);
+    await page.keyboard.press('Enter');
+    await expect(at.day).toHaveCount(0);
+    await expect(at.stop2).toBeFocused();
+  });
+
+  test('Continue hands the focus to the dock’s Lines, once Escape has closed the stop card it came from and Lines', async ({ page }) => {
+    test.setTimeout(90_000);
+    const at = await stepAtTheClose(page);
+    await tabTo(page, at.go);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-movable]')).toHaveCount(0);
+    await expect(at.day).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(at.day).toHaveCount(0);
+    await expect(at.dockLines).toBeFocused();
+  });
+
+  // The route editor stands in for Lines, so Escape from Continue closes both, as from a stop's card: the dock's Lines, as Escape
+  // from the editor gives (the review of the systems audit's sixteenth round, which found Build). Shown failing (TS-04) on main,
+  // the focus on the page, and with Build in place of Panels' hand-back.
+  test('Continue hands the focus to the dock’s Lines, once Escape has closed the route editor it came from', async ({ page }) => {
+    test.setTimeout(90_000);
+    const { day, go } = await toTheClose(page, 58);
+    const dockLines = page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true });
+    await dockLines.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await tabTo(page, page.getByTestId('inspector').getByRole('button', { name: 'Edit route' }));
+    await page.keyboard.press('Enter');
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    const cancel = editor.getByRole('button', { name: 'Cancel' });
+    await tabTo(page, cancel);
+    await page.keyboard.press('2'); // 60×: the close in two game minutes
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect(cancel).toBeFocused();
+    await tabTo(page, go);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-movable]')).toHaveCount(0);
+    await expect(day).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(day).toHaveCount(0);
+    await expect(dockLines).toBeFocused();
+  });
+
+  // A stop card the mouse opened left no opener to go back to (Panels keeps none for it): Continue gives Build, as the stop
+  // card's own hand-back does with nothing else, where the focus fell to the page (the systems audit's sixteenth round). Shown
+  // failing (TS-04) on main, the focus on the page.
+  test('Continue hands the focus to Build once a stop card the mouse opened has closed', async ({ page }) => {
+    test.setTimeout(90_000);
+    const at = await stepAtTheClose(page, true);
+    await tabTo(page, at.go);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-movable]')).toHaveCount(0);
+    await expect(at.day).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(at.day).toHaveCount(0);
+    await expect(page.getByTestId('build')).toBeFocused();
+  });
+
+  // A step the mouse pressed is no place of the keyboard's, however many keys since: Continue pressed by the mouse gave Build the
+  // focus from it once a speed key had made the step match :focus-visible, and Enter then opened the Build menu (the review of
+  // the systems audit's sixteenth round). Shown failing (TS-04) with :focus-visible in place of App's focusSource.
+  test('Continue leaves the focus on the page after a step the mouse pressed, whatever key came since', async ({ page }) => {
+    test.setTimeout(90_000);
+    const { day, go } = await toTheClose(page, 58);
+    await page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByTestId('line-stops').getByRole('button', { name: 'Stop 2', exact: true }).click();
+    const step = page.getByTestId('stop-card').locator('.tiers button').first();
+    // A press that keeps the stop as it is: the step's mouse down and up, off the button before the up (no click).
+    const box = (await step.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y - 40);
+    await page.mouse.up();
+    await expect(step).toBeFocused();
+    await page.keyboard.press('2'); // 60×: the close in two game minutes
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => step.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-movable]')).toHaveCount(0);
+    await go.click();
+    await expect(day).toHaveCount(0);
+    await expect(page.getByTestId('build')).not.toBeFocused();
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+  });
+
+  test('Continue hands the focus to the Contracts chip when the checklist step it came from was completed', async ({ page }) => {
+    test.setTimeout(90_000);
+    const { day, go } = await toTheClose(page, 58);
+    const checklist = page.getByTestId('checklist');
+    await expect(checklist).toHaveJSProperty('tagName', 'BUTTON');
+    await checklist.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(checklist).toBeFocused();
+    await page.keyboard.press('2'); // 60×: the close in two game minutes
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect(checklist).toBeFocused();
+    await page.keyboard.press('Enter');
+    const contracts = page.getByTestId('contracts');
+    await expect(contracts).toBeVisible();
+    await tabTo(page, contracts.getByRole('button', { name: 'Take it' }).first());
+    await page.keyboard.press('Enter');
+    await expect(contracts.locator('[data-held="yes"]')).toHaveCount(1);
+    const chip = page.getByTestId('contracts-chip');
+    await expect(chip).toBeVisible();
+    await expect(checklist).toHaveCount(0);
+    await tabTo(page, go);
+    await page.keyboard.press('Enter');
+    await expect(day).toHaveCount(0);
+    await expect(chip).toBeFocused();
   });
 });
 
@@ -627,6 +839,8 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     await expect(step).toHaveAttribute('aria-disabled', 'true');
     await expect(step).toBeFocused();
     await expect(card).toContainText('Needs 3 lines stopping here');
+    // Described by the words why, so a screen reader reached it hears them (the review of the systems audit's sixteenth round).
+    await expect(step).toHaveAccessibleDescription(/^Needs 3 lines stopping here/);
     // A press on it sends nothing: the sim would refuse it too, so the count shows it (the review of #156).
     await page.keyboard.press('Enter');
     await expect(card).toHaveAttribute('data-tier', '3');

@@ -305,6 +305,8 @@ export function App() {
   // from; a stop card's, as its stop goes or leaves a line. An undo that takes the only line leaves the focus where it was,
   // so Space still plays (the review of the hand-back: it opened Build).
   const handBack = useFocusBack();
+  // Where Panels hands the focus back to as a panel closes, for Continue to hand it back to the same place (Panels' backToRef).
+  const panelsBack = useRef<(panel: string) => Element | null>(() => null);
   const openStop = useCallback(
     (id: number, from: HTMLElement) => {
       setStopRow(from.closest("[data-testid='line-stops']"));
@@ -763,7 +765,7 @@ export function App() {
         ) : null}
         {/* Keyed as in the game's tree, so switching between them keeps them, and a notice shows once
             and a panel dragged opens where it was dragged to again after Continue. */}
-        <Panels key="panels" items={[]} front={front} />
+        <Panels key="panels" items={[]} front={front} backToRef={panelsBack} />
         <Notices key="notices" sim={sim} home savesOpen={open.includes("saves")} />
         <Corner key="corner" />
         <ReplacedCard key="replaced" unsaved={mapUnsaved} />
@@ -804,7 +806,7 @@ export function App() {
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" && !stopped ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "stop" && !stopped ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      <Panels key="panels" items={stopped ? [] : panelItems} front={front} focus={focusAt} takesFocus={() => focus.current.byKey} />
+      <Panels key="panels" items={stopped ? [] : panelItems} front={front} focus={focusAt} takesFocus={() => focus.current.byKey} backToRef={panelsBack} />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}
@@ -847,7 +849,7 @@ export function App() {
           setHomeAt(Date.now());
         }}
       />
-      {stopped ? null : <DayCard sim={sim} handBack={handBack} />}
+      {stopped ? null : <DayCard sim={sim} handBack={handBack} byKey={() => focus.current.byKey} panelBack={(panel) => panelsBack.current(panel)} />}
       <Corner key="corner" />
       {/* A failed game's worker is gone, and Export with it: its card offers Reload alone. */}
       <ReplacedCard key="replaced" failed={stopped ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} unsaved={stopped ? null : mapUnsaved} />

@@ -155,6 +155,9 @@ export function handBackTo(
 /** Where the keyboard's focus rests on a screen when a panel it was in closes with nothing else to hand it back to (handBackTo's `rest`). */
 export const FOCUS_REST = "[data-focus-rest]";
 
+/** A control that can take the focus back: on the page, and not turned off. */
+const usable = (el: Element) => el.isConnected && !el.matches(":disabled");
+
 /** The panel shown last, and how many panels have been shown: a new one each time, even for a panel already open. */
 export interface PanelFront {
   readonly id: string;
@@ -179,6 +182,7 @@ export function Panels({
   front = null,
   focus = null,
   takesFocus = () => false,
+  backToRef,
 }: {
   items: readonly PanelItem[];
   front?: PanelFront | null;
@@ -186,6 +190,11 @@ export function Panels({
   focus?: PanelFront | null;
   /** Whether that panel takes the focus: when the keyboard opened it (App's focusSource). */
   takesFocus?: () => boolean;
+  /**
+   * Set to where the focus goes back to as a panel closed with the player in it (handBackTo on the openers kept), for what
+   * hands the focus back later, the day card's Continue, so the two agree.
+   */
+  backToRef?: { current: (panel: string) => Element | null };
 }) {
   const [raised, setRaised] = useState<readonly string[]>([]);
   // A panel not open at the last render has just opened, and `front` names one shown again: the
@@ -249,6 +258,11 @@ export function Panels({
   // Escape closing both went round from Lines to the card and back to a gone button, until the walk went round no panel twice
   // (round 10; keeping the first opener instead sent the card's Close to Stop 2: its review).
   const openers = useRef(new Map<string, Opener>());
+  const backFor = (panel: string) =>
+    handBackTo(panel, openers.current, (p) => document.querySelector(`[data-opens="${p}"]`), usable, () => document.querySelector(FOCUS_REST));
+  useLayoutEffect(() => {
+    if (backToRef) backToRef.current = backFor;
+  });
   // The panel the keyboard opened in this render, whose opener the layout effect has just set.
   const opened = useRef<string | null>(null);
   const lastIn = useRef<string | null>(null);
@@ -274,8 +288,7 @@ export function Panels({
     const left = lastIn.current;
     if (!left || !went.includes(left)) return;
     lastIn.current = null;
-    const usable = (el: Element) => el.isConnected && !el.matches(":disabled");
-    const to = handBackTo(left, openers.current, (panel) => document.querySelector(`[data-opens="${panel}"]`), usable, () => document.querySelector(FOCUS_REST));
+    const to = backFor(left);
     if (to instanceof HTMLElement && focusLost()) giveFocus(to);
   });
   useLayoutEffect(() => {
