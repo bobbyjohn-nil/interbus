@@ -1244,6 +1244,24 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot.floor).toBeNull();
   });
 
+  // Tonight's cash is worked out again only as a row is posted, the hour turns or the network changes (host.ts): a fare's change
+  // posts no row, and with the network left out of the key nothing caught the chip keeping the forecast of the fare before (the
+  // review of the fifteenth round's fixes). Shown failing (TS-04) with the network left out.
+  it('works tonight’s cash out again as a fare changes, to what the same game loaded from its file works out', () => {
+    const { send, last, owing } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'import', text: owing(0) });
+    const before = last('snapshot')!.snapshot.floor!.tonightCents;
+    send({ type: 'set-fare', lineId: 1, fareCents: 175 });
+    const after = last('snapshot')!.snapshot.floor!.tonightCents;
+    expect(after).not.toBe(before);
+    send({ type: 'export' });
+    send({ type: 'import', text: last('export')!.text });
+    expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ fareCents: 175 });
+    expect(last('snapshot')!.snapshot.floor!.tonightCents).toBe(after);
+  });
+
   // Interest is a running cost (sim/rules/money.ts) and Finance forecasts a day of it while owing; the
   // chip left it out, so here, owing $556,000, it read $333.60 a day less than Finance's running costs.
   // Shown failing (TS-04) with Costs/day summed without the interest.

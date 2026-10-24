@@ -579,7 +579,8 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     return financeView;
   };
 
-  // Worked out again only when a row is posted, the hour turns or the network changes: what the coming close banks (cashAtClose).
+  // Worked out again only when a row is posted, the hour turns or the network changes: the cash the coming close is set to count
+  // (cashAtClose). A contract taken in between has no day met yet, so it pays nothing tonight.
   let tonightKey = '';
   let tonightCents = 0;
   const tonightNow = (w: World): number => {

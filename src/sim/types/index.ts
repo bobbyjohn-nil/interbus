@@ -244,8 +244,8 @@ export interface Snapshot {
   readonly undo: { readonly command: string; readonly subject: string } | null;
   /**
    * Below the credit line's −$150k, or counting closes below it: day closes left before the run ends, whether it has (D10), and
-   * the cash the coming close is set to count, its hours left banked as they stand and the interest on what is owed after them
-   * (sim/step.ts cashAtClose); null otherwise.
+   * the cash the coming close is set to count if the day runs on as it is set: its hours left, a held contract's reward, the
+   * interest and a quarter's grant or fine (sim/step.ts cashAtClose); null otherwise.
    */
   readonly floor: { readonly closesLeft: number; readonly ended: boolean; readonly tonightCents: number } | null;
   /** Contracts on offer and held, at most three (the M3 spec, item 11; the M4 spec, item 1). */

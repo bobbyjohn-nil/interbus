@@ -126,8 +126,8 @@ jobs:
       - name: Smoke test the shipped build, with its busy scene
         run: npx playwright test e2e/smoke.spec.ts e2e/scene.spec.ts
 
-  # The e2e tests are written on mini-Boston, so they run on a build that plays it, in quarters on four
-  # runners: this one and "Fixture e2e, second quarter", "third quarter" and "last quarter".
+  # The e2e tests are written on mini-Boston, so they run on a build that plays it, in fifths on five
+  # runners: this one and "Fixture e2e, second fifth", "third fifth", "fourth fifth" and "last fifth".
   e2e-first-fifth:
     name: Fixture e2e, first fifth
     runs-on: ubuntu-24.04

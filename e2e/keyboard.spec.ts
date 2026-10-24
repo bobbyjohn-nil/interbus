@@ -459,6 +459,33 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(page.locator('[data-movable="contracts"]')).toBeFocused();
   });
 
+  test('Continue hands the focus to Contracts after Help over the card, the Take it it came from withdrawn by the close that came', async ({ page }) => {
+    // Help, opened from Continue as the next close came, was taken for where the focus came from, and gone as Continue handed it
+    // back: the focus went to the page (the review of the fifteenth round's fixes). Shown failing (TS-04) on main and before the
+    // fix, and with either half of it taken out: the place kept through Help, or followed only with the focus on it as it went.
+    test.setTimeout(120_000);
+    const { contracts, id, day } = await onTakeIt(page, (d) => {
+      for (const c of d.contracts as { acceptedDay: number | null; offeredDay: number }[]) if (c.acceptedDay === null) c.offeredDay = 2;
+    });
+    await page.keyboard.press('3'); // 600×: the close in a second
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    const go = day.getByRole('button', { name: 'Continue' });
+    await tabTo(page, go);
+    const first = (await day.getAttribute('aria-label'))!;
+    await page.keyboard.press('?');
+    const help = page.getByTestId('help');
+    await expect(help).toBeVisible();
+    await page.keyboard.press('5'); // 5,400×: the next close in about 16 s
+    await expect(day).not.toHaveAttribute('aria-label', first, { timeout: 40_000 });
+    await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
+    await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    await expect(go).toBeFocused();
+    await page.keyboard.press(' '); // Space presses Continue
+    await expect(day).toHaveCount(0);
+    await expect(page.locator('[data-movable="contracts"]')).toBeFocused();
+  });
+
   /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×; the day card and its Continue. */
   async function toTheClose(page: Page) {
     await page.goto('./');
