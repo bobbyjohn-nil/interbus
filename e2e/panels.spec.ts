@@ -232,7 +232,9 @@ test.describe('movable panels', () => {
     const before = (await saves.boundingBox())!;
     expect(before.x + before.width).toBeGreaterThan(1152);
     // The window narrows: Finance comes back within reach (its heading is pressed once it is in front,
-    // below), and Saves, never dragged, comes back whole, its Close button free to press.
+    // below), and Saves, never dragged, comes back whole, its Close button free to press. Kept whole, it
+    // lay over Finance's strip: placed afresh beside it, as on opening, it lies clear of it (the systems
+    // audit's seventeenth round, where panels a zoom left over each other stayed piled).
     await page.setViewportSize({ width: 1152, height: 720 });
     const heading = finance.getByRole('heading', { name: 'Finance' });
     const grabbed = async () => {
@@ -240,12 +242,11 @@ test.describe('movable panels', () => {
       return page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('h2')?.textContent, [r.x + 20, r.y + r.height / 2]);
     };
     await expect.poll(async () => (await finance.boundingBox())!.x).toBeLessThanOrEqual(1152 - 48);
-    await expect.poll(async () => (await saves.boundingBox())!.x + before.width).toBeLessThanOrEqual(1152 - 12);
+    await expect.poll(async () => (await saves.boundingBox())!.x + before.width).toBeLessThanOrEqual((await finance.boundingBox())!.x - 12);
+    expect((await saves.boundingBox())!.x).toBeGreaterThanOrEqual(12);
     expect(await onTop(saves.getByRole('button', { name: 'Close', exact: true }))).toBe(true);
-    // Saves pressed, over Finance's heading; Finance closed and opened again, at its place inside the
-    // narrower window, comes up in front, its heading under a press.
-    await saves.getByRole('heading', { name: 'Saves' }).click();
-    expect(await grabbed()).not.toBe('Finance');
+    expect(await grabbed()).toBe('Finance');
+    // Finance closed and opened again, at its place inside the narrower window, comes up in front, its heading under a press.
     await dockFinance.click();
     await expect(finance).toHaveCount(0);
     await dockFinance.click();

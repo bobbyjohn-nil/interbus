@@ -1,5 +1,5 @@
 // The day card at PLAN's smallest window, 1152×720 (the systems audit, D26): a busy quarter's last
-// close (its report card, a contract paid, a medal, snow named for tomorrow, interest and every kind of
+// close (its report card, a contract paid, a medal, snow named a day ahead, interest and every kind of
 // buying and selling) is taller than the window. The card stays inside it above the dock, as the panels
 // do, what does not fit scrolls inside it, and Continue stays in view. Shown failing (TS-04) before the
 // fix: the card ran from 60 px to 800, Continue lay below the window's edge where no press reached it,
@@ -7,7 +7,7 @@
 import { expect, test, type Locator, type Page } from './base';
 import { axeProblems } from './a11y';
 import { foundCompany } from './found';
-import { city, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';
+import { city, frames, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';
 
 /** The report's words and figures that the stamp, as drawn, lies over. */
 const coveredBy = (stamp: Locator) =>
@@ -330,8 +330,12 @@ test.describe('the day card', () => {
     await expect(page.locator('.panel h2')).toHaveCount(2);
     await expect.poll(() => clearOfPanels(card)).toBe(true);
     await page.setViewportSize({ width: 1152, height: 720 });
+    // The page hears the resize at its next frame, when Finance, kept whole, would lie over Lines and goes beside it (Panels):
+    // read before then, the card stood where it was at 1366 px, clear of both.
+    await frames(page);
     await expect.poll(() => clearOfPanels(card)).toBe(true);
-    // Finance dragged 200 px left in ten steps: the card stays where it is through the drag, then stands clear of where Finance went.
+    // Finance dragged 400 px left in twenty steps: the card stays where it is through the drag, then stands clear of where Finance
+    // went, in the room it leaves beside Lines.
     const left = () => card.evaluate((el) => Math.round(el.getBoundingClientRect().left));
     const finance = page.locator('[data-movable="finance"]');
     const from = await left();
@@ -339,11 +343,11 @@ test.describe('the day card', () => {
     const h = (await page.getByTestId('finance').locator('h2').boundingBox())!;
     await page.mouse.move(h.x + 10, h.y + h.height / 2);
     await page.mouse.down();
-    for (let k = 1; k <= 10; k++) {
+    for (let k = 1; k <= 20; k++) {
       await page.mouse.move(h.x + 10 - 20 * k, h.y + h.height / 2);
       expect(await left(), `the drag's step ${k}`).toBe(from);
     }
-    expect((await finance.boundingBox())!.x).toBeLessThan(wasAt - 150);
+    expect((await finance.boundingBox())!.x).toBeLessThan(wasAt - 300);
     await page.mouse.up();
     await expect.poll(() => clearOfPanels(card)).toBe(true);
     // Finance closed: nothing is in the middle's way.
