@@ -341,6 +341,12 @@ body,
   outline: none;
 }
 
+/* Over the day card too, while one shows: beside the panels it can stand under the chips' menus, and the speed menu's list lay
+   under it, every option covered at 1152×720 with Lines and Finance open (the review of the fifteenth round's fixes). */
+.app:has(.day-card) .dropdown-list {
+  z-index: calc(var(--layer-cards) + 1);
+}
+
 .dropdown-list.below {
   top: calc(100% + 4px);
 }
@@ -1118,6 +1124,12 @@ button.chip.checklist,
   top: 0;
   z-index: 1;
   background: var(--ui-paper);
+}
+
+/* And a row the keyboard's focus scrolls to stops below them: Shift+Tab up the rows left a line's name and fare buttons 15–16 px
+   under the headings (the review of the fifteenth round's fixes). */
+.panel-body:has(.lines-money) {
+  scroll-padding-top: 20px;
 }
 
 .lines-money .line-name {

@@ -57,6 +57,9 @@ export function useBesidePanels(card: RefObject<HTMLElement | null>, key: unknow
     const el = card.current;
     if (!el) return;
     const place = () => {
+      // Placed once a drag ends, not at each step of it: dragging Finance 400 px moved the card 11 times, into the middle and
+      // back (the review of the fifteenth round's fixes). Panels marks the box it drags.
+      if (document.querySelector('.panel-layer > [data-movable].dragging')) return;
       el.style.removeProperty('left');
       el.style.removeProperty('transform');
       el.style.removeProperty('max-width');
@@ -68,10 +71,10 @@ export function useBesidePanels(card: RefObject<HTMLElement | null>, key: unknow
       if (at) Object.assign(el.style, { left: `${at.x}px`, transform: 'none', maxWidth: `${at.w - PADDING}px` });
     };
     place();
-    // A panel opened, closed or dragged (Panels sets its box's place in its style), and the window's size.
+    // A panel opened, closed or dragged (Panels sets its box's place in its style, and marks it while dragging), and the window's size.
     const layer = document.querySelector('.panel-layer');
     const moved = new MutationObserver(place);
-    if (layer) moved.observe(layer, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    if (layer) moved.observe(layer, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
     window.addEventListener('resize', place);
     return () => {
       moved.disconnect();

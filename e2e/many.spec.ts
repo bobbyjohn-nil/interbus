@@ -212,6 +212,23 @@ test.describe('a late game of many lines', () => {
       expect(await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('th')?.textContent?.trim(), [r.x + r.width / 2, r.y + r.height / 2]), name).toBe(name);
     }
     expect(world.state.lines.length).toBeGreaterThan(13);
+    // Shift+Tab up the rows: each control the focus scrolls to stops below the headings, not under them. Without the body's
+    // scroll padding a line's name and fare buttons lay 15–16 px under them (the review of the fifteenth round's fixes; shown
+    // failing, TS-04).
+    await finance.locator('tbody button').last().focus();
+    let steps = 0;
+    for (let inRows = true; inRows && steps < 120; steps++) {
+      await page.keyboard.press('Shift+Tab');
+      const under = await page.evaluate(() => {
+        const at = document.activeElement;
+        // A heading cell: the cells stick, not the row of them.
+        const head = document.querySelector('[data-testid="finance"] thead th');
+        return at?.closest('tbody') && head ? head.getBoundingClientRect().bottom - at.getBoundingClientRect().top : null;
+      });
+      inRows = under !== null;
+      if (under !== null) expect(under, `Shift+Tab ${steps + 1}`).toBeLessThan(1);
+    }
+    expect(steps).toBeGreaterThan(20);
   });
 
   // A dropdown's list was placed as it opened: a wheel over Finance's body scrolled its button away and left the list open beside

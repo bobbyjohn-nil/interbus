@@ -4,7 +4,7 @@
 // do, what does not fit scrolls inside it, and Continue stays in view. Shown failing (TS-04) before the
 // fix: the card ran from 60 px to 800, Continue lay below the window's edge where no press reached it,
 // nothing scrolled, and the card lay over the dock's buttons until the next close replaced it.
-import { expect, test, type Locator } from './base';
+import { expect, test, type Locator, type Page } from './base';
 import { axeProblems } from './a11y';
 import { foundCompany } from './found';
 import { city, setSpeed, withBusyQuarterClose, withDebugLine } from './shell';
@@ -225,4 +225,75 @@ test.describe('the day card', () => {
       await expect(page.getByTestId('finance').getByRole('tab', { name: 'Breakdown' })).toHaveAttribute('aria-selected', 'true');
     });
   }
+
+  /** The debug line's game a minute before its day closes, at `width`×`height`, with `panels` opened from the dock, played to the close's card and paused. */
+  async function cardBeside(page: Page, width: number, height: number, panels: readonly string[]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page, (d) => void (d.clock.elapsed = 86_400 + 18 * 3_600 + 59 * 60));
+    for (const name of panels) await page.getByRole('button', { name, exact: true }).click();
+    await expect(page.locator('.panel h2')).toHaveCount(panels.length);
+    await setSpeed(page, '60×');
+    const card = page.getByTestId('day-card');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Pause' }).click();
+    return card;
+  }
+
+  /** Whether the card lies over none of the open panels, across. */
+  const clearOfPanels = (card: Locator) =>
+    card.evaluate((el) => {
+      const c = el.getBoundingClientRect();
+      return [...document.querySelectorAll('.panel-layer > [data-movable]')].every((p) => {
+        const r = p.getBoundingClientRect();
+        return c.right <= r.left || c.left >= r.right;
+      });
+    });
+
+  // Beside the panels the card stood over the speed menu's list, every option under it at 1152×720 with Lines and Finance open,
+  // so no speed could be picked until Continue (the review of the fifteenth round's fixes). A menu stands over the card now while
+  // one shows. Shown failing (TS-04) without that, the pick landing on the card.
+  test('the speed menu opens over the card beside Lines and Finance, and a speed can be picked', async ({ page }) => {
+    test.setTimeout(90_000);
+    await cardBeside(page, 1152, 720, ['Lines', 'Finance']);
+    await page.getByTestId('speed-menu').click();
+    await page.getByRole('option').filter({ has: page.locator('.dropdown-label', { hasText: /^600×$/ }) }).click({ timeout: 5_000 });
+    await expect(page.getByTestId('speed-menu')).toContainText('600×');
+  });
+
+  // Placed only as it showed, the card stood where it was as a panel opened or closed under it, or the window narrowed, and no test
+  // held the watch that places it again; dragged, it moved at each step of the drag, into the middle and back (the review of the
+  // fifteenth round's fixes). Shown failing (TS-04) without the watch, and with the card placed at each step of a drag.
+  test('moves beside a panel opened while it shows and back as it closes, keeps clear as the window narrows, and moves once a drag ends', async ({ page }) => {
+    test.setTimeout(90_000);
+    const card = await cardBeside(page, 1366, 768, ['Lines']);
+    const middle = () => card.evaluate((el) => Math.abs(el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2 - window.innerWidth / 2));
+    expect(await middle()).toBeLessThan(2);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await expect(page.locator('.panel h2')).toHaveCount(2);
+    await expect.poll(() => clearOfPanels(card)).toBe(true);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await expect.poll(() => clearOfPanels(card)).toBe(true);
+    // Finance dragged 200 px left in ten steps: the card stays where it is through the drag, then stands clear of where Finance went.
+    const left = () => card.evaluate((el) => Math.round(el.getBoundingClientRect().left));
+    const finance = page.locator('[data-movable="finance"]');
+    const from = await left();
+    const wasAt = (await finance.boundingBox())!.x;
+    const h = (await page.getByTestId('finance').locator('h2').boundingBox())!;
+    await page.mouse.move(h.x + 10, h.y + h.height / 2);
+    await page.mouse.down();
+    for (let k = 1; k <= 10; k++) {
+      await page.mouse.move(h.x + 10 - 20 * k, h.y + h.height / 2);
+      expect(await left(), `the drag's step ${k}`).toBe(from);
+    }
+    expect((await finance.boundingBox())!.x).toBeLessThan(wasAt - 150);
+    await page.mouse.up();
+    await expect.poll(() => clearOfPanels(card)).toBe(true);
+    // Finance closed: nothing is in the middle's way.
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await expect(page.locator('.panel h2')).toHaveCount(1);
+    await expect.poll(middle).toBeLessThan(2);
+  });
 });
