@@ -296,6 +296,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - With a close below -$150k behind you and your cash just above it, the red countdown says “Heading below -$150k tonight” when midnight's cash will be below it, counting the rest of the day's fares and costs, the lender's interest, a contract that pays tonight and a quarter's grant or fine. Before, it said to stay above it tonight, and four closes behind, that midnight ended the run.
 - A notice that comes while the game's tab is out of sight, such as another tab changing the autosave or a save from an older build set aside, waits for you to come back, then stays its few seconds. Before, it came and went unseen.
 - An open Build menu stays in front of the “This build was replaced” card, so its tools can still be picked, and the card is whole again once the menu closes. Before, the card covered the menu's tools.
+- At the bus ceiling, a change of bus model your depots have no room for says “Your depots are full”, as a headway change does. Before, it counted the line's own buses as free places: “Depots have room for 2 more” with every depot full.
+- While time runs, a midnight's card stands beside the panels you have open where there is room for it, so their tabs and buttons stay in reach, and a menu you open stands over the card. On a 1366×768 screen or smaller there is room beside two panels, not three, and with three open the card stays in the middle as before. Before, it stood in the middle over the second panel you opened: with Lines open, over Finance's views.
+- Close line says its stops come down for money back, “come down for $8k back”, as every refund does. Before, “come down for $8k” read like a price.
+- Finance's Lines keeps its column headings in view as its rows scroll. Before, with 13 lines or more they scrolled away, and the money columns went unnamed.
+- A screen reader names an express line's heading “Line 2 Express”. Before, it ran the two together, “Line 2Express”.
 
 ### Removed
 

@@ -123,7 +123,12 @@ describe('a model change (the M3 spec, item 2)', () => {
     expect(checkModelChange(fleet, line, GOLIATH)).toEqual({ ok: false, reason: 'model_locked' });
     expect(checkModelChange({ ...fleet, cashCents: 25_000_000 }, line, METRO_40)).toEqual({ ok: false, reason: 'insufficient_funds', shortCents: 2_500_000 });
     const tenMinutes = { ...line, headways: { peak: 600, offpeak: 1_200, overnight: null } };
-    expect(checkModelChange({ ...fleet, busesOwned: DEPOT_CAPACITY }, tenMinutes, METRO_40)).toEqual({ ok: false, reason: 'depot_full', room: 2 });
+    // The room named is the depots' own, which the buses beyond the line's must fit: it counted the line's two as free, and the
+    // card said "Depots have room for 2 more" with every depot full, where room 0 says "Your depots are full" (copy.test.ts; the
+    // systems audit's fifteenth round). Shown failing (TS-04) with the line's own buses in the room named.
+    expect(checkModelChange({ ...fleet, busesOwned: DEPOT_CAPACITY }, tenMinutes, METRO_40)).toEqual({ ok: false, reason: 'depot_full', room: 0 });
+    const one = checkModelChange({ ...fleet, busesOwned: DEPOT_CAPACITY - 1 }, { ...tenMinutes, headways: { peak: 300, offpeak: 1_200, overnight: null } }, METRO_40);
+    expect(one).toEqual({ ok: false, reason: 'depot_full', room: 1 });
   });
   // A swap that sells more than it buys gives money back, so it goes through below the floor (D10), as the ledger's spendParts
   // lets it. Shown failing (TS-04) with the net, $70k back, compared against the credit line: "$30,000 short".

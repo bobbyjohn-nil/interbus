@@ -194,6 +194,43 @@ test.describe('a late game of many lines', () => {
     expect(await shownIn(body, finance.getByTestId(`line-money-${first.id}`))).toMatchObject({ whole: true });
   });
 
+  // Finance's Lines lost its column headings as its rows scrolled: with 13 lines at 1152×720 a 73 px scroll took all five out of
+  // view, and the money columns read "$4,995 ≈$4,995" unnamed (the systems audit's fifteenth round). They stay at the body's top
+  // now, drawn over the rows that scroll under them. Shown failing (TS-04) on main, where they scrolled away with the rows.
+  test('Finance’s Lines keeps its column headings in view as its rows scroll', async ({ page }) => {
+    const world = await lateGame(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const finance = page.getByTestId('finance');
+    const body = finance.getByTestId('finance-body');
+    await body.evaluate((el) => void (el.scrollTop = el.scrollHeight));
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(70);
+    for (const name of ['Line', 'Riders a day', 'Fare', 'Yesterday', 'Day forecast']) {
+      const heading = finance.getByRole('columnheader', { name, exact: true });
+      expect(await shownIn(body, heading), name).toMatchObject({ whole: true });
+      const r = (await heading.boundingBox())!;
+      expect(await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('th')?.textContent?.trim(), [r.x + r.width / 2, r.y + r.height / 2]), name).toBe(name);
+    }
+    expect(world.state.lines.length).toBeGreaterThan(13);
+    // Shift+Tab up the rows: each control the focus scrolls to stops below the headings, not under them. Without the body's
+    // scroll padding a line's name and fare buttons lay 15–16 px under them (the review of the fifteenth round's fixes; shown
+    // failing, TS-04).
+    await finance.locator('tbody button').last().focus();
+    let steps = 0;
+    for (let inRows = true; inRows && steps < 120; steps++) {
+      await page.keyboard.press('Shift+Tab');
+      const under = await page.evaluate(() => {
+        const at = document.activeElement;
+        // A heading cell: the cells stick, not the row of them.
+        const head = document.querySelector('[data-testid="finance"] thead th');
+        return at?.closest('tbody') && head ? head.getBoundingClientRect().bottom - at.getBoundingClientRect().top : null;
+      });
+      inRows = under !== null;
+      if (under !== null) expect(under, `Shift+Tab ${steps + 1}`).toBeLessThan(1);
+    }
+    expect(steps).toBeGreaterThan(20);
+  });
+
   // A dropdown's list was placed as it opened: a wheel over Finance's body scrolled its button away and left the list open beside
   // another line's row, holding the keyboard, a pick there setting a fare out of view (the systems audit's eighth round). The
   // list now goes with its button, and closes once the button is out of the body's view, leaving the scroll where it went.

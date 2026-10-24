@@ -5,9 +5,9 @@
 // (assign: every catchment, every pair, all three periods) on the fixture with three lines, on a
 // synthetic Inner-Boston-sized grid with T03's network, and, once `node tools/bake/sim.mjs boston
 // inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
-// whole recompute there with five depots, on hubs of lines out of one stop, and on a late game's many lines.
-// Results go to .cache/bench/recompute.json.
-import { mkdirSync, writeFileSync } from 'node:fs';
+// whole recompute there with five depots, on hubs of lines out of one stop, on a late game's many lines, and on the pacing run's
+// card-building companies at the bus ceiling (bench/fixtures). Results go to .cache/bench/recompute.json.
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { loadCity } from '../src/sim/city/simfile';
@@ -24,6 +24,8 @@ import { buildCommuters } from '../src/sim/demand/commuters';
 import { depotNear } from '../src/sim/pacing';
 import { corridorStops } from '../src/sim/sweep';
 import { lateScene } from '../src/sim/scene';
+import { fromSaveData } from '../src/sim/save/save';
+import type { SaveData } from '../src/sim/save/schema';
 import { newGame } from '../src/sim/state';
 import { commutersToday, createWorld, planLine, recompute } from '../src/sim/world';
 import { CORRIDORS, innerBoston } from './inner';
@@ -140,6 +142,21 @@ if (inner) {
     const at = new Map<number, number>();
     for (const line of late.state.lines) for (const stop of new Set(line.stopIds)) at.set(stop, (at.get(stop) ?? 0) + 1);
     time(`Inner Boston's whole recompute, a late game of ${late.state.lines.length} lines, at most ${Math.max(...at.values())} at a stop`, () => recompute(late), n <= 15);
+  }
+
+  // The late game the pacing run builds (the systems audit's fifteenth round): bench/lategame.ts's card-building company
+  // (PACING_CARD_CENTS=16000, wide candidates) kept by LATEGAME_SAVE on 2026-10-22, at the bus ceiling, seed 1 on day 145 (14
+  // lines, 75 stops, one of 8 lines, gold since day 144) and seed 2 on day 153 (13 lines, 77 stops). Every 20 minutes on far
+  // more stops than lateScene's, with 66 to 94 changes between lines and about 20,000 trips a day, it is over I14 at a p95 of
+  // 251–327 ms within the hold on 15 lines and hubs of 8 (DECISIONS, Open: I14 on a hub of lines), so it is timed without
+  // failing the run until the assignment is made faster for it.
+  for (const seed of [1, 2]) {
+    const kept = JSON.parse(readFileSync(`bench/fixtures/lategame-card-s${seed}.json`, 'utf8')) as { readonly company: SaveData };
+    const company = createWorld(boston.city, fromSaveData(kept.company));
+    recompute(company);
+    const at = new Map<number, number>();
+    for (const line of company.state.lines) for (const stop of new Set(line.stopIds)) at.set(stop, (at.get(stop) ?? 0) + 1);
+    time(`Inner Boston's whole recompute, the pacing run's company on seed ${seed} at the bus ceiling, ${company.state.lines.length} lines on ${company.state.stops.length} stops, at most ${Math.max(...at.values())} at a stop`, () => recompute(company), false);
   }
 }
 

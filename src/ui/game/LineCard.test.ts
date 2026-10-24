@@ -110,6 +110,10 @@ describe('the line card', () => {
     const heading = (change: Partial<LineView>) => renderToStaticMarkup(createElement(LineHeading, { line: lineView(change) }));
     expect(heading({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_800, 3_600, 5_300] })).toContain('data-testid="express"');
     expect(heading({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_339, 2_425, 3_535] })).not.toContain('Express');
+    // Its words as a screen reader reads them, the line's name and the badge's: "Line 1Express" with no space between (the
+    // systems audit's fifteenth round). Shown failing (TS-04) without the space.
+    const words = (html: string) => html.replace(/<[^>]*>/g, '').trim();
+    expect(words(heading({ stops: [[0, 0], [0, 0], [0, 0], [0, 0]], stopDistM: [0, 1_800, 3_600, 5_300] }))).toBe('Line 1 Express');
   });
 });
 
