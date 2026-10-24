@@ -8,7 +8,7 @@ import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { EVENT_CHANCE_PER_DAY, EVENT_DAYS, EVENT_KINDS, type EventKind } from '../src/sim/config/events';
 import { createRng } from '../src/sim/core/rng';
 import { foundCompany } from './found';
-import { city, onDepotLand, setSpeed } from './shell';
+import { city, onDepotLand, setSpeed, withDebugLine } from './shell';
 
 type Data = Record<string, unknown> & { clock: { elapsed: number }; nextIds: Record<string, number>; eventRng: { state: number }; event: Record<string, unknown> | null; ledger: { day: number }[] };
 
@@ -130,5 +130,28 @@ test.describe('roadworks a day ahead', () => {
     await setSpeed(page, '5,400×');
     await expect(news).toHaveText(/^A festival near .+ tomorrow, for 1 day: more riders to and from there$/, { timeout: 30_000 });
     await expect(map).toHaveAttribute('data-event', /^.+:5:pending:1$/);
+  });
+
+  // Snow lengthens a round trip and buys no bus: the line card showed the headways set while the line ran slower (the systems
+  // audit's fourteenth round), and then said so in words of its own, "every 10.8 min", where Contracts said "every 10 min 45 s"
+  // of the same 645 s (the review of its fixes). Shown failing (TS-04) with the card's own words.
+  test('a line snow leaves a bus short says the headway it runs, in Contracts’ words for the same seconds', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // The debug line every 10 minutes with the 3 Sparrows that needs on a clear day, snow falling on day 2, and a contract held
+    // for a bus every 10 minutes at Copley Square, where it calls.
+    await withDebugLine(page, (d) => {
+      const data = d as typeof d & { lines: { headways: unknown; buses: number }[]; contracts: Record<string, unknown>[] };
+      data.lines[0]!.headways = { peak: 600, offpeak: 600, overnight: null };
+      data.lines[0]!.buses = 3;
+      data.event = { kind: 'snow', startDay: 2, endDay: 2, street: '', edges: [], at: null };
+      Object.assign(data.contracts[0]!, { landmark: 'Copley Square', kind: 'headway', ask: 600, rewardCents: 15_000_000, acceptedDay: 2, daysMet: 0, hoursMissedToday: 0 });
+    });
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await expect(page.getByTestId('line-short')).toHaveText('A bus short in the snow: runs every 10 min 45 s at peak and off-peak');
+    await page.getByTestId('checklist').or(page.getByTestId('contracts-chip')).click();
+    const held = page.getByTestId('contracts').locator('[data-landmark="Copley Square"][data-held="yes"]');
+    await expect(held).toContainText('Today: every 10 min 45 s · not met now');
   });
 });

@@ -1,7 +1,7 @@
 // The line card names when a line's buses fill (K27; the M3 spec, item 3), the fares that net the
-// most (item 4) and its round trip with what roadworks add (the M4 spec, item 2). The fixture's lines
-// never fill, so the e2e tests cannot reach the first; the card is rendered here from a snapshot that
-// says so.
+// most (item 4), its round trip with what roadworks add (the M4 spec, item 2), and the headway it runs
+// while snow or roadworks leave it short of buses. The fixture's lines never fill, so the e2e tests
+// cannot reach the first; the card is rendered here from a snapshot that says so.
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -81,6 +81,28 @@ describe('the line card', () => {
     const snowy = { peak: clear.peak + 420, offpeak: clear.offpeak + 343, overnight: clear.overnight + 330 };
     expect(render({ rush: 0.4, cycles: snowy }, null, { kind: 'snow', street: '', phase: 'on' })).toContain(' · snow adds 7 min<');
     expect(render({ rush: 0.4, cycles: clear }, null, { kind: 'snow', street: '', phase: 'pending' })).not.toContain('snow adds');
+  });
+
+  // Snow and roadworks lengthen a round trip and buy no bus: Line 1's 2 Sparrows, set to every 15 min, ran every 16.1 in the
+  // snow (1,934 s over 2), as Contracts said, while the card said only "Every 15 min" (the systems audit's fourteenth round).
+  // Shown failing (TS-04) without the line's running headway on the card.
+  it('says when snow or roadworks leave the line a bus short, and the headway it runs then, as Contracts reads it', () => {
+    const snowy = { headways: { peak: 900, offpeak: 900, overnight: null }, buses: 2, cycle: 1_934, cycles: { peak: 1_934, offpeak: 1_690, overnight: 1_690 } };
+    expect(render(snowy, null, { kind: 'snow', street: '', phase: 'on' })).toContain('>A bus short in the snow: runs every 16.1 min at peak and off-peak<');
+    const works = render({ ...snowy, worksM: 400 }, null, { kind: 'roadworks', street: 'Albany Street', phase: 'on' });
+    expect(works).toContain('>A bus short for the roadworks: runs every 16.1 min at peak and off-peak<');
+    // Every 10 min at peak needs 4 in the snow, 2 more than it has; off-peak, every 30, runs as set.
+    const two = render({ ...snowy, headways: { peak: 600, offpeak: 1_800, overnight: null } }, null, { kind: 'snow', street: '', phase: 'on' });
+    expect(two).toContain('>2 buses short in the snow: runs every 16.1 min at peak<');
+    // On a clear day the 2 run every 15 min as set, and the card says nothing more.
+    expect(render({ ...snowy, cycle: 1_549, cycles: { peak: 1_549, offpeak: 1_400, overnight: 1_400 } })).not.toContain('short');
+    // In Contracts' words for the same seconds (figureText): within a minute of the headway set, to the second, where the card
+    // read "every 10.8 min", "every 15.0 min" and "every 16.0 min" (the review of the round's fixes).
+    const snowing = { kind: 'snow', street: '', phase: 'on' } as const;
+    const near = (headway: number, buses: number, cycle: number) => render({ headways: { peak: headway, offpeak: headway, overnight: null }, buses, cycle, cycles: { peak: cycle, offpeak: cycle, overnight: cycle } }, null, snowing);
+    expect(near(600, 3, 1_935)).toContain(': runs every 10 min 45 s at peak and off-peak<');
+    expect(near(900, 2, 1_802)).toContain(': runs every 15 min 1 s at peak and off-peak<');
+    expect(near(900, 2, 1_916)).toContain(': runs every 15 min 58 s at peak and off-peak<');
   });
 
   it('says Express beside the name of a line of 5 km or more with its stops 1.2 km apart, and nothing beside a local one', () => {

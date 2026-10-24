@@ -1,16 +1,17 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { cyclesOf } from '../../sim/rules/cycle';
+import { busesNeeded, cyclesOf } from '../../sim/rules/cycle';
 import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, checkSellSpares, type FleetContext } from '../../sim/rules/line';
 import { planIsExpress } from '../../sim/rules/express';
 import { modelLocked } from '../../sim/rules/medal';
+import { runningHeadwayIn } from '../../sim/rules/timetable';
 import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim/types';
 import { refusalText } from '../copy';
 import { Dropdown } from '../Dropdown';
 import { useFocusBack } from '../focusBack';
 import { showInBody } from '../showWhole';
 import { runOver } from './runOver';
-import { about, busCount, clock, duration, PERIOD_NAMES, streetName, usd, usdK } from '../format';
+import { about, busCount, clock, duration, figureText, PERIOD_NAMES, streetName, usd, usdK } from '../format';
 import type { Sim } from './useSim';
 
 /** Headways a player picks from, in minutes; overnight adds "off". */
@@ -19,6 +20,28 @@ const PERIODS = [
   ['offpeak', PERIOD_NAMES.offpeak],
   ['overnight', PERIOD_NAMES.overnight],
 ] as const;
+
+/** Each period as a sentence names it: "every 16 min at peak, off-peak and overnight". */
+const PERIOD_WORDS: Readonly<Record<Period, string>> = { peak: 'at peak', offpeak: 'off-peak', overnight: 'overnight' };
+
+/**
+ * What a line short of buses runs: the headway Contracts and the timetable read (runningHeadwayIn, GD-05), the periods it runs
+ * it in, the longest headway set among them, and the buses it is short; null while it runs as set. Snow and roadworks lengthen a
+ * round trip and buy no bus, and the card showed only the headways set: "Every 15 min" for a line running every 16.1 (the
+ * systems audit's fourteenth round).
+ */
+export function shortOfBuses(line: LineView): { readonly runs: number; readonly set: number; readonly periods: string; readonly buses: number } | null {
+  const timing = { cycle: line.cycle, cycles: line.cycles, headways: line.headways, buses: line.buses };
+  const slow = PERIODS.flatMap(([period]) => {
+    const set = line.headways[period];
+    const runs = runningHeadwayIn(timing, period);
+    return set !== null && runs !== null && runs > set ? [{ period, runs, set }] : [];
+  });
+  if (!slow.length) return null;
+  const words = slow.map((p) => PERIOD_WORDS[p.period]);
+  const periods = words.length === 1 ? words[0]! : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
+  return { runs: Math.max(...slow.map((p) => p.runs)), set: Math.max(...slow.map((p) => p.set)), periods, buses: busesNeeded(line.cycles, line.headways) - line.buses };
+}
 
 /**
  * A headway pick on the line card: the three headways as picked, and what they were picked against: the line's headways
@@ -82,7 +105,8 @@ export function LineHeading({ line }: { line: LineView }) {
 
 /**
  * A line's card: its riders, its round trip at peak and off-peak and what roadworks or snow add to it (the M4
- * spec, item 2), when its buses fill (K27), its buses and their model, its fare (set in Finance's
+ * spec, item 2), the headway it runs while they leave it short of buses (shortOfBuses), when its buses fill (K27),
+ * its buses and their model, its fare (set in Finance's
  * Lines with the band of fares that net the most, D25), and three headways (D7). A headway that needs
  * more buses reads "Needs 3 buses (you have 2) · $95k" and confirming buys them (GD-09); another model
  * reads "2 Metro 40s · $520k, $95k back for the Sparrows". Each is the rule its command checks
@@ -133,6 +157,7 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   const clear = cyclesOf(line.stopDistM[line.stopDistM.length - 1] ?? 0, line.stops.length, model.kmh, line.rush);
   const works = line.worksM > 0 && s.event ? { street: streetName(s.event.street), addS: line.cycles.peak - clear.peak } : null;
   const snowAddS = snow ? line.cycles.peak - clear.peak : 0;
+  const short = shortOfBuses(line);
   const pick = (period: Period, value: string) => {
     lastPeriod.current = period;
     setWanted(pickHeadway(held, line, game, period, value === 'off' ? null : Number(value) * 60));
@@ -150,6 +175,12 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
           Round trip {duration(line.cycles.peak)} at peak, {duration(line.cycles.offpeak)} off-peak
           {works ? ` · roadworks on ${works.street} add ${duration(works.addS, true)}` : null}
           {snow ? ` · snow adds ${duration(snowAddS, snowAddS < 120)}` : null}
+        </p>
+      ) : null}
+      {short ? (
+        <p className="short-of-buses" data-testid="line-short" data-runs={short.runs} data-short={short.buses}>
+          {/* In Contracts' words for the same seconds (figureText): "every 15.0 min" for 901 s, where Contracts said "every 15 min 1 s" (the review of the round's fixes). */}
+          {short.buses === 1 ? 'A bus' : `${short.buses} buses`} short{snow ? ' in the snow' : works ? ' for the roadworks' : ''}: runs {figureText('headway', short.runs, short.set)} {short.periods}
         </p>
       ) : null}
       {line.fullAtMinute !== null ? (

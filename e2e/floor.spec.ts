@@ -74,6 +74,45 @@ test.describe('the failure floor', () => {
     await expect(page.getByTestId('countdown')).toHaveText('1 day to get above -$150k');
   });
 
+  // Back above the floor with a close below behind, the chip said the days to get above it, there already, until the next close
+  // (the systems audit's fourteenth round); hidden instead, a company four closes behind and just above it saw no word as
+  // tonight's interest ended the run (its fixes' review). It says to stay above tonight now, counts the days it had again once
+  // cash is below, and goes at a close above. Shown failing (TS-04) on main, where it read "4 days to get above -$150k" above it.
+  test('back above the floor with a close below behind, says to stay above tonight, and goes at a close above it', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    const panel = page.getByTestId('sim-panel');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    // Owing $200k at 09:00 on day 2, a close below the floor behind it.
+    await withDebugLine(page, (d) => {
+      d.closesBelowFloor = 1;
+      d.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 100_000 + 20_000_000), lineId: null });
+    });
+    const countdown = page.getByTestId('countdown');
+    await expect(countdown).toHaveText('4 days to get above -$150k');
+    // Line 1 closed: its 2 Sparrows sell for $95k and its 4 stops come down for $8k.
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await lines.getByRole('button', { name: 'Close line' }).click();
+    await lines.getByTestId('close-line').getByRole('button', { name: 'Close it' }).click();
+    await expect(panel).toHaveAttribute('data-cash', '-9700000');
+    await expect(countdown).toHaveText('Stay above -$150k tonight');
+    await expect(countdown).toHaveAttribute('data-left', '4');
+    // Taken back while paused, the cash is below again, and the chip counts the days it had.
+    await page.getByRole('button', { name: 'Undo: Close Line 1' }).click();
+    await expect(panel).toHaveAttribute('data-cash', '-20000000');
+    await expect(countdown).toHaveText('4 days to get above -$150k');
+    // Closed again and played past midnight above the floor: the close clears the count, and the chip goes.
+    if (!(await lines.isVisible())) await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await lines.getByRole('button', { name: 'Close line' }).click();
+    await lines.getByTestId('close-line').getByRole('button', { name: 'Close it' }).click();
+    await expect(countdown).toHaveText('Stay above -$150k tonight');
+    await setSpeed(page, '5,400×');
+    await expect(page.getByTestId('day-card')).toBeVisible({ timeout: 30_000 });
+    await expect(countdown).toHaveCount(0);
+  });
+
   // The lender's card stays until Restart this quarter, and stood at the window's top centre over the panels: with Contracts,
   // Lines and Finance opened in turn, Finance's views and Close were under it at 1152×720 to 1440×900, and a press on its Lines
   // view landed on the card (the review of #142). It takes a free place on the panel layer now, so the panels open beside it,

@@ -1216,6 +1216,28 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false });
   });
 
+  // Back above the floor with a close below behind, the countdown stays, its words the cash's (TopBar), until a close above
+  // clears it: hidden above the floor, a company four closes behind and $50 above it saw no word as tonight's interest ended the
+  // run (the review of the fourteenth round's fixes). Shown failing (TS-04) with the countdown only below the floor.
+  it('keeps the countdown while a close below is behind, whatever the cash, until a close above the floor clears it', () => {
+    const { send, last, store, host } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'create-line', clicks: CLICKS });
+    const save = JSON.parse(store.get(KEY)!) as { data: { closesBelowFloor: number; ledger: { day: number; kind: string; amountCents: number; lineId: null }[] } };
+    save.data.closesBelowFloor = 1;
+    save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(last('snapshot')!.snapshot.cashCents + 20_000_000), lineId: null });
+    send({ type: 'import', text: JSON.stringify(save) });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -20_000_000, floor: { closesLeft: 4, ended: false } });
+    send({ type: 'close-line', lineId: 1 }); // its 2 Sparrows sold for $95k and 4 stops for $8k
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -9_700_000, floor: { closesLeft: 4, ended: false } });
+    // Still above at midnight: the close resets the count, and the countdown goes.
+    send({ type: 'speed', speed: 5 });
+    for (let t = 0; last('snapshot')!.snapshot.day < 2 && t < 600_000; t += 250) host.tick(t);
+    send({ type: 'export' });
+    expect((JSON.parse(last('export')!.text) as { data: { closesBelowFloor: number } }).data.closesBelowFloor).toBe(0);
+    expect(last('snapshot')!.snapshot.floor).toBeNull();
+  });
+
   // Interest is a running cost (sim/rules/money.ts) and Finance forecasts a day of it while owing; the
   // chip left it out, so here, owing $556,000, it read $333.60 a day less than Finance's running costs.
   // Shown failing (TS-04) with Costs/day summed without the interest.

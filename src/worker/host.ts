@@ -650,6 +650,9 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
       finance: money,
       undo: speed === 0 ? nextUndo(undoStack) : null,
+      // The countdown, while cash is below the floor or a close below is behind (the chip's words follow the cash, TopBar), and
+      // the run's end. Hidden above the floor, it left a company four closes behind and $50 above it with no word, as tonight's
+      // interest took it below and ended the run (the review of the fourteenth round's fixes).
       floor:
         belowFloor(w.state.ledger.cashCents) || w.state.closesBelowFloor > 0
           ? { closesLeft: Math.max(0, FAILURE_CLOSES - w.state.closesBelowFloor), ended: runEnded(w.state.closesBelowFloor) }
