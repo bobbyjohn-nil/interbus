@@ -168,7 +168,8 @@ export function Dropdown<T extends string | number>({
   const show = () => {
     if (open || disabled) return;
     // Its button wholly in view first: a list that closed as its button went under Finance's headings left the keyboard there,
-    // and opened again beside the hidden button (the systems audit's sixteenth round). A button in view does not move.
+    // and opened again beside the hidden button (the systems audit's sixteenth round). A button in view moves only as far as
+    // the body's scroll padding asks, at most the 4 px it reaches past Finance's headings.
     button.current?.scrollIntoView?.({ block: 'nearest' });
     setHost(button.current?.closest('main') ?? document.body);
     setActive(chosen >= 0 ? chosen : step(-1, 1));

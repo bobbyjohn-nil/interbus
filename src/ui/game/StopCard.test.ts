@@ -28,9 +28,11 @@ describe('a stop’s card', () => {
     expect(station).toContain('Upkeep $51 a day · feels 1.8 min closer on foot');
     expect(station).toContain('Make it a Shelter · $17.5k back');
     // An Interchange needs three lines calling; this stop has one, so the step up is refused in words, and aria-disabled, so a
-    // press up to this step leaves the focus on it (the review of the stop card's keys).
-    expect(station).toMatch(/<button type="button" aria-disabled="true" title="Upkeep \$141 a day">Make it an Interchange · \$90k<\/button>/);
-    expect(station).toContain('Needs 3 lines stopping here');
+    // press up to this step leaves the focus on it (the review of the stop card's keys), described by the words why (the review
+    // of the systems audit's sixteenth round).
+    const step = /<button type="button" aria-disabled="true" aria-describedby="([^"]+)" title="Upkeep \$141 a day">Make it an Interchange · \$90k<\/button>/.exec(station);
+    expect(step).not.toBeNull();
+    expect(station).toContain(`<p id="${step![1]}" class="refusal" role="status">Needs 3 lines stopping here</p>`);
   });
 
   // Once the lender has ended the run, the host refuses every change (D10), so the card offers none: it offered each, a press

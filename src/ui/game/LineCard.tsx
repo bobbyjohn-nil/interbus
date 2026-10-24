@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { busesNeeded, cyclesOf } from '../../sim/rules/cycle';
 import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, checkSellSpares, type FleetContext } from '../../sim/rules/line';
@@ -87,6 +87,15 @@ export function headwayChange(fleet: FleetContext, line: Pick<LineView, 'cycle' 
 }
 
 /**
+ * Whether a headway change buys buses, which its button names (Buy and run, not Run it): one refused for the depots' room or for
+ * the cash does too, since only a change that buys needs either. Named Run it while refused, a close's Buy and run changed its
+ * name under the keyboard (the review of the systems audit's sixteenth round).
+ */
+export function buysBuses(change: ReturnType<typeof checkHeadwayChange>): boolean {
+  return change.ok ? change.extra > 0 : change.reason === 'depot_full' || change.reason === 'insufficient_funds';
+}
+
+/**
  * A line's heading: its colour, its name and, for an express, the word. The Lines panel draws it above its line tabs, so
  * the heading it is dragged by (D25) is its first line, as on every panel, however many lines there are (Inspector.tsx).
  */
@@ -138,6 +147,10 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   const lastPeriod = useRef<Period>('peak');
   const toModel = () => root.current?.querySelector<HTMLElement>('[data-testid="line-model"]');
   const toHeadway = () => root.current?.querySelector<HTMLElement>(`[data-testid="headway-${lastPeriod.current}"]`);
+  // What a change card says, which describes its button and is its status: refused, the words why are heard as they come and
+  // as the button is reached (the review of the systems audit's sixteenth round: refused, nothing said why).
+  const changeSaid = useId();
+  const swapSaid = useId();
   const s = sim.snapshot;
   if (!s) return null;
   const over = runOver(sim);
@@ -209,20 +222,17 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
       </div>
       {swap && wantedModel ? (
         <div className="change" ref={swapCard} data-testid="model-change" data-ok={swap.ok ? 'yes' : 'no'}>
-          {swap.ok ? (
-            <p>
-              {busCount(swap.needed, BUS_MODELS[wantedModel].name)} · {usdK(swap.buyCents)}, {usdK(swap.saleCents)} back for the {busCount(line.buses, model.name).replace(/^\d+ /, '')}
-            </p>
-          ) : (
-            <p className="refusal" role="status">
-              {refusalText(swap)}
-            </p>
-          )}
+          <p id={swapSaid} className={swap.ok ? undefined : 'refusal'} role="status">
+            {swap.ok
+              ? `${busCount(swap.needed, BUS_MODELS[wantedModel].name)} · ${usdK(swap.buyCents)}, ${usdK(swap.saleCents)} back for the ${busCount(line.buses, model.name).replace(/^\d+ /, '')}`
+              : refusalText(swap)}
+          </p>
           <div className="controls">
             <button
               type="button"
               disabled={over}
               aria-disabled={swap.ok ? undefined : true}
+              aria-describedby={swapSaid}
               onClick={(e) => {
                 if (!swap.ok) return;
                 handBack(e.currentTarget, toModel);
@@ -291,24 +301,21 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
       </div>
       {change ? (
         <div className="change" ref={changeCard} data-testid="headway-change" data-ok={change.ok ? 'yes' : 'no'}>
-          {change.ok ? (
-            <p>
-              {change.extra > 0
+          <p id={changeSaid} className={change.ok ? undefined : 'refusal'} role="status">
+            {!change.ok
+              ? refusalText(change)
+              : change.extra > 0
                 ? `Needs ${change.needed} buses (you have ${line.buses}) · ${usdK(change.priceCents)}`
                 : change.needed < line.buses
                   ? `Needs ${change.needed} of the ${line.buses} buses it has`
                   : `Runs with the ${line.buses} ${line.buses === 1 ? 'bus' : 'buses'} it has`}
-            </p>
-          ) : (
-            <p className="refusal" role="status">
-              {refusalText(change)}
-            </p>
-          )}
+          </p>
           <div className="controls">
             <button
               type="button"
               disabled={over}
               aria-disabled={change.ok ? undefined : true}
+              aria-describedby={changeSaid}
               onClick={(e) => {
                 if (!change.ok) return;
                 handBack(e.currentTarget, toHeadway);
@@ -316,7 +323,8 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
                 setWanted(null);
               }}
             >
-              {change.ok && change.extra > 0 ? 'Buy and run' : 'Run it'}
+              {/* Refused for the room or the cash, it still buys: its name stays as the close refuses it under the keyboard. */}
+              {buysBuses(change) ? 'Buy and run' : 'Run it'}
             </button>
             <button
               type="button"

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { STOP_LOSS_CENTS, STOP_QUIET_BOARDINGS } from '../../sim/rules/stopDay';
 import { runOver } from './runOver';
 import { checkRemoveStop, checkTakeDownStop } from '../../sim/rules/route';
@@ -36,6 +36,8 @@ export function StopCard({
   // and the card itself as the stop comes down. The focus goes on to the card's first control of that kind, then its Close,
   // and once the card has gone, to the stops it was opened from or Build (App holds the hand-off, as the card can close).
   const root = useRef<HTMLElement>(null);
+  // A refused step up's words, which describe it: refused, it said nothing of why (the review of the systems audit's sixteenth round).
+  const upSaid = useId();
   const next = (first: string) => () =>
     root.current?.querySelector<HTMLElement>(`${first} button:not(:disabled)`) ??
     root.current?.querySelector<HTMLElement>('button:not(:disabled):not(.close)') ??
@@ -96,6 +98,7 @@ export function StopCard({
             type="button"
             disabled={runOver(sim)}
             aria-disabled={up.ok ? undefined : true}
+            aria-describedby={up.ok ? undefined : upSaid}
             title={`Upkeep ${usd(stopUpkeepCents(upTo))} a day`}
             onClick={(e) => {
               if (!up.ok) return;
@@ -120,7 +123,7 @@ export function StopCard({
         ) : null}
       </div>
       {up && !up.ok ? (
-        <p className="refusal" role="status">
+        <p id={upSaid} className="refusal" role="status">
           {refusalText(up)}
         </p>
       ) : null}
