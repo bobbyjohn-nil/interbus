@@ -10,8 +10,8 @@
 // as a load runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
 // assignment carries the rides of the cell pairs no changed line has a route in, and the catchments and ride tables nothing
 // changed, AssignMemo), and on the late companies a fare's, which keeps the catchments, a Shelter's, which works them out
-// afresh, a festival's start and end, which change the trips of the pairs near it, and a snow day's, which slows nearly every
-// line there; each kind, and four kinds of change it does not time, then held to a whole assignment, number for number.
+// afresh, a festival's start and end, which change the trips of the pairs near it, and a snow day's, which slows most lines
+// there; each kind, and four kinds of change it does not time, then held to a whole assignment, number for number.
 // Results go to .cache/bench/recompute.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
@@ -141,8 +141,8 @@ const aFestival = (w: World, freshAtStart: number[]) => {
 
 /**
  * A snow day's start or end, as the closes that start and end it run (step.ts, recomputeInService, as for aFestival): each run snow
- * today or none, the memo kept between runs. Snow slows the buses, so a line with no spare bus runs a longer headway (rules/cycle.ts),
- * which at the bus ceiling is nearly every line: the close works out afresh nearly every pair, a whole assignment's work.
+ * today or none, the memo kept between runs. Snow slows every bus, so a line with no spare bus runs a longer headway (rules/cycle.ts),
+ * which at the bus ceiling is most lines: the close works out afresh nearly every pair, a whole assignment's work.
  */
 const aSnow = (w: World, freshAtStart: number[]) => {
   const day = toCalendarTime(w.state.elapsed).day;
@@ -177,16 +177,19 @@ const inTurn = (w: World, apply: (k: number) => () => void) => {
  * Whether the memo's riders are a whole assignment's, number for number, after a run of one kind of command, each kind in turn,
  * so a stale ride one kind leaves cannot hide behind the next, and after each of `steps` more of them (`more`): a run's commands
  * undo one another, so a pair one of them left stale the next would put right before the run's end could check it (memo.test.ts
- * holds the rule step by step on the fixture).
+ * holds the rule step by step on the fixture). With no run before them (`ran` false, inTurn's kinds), the steps are the check.
+ * Every step runs, a difference found or not, so a change made is undone and the next kind starts from the company as it was
+ * (the review of the sixteenth round's first fixes).
  */
-function exactAfter(what: string, w: World, seed: number, more: () => void, steps: number): void {
+function exactAfter(what: string, w: World, seed: number, more: () => void, steps: number, ran = true): void {
   let same = matchesWhole(w);
-  for (let k = 0; k < steps && same; k++) {
+  for (let k = 0; k < steps; k++) {
     more();
-    same = matchesWhole(w);
+    same = matchesWhole(w) && same;
   }
-  results[`memo matches a whole assignment after ${what} commands, seed ${seed}`] = same;
-  console.log(`bench: after ${what} commands, and after each of ${steps} more, the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
+  const when = ran ? `after ${what} commands, and after each of ${steps} more,` : `through ${steps} of ${what}, each undone by the next,`;
+  results[`memo matches a whole assignment ${ran ? `after ${what} commands` : `through ${what}`}, seed ${seed}`] = same;
+  console.log(`bench: ${when} the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
   if (!same) process.exitCode = 1;
 }
 
@@ -268,7 +271,7 @@ if (inner) {
   // The closes that start and end one carry the pairs it leaves alone (aFestival, on the late
   // companies). Snow and roadworks change only the plans' times, not the work a whole assignment
   // does; but the lines whose times they change are worked out afresh at their closes, which at the
-  // bus ceiling is nearly every line in snow (aSnow, on the late companies).
+  // bus ceiling is most lines in snow, and nearly every pair (aSnow, on the late companies).
   const [lon, lat] = bostonPlans[0]!.stops[6]!;
   const at = toLngLat(boston.city.frame, [lon, lat]);
   const day = toCalendarTime(boston.state.elapsed).day;
@@ -371,38 +374,38 @@ if (inner) {
     // tables and changes), and a line left with no buses (it leaves the plans, and its pairs come back with it), each undone by
     // the next.
     const { lines, stops } = company.state;
-    exactAfter(`its model swaps'`, company, seed, inTurn(company, (k) => {
+    exactAfter(`its model swaps`, company, seed, inTurn(company, (k) => {
       const line = lines[k % lines.length]!;
       const was = line.model;
       line.model = was === 'sparrow' ? 'metro40' : 'sparrow';
       return () => {
         line.model = was;
       };
-    }), 6);
-    exactAfter(`its Stations'`, company, seed, inTurn(company, (k) => {
+    }), 6, false);
+    exactAfter(`its stops made Stations`, company, seed, inTurn(company, (k) => {
       const stop = stops[k % stops.length]!;
       const was = stop.tier;
       stop.tier = was === 3 ? 2 : 3;
       return () => {
         stop.tier = was;
       };
-    }), 6);
-    exactAfter(`its route edits'`, company, seed, inTurn(company, (k) => {
+    }), 6, false);
+    exactAfter(`its lines' second stops taken off`, company, seed, inTurn(company, (k) => {
       const line = lines[k % lines.length]!;
       const was = line.stopIds;
       line.stopIds = was.filter((_, q) => q !== 1);
       return () => {
         line.stopIds = was;
       };
-    }), 6);
-    exactAfter(`its lines' buses gone and back`, company, seed, inTurn(company, (k) => {
+    }), 6, false);
+    exactAfter(`its lines left with no buses`, company, seed, inTurn(company, (k) => {
       const line = lines[k % lines.length]!;
       const was = line.buses;
       line.buses = 0;
       return () => {
         line.buses = was;
       };
-    }), 6);
+    }), 6, false);
     const blank: AssignMemo = { last: null };
     assign(company.city, commutersToday(company), runningPlans(company), { memo: blank });
     const whole = blank.last!.freshPairs;
