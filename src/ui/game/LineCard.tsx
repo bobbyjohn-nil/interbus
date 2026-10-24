@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { busesNeeded, cyclesOf } from '../../sim/rules/cycle';
 import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, checkSellSpares, type FleetContext } from '../../sim/rules/line';
@@ -9,6 +9,8 @@ import type { BusModelId, FareBandView, HeadwaysData, LineView } from '../../sim
 import { refusalText } from '../copy';
 import { Dropdown } from '../Dropdown';
 import { useFocusBack } from '../focusBack';
+import { focusLost } from '../focusLost';
+import { giveFocus } from '../giveFocus';
 import { showInBody } from '../showWhole';
 import { runOver } from './runOver';
 import { about, busCount, clock, duration, figureText, PERIOD_NAMES, streetName, usd, usdK } from '../format';
@@ -151,6 +153,28 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   // as the button is reached (the review of the systems audit's sixteenth round: refused, nothing said why).
   const changeSaid = useId();
   const swapSaid = useId();
+  // A control of the card that goes from under the keyboard by something other than its own press, which hands the focus on
+  // (handBack), gives it to the control its card came from: Sell it, gone as a close's snow left the line needing every bus,
+  // and a change card's buttons, gone as Ctrl+Z took back the change their pick was made against. The focus fell to the page,
+  // where Space ran the game (the systems audit's seventeenth round). The control the focus was on is kept as the focus comes
+  // to it, and let go as it goes anywhere else; off the page, it still names the card it was in.
+  const focusedIn = useRef<Element | null>(null);
+  useEffect(() => {
+    const moved = (event: FocusEvent) => {
+      const to = event.target instanceof Element ? event.target : null;
+      focusedIn.current = to && root.current?.contains(to) ? to : null;
+    };
+    document.addEventListener('focusin', moved, true);
+    return () => document.removeEventListener('focusin', moved, true);
+  }, []);
+  useLayoutEffect(() => {
+    const was = focusedIn.current;
+    if (!was || was.isConnected || !focusLost()) return;
+    focusedIn.current = null;
+    const card = was.closest('[data-testid]')?.getAttribute('data-testid');
+    const to = card === 'headway-change' ? toHeadway() : card === 'model-change' || card === 'line-spares' ? toModel() : null;
+    if (to) giveFocus(to);
+  });
   const s = sim.snapshot;
   if (!s) return null;
   const over = runOver(sim);

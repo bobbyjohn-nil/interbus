@@ -82,8 +82,15 @@ describe('the route editor', () => {
     // it on its way: only its landing or its refusal ends it, so a double-click's guard holds.
     expect(followed(pressed, line, { stops: [...game.stops, { id: 4 }] }, 0, NONE)).toBe(pressed);
     // While it is on its way, the button says a press does nothing.
-    expect(render(opened.points, { refusal: null }, true)).toMatch(/<button type="button" disabled="">Save route<\/button>/);
-    expect(render(opened.points, { refusal: null })).toMatch(/<button type="button">Save route<\/button>/);
+    expect(render(opened.points, { refusal: null }, true)).toMatch(/<button type="button" disabled="" aria-describedby="[^"]+">Save route<\/button>/);
+    expect(render(opened.points, { refusal: null })).toMatch(/<button type="button" aria-describedby="[^"]+">Save route<\/button>/);
+    // Refused (short of cash, as a close can leave it under the keyboard), it keeps the focus, described by the words why, and a
+    // press does nothing; disabled, the focus fell to the page (the systems audit's seventeenth round). Shown failing (TS-04)
+    // with Save route disabled while refused.
+    const short = render(opened.points, { refusal: { reason: 'insufficient_funds', shortCents: 13_500 } as unknown as LineDraftView['refusal'] });
+    const said = /<p id="([^"]+)" class="refusal" role="status">\$135 short<\/p>/.exec(short);
+    expect(said).not.toBeNull();
+    expect(short).toContain(`<button type="button" aria-disabled="true" aria-describedby="${said![1]}">Save route</button>`);
   });
 
   // Save route, then Undo (Ctrl+Z, ⌘Z or the chip) before the editor closed, taken through App's renders
@@ -116,7 +123,7 @@ describe('the route editor', () => {
       expect(undone.points).toBe(opened.points); // the player's edit, to save again
       expect(renders([line, { sent: 5, done: 3 }], [line, { sent: 5, done: 5 }], [line, { sent: 5, done: 5 }])).toEqual(undone); // and so it stays
       expect(pressSave(undone, line, 0, { sent: 5, done: 5 })).not.toBeNull();
-      expect(render(undone.points, { refusal: null }, undone.saved !== null)).toMatch(/<button type="button">Save route<\/button>/);
+      expect(render(undone.points, { refusal: null }, undone.saved !== null)).toMatch(/<button type="button" aria-describedby="[^"]+">Save route<\/button>/);
     });
 
     it('closes the editor as the save lands while time runs, the undo refused', () => {
@@ -147,7 +154,7 @@ describe('the route editor', () => {
     expect(added).toContain('· 3.9 km (+1.9 km) ·'); // the change in length, where Insert warned of a detour
     const same = render(routeOf(line), { refusal: { reason: 'no_change' } });
     expect(same).not.toContain('Total');
-    expect(same).not.toContain('class="refusal"');
-    expect(same).toMatch(/<button type="button" disabled="">Save route<\/button>/);
+    expect(same).toMatch(/<p id="[^"]+" class="refusal" role="status"><\/p>/);
+    expect(same).toMatch(/<button type="button" disabled="" aria-describedby="[^"]+">Save route<\/button>/);
   });
 });

@@ -8,7 +8,7 @@ import { expect, test, type Locator } from './base';
 import { FARES_CENTS } from '../src/sim/rules/fare';
 import { usd } from '../src/ui/format';
 import { foundCompany } from './found';
-import { city, withDebugLine } from './shell';
+import { build, city, withDebugLine } from './shell';
 
 const [W, H] = [1152, 720]; // I13's tightest size
 const fareText = (k: number) => usd(FARES_CENTS[k]!, { cents: true });
@@ -108,5 +108,60 @@ test.describe('the game’s dropdown', () => {
     expect(o.y + o.height).toBeLessThanOrEqual(H);
     await page.mouse.click(o.x + o.width / 2, o.y + o.height / 2);
     await expect(fare).toContainText(fareText(FARES_CENTS.length - 1));
+  });
+
+  // Finance dragged past the window's right edge, the keyboard kept on a fare through the drag (a drag's press keeps the focus
+  // where it was): ArrowDown opened the fare's list wholly off the window, holding the keys, and Enter set a fare unseen (the
+  // systems audit's seventeenth round). A key that acts on the control the keyboard is on brings its panel in first, as Tab does.
+  // Shown failing (TS-04) with no key's reveal: the list lay at x 1313–1377 on the 1152-wide window.
+  test('opens beside its button in a panel dragged past the window’s edge, the key bringing the panel in', async ({ page }) => {
+    await page.setViewportSize({ width: W, height: H });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    const fare = page.getByRole('button', { name: 'Fare for Line 1' });
+    // The keyboard's focus, so it shows (:focus-visible): from the control before it, by Tab.
+    await fare.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(fare).toBeFocused();
+    const h = (await finance.getByRole('heading', { name: 'Finance' }).boundingBox())!;
+    await page.mouse.move(h.x + 10, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x + 10 + W, h.y + h.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect(fare).toBeFocused();
+    expect((await page.locator('[data-movable="finance"]').boundingBox())!.x).toBeGreaterThan(W - 100);
+    await page.keyboard.press('ArrowDown');
+    const list = page.getByRole('listbox', { name: 'Fare for Line 1' });
+    await expect(list).toBeFocused();
+    const [b, l] = [(await fare.boundingBox())!, (await list.boundingBox())!];
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(W);
+    expect(l.x).toBeGreaterThanOrEqual(0);
+    expect(l.x + l.width).toBeLessThanOrEqual(W);
+    await page.keyboard.press('Escape');
+    await expect(fare).toBeFocused();
+  });
+
+  // The new line's Buses list, opened with the line's card in its free place at the window's right, started at its button's left
+  // and ran 11 px past the window's edge, its corner and shadow cut (the systems audit's seventeenth round). It keeps 8 px inside
+  // the window, as it does at the top and bottom. Shown failing (TS-04) with the list at its button's left: 913–1163 on 1152.
+  test('keeps the new line’s Buses list inside the window', async ({ page }) => {
+    await page.setViewportSize({ width: W, height: H });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await build(page, 'Draw a line');
+    await page.getByTestId('draft-model').click();
+    const list = page.getByRole('listbox', { name: 'Buses' });
+    await expect(list).toBeVisible();
+    const l = (await list.boundingBox())!;
+    expect(l.x).toBeGreaterThanOrEqual(8);
+    expect(l.x + l.width).toBeLessThanOrEqual(W - 8);
   });
 });

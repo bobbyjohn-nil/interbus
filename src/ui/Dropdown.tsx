@@ -77,12 +77,16 @@ export function Dropdown<T extends string | number>({
 
   // Placed beside the button, below or above it, in the viewport's own pixels, once the list is drawn
   // (unseen) and its height known. Where that side has no room for it and the other has more (a panel
-  // low in the window), it opens on the other; it is never taller than the room on its side.
+  // low in the window), it opens on the other; it is never taller than the room on its side. It starts at
+  // its button's left, or as far left of it as keeps it EDGE inside the window: the new line's Buses list,
+  // under the line's card at the window's right, ran 11 px past it (the systems audit's seventeenth round).
   useLayoutEffect(() => {
     if (!open || !button.current || !list.current) return;
     const r = button.current.getBoundingClientRect();
-    // Measured as wide as it will be placed, so its options wrap as they will.
-    Object.assign(list.current.style, { left: `${r.left}px`, minWidth: `${r.width}px` });
+    // Its width with the window's room to grow into, then measured where it will be placed, so its options wrap as they will.
+    Object.assign(list.current.style, { left: `${EDGE}px`, minWidth: `${r.width}px` });
+    const left = Math.max(EDGE, Math.min(r.left, window.innerWidth - EDGE - list.current.offsetWidth));
+    list.current.style.left = `${left}px`;
     const h = list.current.offsetHeight;
     // Its padding, which max-height leaves out.
     const pad = h - parseFloat(getComputedStyle(list.current).height);
@@ -93,7 +97,7 @@ export function Dropdown<T extends string | number>({
       side,
       style: {
         position: 'fixed',
-        left: r.left,
+        left,
         minWidth: r.width,
         ...(side === 'below' ? { top: r.bottom + 4 } : { bottom: window.innerHeight - r.top + 4 }),
         ...(h > room[side] ? { maxHeight: room[side] - pad } : {}),

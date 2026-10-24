@@ -1,9 +1,11 @@
+import { useId, useLayoutEffect, useRef } from "react";
 import { BUS_MODELS, MODEL_IDS } from "../../sim/rules/line";
 import { isExpress } from "../../sim/rules/express";
 import { modelLocked, NO_MEDALS } from "../../sim/rules/medal";
 import type { BusModelId, LineDraftView } from "../../sim/types";
 import { refusalText } from "../copy";
 import { Dropdown } from "../Dropdown";
+import { focusLost } from "../focusLost";
 import { about, busCount, every, km, usdK } from "../format";
 import { useBesidePointer } from "./besidePointer";
 import type { Sim } from "./useSim";
@@ -137,6 +139,19 @@ export function DraftCard({
   const draft = clicks ? sim.draft : null;
   const refused = draft?.refusal ?? null;
   const title = "New line";
+  // Refused, Create keeps the focus, described by the words why, which are a status from the card's first render, and a press
+  // does nothing (as a line card's Buy and run): disabled, a close that left the cash short under the keyboard dropped the
+  // focus to the page, where Space paused the game with the day's card up (the systems audit's seventeenth round).
+  const said = useId();
+  // Remove last stop turns itself off as it takes the last stop, and the focus on it fell to the page, where Space played (the
+  // systems audit's seventeenth round): it goes on to Cancel.
+  const cancel = useRef<HTMLButtonElement>(null);
+  const removing = useRef(false);
+  useLayoutEffect(() => {
+    if (!removing.current) return;
+    removing.current = false;
+    if (focusLost()) cancel.current?.focus();
+  });
   return (
     <section
       className="panel tool-card"
@@ -194,25 +209,34 @@ export function DraftCard({
             </p>
           ) : null}
           <p className="total">Total {usdK(draft.priceCents)}</p>
-          {refused ? (
-            <p className="refusal" role="status">
-              {refusalText(refused)}
-            </p>
-          ) : null}
         </>
       )}
+      <p id={said} className="refusal" role="status">
+        {refused ? refusalText(refused) : null}
+      </p>
       <div className="controls">
         <button
           type="button"
-          onClick={onCreate}
-          disabled={!draft || refused !== null || creating}
+          onClick={() => {
+            if (!refused) onCreate();
+          }}
+          disabled={!draft || creating}
+          aria-disabled={refused ? true : undefined}
+          aria-describedby={said}
         >
           Create
         </button>
-        <button type="button" onClick={onUndo} disabled={!clicks}>
+        <button
+          type="button"
+          onClick={(e) => {
+            removing.current = document.activeElement === e.currentTarget;
+            onUndo();
+          }}
+          disabled={!clicks}
+        >
           Remove last stop
         </button>
-        <button type="button" onClick={onCancel}>
+        <button type="button" ref={cancel} onClick={onCancel}>
           Cancel
         </button>
       </div>

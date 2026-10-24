@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, type MutableRefObject } from 'react';
 import type { Speed } from '../../sim/types';
 import { runOver } from '../game/runOver';
 import { belowFloor, CREDIT_LIMIT_CENTS } from '../../sim/rules/credit';
@@ -7,6 +8,7 @@ import { periodAt } from '../../sim/rules/periods';
 import { RUNNING_SPEEDS } from '../../sim/rules/speed';
 import { undoText } from '../copy';
 import { Dropdown } from '../Dropdown';
+import { focusLost } from '../focusLost';
 import { about, clockText, dateText, MEDAL_NAMES, PERIOD_NAMES, shownMinute, SPEED_HINTS, speedText, usd, usdK } from '../format';
 import { CHECKLIST, checklistStep, checklistText } from '../game/checklist';
 import type { Sim } from '../game/useSim';
@@ -31,6 +33,15 @@ const SPEED_OPTIONS = RUNNING_SPEEDS.map((speed) => ({ value: speed, label: spee
  * game's chips keep to one row too (the fourth round).
  */
 export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: Exclude<Speed, 0>; onContracts: () => void }) {
+  // The Undo chip goes as its last undo is done, and as time runs and lets the undos go: the focus on it fell to the page, where
+  // Space ran the game or stopped it (the systems audit's seventeenth round). It goes on to Play or Pause, beside it.
+  const play = useRef<HTMLButtonElement>(null);
+  const undoWent = useRef(false);
+  useLayoutEffect(() => {
+    if (!undoWent.current) return;
+    undoWent.current = false;
+    if (focusLost()) play.current?.focus();
+  });
   const s = sim.snapshot;
   if (sim.status !== 'ready' || !s) return null;
   const founded = s.company.name !== '';
@@ -44,6 +55,8 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   // ran to its end, and running clears the undos (I9).
   const over = runOver(sim);
   const undo = s.undo ? undoText(s.undo) : null;
+  // The Contracts chip, once the checklist is done or the run has ended; before, the checklist's last step in its place.
+  const chip = over || !checklist;
   return (
     <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
       {/* The clock names D7's period, so the time of day never rests on the map's tint (D13), the period of the minute it shows,
@@ -58,6 +71,7 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
       {founded ? (
         <span className="chip speed" role="group" aria-label="Speed">
           <button
+            ref={play}
             type="button"
             className="play"
             aria-label={s.speed === 0 ? 'Play' : 'Pause'}
@@ -101,35 +115,58 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
               : `Stay above ${usdK(-CREDIT_LIMIT_CENTS)} tonight`}
         </span>
       ) : null}
-      {undo ? (
-        <button type="button" className="chip undo" data-testid="undo" title={undo} onClick={() => sim.send({ type: 'undo' })}>
-          <span className="chip-text">{undo}</span>
-        </button>
-      ) : null}
+      {undo ? <UndoChip words={undo} went={undoWent} onUndo={() => sim.send({ type: 'undo' })} /> : null}
       {founded && checklist && !over && !toContracts ? (
         <span className="chip checklist" data-testid="checklist" title={checklist}>
           <span className="chip-text">{checklist}</span>
         </span>
       ) : null}
-      {founded && checklist && !over && toContracts ? (
-        <button type="button" className="chip checklist" data-testid="checklist" data-opens="contracts" title={checklist} onClick={onContracts}>
-          <span className="chip-text">{checklist}</span>
-        </button>
-      ) : null}
-      {founded && (!checklist || over) ? (
-        <button type="button" className="chip contracts" data-testid="contracts-chip" data-opens="contracts" title={`Contracts ${offers}`} onClick={onContracts}>
-          <span className="chip-text">
-            <span className="chip-label">Contracts</span> {offers}
-          </span>
-          {medals.length > 0 ? (
-            <span className="medals" data-testid="medals" data-held={medals.join(' ')}>
-              {medals.map((m) => (
-                <span key={m} className="medal" data-medal={m} title={`${MEDAL_NAMES[m]} medal`} />
-              ))}
-            </span>
-          ) : null}
+      {/* The checklist's last step and the Contracts chip that takes its place are one button, so the focus on it stays as Take
+          it turns it into the chip, and as Ctrl+Z, taking the contract back, turns it back: two buttons, the focus on the chip
+          fell to the page, where Space played (the systems audit's seventeenth round). */}
+      {founded && (chip || toContracts) ? (
+        <button
+          type="button"
+          className={chip ? 'chip contracts' : 'chip checklist'}
+          data-testid={chip ? 'contracts-chip' : 'checklist'}
+          data-opens="contracts"
+          title={chip ? `Contracts ${offers}` : checklist}
+          onClick={onContracts}
+        >
+          {chip ? (
+            <>
+              <span className="chip-text">
+                <span className="chip-label">Contracts</span> {offers}
+              </span>
+              {medals.length > 0 ? (
+                <span className="medals" data-testid="medals" data-held={medals.join(' ')}>
+                  {medals.map((m) => (
+                    <span key={m} className="medal" data-medal={m} title={`${MEDAL_NAMES[m]} medal`} />
+                  ))}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="chip-text">{checklist}</span>
+          )}
         </button>
       ) : null}
     </header>
+  );
+}
+
+/** The Undo chip, which says as it goes whether the keyboard's focus went with it (`went`), for the chips to hand it on. */
+function UndoChip({ words, went, onUndo }: { words: string; went: MutableRefObject<boolean>; onUndo: () => void }) {
+  const chip = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(
+    () => () => {
+      if (chip.current && chip.current === document.activeElement) went.current = true;
+    },
+    [went],
+  );
+  return (
+    <button ref={chip} type="button" className="chip undo" data-testid="undo" title={words} onClick={onUndo}>
+      <span className="chip-text">{words}</span>
+    </button>
   );
 }

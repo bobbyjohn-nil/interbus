@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { BUS_MODELS } from "../../sim/rules/line";
 import { isExpress } from "../../sim/rules/express";
 import type { LineView, LngLatPair } from "../../sim/types";
@@ -152,6 +152,11 @@ export function RouteEditor({
   const draft = sim.draft;
   const refused = draft?.refusal ?? null;
   const unchanged = refused?.reason === "no_change";
+  // Refused, Save route keeps the focus, described by the words why, which are a status from the editor's first render, and a
+  // press does nothing (as Create and a line card's Buy and run): disabled, a close that left the cash short under the keyboard
+  // dropped the focus to the page, where Space paused the game with the day's card up (the systems audit's seventeenth round).
+  // A route as it stands has nothing to save, and Save route stays off, out of Tab's way.
+  const said = useId();
   const name = (p: RoutePoint, k: number) => {
     const id = p.stopId ?? draft?.stops[k]?.joins ?? null;
     return id === null ? "New stop" : `Stop ${id}`;
@@ -241,15 +246,21 @@ export function RouteEditor({
             </p>
           ) : null}
           {!unchanged ? <p className="total">{net < 0 ? `Total ${usdK(-net)} back` : `Total ${usdK(net)}`}</p> : null}
-          {refused && !unchanged ? (
-            <p className="refusal" role="status">
-              {refusalText(refused)}
-            </p>
-          ) : null}
         </>
       ) : null}
+      <p id={said} className="refusal" role="status">
+        {refused && !unchanged ? refusalText(refused) : null}
+      </p>
       <div className="controls">
-        <button type="button" onClick={onSave} disabled={!draft || refused !== null || saving}>
+        <button
+          type="button"
+          onClick={() => {
+            if (!refused) onSave();
+          }}
+          disabled={!draft || unchanged || saving}
+          aria-disabled={refused && !unchanged ? true : undefined}
+          aria-describedby={said}
+        >
           Save route
         </button>
         <button type="button" ref={cancel} onClick={onCancel}>
