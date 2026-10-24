@@ -10,7 +10,9 @@
 // as a load runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
 // assignment carries the rides of the cell pairs no changed line has a route in, and the catchments and ride tables nothing
 // changed, AssignMemo), and on the late companies a fare's, which keeps the catchments, a Shelter's, which works them out
-// afresh, and a festival's start and end, which change the trips of the pairs near it. Results go to .cache/bench/recompute.json.
+// afresh, a festival's start and end, which change the trips of the pairs near it, and a snow day's, which slows nearly every
+// line there; each kind, and four kinds of change it does not time, then held to a whole assignment, number for number.
+// Results go to .cache/bench/recompute.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
@@ -138,6 +140,40 @@ const aFestival = (w: World, freshAtStart: number[]) => {
 };
 
 /**
+ * A snow day's start or end, as the closes that start and end it run (step.ts, recomputeInService, as for aFestival): each run snow
+ * today or none, the memo kept between runs. Snow slows the buses, so a line with no spare bus runs a longer headway (rules/cycle.ts),
+ * which at the bus ceiling is nearly every line: the close works out afresh nearly every pair, a whole assignment's work.
+ */
+const aSnow = (w: World, freshAtStart: number[]) => {
+  const day = toCalendarTime(w.state.elapsed).day;
+  let k = 0;
+  return () => {
+    const start = k % 2 === 0;
+    w.state.event = start ? { kind: 'snow', startDay: day, endDay: day, street: '', edges: [], at: null } : null;
+    k++;
+    recompute(w);
+    if (start) freshAtStart.push(w.assignMemo!.last!.freshPairs);
+  };
+};
+
+/**
+ * A change and its undoing in turn, on one line or stop after another (`apply` makes the k-th and returns what puts it back), the
+ * world recomputed after each with the memo kept, as the game keeps it: for exactAfter alone, on the kinds of change the timed
+ * cases leave out (the systems audit's sixteenth round).
+ */
+const inTurn = (w: World, apply: (k: number) => () => void) => {
+  let back: (() => void) | null = null;
+  let k = 0;
+  return () => {
+    if (back) {
+      back();
+      back = null;
+    } else back = apply(k++);
+    recompute(w);
+  };
+};
+
+/**
  * Whether the memo's riders are a whole assignment's, number for number, after a run of one kind of command, each kind in turn,
  * so a stale ride one kind leaves cannot hide behind the next, and after each of `steps` more of them (`more`): a run's commands
  * undo one another, so a pair one of them left stale the next would put right before the run's end could check it (memo.test.ts
@@ -230,7 +266,9 @@ if (inner) {
   // A whole assignment on a festival's day (the M4 spec's magnitudes: I14 with events on), as a load
   // during one runs it: its flows boosted afresh each run, round Massachusetts Avenue's middle stop.
   // The closes that start and end one carry the pairs it leaves alone (aFestival, on the late
-  // companies). Snow and roadworks change only the plans' times, not the work the assignment does.
+  // companies). Snow and roadworks change only the plans' times, not the work a whole assignment
+  // does; but the lines whose times they change are worked out afresh at their closes, which at the
+  // bus ceiling is nearly every line in snow (aSnow, on the late companies).
   const [lon, lat] = bostonPlans[0]!.stops[6]!;
   const at = toLngLat(boston.city.frame, [lon, lat]);
   const day = toCalendarTime(boston.state.elapsed).day;
@@ -323,12 +361,52 @@ if (inner) {
     const freshAtStart: number[] = [];
     time(`Inner Boston, a festival's start or end, ${name}`, aFestival(company, freshAtStart), false);
     exactAfter(`its festivals'`, company, seed, aFestival(company, []), 6);
+    const freshAtSnow: number[] = [];
+    time(`Inner Boston, a snow day's start or end, ${name}`, aSnow(company, freshAtSnow), false);
+    exactAfter(`its snow days'`, company, seed, aSnow(company, []), 6);
     company.state.event = event;
     recompute(company);
+    // The kinds of change no case above times, each held to a whole assignment the same way: a model swapped (its speed reaches
+    // the ride tables), a stop made a Station (its walk and its change penalty), a line's second stop taken off (its catchments,
+    // tables and changes), and a line left with no buses (it leaves the plans, and its pairs come back with it), each undone by
+    // the next.
+    const { lines, stops } = company.state;
+    exactAfter(`its model swaps'`, company, seed, inTurn(company, (k) => {
+      const line = lines[k % lines.length]!;
+      const was = line.model;
+      line.model = was === 'sparrow' ? 'metro40' : 'sparrow';
+      return () => {
+        line.model = was;
+      };
+    }), 6);
+    exactAfter(`its Stations'`, company, seed, inTurn(company, (k) => {
+      const stop = stops[k % stops.length]!;
+      const was = stop.tier;
+      stop.tier = was === 3 ? 2 : 3;
+      return () => {
+        stop.tier = was;
+      };
+    }), 6);
+    exactAfter(`its route edits'`, company, seed, inTurn(company, (k) => {
+      const line = lines[k % lines.length]!;
+      const was = line.stopIds;
+      line.stopIds = was.filter((_, q) => q !== 1);
+      return () => {
+        line.stopIds = was;
+      };
+    }), 6);
+    exactAfter(`its lines' buses gone and back`, company, seed, inTurn(company, (k) => {
+      const line = lines[k % lines.length]!;
+      const was = line.buses;
+      line.buses = 0;
+      return () => {
+        line.buses = was;
+      };
+    }), 6);
     const blank: AssignMemo = { last: null };
     assign(company.city, commutersToday(company), runningPlans(company), { memo: blank });
     const whole = blank.last!.freshPairs;
-    for (const [what, counts] of [[`a Shelter`, freshAtShelter], [`a festival's start`, freshAtStart]] as const) {
+    for (const [what, counts] of [[`a Shelter`, freshAtShelter], [`a festival's start`, freshAtStart], [`a snow day's start`, freshAtSnow]] as const) {
       counts.sort((a, b) => a - b);
       const median = counts[Math.floor(counts.length / 2)]!;
       results[`fresh pairs, ${what}, seed ${seed}`] = { median, most: counts.at(-1), whole };
