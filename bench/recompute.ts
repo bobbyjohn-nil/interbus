@@ -101,15 +101,20 @@ const aFare = (w: World) => {
   };
 };
 
-/** A stop's recompute: each run one of the lines' stops made a Shelter, or back to a Sign, stop after stop (V1's first upgrade). */
-const aShelter = (w: World) => {
+/**
+ * A stop's recompute: each run one of the lines' stops made a Shelter, or back to a Sign, stop after stop (V1's first upgrade), and
+ * the cell pairs with trips each Shelter's worked out afresh.
+ */
+const aShelter = (w: World, freshAtShelter: number[]) => {
   const stops = w.state.stops.filter((stop) => stop.tier === 1);
   let k = 0;
   return () => {
     const stop = stops[Math.floor(k / 2) % stops.length]!;
-    stop.tier = k % 2 === 0 ? 2 : 1;
+    const up = k % 2 === 0;
+    stop.tier = up ? 2 : 1;
     k++;
     recompute(w);
+    if (up) freshAtShelter.push(w.assignMemo!.last!.freshPairs);
   };
 };
 
@@ -298,7 +303,8 @@ if (inner) {
     exactAfter(`its headways'`, company, seed);
     time(`Inner Boston, a fare's recompute, ${name}`, aFare(company), false);
     exactAfter(`its fares'`, company, seed);
-    time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company), false);
+    const freshAtShelter: number[] = [];
+    time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company, freshAtShelter), false);
     exactAfter(`its Shelters'`, company, seed);
     // A festival's start and end; then the cell pairs with trips and a route its starts worked out afresh, against a whole
     // assignment's, and the event as it was.
@@ -311,10 +317,12 @@ if (inner) {
     const blank: AssignMemo = { last: null };
     assign(company.city, commutersToday(company), runningPlans(company), { memo: blank });
     const whole = blank.last!.freshPairs;
-    freshAtStart.sort((a, b) => a - b);
-    const median = freshAtStart[Math.floor(freshAtStart.length / 2)]!;
-    results[`a festival's fresh pairs at its start, seed ${seed}`] = { median, most: freshAtStart.at(-1), whole };
-    console.log(`bench: a festival's start on seed ${seed} works out ${median} cell pairs afresh at the median, ${freshAtStart.at(-1)} at most, of the ${whole} with trips that the lines serve`);
+    for (const [what, counts] of [[`a Shelter`, freshAtShelter], [`a festival's start`, freshAtStart]] as const) {
+      counts.sort((a, b) => a - b);
+      const median = counts[Math.floor(counts.length / 2)]!;
+      results[`fresh pairs, ${what}, seed ${seed}`] = { median, most: counts.at(-1), whole };
+      console.log(`bench: ${what} on seed ${seed} works out ${median} cell pairs afresh at the median, ${counts.at(-1)} at most, of the ${whole} with trips that the lines serve`);
+    }
     keepingAgainstNot(`of the pacing run's company on seed ${seed}`, company);
     // What the memo holds: its two arenas, the last assignment's rides and the next one's.
     const memo = company.assignMemo!;
