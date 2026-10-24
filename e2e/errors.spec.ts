@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type Route } from './base';
 import { copyProblems } from '../src/ui/copyRules';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
+import { bootGone, build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
 
 // The error bus is installed at boot (V3 never registered a sink, so its reports reached only the
 // console, S07): an uncaught error anywhere on the page lands on the bus as ui/uncaught.
@@ -183,6 +183,8 @@ for (const blocked of [false, true]) {
       });
       await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
     }
+    // The splash's bus tows it off to the right, over the Saves chip last: it has gone before the chips are read.
+    await bootGone(page);
     await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
     const replaced = page.getByTestId('replaced-card');
     await expect(replaced).toBeVisible();
