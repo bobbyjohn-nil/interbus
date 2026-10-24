@@ -379,7 +379,8 @@ export interface AssignOptions {
  * in the order it carried them, and what they were worked out from. A cell pair's riders depend only on its own trips and
  * distance and on the lines of its routes (a line, or a line and the one it changes onto), so the next assignment carries again
  * the rides of every pair whose trips and routes' lines are as they were, in the same order, and works out afresh only the pairs
- * whose trips changed, as a festival's start and end change those near it, and those a changed line has a route in, then or now.
+ * whose trips changed, as a festival's start and end change those near it, and those a changed line has a route in, then or now
+ * (for a line whose stops' walk bonuses alone changed, only those with an end that walks to one of those stops).
  * The sums come out as a whole assignment's, to the last bit, since every ride is added in the same order (memo.test.ts): a
  * reload, which assigns from nothing, finds the same riders (I8).
  */
@@ -459,8 +460,8 @@ interface AssignKept {
   readonly freshCells: number;
   /** The cell pairs with trips and a route it worked out afresh, the rest carried again: all of them from nothing. */
   readonly freshPairs: number;
-  /** Its lines' plans, by id, for what a changed line's plan changed in (NOT_WALKED). */
-  readonly plans: ReadonlyMap<LineId, LinePlan>;
+  /** Its lines' plans as text but for their walk bonuses, and the bonuses, by id (walkedOf): copies, for what a changed line changed in. */
+  readonly walked: ReadonlyMap<LineId, Walked>;
 }
 
 /** A line's plan as text but for the fields named: what the memo tells a line by (lineSignature, reachSignature, tableSignature). */
@@ -507,11 +508,22 @@ function tableSignature(plan: LinePlan): string {
 }
 
 /**
- * The fields of a line's plan but its stops' walk bonuses: two plans the same in the rest differ only in the walk to the stops whose
- * bonuses differ, which only the home groups of the line ridden first and the work groups of the line ridden to work read (markNear,
- * in assign). A Sign made a Shelter changes only these; a Station and up change a change's penalty too.
+ * The fields of a line's plan its walk signature leaves out: NOT_RIDDEN's and its stops' walk bonuses. Two plans the same but for
+ * these differ only in the walk to the stops whose bonuses differ, which only the home groups of the line ridden first and the work
+ * groups of the line ridden to work read (markNear, in assign). A Sign made a Shelter changes only the bonuses; a Station and up
+ * change a change's penalty too.
  */
 const NOT_WALKED = [...NOT_RIDDEN, 'walkBonusMin'] as const;
+
+/** A line's plan as the memo keeps it for its walk bonuses: the rest of it as text (NOT_WALKED), and each stop's bonus. */
+interface Walked {
+  readonly rest: string;
+  readonly bonus: Float64Array;
+}
+
+function walkedOf(plan: LinePlan): Walked {
+  return { rest: planWithout(plan, NOT_WALKED), bonus: Float64Array.from(plan.stops, (_, q) => plan.walkBonusMin?.[q] ?? 0) };
+}
 
 /**
  * Whether the lines of both lists come in the same order in each. A pair's options come in the order of its lines, and its rides
@@ -721,6 +733,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   const n = commuters.n;
   const scale = city.tripScalePermille / 1000;
   const signatures = memo ? new Map(plans.map((plan) => [plan.id, lineSignature(plan)] as const)) : null;
+  const walked = memo ? new Map(plans.map((plan) => [plan.id, walkedOf(plan)] as const)) : null;
   // Other commuters between the same cells at the same distances, as a festival's start and end make them (commutersToday), are
   // carried from too: the pairs whose trips changed are worked out afresh (below).
   const sameCells = last ? last.commuters === commuters || (last.commuters.n === n && last.commuters.km === commuters.km) : false;
@@ -734,15 +747,13 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
     // A line whose plan changed only in its stops' walk bonuses (a Sign made a Shelter, or back) changes only the walk to those
     // stops: the pairs with an end that walks to one of them are worked out afresh (markNear), not every pair it has a route in.
     const walkOnly = new Map<LineId, Set<number>>();
-    for (const plan of plans) {
-      const was = changed.has(plan.id) ? kept.plans.get(plan.id) : undefined;
-      if (!was || planWithout(was, NOT_WALKED) !== planWithout(plan, NOT_WALKED)) continue;
+    for (const [id, now] of walked!) {
+      const was = changed.has(id) ? kept.walked.get(id) : undefined;
+      if (!was || was.rest !== now.rest) continue;
       const at = new Set<number>();
-      plan.stops.forEach((_, q) => {
-        if ((was.walkBonusMin?.[q] ?? 0) !== (plan.walkBonusMin?.[q] ?? 0)) at.add(q);
-      });
-      walkOnly.set(plan.id, at);
-      changed.delete(plan.id);
+      for (let q = 0; q < now.bonus.length; q++) if (was.bonus[q] !== now.bonus[q]) at.add(q);
+      walkOnly.set(id, at);
+      changed.delete(id);
     }
     const pairsFresh = new Uint8Array(n * n);
     const cellsFresh = new Uint8Array(n);
@@ -798,10 +809,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       // The same catchments as the last assignment's (sameReach) mark the same pairs again.
       if (!sameReach) mark(ids, homeLines, workAccess, transfers);
     }
-    if (walkOnly.size) {
-      markNear(kept.ids, kept.homeLines, kept.workAccess, kept.transfers);
-      if (!sameReach) markNear(ids, homeLines, workAccess, transfers);
-    }
+    // A walk bonus moves no stop, so a walk-only line's groups, work cells and changes are the same in this assignment's catchments
+    // as in the last one's; a change onto or off a line changed otherwise is mark's.
+    if (walkOnly.size) markNear(kept.ids, kept.homeLines, kept.workAccess, kept.transfers);
     // The pairs whose trips changed, whatever their lines.
     if (kept.commuters !== commuters) {
       const was = kept.commuters.flow;
@@ -1530,7 +1540,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       cellPairs,
       freshCells,
       freshPairs,
-      plans: new Map(plans.map((plan) => [plan.id, plan] as const)),
+      walked: walked!,
     };
   }
   const perLine = (by: Float64Array) => plans.map((_, line) => [by[line * 3]!, by[line * 3 + 1]!, by[line * 3 + 2]!]);

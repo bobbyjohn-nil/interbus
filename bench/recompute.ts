@@ -139,9 +139,23 @@ const aFestival = (w: World, freshAtStart: number[]) => {
 
 /**
  * Whether the memo's riders are a whole assignment's, number for number, after a run of one kind of command, each kind in turn,
- * so a stale ride one kind leaves cannot hide behind the next (memo.test.ts holds the rule step by step).
+ * so a stale ride one kind leaves cannot hide behind the next, and after each of `steps` more of them (`more`): a run's commands
+ * undo one another, so a pair one of them left stale the next would put right before the run's end could check it (memo.test.ts
+ * holds the rule step by step on the fixture).
  */
-function exactAfter(what: string, w: World, seed: number): void {
+function exactAfter(what: string, w: World, seed: number, more: () => void, steps: number): void {
+  let same = matchesWhole(w);
+  for (let k = 0; k < steps && same; k++) {
+    more();
+    same = matchesWhole(w);
+  }
+  results[`memo matches a whole assignment after ${what} commands, seed ${seed}`] = same;
+  console.log(`bench: after ${what} commands, and after each of ${steps} more, the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
+  if (!same) process.exitCode = 1;
+}
+
+/** Whether a world's riders are a whole assignment's of it as it stands, number for number (Object.is). */
+function matchesWhole(w: World): boolean {
   const fresh = assign(w.city, commutersToday(w), runningPlans(w));
   const differ = (a: unknown, b: unknown): boolean => {
     if (typeof a === 'number' || typeof b === 'number') return !Object.is(a, b);
@@ -154,10 +168,7 @@ function exactAfter(what: string, w: World, seed: number): void {
     if (a && typeof a === 'object') return Object.keys(a).some((k) => differ((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
     return a !== b;
   };
-  const same = !differ(w.assignment, fresh);
-  results[`memo matches a whole assignment after ${what} commands, seed ${seed}`] = same;
-  console.log(`bench: after ${what} commands, the memo's riders on seed ${seed} ${same ? 'are' : 'are NOT'} a whole assignment's, number for number`);
-  if (!same) process.exitCode = 1;
+  return !differ(w.assignment, fresh);
 }
 
 /**
@@ -300,18 +311,18 @@ if (inner) {
     const name = `the pacing run's company on seed ${seed} at the bus ceiling, ${company.state.lines.length} lines on ${company.state.stops.length} stops, at most ${Math.max(...at.values())} at a stop`;
     time(`Inner Boston's whole recompute, ${name}`, fromNothing(company), false);
     time(`Inner Boston, a command's recompute, ${name}`, aCommand(company), false);
-    exactAfter(`its headways'`, company, seed);
+    exactAfter(`its headways'`, company, seed, aCommand(company), 6);
     time(`Inner Boston, a fare's recompute, ${name}`, aFare(company), false);
-    exactAfter(`its fares'`, company, seed);
+    exactAfter(`its fares'`, company, seed, aFare(company), 6);
     const freshAtShelter: number[] = [];
     time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company, freshAtShelter), false);
-    exactAfter(`its Shelters'`, company, seed);
+    exactAfter(`its Shelters'`, company, seed, aShelter(company, []), 6);
     // A festival's start and end; then the cell pairs with trips and a route its starts worked out afresh, against a whole
     // assignment's, and the event as it was.
     const event = company.state.event;
     const freshAtStart: number[] = [];
     time(`Inner Boston, a festival's start or end, ${name}`, aFestival(company, freshAtStart), false);
-    exactAfter(`its festivals'`, company, seed);
+    exactAfter(`its festivals'`, company, seed, aFestival(company, []), 6);
     company.state.event = event;
     recompute(company);
     const blank: AssignMemo = { last: null };
