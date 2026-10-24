@@ -94,10 +94,15 @@ export function LineHeading({ line }: { line: LineView }) {
   return (
     <h2>
       <span className="swatch" style={{ background: line.colour }} /> {line.name}
+      {/* A space before the word, so a screen reader names the line "Line 2 Express", not "Line 2Express" (the systems audit's
+          fifteenth round); the badge's margin is the rest of the gap. */}
       {planIsExpress(line) ? (
-        <span className="express" data-testid="express" title="Express: 5 km or longer, with stops at least 1.2 km apart on average. Riders feel the ride is quicker and mind the fare half as much.">
-          Express
-        </span>
+        <>
+          {' '}
+          <span className="express" data-testid="express" title="Express: 5 km or longer, with stops at least 1.2 km apart on average. Riders feel the ride is quicker and mind the fare half as much.">
+            Express
+          </span>
+        </>
       ) : null}
     </h2>
   );

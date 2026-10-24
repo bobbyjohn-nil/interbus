@@ -1111,6 +1111,15 @@ button.chip.checklist,
   border-radius: 2px;
 }
 
+/* Finance's Lines keeps its column headings in view while its rows scroll under them: with 13 lines at 1152×720 they went with
+   a 73 px scroll, and the two money columns read "$4,995 ≈$4,995" unnamed (the systems audit's fifteenth round). */
+.lines-money thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ui-paper);
+}
+
 .lines-money .line-name {
   display: inline-flex;
   gap: 4px;
@@ -1495,9 +1504,9 @@ button.chip.checklist,
   font-weight: 600;
 }
 
-/* An express line (the M4 spec, below the cut): a small word beside its name. */
+/* An express line (the M4 spec, below the cut): a small word beside its name, after a space (LineHeading) and 4 px more. */
 .inspector > h2 .express {
-  margin-left: 8px;
+  margin-left: 4px;
   padding: 1px 6px;
   border-radius: 4px;
   background: var(--ui-ink);

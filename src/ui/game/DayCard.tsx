@@ -3,6 +3,7 @@ import type { HandBack } from '../focusBack';
 import { focusLost } from '../focusLost';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
 import { useScrollStop } from '../scrollStop';
+import { useBesidePanels } from './besidePanels';
 import { runOver } from './runOver';
 import type { Sim } from './useSim';
 
@@ -73,6 +74,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   // there: built anew, it fell to the page, where Enter did nothing and Space paused (the systems audit's fourteenth round).
   const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>(card?.day, () => go.current);
   const self = useRef<HTMLElement>(null);
+  useBesidePanels(self, card?.day);
   // Where the keyboard had the focus as the card showed, and the panel that held it, so Continue's goes back there as the card
   // goes (App holds the hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where
   // the focus came into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's

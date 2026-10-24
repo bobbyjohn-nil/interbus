@@ -180,7 +180,9 @@ export function Inspector({
           <div className="change" ref={closeCard} data-testid="close-line">
             <p>
               Close {line.name}? {line.buses === 1 ? `Its ${model.name} sells` : `Its ${busCount(line.buses, model.name)} sell`} for {usdK(closing.saleCents)}
-              {down ? `, and ${down} ${down === 1 ? "stop" : "stops"} no other line uses ${down === 1 ? "comes" : "come"} down for ${usdK(closing.refundCents)}` : ""}.
+              {/* What the stops give back is said as every refund is ("$2k back"): "come down for $8k" read as a price (the systems
+                  audit's fifteenth round). */}
+              {down ? `, and ${down} ${down === 1 ? "stop" : "stops"} no other line uses ${down === 1 ? "comes" : "come"} down for ${usdK(closing.refundCents)} back` : ""}.
             </p>
             <div className="controls">
               <button

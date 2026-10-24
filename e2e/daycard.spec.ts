@@ -187,4 +187,42 @@ test.describe('the day card', () => {
     await expect(rows).not.toHaveAttribute('tabindex');
     await expect(rows).not.toHaveAttribute('role');
   });
+
+  // In the middle at the top, the card lay over the second panel opened: while time runs a close's card comes every 16 s at
+  // 5,400×, and with Lines open 73.5% of Finance lay under it at 1152×720, its views among it, so a press on Breakdown landed on
+  // the card (the systems audit's fifteenth round). It stands beside the panels where a gap holds it now, narrower if it must
+  // be. Shown failing (TS-04) on main, where Finance's views lay under it at each of I13's sizes.
+  for (const [width, height] of [[1152, 720], [1366, 768], [1440, 900]] as const) {
+    test(`stands beside Lines and Finance, opened before time runs, at ${width}×${height}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.setViewportSize({ width, height });
+      await page.goto('./');
+      await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+      await foundCompany(page);
+      // The debug line's game a minute before its day closes.
+      await withDebugLine(page, (d) => void (d.clock.elapsed = 86_400 + 18 * 3_600 + 59 * 60));
+      await page.getByRole('button', { name: 'Lines', exact: true }).click();
+      await page.getByRole('button', { name: 'Finance', exact: true }).click();
+      await expect(page.locator('.panel h2')).toHaveCount(2);
+      await setSpeed(page, '60×');
+      const card = page.getByTestId('day-card');
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await page.getByRole('button', { name: 'Pause' }).click();
+      // The panels' headings, Finance's views and each panel's Close, at their middles, and the card's own heading and Continue.
+      const under = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('.panel h2, [data-testid="finance"] [role="tab"], .panel > .close')].flatMap((el) => {
+          const r = el.getBoundingClientRect();
+          return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) ? [] : [el.textContent ?? ''];
+        }),
+      );
+      expect(under).toEqual([]);
+      for (const part of [card.locator('h2'), card.getByRole('button', { name: 'Continue' })]) {
+        const r = (await part.boundingBox())!;
+        expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x!, y!)?.closest('[data-testid="day-card"]'), [r.x + r.width / 2, r.y + r.height / 2])).toBe(true);
+      }
+      // And a press on Breakdown lands on it.
+      await page.getByTestId('finance').getByRole('tab', { name: 'Breakdown' }).click({ timeout: 5_000 });
+      await expect(page.getByTestId('finance').getByRole('tab', { name: 'Breakdown' })).toHaveAttribute('aria-selected', 'true');
+    });
+  }
 });

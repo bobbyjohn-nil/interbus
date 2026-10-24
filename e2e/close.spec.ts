@@ -39,7 +39,8 @@ test.describe('selling spare buses and closing a line', () => {
     // Close line asks first, with what it sells and takes down, and Keep it asks nothing more.
     await lines.getByRole('button', { name: 'Close line' }).click();
     const ask = lines.getByTestId('close-line');
-    await expect(ask).toHaveText('Close Line 1? Its 2 Sparrows sell for $95k, and 4 stops no other line uses come down for $8k.Close itKeep it');
+    // The stops' refund said as every refund is: "come down for $8k" read as a price (the systems audit's fifteenth round).
+    await expect(ask).toHaveText('Close Line 1? Its 2 Sparrows sell for $95k, and 4 stops no other line uses come down for $8k back.Close itKeep it');
     await ask.getByRole('button', { name: 'Keep it' }).click();
     await expect(ask).toBeHidden();
     await lines.getByRole('button', { name: 'Close line' }).click();

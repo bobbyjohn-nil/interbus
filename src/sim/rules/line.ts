@@ -163,7 +163,10 @@ export type ModelChangeRefusal = 'same_model' | 'model_locked' | 'depot_full' | 
 /**
  * A line changing model (the M3 spec, item 2): it sells every bus it has at half price (V1's resale,
  * no wear) and buys what its headways need of the new model on its new cycle. Room at the depots and
- * the cash are checked on the net, since the old buses leave as the new ones come.
+ * the cash are checked on the net, since the old buses leave as the new ones come. The room a refusal
+ * names is the depots' own, which the buses beyond the line's must fit, as Edit route's is (route.ts
+ * editRefusal): it counted the line's own buses as free, "Depots have room for 2 more" at the bus
+ * ceiling with every depot full (the systems audit's fifteenth round).
  */
 export function checkModelChange(
   ctx: FleetContext,
@@ -173,8 +176,7 @@ export function checkModelChange(
   if (to.id === line.model.id) return refuse('same_model');
   if (modelLocked(to, ctx.medals)) return refuse('model_locked');
   const needed = busesNeeded(cyclesOf(slowedM(line.routeM, line.worksM ?? 0, line.snow), line.stops, to.kmh, line.rush ?? 0), line.headways);
-  const room = depotRoom(ctx) + line.buses;
-  if (needed > room) return refuse('depot_full', { room });
+  if (needed > depotRoom(ctx) + line.buses) return refuse('depot_full', { room: depotRoom(ctx) });
   const buyCents = needed * to.priceCents;
   const saleCents = Math.floor((line.buses * line.model.priceCents * RESALE_PERMILLE) / 1000);
   const netCents = buyCents - saleCents;
