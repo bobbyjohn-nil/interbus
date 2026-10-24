@@ -301,7 +301,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Close line says its stops come down for money back, “come down for $8k back”, as every refund does. Before, “come down for $8k” read like a price.
 - Finance's Lines keeps its column headings in view as its rows scroll. Before, with 13 lines or more they scrolled away, and the money columns went unnamed.
 - A screen reader names an express line's heading “Line 2 Express”. Before, it ran the two together, “Line 2Express”.
-- With many lines, the game answers a change to one of them sooner. On a late game of 13 or 14 lines, a line's panel and the clock waited about a quarter of a second for the answer to a change of its headways or its fare, and now wait about an eighth; on 30 lines, after a change of its headways, about a quarter as long as before. On 13 or 14 lines, the clock also waited about a quarter of a second the midnight a festival starts or ends, and now waits about a tenth. The riders come out the same to the last digit, so a game loaded from its file plays on exactly as it would have.
+- With many lines, the game answers a change to one of them sooner. On a late game of 13 or 14 lines, a line's panel and the clock waited about a quarter of a second for the answer to a change of its headways or its fare, and now wait about an eighth; on 30 lines, after a change of its headways, about a quarter as long as before. On 13 or 14 lines, the clock also waited about a quarter of a second the midnight a festival starts or ends, and after a Sign was made a Shelter, and now waits about a tenth. The riders come out the same to the last digit, so a game loaded from its file plays on exactly as it would have.
 
 ### Removed
 
