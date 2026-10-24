@@ -70,16 +70,16 @@ describe('number copy', () => {
 });
 
 // The systems audit's twelfth round: the city's street names are OpenStreetMap's, and 25 of Inner Boston's 3,535 broke the copy
-// convention in the game's own sentences (D25): "Roadworks on Monsignor O'Brien Highway tomorrow, for 4 days" on the day card, and
+// convention in the game's own sentences (D25): "Roadworks on Monsignor O'Brien Highway tomorrow, for 4 days" on the day card (since, "from Q1 Day 3"), and
 // "roadworks on Monsignor O'Brien Highway add 1 min 1 s" on the line card. 18 had a straight apostrophe, 6 were a route's number
 // in capitals (MA 2A, US 1), and one a street's initials (RC Kelley Street). Its review: 7 motorway edges named I 93, which buses
 // may drive, and the convention lets a single capital pass.
 describe('a street’s name in the game’s sentences', () => {
   // The day card's notices take the event's street as the sim names it; the line card's words typeset it as LineCard.tsx does.
   const sentences = (street: string) => [
-    eventNewsText({ kind: 'roadworks', street, days: 4, news: 'tomorrow' }),
-    eventNewsText({ kind: 'roadworks', street, days: 1, news: 'over' }),
-    eventNewsText({ kind: 'festival', street, days: 2, news: 'tomorrow' }),
+    eventNewsText({ kind: 'roadworks', street, startDay: 3, days: 4, news: 'tomorrow' }),
+    eventNewsText({ kind: 'roadworks', street, startDay: 3, days: 1, news: 'over' }),
+    eventNewsText({ kind: 'festival', street, startDay: 3, days: 2, news: 'tomorrow' }),
     `Round trip 15 min at peak, 13 min off-peak · roadworks on ${streetName(street)} add 1 min 1 s`,
   ];
 

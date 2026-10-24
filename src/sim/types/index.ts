@@ -330,8 +330,11 @@ export interface DayCard {
   } | null;
   /** Contracts paid or lapsed at this close. */
   readonly contracts: readonly { readonly landmark: string; readonly kind: ContractKind; readonly ask: number; readonly rewardCents: number; readonly outcome: 'paid' | 'lapsed' }[];
-  /** The notices of city events (the M4 spec, item 2): one rolled at this close, which starts tomorrow, and one whose last day this was. */
-  readonly events: readonly { readonly kind: EventKind; readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }[];
+  /**
+   * The notices of city events (the M4 spec, item 2): one rolled at this close (`tomorrow` as the next day reads it: it starts
+   * the day after that one, on `startDay`), and one whose last day this was.
+   */
+  readonly events: readonly { readonly kind: EventKind; readonly street: string; readonly startDay: number; readonly days: number; readonly news: 'tomorrow' | 'over' }[];
   /** Medals awarded at this close, bronze first (the M4 spec, item 3). */
   readonly medals: readonly MedalId[];
 }

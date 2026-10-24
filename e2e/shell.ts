@@ -70,6 +70,23 @@ export function onDepotLand(parcel = 0): [number, number] {
   throw new Error('no point inside the parcel');
 }
 
+/**
+ * Sets the window's size and waits until the page has heard it. The page hears a resize at its next frame, which a page with
+ * nothing moving on it asks for only as input comes, so a test that read the screen straight after setViewportSize read the
+ * places from before it, or after the next press of the mouse (the review of the systems audit's seventeenth round's fixes).
+ */
+export async function resizeTo(page: Page, width: number, height: number): Promise<void> {
+  await page.evaluate(([w, h]) => {
+    const win = window as unknown as { resized?: Promise<void> };
+    win.resized = w === window.innerWidth && h === window.innerHeight ? Promise.resolve() : new Promise<void>((done) => window.addEventListener('resize', () => requestAnimationFrame(() => done()), { once: true }));
+  }, [width, height] as const);
+  await page.setViewportSize({ width, height });
+  await page.evaluate(() => {
+    requestAnimationFrame(() => undefined);
+    return (window as unknown as { resized?: Promise<void> }).resized;
+  });
+}
+
 /** One step out from the opening view, so the depot land and Longwood both fit on screen. */
 export async function zoomOutOnce(page: Page): Promise<void> {
   const map = page.getByTestId('map');

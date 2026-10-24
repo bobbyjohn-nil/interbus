@@ -238,8 +238,8 @@ test.describe('the screen budget (I13)', () => {
     });
   }
 
-  // A busy quarter's close: the day card's report card, a contract paid, a medal, snow named for
-  // tomorrow, interest and every kind of buying and selling, with a notice up beside it. The card is a
+  // A busy quarter's close: the day card's report card, a contract paid, a medal, snow named a day
+  // ahead, interest and every kind of buying and selling, with a notice up beside it. The card is a
   // panel's chrome; what does not fit scrolls inside its cap (52vh, as Finance), with Continue below
   // it in view. Built once at 1152×720 and measured there, then at 1366×768, where it went over too; at
   // 1440×900 it took 25.1% uncapped. Shown failing (TS-04) uncapped at 32.2% and 27.2%.

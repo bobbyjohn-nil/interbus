@@ -61,18 +61,51 @@ describe('the day card when a contract closes', () => {
   });
 });
 
+// The first day in profit read "Day total -$355,257.78", its buses and stops counted in, and its running net of $742.22 showed
+// in Finance alone, though the checklist's "Close a day in profit" counts that (the systems audit's seventeenth round). Shown
+// failing (TS-04) with the card's rows as they were.
+describe('the day card’s running', () => {
+  it('says the day’s running apart from its total on a day that bought, and nothing more on a day that only ran', () => {
+    const day1 = render({
+      day: 1,
+      rows: [
+        { kind: 'fares', amountCents: 120_000, lineId: 1 },
+        { kind: 'subsidy', amountCents: 85_000, lineId: 1 },
+        { kind: 'wages', amountCents: -95_000, lineId: 1 },
+        { kind: 'running', amountCents: -35_777, lineId: 1 },
+        { kind: 'buses', amountCents: -19_000_000, lineId: 1 },
+        { kind: 'stops', amountCents: -1_600_000, lineId: null },
+      ],
+      cashBeforeCents: 47_454_800,
+      cashAfterCents: 26_929_023,
+      report: null,
+      contracts: [],
+      events: [],
+      medals: [],
+    });
+    expect(day1).toContain('<th scope="row">Day total</th><td>-$205,257.77</td>');
+    expect(day1).toMatch(/<tr data-testid="day-running" data-cents="74223" title="Fares and subsidy less running costs"><th scope="row">Day’s running<\/th><td>\$742\.23<\/td><\/tr>/);
+    const day2 = render({ day: 2, rows: [{ kind: 'fares', amountCents: 135_225, lineId: 1 }, { kind: 'wages', amountCents: -60_000, lineId: 1 }], cashBeforeCents: 0, cashAfterCents: 75_225, report: null, contracts: [], events: [], medals: [] });
+    expect(day2).not.toContain('Day’s running');
+  });
+});
+
 describe('the day card when a city event is rolled or over', () => {
-  it('names roadworks rolled for tomorrow, for how long, and roadworks just over (the M4 spec, item 2)', () => {
-    const html = render({ day: 6, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind: 'roadworks', street: 'Huntington Avenue', days: 4, news: 'tomorrow' }], medals: [] });
-    expect(html).toContain('Roadworks on Huntington Avenue tomorrow, for 4 days');
-    expect(render({ day: 9, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind: 'roadworks', street: 'Huntington Avenue', days: 4, news: 'over' }], medals: [] })).toContain('Roadworks on Huntington Avenue are over');
+  // Rolled at a close, an event starts the day after the next, and the closed day's card said "tomorrow", read as the next day,
+  // all of which the works were still to come (the systems audit's seventeenth round). It names the day they start. Shown failing
+  // (TS-04) with "tomorrow" in its place.
+  it('names roadworks rolled at the close by the day they start, for how long, and roadworks just over (the M4 spec, item 2)', () => {
+    const html = render({ day: 6, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind: 'roadworks', street: 'Huntington Avenue', startDay: 8, days: 4, news: 'tomorrow' }], medals: [] });
+    expect(html).toContain('Roadworks on Huntington Avenue from Q1 Day 8, for 4 days');
+    expect(render({ day: 7, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind: 'roadworks', street: 'Huntington Avenue', startDay: 9, days: 2, news: 'tomorrow' }], medals: [] })).toContain('Roadworks on Huntington Avenue from Q2 Day 1, for 2 days');
+    expect(render({ day: 9, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind: 'roadworks', street: 'Huntington Avenue', startDay: 6, days: 4, news: 'over' }], medals: [] })).toContain('Roadworks on Huntington Avenue are over');
   });
 
-  it('names snow and a festival the evening before, and when they are over', () => {
-    const card = (kind: 'festival' | 'snow', street: string, days: number, news: 'tomorrow' | 'over') => render({ day: 6, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind, street, days, news }], medals: [] });
-    expect(card('snow', '', 1, 'tomorrow')).toContain('Snow tomorrow, for 1 day: every bus drives slower');
+  it('names snow and a festival by the day they start, and when they are over', () => {
+    const card = (kind: 'festival' | 'snow', street: string, days: number, news: 'tomorrow' | 'over') => render({ day: 6, rows: [], cashBeforeCents: 0, cashAfterCents: 0, report: null, contracts: [], events: [{ kind, street, startDay: news === 'tomorrow' ? 8 : 5, days, news }], medals: [] });
+    expect(card('snow', '', 1, 'tomorrow')).toContain('Snow from Q1 Day 8, for 1 day: every bus drives slower');
     expect(card('snow', '', 2, 'over')).toContain('The snow is over');
-    expect(card('festival', 'Copley Square', 2, 'tomorrow')).toContain('A festival near Copley Square tomorrow, for 2 days: more riders to and from there');
+    expect(card('festival', 'Copley Square', 2, 'tomorrow')).toContain('A festival near Copley Square from Q1 Day 8, for 2 days: more riders to and from there');
     expect(card('festival', 'Copley Square', 2, 'over')).toContain('The festival near Copley Square is over');
   });
 });

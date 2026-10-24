@@ -9,9 +9,9 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 ## Exit check (the owner, 10 minutes, on the deployed preview)
 
 "A Longwood contract; roadworks a day ahead; insert a stop and no bus jumps" (PLAN §10 week 8). Concretely, on Inner Boston:
-1. Take a RIDERSHIP contract ("400 boardings a day near Copley Square, 10 days") and meet it by adding a second line there; it pays as one ledger row.
+1. Take a contract and meet it by adding a second line there; it pays as one ledger row. Every game deals the same offers (seed 1) while it takes the same contracts, and none near Copley Square comes before Day 40's close (the systems audit's seventeenth round): "Every 20 min at Kenmore" from Day 1, met by a line from Kenmore to Copley, paid $60,000 as one row; with none taken, Day 8's close (Q2 Day 1) brings RIDERSHIP asks ("400 boardings a day at Harvard Square", "150 boardings a day at Kenmore"), each met 8 days in a row.
 2. A "Roadworks tomorrow" marker appears hatched on a street a line drives; the next day the line's card shows its slower round trip, and the marker clears when the works end.
-3. Insert a stop between two of a running line's stops at speed: no bus on the map moves more than a few metres at the click, and one undo takes it back.
+3. Insert a stop between two of a running line's stops at speed: no bus on the map moves more than a few metres at the click. Paused, one undo takes an insert back; one made while time ran is kept, and an undo says time has passed since then (the systems audit's seventeenth round).
 4. A quarter graded 55 or better gives the bronze medal, a dot on the Contracts chip; the Contracts panel names the trips left to silver, which unlocks the Goliath (a chip of its own broke I13; DECISIONS, Measured).
 
 ## Dates

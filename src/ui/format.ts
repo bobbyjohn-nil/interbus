@@ -195,16 +195,27 @@ export function streetName(name: string): string {
   return interstate ? `I-${interstate[1]}` : name.replace(/'/g, '’');
 }
 
-/** A city event's notice on the day card (the M4 spec, item 2): rolled for tomorrow, or over. */
-export function eventNewsText(e: { readonly kind: 'roadworks' | 'festival' | 'snow'; readonly street: string; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
-  const forDays = `for ${e.days} ${e.days === 1 ? 'day' : 'days'}`;
+/** "Q2 Day 4": a game day as the clock chip names it, the year left to the title. */
+export function dayText(day: number): string {
+  const { quarter, dayOfQuarter } = calendarOfDay(day);
+  return `Q${quarter} Day ${dayOfQuarter}`;
+}
+
+/**
+ * A city event's notice on the day card (the M4 spec, item 2): rolled at the close, from the day it starts, or over. Rolled at a
+ * close it starts the day after the next, and "tomorrow" on the closed day's card read as the next day: the works were still to
+ * come all that day (the systems audit's seventeenth round). So it names its day, as the map's marker reads "tomorrow" the day
+ * before.
+ */
+export function eventNewsText(e: { readonly kind: 'roadworks' | 'festival' | 'snow'; readonly street: string; readonly startDay: number; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
+  const when = `from ${dayText(e.startDay)}, for ${e.days} ${e.days === 1 ? 'day' : 'days'}`;
   const street = streetName(e.street);
   if (e.kind === 'festival') {
     const near = street ? ` near ${street}` : '';
-    return e.news === 'tomorrow' ? `A festival${near} tomorrow, ${forDays}: more riders to and from there` : `The festival${near} is over`;
+    return e.news === 'tomorrow' ? `A festival${near} ${when}: more riders to and from there` : `The festival${near} is over`;
   }
-  if (e.kind === 'snow') return e.news === 'tomorrow' ? `Snow tomorrow, ${forDays}: every bus drives slower` : 'The snow is over';
-  return e.news === 'tomorrow' ? `Roadworks on ${street} tomorrow, ${forDays}` : `Roadworks on ${street} are over`;
+  if (e.kind === 'snow') return e.news === 'tomorrow' ? `Snow ${when}: every bus drives slower` : 'The snow is over';
+  return e.news === 'tomorrow' ? `Roadworks on ${street} ${when}` : `Roadworks on ${street} are over`;
 }
 
 export const MEDAL_NAMES: Readonly<Record<MedalId, string>> = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { HandBack } from '../focusBack';
 import { focusLost } from '../focusLost';
+import { isOperating, type RowKind } from '../../sim/rules/money';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
 import { useScrollStop } from '../scrollStop';
 import { useBesidePanels } from './besidePanels';
@@ -148,6 +149,11 @@ export function DayCard({
   const byKind = new Map<string, number>();
   for (const row of card.rows) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amountCents);
   const total = card.rows.reduce((s, r) => s + r.amountCents, 0);
+  // The day's running, as Finance's Overview and the checklist's "a day in profit" count it (sim/rules/money.ts): told apart
+  // from the day's total on a day that bought, sold or was rewarded. The first day in profit read "Day total -$355,257.78", its
+  // buses and stops counted in, its running net of $742.22 on Finance alone (the systems audit's seventeenth round).
+  const running = card.rows.reduce((s, r) => s + (isOperating(r.kind as RowKind) ? r.amountCents : 0), 0);
+  const notRunning = card.rows.some((r) => !isOperating(r.kind as RowKind));
   const stamp = card.report ? stampOf(card.report.payoutCents) : null;
   return (
     <section
@@ -215,6 +221,12 @@ export function DayCard({
               <th scope="row">Day total</th>
               <td>{usd(total, { cents: true })}</td>
             </tr>
+            {notRunning ? (
+              <tr data-testid="day-running" data-cents={running} title="Fares and subsidy less running costs">
+                <th scope="row">Day’s running</th>
+                <td>{usd(running, { cents: true })}</td>
+              </tr>
+            ) : null}
             <tr>
               <th scope="row">Cash</th>
               <td>

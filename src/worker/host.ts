@@ -50,7 +50,7 @@ import { contractDaysLeft, contractMet } from '../sim/rules/contract';
 import { eventDaysLeft, eventPhase } from '../sim/rules/event';
 import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/state';
 import { cashAtClose, simStep } from '../sim/step';
-import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
+import { before, newUndo, nextUndo, remember, timeRuns, tookWhileRunning, undo, type UndoLabel } from '../sim/undo';
 import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotDrive, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
 import { DEPOT_STREET_REACH_M } from '../sim/config/depots';
@@ -267,7 +267,7 @@ function eventView(world: World, event: CityEvent | null, day: number): EventVie
 
 /** The day card's event notices: the event rolled at this close and the one whose last day it was. */
 function eventNews(rolled: CityEvent | null, ended: CityEvent | null): DayCard['events'] {
-  const one = (e: CityEvent, news: 'tomorrow' | 'over') => ({ kind: e.kind, street: e.street, days: e.endDay - e.startDay + 1, news });
+  const one = (e: CityEvent, news: 'tomorrow' | 'over') => ({ kind: e.kind, street: e.street, startDay: e.startDay, days: e.endDay - e.startDay + 1, news });
   return [...(ended ? [one(ended, 'over')] : []), ...(rolled ? [one(rolled, 'tomorrow')] : [])];
 }
 
@@ -559,11 +559,14 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
 
   // Every command taken since the last unpause, newest last (sim/undo.ts, I9).
   let undoStack = newUndo();
-  /** Runs a command; while paused, keeps the game from before it so an undo can put it back. */
+  /** Runs a command; while paused, keeps the game from before it so an undo can put it back, and while time runs, says so. */
   const command = <R extends { readonly ok: boolean }>(label: UndoLabel, run: () => R): R => {
     const kept = speed === 0 ? before(world!) : null;
     const result = run();
-    if (result.ok && kept) remember(undoStack, label, kept);
+    if (result.ok) {
+      if (kept) remember(undoStack, label, kept);
+      else tookWhileRunning(undoStack);
+    }
     return result;
   };
 
