@@ -8,8 +8,9 @@
 // whole recompute there with five depots, on hubs of lines out of one stop, on a late game's many lines, and on the pacing run's
 // card-building companies at the bus ceiling (bench/fixtures). The whole recompute is timed from nothing, its memo let go first,
 // as a load or an event's start runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
-// assignment carries the rides of the cell pairs no changed line has a route in, AssignMemo). Results go to
-// .cache/bench/recompute.json.
+// assignment carries the rides of the cell pairs no changed line has a route in, and the catchments and ride tables nothing
+// changed, AssignMemo), and on the late companies a fare's and a Shelter's too, which keep the catchments and work them out
+// afresh. Results go to .cache/bench/recompute.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
@@ -79,6 +80,30 @@ const aCommand = (w: World) => {
     const line = w.state.lines[at]!;
     const h = set[at]!;
     line.headways = k % 2 === 0 ? { peak: Math.round(h.peak * 1.5), offpeak: Math.round(h.offpeak * 1.5), overnight: h.overnight === null ? null : Math.round(h.overnight * 1.5) } : h;
+    k++;
+    recompute(w);
+  };
+};
+
+/** A fare's recompute: each run one line's fare a quarter dearer, or back, line after line. */
+const aFare = (w: World) => {
+  const set = w.state.lines.map((line) => line.fareCents);
+  let k = 0;
+  return () => {
+    const at = Math.floor(k / 2) % w.state.lines.length;
+    w.state.lines[at]!.fareCents = k % 2 === 0 ? Math.round(set[at]! * 1.25) : set[at]!;
+    k++;
+    recompute(w);
+  };
+};
+
+/** A stop's recompute: each run one of the lines' stops made a Shelter, or back to a Sign, stop after stop (V1's first upgrade). */
+const aShelter = (w: World) => {
+  const stops = w.state.stops.filter((stop) => stop.tier === 1);
+  let k = 0;
+  return () => {
+    const stop = stops[Math.floor(k / 2) % stops.length]!;
+    stop.tier = k % 2 === 0 ? 2 : 1;
     k++;
     recompute(w);
   };
@@ -222,6 +247,8 @@ if (inner) {
     const name = `the pacing run's company on seed ${seed} at the bus ceiling, ${company.state.lines.length} lines on ${company.state.stops.length} stops, at most ${Math.max(...at.values())} at a stop`;
     time(`Inner Boston's whole recompute, ${name}`, fromNothing(company), false);
     time(`Inner Boston, a command's recompute, ${name}`, aCommand(company), false);
+    time(`Inner Boston, a fare's recompute, ${name}`, aFare(company), false);
+    time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company), false);
     // The memo's riders are a whole assignment's, number for number, after all those commands (memo.test.ts holds the rule).
     const fresh = assign(company.city, commutersToday(company), runningPlans(company));
     const differ = (a: unknown, b: unknown): boolean => {
