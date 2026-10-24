@@ -129,7 +129,12 @@ export function Dropdown<T extends string | number>({
       if (event.target instanceof Node && list.current?.contains(event.target)) return;
       const b = button.current?.getBoundingClientRect();
       const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
-      if (b && b.bottom > (view?.top ?? 0) && b.top < (view?.bottom ?? window.innerHeight)) {
+      // Under its table's headings, which Finance's Lines keeps in view as the rows scroll, the button is out of the view too:
+      // its list stayed open there with the button hidden, and a pick set a fare out of sight (the systems audit's sixteenth
+      // round). Its cells stick, not the row of them; headings that scroll away lie above the view, or above the button's row.
+      const head = button.current?.closest('table')?.querySelector('thead th')?.getBoundingClientRect();
+      const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity);
+      if (b && b.bottom > top && b.top < (view?.bottom ?? window.innerHeight)) {
         // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
         flushSync(() => {
           setAt(null);
@@ -162,6 +167,9 @@ export function Dropdown<T extends string | number>({
   const [host, setHost] = useState<Element | null>(null);
   const show = () => {
     if (open || disabled) return;
+    // Its button wholly in view first: a list that closed as its button went under Finance's headings left the keyboard there,
+    // and opened again beside the hidden button (the systems audit's sixteenth round). A button in view does not move.
+    button.current?.scrollIntoView?.({ block: 'nearest' });
     setHost(button.current?.closest('main') ?? document.body);
     setActive(chosen >= 0 ? chosen : step(-1, 1));
     setAt(null);

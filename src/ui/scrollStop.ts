@@ -7,9 +7,9 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * a scrolling box by themselves; this is for those that do not. Gives the box's ref and whether it scrolls.
  *
  * `content` names what the box holds, a day card's day: as it changes, the box starts again at its top and is measured afresh,
- * the box kept, so a focus on it stays. As its rows stop scrolling under the focus, `handOff` gives what takes the focus, as the
- * box stops being a stop: the next day's card had been built anew, and the focus on it fell to the page (the systems audit's
- * fourteenth round).
+ * the box kept, so a focus on it stays. As its rows stop scrolling under the focus, or the focus comes to it while they do not,
+ * `handOff` gives what takes the focus, as the box is no stop then: the next day's card had been built anew, and the focus on it
+ * fell to the page (the systems audit's fourteenth round).
  */
 export function useScrollStop<T extends HTMLElement>(content?: unknown, handOff?: () => HTMLElement | null): [(box: T | null) => void, boolean] {
   const [box, setBox] = useState<T | null>(null);
@@ -27,12 +27,22 @@ export function useScrollStop<T extends HTMLElement>(content?: unknown, handOff?
       setScrolls(now);
     };
     measure();
-    if (typeof ResizeObserver === 'undefined') return;
+    // The focus given to the box while its rows do not scroll hands on too: Help opened from a busy card's rows, through a close
+    // whose rows fit, gave the focus back to them as it closed, where Space paused and Enter did nothing (the systems audit's
+    // sixteenth round).
+    const taken = () => {
+      if (box.scrollHeight - box.clientHeight <= 1) off.current?.()?.focus();
+    };
+    box.addEventListener('focus', taken);
+    if (typeof ResizeObserver === 'undefined') return () => box.removeEventListener('focus', taken);
     // The box and its rows, as the window changes size or a row wraps.
     const seen = new ResizeObserver(measure);
     seen.observe(box);
     for (const row of box.children) seen.observe(row);
-    return () => seen.disconnect();
+    return () => {
+      seen.disconnect();
+      box.removeEventListener('focus', taken);
+    };
   }, [box, content]);
   return [setBox, scrolls];
 }

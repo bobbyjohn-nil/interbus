@@ -188,6 +188,43 @@ test.describe('the day card', () => {
     await expect(rows).not.toHaveAttribute('role');
   });
 
+  // Help opened with ? from a busy card's rows went on over the next close, whose rows fit, and gave the focus back to the rows as
+  // it closed: no Tab stop any more, where Space paused the game and Enter did nothing (the systems audit's sixteenth round). Rows
+  // that do not scroll hand the focus to Continue as they take it, as they do when they stop scrolling under it. Shown failing
+  // (TS-04) on main, the focus on the rows.
+  test('hands the keyboard to Continue as Help, opened from its busy rows, closes over a close whose rows fit', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withBusyQuarterClose(page);
+    await setSpeed(page, '600×');
+    const card = page.getByTestId('day-card');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    const first = (await card.getAttribute('aria-label'))!;
+    const rows = card.locator('.day-card-scroll');
+    await expect(rows).toHaveAttribute('tabindex', '0');
+    // The rows reached from the keyboard, so Help opened from them takes the focus, as a panel the keyboard opens does.
+    await card.getByRole('button', { name: 'Continue' }).focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(rows).toBeFocused();
+    await page.keyboard.press('?');
+    const help = page.getByTestId('help');
+    await expect(help).toBeVisible();
+    await expect.poll(() => help.evaluate((el) => el.closest('[data-movable]')!.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('5'); // 5,400×: the next close in about 16 s
+    await expect(card).not.toHaveAttribute('aria-label', first, { timeout: 40_000 });
+    await expect(rows).not.toHaveAttribute('tabindex');
+    await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    // Help's hand-back, an effect after it has gone, gives the rows the focus, which they hand on as they take it: on main they
+    // kept it until something measured them again, which may come or not.
+    await expect.poll(() => page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+    expect(await page.evaluate(() => !!document.activeElement?.matches('.day-card-scroll'))).toBe(false);
+    await expect(card.getByRole('button', { name: 'Continue' })).toBeFocused();
+  });
+
   // In the middle at the top, the card lay over the second panel opened: while time runs a close's card comes every 16 s at
   // 5,400×, and with Lines open 73.5% of Finance lay under it at 1152×720, its views among it, so a press on Breakdown landed on
   // the card (the systems audit's fifteenth round). It stands beside the panels where a gap holds it now, narrower if it must
@@ -261,6 +298,23 @@ test.describe('the day card', () => {
     await page.getByTestId('speed-menu').click();
     await page.getByRole('option').filter({ has: page.locator('.dropdown-label', { hasText: /^600×$/ }) }).click({ timeout: 5_000 });
     await expect(page.getByTestId('speed-menu')).toContainText('600×');
+  });
+
+  // Raised over the card, an open list lay over the map's credit too: a fare list in Finance over "Protomaps" at 1152×720, and
+  // with Finance dragged left over "© OpenStreetMap contributors" (the systems audit's sixteenth round), which stays in view
+  // whenever the map shows (CLAUDE.md). The corner stands over the lists while a card shows, as over the menus. Shown failing
+  // (TS-04) on main, the list over the credit.
+  test('leaves the map’s credit over an open list that reaches the corner', async ({ page }) => {
+    test.setTimeout(90_000);
+    await cardBeside(page, 1152, 720, ['Lines', 'Finance']);
+    await page.getByTestId('speed-menu').click();
+    const list = page.getByRole('listbox');
+    await expect(list).toBeVisible();
+    // The list laid over the corner, as a fare list low in Finance lies there.
+    const credit = page.getByText('© OpenStreetMap contributors');
+    const c = (await credit.boundingBox())!;
+    await list.evaluate((el, [x, y]) => Object.assign(el.style, { left: `${x! - 40}px`, top: `${y! - 40}px`, bottom: 'auto' }), [c.x + c.width / 2, c.y + c.height / 2]);
+    expect(await onTop(credit)).toBe(true);
   });
 
   // Placed only as it showed, the card stood where it was as a panel opened or closed under it, or the window narrowed, and no test

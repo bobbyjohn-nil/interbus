@@ -221,8 +221,10 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
           <div className="controls">
             <button
               type="button"
-              disabled={!swap.ok || over}
+              disabled={over}
+              aria-disabled={swap.ok ? undefined : true}
               onClick={(e) => {
+                if (!swap.ok) return;
                 handBack(e.currentTarget, toModel);
                 sim.send({ type: 'set-model', lineId: line.id, model: wantedModel });
                 setWantedModel(null);
@@ -305,8 +307,10 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
           <div className="controls">
             <button
               type="button"
-              disabled={!change.ok || over}
+              disabled={over}
+              aria-disabled={change.ok ? undefined : true}
               onClick={(e) => {
+                if (!change.ok) return;
                 handBack(e.currentTarget, toHeadway);
                 sim.send({ type: 'set-headways', lineId: line.id, headways: next });
                 setWanted(null);

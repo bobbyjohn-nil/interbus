@@ -36,16 +36,21 @@ const inPanel = (panel: string | null, at: Element | null) => panel !== null && 
 
 /**
  * What Continue hands the focus back to: where it came from while that can take it; gone, the panel that held it, or with that
- * closed too, what opens it (as Panels' handBackTo goes on to); or nothing, the focus left on the page.
+ * closed too, what opens it (as Panels' handBackTo goes on to); a control gone that opened a panel, what opens that panel now,
+ * as the checklist's last step gives way to the Contracts chip; and with none of those, Build, as the stop card's and Close
+ * line's own hand-backs go on to: a stop's card and the route editor have no opener on the page, and Continue gave the page
+ * the focus from them and from the checklist (the systems audit's sixteenth round). With no place, the focus stays on the page.
  */
 function back(from: Place | null): HTMLElement | null {
   if (!from) return null;
   const usable = (el: Element | null): el is HTMLElement => el instanceof HTMLElement && el.isConnected && !el.matches(':disabled');
+  const opened = from.at.getAttribute('data-opens');
   if (usable(from.at)) return from.at;
-  if (from.in === null) return null;
-  const box = document.querySelector(`[data-movable="${from.in}"]`);
+  const box = from.in === null ? null : document.querySelector(`[data-movable="${from.in}"]`);
   if (usable(box)) return box;
-  return [...document.querySelectorAll(`[data-opens="${from.in}"]`)].find(usable) ?? null;
+  const opener = (panel: string | null) => (panel === null ? undefined : [...document.querySelectorAll(`[data-opens="${panel}"]`)].find(usable));
+  const build = document.querySelector('[data-testid="build"]');
+  return opener(from.in) ?? opener(opened) ?? (usable(build) ? build : null);
 }
 
 /** A payout or fine as the line under the grades says it: whole dollars, or cents under a dollar, which whole dollars read as $0 beside the stamp (round 10). */
