@@ -121,7 +121,7 @@ test.describe('the failure floor', () => {
     [5_000, 'Heading below -$150k tonight'],
     [20_000, 'Stay above -$150k tonight'],
   ] as const) {
-    test(`four closes behind and $${aboveCents / 100} above the floor at 23:50, says “${words}”, as the close then counts`, async ({ page }) => {
+    test(`four closes behind and $${aboveCents / 100} above the floor at 23:59, says “${words}”, as the close then counts`, async ({ page }) => {
       test.setTimeout(90_000);
       await page.goto('./');
       const panel = page.getByTestId('sim-panel');
@@ -130,7 +130,7 @@ test.describe('the failure floor', () => {
       await withDebugLine(page, (d) => {
         d.closesBelowFloor = 4;
         d.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 100_000 + 15_000_000 - aboveCents), lineId: null });
-        d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60; // day 2, 23:50
+        d.clock.elapsed = 86_400 + 18 * 3_600 + 59 * 60; // day 2, 23:59, the hour to midnight still to bank
       });
       await expect(panel).toHaveAttribute('data-cash', String(-15_000_000 + aboveCents));
       const countdown = page.getByTestId('countdown');

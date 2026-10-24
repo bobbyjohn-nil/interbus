@@ -81,8 +81,8 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
     cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? placeOf(at) : null;
   }, [card?.day]);
   // Where the focus came from, taken away with the focus on it, hands the focus on, an offer's Take it to the row now in its
-  // place (Contracts), and where it went is where the focus came from now: the card shows a render before the snapshot that
-  // withdraws the offer, and Continue's went to the page (the systems audit's fifteenth round). That hand-off runs in the commit
+  // place (Contracts), and where it went is where the focus came from now: the card often shows a render before the snapshot
+  // that withdraws the offer, and Continue's went to the page (the systems audit's fifteenth round). That hand-off runs in the commit
   // that takes the place away, before this effect. Taken away with the focus in the card, the place stays gone, and Continue
   // hands the focus to its panel instead (back).
   const there = useRef(false);

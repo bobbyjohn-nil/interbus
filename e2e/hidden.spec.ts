@@ -61,10 +61,11 @@ test.describe('a tab out of sight', () => {
     await page.goto('./');
     const notice = page.getByTestId('notice');
     await expect(notice).toHaveText('Save from an older build set aside', { timeout: 30_000 });
-    await page.waitForTimeout(7_000);
+    // Past its 6 s out of sight, it is still said as the page shows, and 2 s on; then its seconds run out.
+    await page.waitForTimeout(6_500);
     await seen(page, 'visible');
     await expect(notice).toHaveText('Save from an older build set aside');
-    await page.waitForTimeout(3_000);
+    await page.waitForTimeout(2_000);
     await expect(notice).toHaveText('Save from an older build set aside');
     await expect(notice).toHaveCount(0, { timeout: 10_000 });
   });
@@ -86,7 +87,7 @@ test.describe('a tab out of sight', () => {
     await expect(a.getByTestId('saves-chip')).toHaveText('Autosave off', { timeout: 10_000 });
     const notice = a.getByTestId('notice');
     await expect(notice).toHaveText('Another tab changed the autosave');
-    await a.waitForTimeout(7_000);
+    await a.waitForTimeout(6_500);
     await seen(a, 'visible');
     await expect(notice).toHaveText('Another tab changed the autosave');
   });

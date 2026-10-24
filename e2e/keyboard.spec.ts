@@ -394,9 +394,10 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
   // Continue gave the focus to the page from the row a close put in a withdrawn offer's place and from the row Take it gave it to,
   // each of which let its tabindex go as the focus left it for Continue, and from a Take it the next close withdrew with the card
   // kept (the systems audit's fifteenth round). Continue makes its row focusable again, and, the place gone, hands the focus to
-  // its panel. A close's card shows a render before the snapshot that withdraws the offer (the host sends one every 100 ms at
-  // most; the second test holds each answer apart): the row takes the focus after the card has shown, and Continue hands it back
-  // there. Shown failing (TS-04) on main, each to the page; with the card's following taken out, the first two to Contracts' box.
+  // its panel. A close's card often shows a render before the snapshot that withdraws the offer (the host sends one every 100 ms
+  // at most), and the second test holds each answer apart so that it always does: the row takes the focus after the card has
+  // shown, and Continue hands it back there. Shown failing (TS-04) on main, each to the page; with the card's following taken
+  // out, the second to Contracts' box (and the first too at 60×, 4 runs of 4).
   for (const apart of [false, true]) {
     test(`Continue hands the focus back to the row in a withdrawn offer’s place${apart ? ', the close’s snapshot after its card' : ''}`, async ({ page }) => {
       test.setTimeout(90_000);
@@ -404,7 +405,7 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
       const { contracts, id, day } = await onTakeIt(page);
       // Each of the worker's answers on its own from here: the card shows, and the offer goes a render later.
       if (apart) await page.evaluate(() => void ((window as unknown as { apartMs: number }).apartMs = 20));
-      await page.keyboard.press('2'); // 60×: the close in 10 s
+      await page.keyboard.press('3'); // 600×: the close in a second
       await expect(day).toBeVisible({ timeout: 30_000 });
       await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
       const row = contracts.locator('[data-contract]:focus');
