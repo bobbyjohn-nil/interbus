@@ -368,19 +368,20 @@ export interface AssignOptions {
   /** The catchments of these plans' stops, worked out once for several assignments of the same stops. */
   readonly reach?: Catchments;
   /**
-   * What the last assignment of these commuters kept (AssignMemo), read and replaced; not with `only`, nor with `reach`, whose
-   * catchments the memo cannot tell from the plans'.
+   * What the last assignment kept (AssignMemo), read and replaced; not with `only`, nor with `reach`, whose catchments the memo
+   * cannot tell from the plans'.
    */
   readonly memo?: AssignMemo | undefined;
 }
 
 /**
  * What an assignment keeps for the next one of the same world (I14 on the late game; DECISIONS, Open): each cell pair's rides,
- * in the order it carried them, and what they were worked out from. A cell pair's riders depend only on the lines of its routes
- * (a line, or a line and the one it changes onto), so the next assignment carries again the rides of every pair whose routes'
- * lines are as they were, in the same order, and works out afresh only the pairs a changed line has a route in, then or now. The
- * sums come out as a whole assignment's, to the last bit, since every ride is added in the same order (memo.test.ts): a reload,
- * which assigns from nothing, finds the same riders (I8).
+ * in the order it carried them, and what they were worked out from. A cell pair's riders depend only on its own trips and
+ * distance and on the lines of its routes (a line, or a line and the one it changes onto), so the next assignment carries again
+ * the rides of every pair whose trips and routes' lines are as they were, in the same order, and works out afresh only the pairs
+ * whose trips changed, as a festival's start and end change those near it, and those a changed line has a route in, then or now.
+ * The sums come out as a whole assignment's, to the last bit, since every ride is added in the same order (memo.test.ts): a
+ * reload, which assigns from nothing, finds the same riders (I8).
  */
 export interface AssignMemo {
   last: AssignKept | null;
@@ -456,6 +457,8 @@ interface AssignKept {
   readonly cellPairs: Int32Array;
   /** The home cells it worked out afresh, the rest carried again whole: all of them from nothing. */
   readonly freshCells: number;
+  /** The cell pairs with trips it worked out afresh, the rest carried again: all of them from nothing. */
+  readonly freshPairs: number;
 }
 
 /** A line's plan as text but for the fields named: what the memo tells a line by (lineSignature, reachSignature, tableSignature). */
@@ -709,7 +712,10 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   const n = commuters.n;
   const scale = city.tripScalePermille / 1000;
   const signatures = memo ? new Map(plans.map((plan) => [plan.id, lineSignature(plan)] as const)) : null;
-  const kept = last && last.commuters === commuters && last.rushy === rushy && last.homeLines.length === n && sameOrder(last.ids, ids) ? last : null;
+  // Other commuters between the same cells at the same distances, as a festival's start and end make them (commutersToday), are
+  // carried from too: the pairs whose trips changed are worked out afresh (below).
+  const sameCells = last ? last.commuters === commuters || (last.commuters.n === n && last.commuters.km === commuters.km) : false;
+  const kept = last && sameCells && last.rushy === rushy && last.homeLines.length === n && sameOrder(last.ids, ids) ? last : null;
   let freshPair: Uint8Array | null = null;
   let freshCell: Uint8Array | null = null;
   if (kept && signatures) {
@@ -741,9 +747,21 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       // The same catchments as the last assignment's (sameReach) mark the same pairs again.
       if (!sameReach) mark(ids, homeLines, workAccess, transfers);
     }
+    // The pairs whose trips changed, whatever their lines.
+    if (kept.commuters !== commuters) {
+      const was = kept.commuters.flow;
+      const now = commuters.flow;
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          if (was[i * n + j] === now[i * n + j]) continue;
+          pairsFresh[i * n + j] = 1;
+          cellsFresh[i] = 1;
+        }
+      }
+    }
   }
   // This assignment's rides, kept for the next (AssignKept), in an arena of the memo's that the last assignment is not in: the
-  // spare, or the stale last's when it is of other commuters. And the places of the lines by id, for the rides carried again.
+  // spare, or the stale last's when this one cannot carry from it. And the places of the lines by id, for the rides carried again.
   const reading = kept ? kept.arena : null;
   let arena: RideArena = { stops: new Int32Array(0), riders: new Float64Array(0), pairWork: new Int32Array(0), pairRide: new Int32Array(1) };
   if (memo) {
@@ -761,6 +779,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   let rides = 0;
   let pairs = 0;
   let freshCells = 0;
+  let freshPairs = 0;
   const cellPairs = new Int32Array(memo ? n + 1 : 0);
   let maxId = 0;
   for (const id of ids) maxId = Math.max(maxId, id);
@@ -1188,12 +1207,14 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       const flow = commuters.flow[i * n + j]!;
       if (flow <= 0 || skip) continue;
       if (memo) beginPair(j);
-      // A pair no changed line has a route in, then or now: its rides as the last assignment carried them.
+      // A pair whose trips are as they were and no changed line has a route in, then or now: its rides as the last assignment
+      // carried them.
       if (kept && !freshPair![i * n + j] && keptPair[j]) {
         const p = keptPair[j]! - 1;
         carryKept(reading!.pairRide[p]!, reading!.pairRide[p + 1]!);
         continue;
       }
+      freshPairs++;
       // Straight-line km between the cells' centres, which no stop can move (I2), and the car and
       // walking minutes it gives.
       const km = commuters.km[i * n + j]!;
@@ -1453,6 +1474,7 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
       arena,
       cellPairs,
       freshCells,
+      freshPairs,
     };
   }
   const perLine = (by: Float64Array) => plans.map((_, line) => [by[line * 3]!, by[line * 3 + 1]!, by[line * 3 + 2]!]);

@@ -2,9 +2,11 @@
 // changed line has a route in. A game recomputes through it, while a game loaded from its file assigns from nothing, so the two
 // must find the same riders number for number, or a reload would leave the game otherwise than it was (I8).
 import { describe, expect, it } from 'vitest';
+import { toCalendarTime } from '../core/calendar';
+import { toLngLat, type XY } from '../core/geo';
 import type { LineId } from '../core/ids';
 import { grownCompany } from '../testing';
-import { runningPlans } from '../world';
+import { commutersToday, runningPlans, type World } from '../world';
 import { STOP_TIERS } from '../config/stops';
 import { assign, type AssignMemo, type LinePlan } from './assign';
 
@@ -25,6 +27,14 @@ function differences(a: unknown, b: unknown, path = '', out: string[] = []): str
     for (const k of Object.keys(a)) differences((a as Record<string, unknown>)[k], (b as Record<string, unknown> | undefined)?.[k], `${path}.${k}`, out);
   } else if (a !== b) out.push(`${path}: ${String(a)} against ${String(b)}`);
   return out;
+}
+
+/** The commuters of a festival today round `xy`, as its first day's close makes them. */
+function festivalAt(world: World, xy: XY) {
+  const [lon, lat] = toLngLat(world.city.frame, xy);
+  const day = toCalendarTime(world.state.elapsed).day;
+  const event = { kind: 'festival' as const, startDay: day, endDay: day, street: '', edges: [], at: { lon, lat } };
+  return commutersToday({ city: world.city, commuters: world.commuters, state: { ...world.state, event } });
 }
 
 describe('the assignment’s memo', () => {
@@ -72,8 +82,18 @@ describe('the assignment’s memo', () => {
     // Two lines in the other order, as nothing in the game does yet: the memo starts again rather than add in another order.
     check([base[1]!, base[0]!, ...base.slice(2)]);
     check(base);
-    // A festival's commuters, and back: the memo is of other commuters each time, so it starts again.
+    // A festival round the second line's middle stop, and back: the trips of the pairs near it change, and only those pairs are
+    // worked out afresh; then one that starts as a line changes, both at once.
+    const festival = festivalAt(world, base[1]!.stops[Math.floor(base[1]!.stops.length / 2)]!);
+    expect(festival.flow).not.toEqual(world.commuters.flow);
+    check(base, festival);
+    check(base);
+    check(at(0, { headways: { ...base[0]!.headways, peak: 1_800, offpeak: 2_400 } }), festival);
+    check(base);
+    // Every pair's trips half again, and back; and other distances between the cells, with which the memo starts again.
     check(base, { ...world.commuters, flow: world.commuters.flow.map((v) => v * 1.5) });
+    check(base);
+    check(base, { ...world.commuters, km: world.commuters.km.map((v) => v * 1.1) });
     check(base);
     check(base);
   });
@@ -85,6 +105,7 @@ describe('the assignment’s memo', () => {
     const memo: AssignMemo = { last: null };
     assign(world.city, world.commuters, plans, { memo });
     expect(memo.last!.freshCells).toBe(n);
+    const whole = memo.last!.freshPairs;
     const slower = plans.map((p, m) => (m === 4 ? { ...p, headways: { ...p.headways, peak: 1_800 } } : p));
     assign(world.city, world.commuters, slower, { memo });
     expect(memo.last!.freshCells).toBeGreaterThan(0);
@@ -100,6 +121,15 @@ describe('the assignment’s memo', () => {
     memo.last = null;
     assign(world.city, world.commuters, plans, { memo });
     expect(memo.last!.freshCells).toBe(n);
+    expect(memo.last!.freshPairs).toBe(whole);
     expect(memo.arenas).toEqual([first, second]);
+    // A festival's start and end change the trips of the pairs near it alone: those are worked out afresh, the rest carried.
+    const festival = festivalAt(world, plans[1]!.stops[Math.floor(plans[1]!.stops.length / 2)]!);
+    assign(world.city, festival, plans, { memo });
+    const near = memo.last!.freshPairs;
+    expect(near).toBeGreaterThan(0);
+    expect(near).toBeLessThan(whole);
+    assign(world.city, world.commuters, plans, { memo });
+    expect(memo.last!.freshPairs).toBe(near);
   });
 });
