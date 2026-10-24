@@ -22,6 +22,31 @@ export function stampOf(payoutCents: number): 'Approved' | 'Noted' | 'Fined' {
   return payoutCents > 0 ? 'Approved' : payoutCents < 0 ? 'Fined' : 'Noted';
 }
 
+/** Where the keyboard's focus was, and the panel that held it (Panels' box, by its id), if any. */
+interface Place {
+  readonly at: HTMLElement;
+  readonly in: string | null;
+}
+
+const placeOf = (at: HTMLElement): Place => ({ at, in: at.closest('[data-movable]')?.getAttribute('data-movable') ?? null });
+
+/** Whether `at` is in the panel named `panel` (Panels' box, by its id). */
+const inPanel = (panel: string | null, at: Element | null) => panel !== null && !!at?.closest(`[data-movable="${panel}"]`);
+
+/**
+ * What Continue hands the focus back to: where it came from while that can take it; gone, the panel that held it, or with that
+ * closed too, what opens it (as Panels' handBackTo goes on to); or nothing, the focus left on the page.
+ */
+function back(from: Place | null): HTMLElement | null {
+  if (!from) return null;
+  const usable = (el: Element | null): el is HTMLElement => el instanceof HTMLElement && el.isConnected && !el.matches(':disabled');
+  if (usable(from.at)) return from.at;
+  if (from.in === null) return null;
+  const box = document.querySelector(`[data-movable="${from.in}"]`);
+  if (usable(box)) return box;
+  return [...document.querySelectorAll(`[data-opens="${from.in}"]`)].find(usable) ?? null;
+}
+
 /** A payout or fine as the line under the grades says it: whole dollars, or cents under a dollar, which whole dollars read as $0 beside the stamp (round 10). */
 const amountSaid = (cents: number) => usd(cents, { cents: Math.abs(cents) < 100 });
 
@@ -48,16 +73,45 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   // there: built anew, it fell to the page, where Enter did nothing and Space paused (the systems audit's fourteenth round).
   const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>(card?.day, () => go.current);
   const self = useRef<HTMLElement>(null);
-  // Where the keyboard had the focus as the card showed, so Continue's goes back there as the card goes (App holds the
-  // hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where the focus came
-  // into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's end the
-  // lender's card takes it instead. A close while the focus is in the card leaves where it came from as it was.
-  const cameFrom = useRef<HTMLElement | null>(null);
+  // Where the keyboard had the focus as the card showed, and the panel that held it, so Continue's goes back there as the card
+  // goes (App holds the hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where
+  // the focus came into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's
+  // end the lender's card takes it instead. A close while the focus is in the card leaves where it came from as it was.
+  const cameFrom = useRef<Place | null>(null);
+  // The panel the focus went to straight from the card and has stayed in, as Help does from Continue's ?, which hands it back
+  // into the card as it closes: a close while the focus is there is a close with the focus in the card. Taken for where the focus
+  // came from, Help's box was gone as Continue handed the focus back, and the focus went to the page (the review of the fifteenth
+  // round's fixes).
+  const wentTo = useRef<string | null>(null);
+  useEffect(() => {
+    const moved = (event: FocusEvent) => {
+      const to = event.target instanceof Element ? event.target : null;
+      const box = self.current;
+      if (!to || !box) return;
+      if (box.contains(to)) wentTo.current = null;
+      else if (event.relatedTarget instanceof Element && box.contains(event.relatedTarget)) wentTo.current = to.closest('[data-movable]')?.getAttribute('data-movable') ?? null;
+      else if (!inPanel(wentTo.current, to)) wentTo.current = null;
+    };
+    document.addEventListener('focusin', moved, true);
+    return () => document.removeEventListener('focusin', moved, true);
+  }, []);
   useEffect(() => {
     const at = document.activeElement;
-    if (at && self.current?.contains(at)) return;
-    cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? at : null;
+    if (at && (self.current?.contains(at) || inPanel(wentTo.current, at))) return;
+    cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? placeOf(at) : null;
   }, [card?.day]);
+  // Where the focus came from, taken away with the focus on it, hands the focus on, an offer's Take it to the row now in its
+  // place (Contracts), and where it went is where the focus came from now: the card often shows a render before the snapshot
+  // that withdraws the offer, and Continue's went to the page (the systems audit's fifteenth round). That hand-off runs in the commit
+  // that takes the place away, before this effect, so the focus was on the place as this effect last ran. Taken away with the
+  // focus anywhere else, in the card or in Help over it, the place stays gone, and Continue hands the focus to its panel (back).
+  const there = useRef(false);
+  useEffect(() => {
+    const from = cameFrom.current;
+    const at = document.activeElement;
+    if (from && !from.at.isConnected && there.current && at instanceof HTMLElement && at !== document.body && !self.current?.contains(at)) cameFrom.current = placeOf(at);
+    there.current = !!cameFrom.current && document.activeElement === cameFrom.current.at;
+  });
   const heading = useId();
   if (!card) return null;
   const byKind = new Map<string, number>();
@@ -143,7 +197,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
         ref={go}
         type="button"
         onClick={(e) => {
-          if (!over) handBack(e.currentTarget, () => cameFrom.current);
+          if (!over) handBack(e.currentTarget, () => back(cameFrom.current));
           sim.closeDayCard();
         }}
       >

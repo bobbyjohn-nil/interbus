@@ -206,6 +206,38 @@ for (const blocked of [false, true]) {
   });
 }
 
+// The card lay over the open Build menu, which opens up from the dock to where the card stands: over its three tools while it
+// said the game isn't saving itself, a press on Draw a line landing on the card, and over Place a depot while it did not (the
+// systems audit's fifteenth round). The open menu stands over the card now, and the card is whole again as it shuts. Shown
+// failing (TS-04) on main, where the card covered the three tools at each of I13's sizes, and Place a depot.
+for (const blocked of [false, true]) {
+  test(`an open Build menu keeps its tools in sight over the replaced build’s card${blocked ? ', saying the game isn’t saving itself' : ''}`, async ({ page }) => {
+    test.skip(!city.sim, 'no sim file in this build yet');
+    test.setTimeout(60_000);
+    if (blocked) await page.addInitScript(blockStorage);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await bootGone(page);
+    await page.getByTestId('build').click();
+    const menu = page.getByTestId('build-menu');
+    await expect(menu.getByRole('button')).toHaveCount(3);
+    await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
+    const replaced = page.getByTestId('replaced-card');
+    await expect(replaced).toBeVisible();
+    for (const [width, height] of [[1152, 720], [1366, 768], [1440, 900]] as const) {
+      await page.setViewportSize({ width, height });
+      expect(await covered(page, '[data-testid="build-menu"] button'), `at ${width}×${height}`).toEqual([]);
+    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    expect(await inFront(replaced)).toBe(true);
+    await page.getByTestId('build').click();
+    await menu.getByRole('button', { name: /^Draw a line/ }).click();
+    await expect(menu).toHaveCount(0);
+  });
+}
+
 // The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on
 // the board where the cards that wait for an answer sit, under them, so a day card and the lender's card hid its words and its
 // Reload. While such a card is up it drops to the board's foot now, as the GPU ladder's cards have since the fifth round

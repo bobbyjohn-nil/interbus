@@ -1,6 +1,6 @@
 // The credit line (the M3 spec, item 10; D10): one predicate for what a change is short, shortfallCents, read by
 // every card and command that prices one (GD-05), the same test as the ledger's spendParts, and for the countdown chip.
-import { CREDIT_LIMIT_CENTS, FAILURE_CLOSES } from '../config/economy';
+import { CREDIT_LIMIT_CENTS, FAILURE_CLOSES, INTEREST_PER_DAY_PPM } from '../config/economy';
 
 export { CREDIT_LIMIT_CENTS, FAILURE_CLOSES };
 
@@ -27,4 +27,9 @@ export function runEnded(closesBelowFloor: number): boolean {
 /** Below the floor: owing more than the credit line allows. */
 export function belowFloor(cashCents: number): boolean {
   return cashCents < -CREDIT_LIMIT_CENTS;
+}
+
+/** The lender's interest a close charges on what is owed (D10), whole cents: none while cash is not below zero. */
+export function interestCents(cashCents: number): number {
+  return cashCents < 0 ? Math.round((-cashCents * INTEREST_PER_DAY_PPM) / 1_000_000) : 0;
 }

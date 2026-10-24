@@ -128,6 +128,14 @@ body,
   font-size: 15px;
 }
 
+/* An open Build menu stands over the card, as the menus stand over what is under them, so a press on a tool lands on it: the
+   menu opens up from the dock to where the card stands, and the card lay over its three tools while it said the game isn't
+   saving itself, over Place a depot while it did not (the systems audit's fifteenth round). The menu shuts as a tool is
+   picked, or at Escape, and the card is whole again. */
+.app:has(.dock .build-menu) .replaced {
+  z-index: calc(var(--layer-menus) - 1);
+}
+
 /* With the words on the game's saves (the systems audit's seventh round) the card wraps, as wide as a map card at most: the
    words above, Export this game and Reload below. In one row it took half the window at 1152 px, over the Cash chip, and
    Export this game broke over two lines. */

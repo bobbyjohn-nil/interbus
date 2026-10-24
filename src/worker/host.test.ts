@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../tools/bake/sim.mjs';
 import { STEP_SECONDS } from '../sim/config/time';
 import { foundingCapitalCents } from '../sim/economy/ledger';
+import { interestCents } from '../sim/rules/credit';
 import { busPositionsAt, prepareGeometry } from '../sim/rules/position';
 import { busesOut, dayPlan } from '../sim/rules/schedule';
 import { IMPORT_COUNTER_LIMIT, SAVE_FORMAT } from '../sim/save/save';
@@ -1210,10 +1211,15 @@ describe('the failure floor', () => {
   it('counts down from five closes once cash is below −$150k', () => {
     const { send, last, owing } = founded();
     expect(last('snapshot')!.snapshot.floor).toBeNull();
+    // No line, depot or stop banks anything before midnight, so the coming close counts the cash less a day's interest on it.
+    const tonight = () => {
+      const { cashCents } = last('snapshot')!.snapshot;
+      return cashCents - interestCents(cashCents);
+    };
     send({ type: 'import', text: owing(0) });
-    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 5, ended: false });
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 5, ended: false, tonightCents: -20_012_000 });
     send({ type: 'import', text: owing(3) });
-    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false });
+    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false, tonightCents: tonight() });
   });
 
   // Back above the floor with a close below behind, the countdown stays, its words the cash's (TopBar), until a close above
@@ -1236,6 +1242,24 @@ describe('the failure floor', () => {
     send({ type: 'export' });
     expect((JSON.parse(last('export')!.text) as { data: { closesBelowFloor: number } }).data.closesBelowFloor).toBe(0);
     expect(last('snapshot')!.snapshot.floor).toBeNull();
+  });
+
+  // Tonight's cash is worked out again only as a row is posted, the hour turns or the network changes (host.ts): a fare's change
+  // posts no row, and with the network left out of the key nothing caught the chip keeping the forecast of the fare before (the
+  // review of the fifteenth round's fixes). Shown failing (TS-04) with the network left out.
+  it('works tonight’s cash out again as a fare changes, to what the same game loaded from its file works out', () => {
+    const { send, last, owing } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'create-line', clicks: CLICKS });
+    send({ type: 'import', text: owing(0) });
+    const before = last('snapshot')!.snapshot.floor!.tonightCents;
+    send({ type: 'set-fare', lineId: 1, fareCents: 175 });
+    const after = last('snapshot')!.snapshot.floor!.tonightCents;
+    expect(after).not.toBe(before);
+    send({ type: 'export' });
+    send({ type: 'import', text: last('export')!.text });
+    expect(last('snapshot')!.snapshot.lines[0]).toMatchObject({ fareCents: 175 });
+    expect(last('snapshot')!.snapshot.floor!.tonightCents).toBe(after);
   });
 
   // Interest is a running cost (sim/rules/money.ts) and Finance forecasts a day of it while owing; the
@@ -1277,7 +1301,7 @@ describe('the failure floor', () => {
     send({ type: 'import', text: JSON.stringify(save) });
     send({ type: 'speed', speed: 5 });
     for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 600_000; t += 250) host.tick(t);
-    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
+    expect(last('snapshot')!.snapshot.floor).toMatchObject({ closesLeft: 0, ended: true });
     send({ type: 'restart-quarter' });
     expect(last('refused')).toBeUndefined();
     expect(last('loaded')).toEqual({ type: 'loaded', from: 'quarter', load: 'ok' });
@@ -1310,7 +1334,7 @@ describe('the failure floor', () => {
     for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 600_000; t += 250) host.tick(t);
     send({ type: 'speed', speed: 0 });
     const ended = last('snapshot')!.snapshot;
-    expect(ended.floor).toEqual({ closesLeft: 0, ended: true });
+    expect(ended.floor).toMatchObject({ closesLeft: 0, ended: true });
     const kept = store.get(KEY);
     const hash = host.stateHash();
     const line = ended.lines[0]!;
@@ -1340,12 +1364,12 @@ describe('the failure floor', () => {
     send({ type: 'speed', speed: 5 });
     for (let t = 0; !last('snapshot')!.snapshot.floor?.ended && t < 60_000; t += 250) host.tick(t);
     expect(last('day-card')!.card.report).not.toBeNull();
-    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
+    expect(last('snapshot')!.snapshot.floor).toMatchObject({ closesLeft: 0, ended: true });
     send({ type: 'restart-quarter' });
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: lastEvening, floor: { closesLeft: 1, ended: false } });
 
     send({ type: 'import', text: owing(5) });
-    expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 0, ended: true });
+    expect(last('snapshot')!.snapshot.floor).toMatchObject({ closesLeft: 0, ended: true });
     send({ type: 'restart-quarter' });
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: lastEvening, floor: { closesLeft: 1, ended: false } });
   });

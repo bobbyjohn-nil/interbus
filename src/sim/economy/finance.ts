@@ -9,8 +9,8 @@
 // subsidy from the hour it was drawn: the whole of that clock hour, as step.ts banks riders by the hour.
 import { DEPOT_UPKEEP_CENTS } from '../config/depots';
 import { DAYS_PER_QUARTER } from '../config/time';
-import { INTEREST_PER_DAY_PPM } from '../config/economy';
 import { toCalendarTime } from '../core/calendar';
+import { interestCents } from '../rules/credit';
 import { subsidyCents } from '../rules/fare';
 import { isOperating, ROW_GROUP } from '../rules/money';
 import type { Line } from '../state';
@@ -127,7 +127,7 @@ export function finance(world: World): Finance {
     chart.unshift({ day: d, inCents: day.in, outCents: day.out, capitalCents: day.capital, cashCents: cash });
     cash -= day.in + day.out + day.capital;
   }
-  const owing = Math.max(0, -state.ledger.cashCents);
+  const interest = interestCents(state.ledger.cashCents);
   const forecast: Partial<Record<RowKind, number>> = {
     fares: 0,
     subsidy: 0,
@@ -137,7 +137,7 @@ export function finance(world: World): Finance {
     upkeep: -state.depots.length * DEPOT_UPKEEP_CENTS,
     stopUpkeep: -stopsUpkeepCents(state.stops),
     // As the close charges it (step.ts), on what is owed now.
-    interest: owing > 0 ? -Math.round((owing * INTEREST_PER_DAY_PPM) / 1_000_000) : 0,
+    interest: interest > 0 ? -interest : 0,
   };
   const lineCosts = new Map<number, LineCosts>();
   const lineIncome = new Map<number, number>();

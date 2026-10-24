@@ -6,7 +6,7 @@
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, city, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce, type SaveData } from './shell';
+import { build, city, holdAnswers, onDepotLand, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce, type SaveData } from './shell';
 
 /** A founded company with the debug line, edited by `edit`, past Home, and Lines open on it. */
 async function lines(page: Page, edit?: (data: SaveData) => void) {
@@ -341,8 +341,8 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(taken).toBeFocused();
   });
 
-  /** The busy quarter's close ten minutes off (shell.ts), `edit` on it, with Contracts open from the keyboard on the Take it of the offer the close withdraws, at 60×. */
-  async function onTheOfferWithdrawn(page: Page, edit?: (data: SaveData) => void) {
+  /** The busy quarter's close ten minutes off (shell.ts), `edit` on it, paused, with Contracts open from the keyboard on its first offer's Take it. */
+  async function onTakeIt(page: Page, edit?: (data: SaveData) => void) {
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
     await leaveHome(page);
@@ -358,8 +358,13 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     const offer = contracts.getByTestId('contract').filter({ has: page.getByRole('button', { name: 'Take it' }) }).first();
     const id = (await offer.getAttribute('data-contract'))!;
     await tabTo(page, offer.getByRole('button', { name: 'Take it' }));
+    return { contracts, id, day: page.getByTestId('day-card') };
+  }
+
+  /** onTakeIt's game played on at 60× to the close, which withdraws that offer. */
+  async function onTheOfferWithdrawn(page: Page, edit?: (data: SaveData) => void) {
+    const { contracts, id, day } = await onTakeIt(page, edit);
     await page.keyboard.press('2'); // 60×: the close in 10 s
-    const day = page.getByTestId('day-card');
     await expect(day).toBeVisible({ timeout: 30_000 });
     await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
     return { contracts, day };
@@ -384,6 +389,101 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     });
     await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
     await expect(day.getByRole('button', { name: 'Continue' })).toBeFocused();
+  });
+
+  // Continue gave the focus to the page from the row a close put in a withdrawn offer's place and from the row Take it gave it to,
+  // each of which let its tabindex go as the focus left it for Continue, and from a Take it the next close withdrew with the card
+  // kept (the systems audit's fifteenth round). Continue makes its row focusable again, and, the place gone, hands the focus to
+  // its panel. A close's card often shows a render before the snapshot that withdraws the offer (the host sends one every 100 ms
+  // at most), and the second test holds each answer apart so that it always does: the row takes the focus after the card has
+  // shown, and Continue hands it back there. Shown failing (TS-04) on main, each to the page; with the card's following taken
+  // out, the second to Contracts' box (and the first too at 60×, 4 runs of 4).
+  for (const apart of [false, true]) {
+    test(`Continue hands the focus back to the row in a withdrawn offer’s place${apart ? ', the close’s snapshot after its card' : ''}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      if (apart) await page.addInitScript(holdAnswers);
+      const { contracts, id, day } = await onTakeIt(page);
+      // Each of the worker's answers on its own from here: the card shows, and the offer goes a render later.
+      if (apart) await page.evaluate(() => void ((window as unknown as { apartMs: number }).apartMs = 20));
+      await page.keyboard.press('3'); // 600×: the close in a second
+      await expect(day).toBeVisible({ timeout: 30_000 });
+      await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
+      const row = contracts.locator('[data-contract]:focus');
+      await expect(row).toHaveCount(1);
+      const there = (await row.getAttribute('data-contract'))!;
+      await page.keyboard.press(' '); // paused, so nothing else moves
+      await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+      await tabTo(page, day.getByRole('button', { name: 'Continue' }));
+      await page.keyboard.press('Enter');
+      await expect(day).toHaveCount(0);
+      await expect(contracts.locator(`[data-contract="${there}"]`)).toBeFocused();
+    });
+  }
+
+  test('Continue hands the focus back to the row Take it gave it to', async ({ page }) => {
+    test.setTimeout(90_000);
+    const { contracts, id, day } = await onTakeIt(page);
+    await page.keyboard.press('Enter'); // Take it
+    const taken = contracts.locator(`[data-contract="${id}"]`);
+    await expect(taken).toHaveAttribute('data-held', 'yes');
+    await expect(taken).toBeFocused();
+    await page.keyboard.press('3'); // 600×: the close in a second
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect(taken).toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await tabTo(page, day.getByRole('button', { name: 'Continue' }));
+    await page.keyboard.press('Enter');
+    await expect(day).toHaveCount(0);
+    await expect(taken).toBeFocused();
+  });
+
+  test('Continue hands the focus to Contracts, the Take it it came from withdrawn by the next close', async ({ page }) => {
+    test.setTimeout(120_000);
+    // Offered on day 2, the offers stay at the quarter's close, on day 8, and go at the next.
+    const { contracts, id, day } = await onTakeIt(page, (d) => {
+      for (const c of d.contracts as { acceptedDay: number | null; offeredDay: number }[]) if (c.acceptedDay === null) c.offeredDay = 2;
+    });
+    await page.keyboard.press('3'); // 600×: the close in a second
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(1);
+    const go = day.getByRole('button', { name: 'Continue' });
+    await tabTo(page, go);
+    const first = (await day.getAttribute('aria-label'))!;
+    await page.keyboard.press('5'); // 5,400×: the next close in about 16 s
+    await expect(day).not.toHaveAttribute('aria-label', first, { timeout: 40_000 });
+    await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
+    await expect(go).toBeFocused();
+    await page.keyboard.press(' '); // Space presses Continue
+    await expect(day).toHaveCount(0);
+    await expect(page.locator('[data-movable="contracts"]')).toBeFocused();
+  });
+
+  test('Continue hands the focus to Contracts after Help over the card, the Take it it came from withdrawn by the close that came', async ({ page }) => {
+    // Help, opened from Continue as the next close came, was taken for where the focus came from, and gone as Continue handed it
+    // back: the focus went to the page (the review of the fifteenth round's fixes). Shown failing (TS-04) on main and before the
+    // fix, and with either half of it taken out: the place kept through Help, or followed only with the focus on it as it went.
+    test.setTimeout(120_000);
+    const { contracts, id, day } = await onTakeIt(page, (d) => {
+      for (const c of d.contracts as { acceptedDay: number | null; offeredDay: number }[]) if (c.acceptedDay === null) c.offeredDay = 2;
+    });
+    await page.keyboard.press('3'); // 600×: the close in a second
+    await expect(day).toBeVisible({ timeout: 30_000 });
+    const go = day.getByRole('button', { name: 'Continue' });
+    await tabTo(page, go);
+    const first = (await day.getAttribute('aria-label'))!;
+    await page.keyboard.press('?');
+    const help = page.getByTestId('help');
+    await expect(help).toBeVisible();
+    await page.keyboard.press('5'); // 5,400×: the next close in about 16 s
+    await expect(day).not.toHaveAttribute('aria-label', first, { timeout: 40_000 });
+    await expect(contracts.locator(`[data-contract="${id}"]`)).toHaveCount(0);
+    await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    await expect(go).toBeFocused();
+    await page.keyboard.press(' '); // Space presses Continue
+    await expect(day).toHaveCount(0);
+    await expect(page.locator('[data-movable="contracts"]')).toBeFocused();
   });
 
   /** The debug line's game at 23:30, half an hour before its day closes (shell.ts), at 600×; the day card and its Continue. */
