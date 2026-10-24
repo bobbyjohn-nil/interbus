@@ -12,7 +12,10 @@
 # Chromium's install keeps apt's packages between runs (.github/actions/chromium), apt once taking
 # 8 min 18 s to fetch them and the limit cancelling a quarter before its tests began (#152). The first
 # quarter's tests took 6.9 minutes on c0e10bb, a job of 7.4, and with the fifteenth audit round's 7.6,
-# the limit cancelling it as they ended (#177), so the e2e runs in fifths.
+# the limit cancelling it as they ended (#177), so the e2e runs in fifths. The fifths share the tests out by file, and a
+# file runs whole on one of a job's two workers: keyboard.spec.ts, 37 tests, took 6.9 minutes of its fifth's 7.0 on #184's
+# push run, a job of 7.6, its other worker done in under 3, so the hand-offs of a stop's, a contract's and a day's buttons
+# run from focusback.spec.ts.
 name: CI
 
 on:
