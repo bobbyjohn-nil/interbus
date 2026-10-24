@@ -7,10 +7,10 @@
 // inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
 // whole recompute there with five depots, on hubs of lines out of one stop, on a late game's many lines, and on the pacing run's
 // card-building companies at the bus ceiling (bench/fixtures). The whole recompute is timed from nothing, its memo let go first,
-// as a load or an event's start runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
+// as a load runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
 // assignment carries the rides of the cell pairs no changed line has a route in, and the catchments and ride tables nothing
-// changed, AssignMemo), and on the late companies a fare's, which keeps the catchments, and a Shelter's, which works them out
-// afresh. Results go to .cache/bench/recompute.json.
+// changed, AssignMemo), and on the late companies a fare's, which keeps the catchments, a Shelter's, which works them out
+// afresh, and a festival's start and end, which change the trips of the pairs near it. Results go to .cache/bench/recompute.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { addDebugLine } from '../src/sim/commands/debugLine';
@@ -23,7 +23,7 @@ import { placeDepot } from '../src/sim/commands/placeDepot';
 import { toXY } from '../src/sim/core/geo';
 import { mint, type LineId } from '../src/sim/core/ids';
 import { foundLedger } from '../src/sim/economy/ledger';
-import { assign, type LinePlan } from '../src/sim/demand/assign';
+import { assign, type AssignMemo, type LinePlan } from '../src/sim/demand/assign';
 import { buildCommuters } from '../src/sim/demand/commuters';
 import { depotNear } from '../src/sim/pacing';
 import { corridorStops } from '../src/sim/sweep';
@@ -64,7 +64,7 @@ function time(name: string, run: () => void, gate = true): { p50: number; p95: n
 
 /**
  * The whole recompute from nothing, as a load runs it: the memo's last assignment and its kept tables let go first (its arenas
- * kept, as the game keeps them once it has run). A festival's start keeps the catchments and the tables as well.
+ * kept, as the game keeps them once it has run). A festival's start and end carry the pairs it leaves alone (aFestival).
  */
 const fromNothing = (w: World) => () => {
   w.assignMemo!.last = null;
@@ -110,6 +110,25 @@ const aShelter = (w: World) => {
     stop.tier = k % 2 === 0 ? 2 : 1;
     k++;
     recompute(w);
+  };
+};
+
+/**
+ * A festival's start or end, as the recompute at the close that starts or ends it runs (step.ts, where recomputeInService works
+ * out the lines' services once more first, 5–7 ms on these companies): each run a festival today round one of the company's
+ * stops, stop after stop, or none, the memo kept between runs as the game keeps it. Its trips are boosted afresh at each start
+ * (commutersToday), as at a festival's first close.
+ */
+const aFestival = (w: World, freshAtStart: number[]) => {
+  const day = toCalendarTime(w.state.elapsed).day;
+  let k = 0;
+  return () => {
+    const stop = w.state.stops[Math.floor(k / 2) % w.state.stops.length]!;
+    const start = k % 2 === 0;
+    w.state.event = start ? { kind: 'festival', startDay: day, endDay: day, street: `stop ${stop.id}`, edges: [], at: { lon: stop.lon, lat: stop.lat } } : null;
+    k++;
+    recompute(w);
+    if (start) freshAtStart.push(w.assignMemo!.last!.freshPairs);
   };
 };
 
@@ -192,9 +211,10 @@ if (inner) {
   const { world: boston, plans: bostonPlans } = inner;
   results.innerBostonCells = boston.city.cells.length;
   time(`Inner Boston ${boston.city.cells.length} cells, ${bostonPlans.length} lines, ${bostonPlans.reduce((s, p) => s + p.stops.length, 0)} stops, 3 periods`, () => assign(boston.city, boston.commuters, bostonPlans));
-  // A festival's first recompute (the M4 spec's magnitudes: I14 with events on): its flows boosted
-  // afresh each run, as at the close that starts it, round Massachusetts Avenue's middle stop. Snow
-  // and roadworks change only the plans' times, not the work the assignment does.
+  // A whole assignment on a festival's day (the M4 spec's magnitudes: I14 with events on), as a load
+  // during one runs it: its flows boosted afresh each run, round Massachusetts Avenue's middle stop.
+  // The closes that start and end one carry the pairs it leaves alone (aFestival, on the late
+  // companies). Snow and roadworks change only the plans' times, not the work the assignment does.
   const [lon, lat] = bostonPlans[0]!.stops[6]!;
   const at = toLngLat(boston.city.frame, [lon, lat]);
   const day = toCalendarTime(boston.state.elapsed).day;
@@ -280,6 +300,21 @@ if (inner) {
     exactAfter(`its fares'`, company, seed);
     time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company), false);
     exactAfter(`its Shelters'`, company, seed);
+    // A festival's start and end; then the cell pairs with trips and a route its starts worked out afresh, against a whole
+    // assignment's, and the event as it was.
+    const event = company.state.event;
+    const freshAtStart: number[] = [];
+    time(`Inner Boston, a festival's start or end, ${name}`, aFestival(company, freshAtStart), false);
+    exactAfter(`its festivals'`, company, seed);
+    company.state.event = event;
+    recompute(company);
+    const blank: AssignMemo = { last: null };
+    assign(company.city, commutersToday(company), runningPlans(company), { memo: blank });
+    const whole = blank.last!.freshPairs;
+    freshAtStart.sort((a, b) => a - b);
+    const median = freshAtStart[Math.floor(freshAtStart.length / 2)]!;
+    results[`a festival's fresh pairs at its start, seed ${seed}`] = { median, most: freshAtStart.at(-1), whole };
+    console.log(`bench: a festival's start on seed ${seed} works out ${median} cell pairs afresh at the median, ${freshAtStart.at(-1)} at most, of the ${whole} with trips that the lines serve`);
     keepingAgainstNot(`of the pacing run's company on seed ${seed}`, company);
     // What the memo holds: its two arenas, the last assignment's rides and the next one's.
     const memo = company.assignMemo!;
