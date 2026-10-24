@@ -1,6 +1,7 @@
-// The assignment's memo (AssignMemo; I14): the last assignment's rides carried again, in their order, for the cell pairs no
-// changed line has a route in. A game recomputes through it, while a game loaded from its file assigns from nothing, so the two
-// must find the same riders number for number, or a reload would leave the game otherwise than it was (I8).
+// The assignment's memo (AssignMemo; I14): the last assignment's rides carried again, in their order, for the cell pairs whose
+// trips are as they were and no changed line has a route in. A game recomputes through it, while a game loaded from its file
+// assigns from nothing, so the two must find the same riders number for number, or a reload would leave the game otherwise than
+// it was (I8).
 import { describe, expect, it } from 'vitest';
 import { toCalendarTime } from '../core/calendar';
 import { toLngLat, type XY } from '../core/geo';
@@ -41,8 +42,9 @@ describe('the assignment’s memo', () => {
   // Shown failing (TS-04) with a line's headways left out of what tells a changed line (lineSignature), off from the first headway
   // change, and likewise its distances and its change penalties, off from each changed alone; with only this assignment's
   // catchments marked, not the last one's, off from the stop moved; without sameOrder, off from the two lines in the other order;
-  // with the fare left out of what a line's tables are made from (tableSignature), off from the fare changed; and with the walk
-  // bonus left out of what its catchments are made from (reachSignature), off from the Shelter.
+  // with the fare left out of what a line's tables are made from (tableSignature), off from the fare changed; with the walk
+  // bonus left out of what its catchments are made from (reachSignature), off from the Shelter; with the changed trips left
+  // unmarked, off from the festival; and with other distances let through, off from those distances.
   it('finds the same riders as an assignment from nothing, number for number, through a run of changes', () => {
     const world = grownCompany(5, 500_000_000);
     const base = runningPlans(world);

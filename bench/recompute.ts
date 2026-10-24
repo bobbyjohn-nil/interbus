@@ -7,7 +7,7 @@
 // inner-boston` has baked it, on Inner Boston itself with ten lines along real corridors, then the
 // whole recompute there with five depots, on hubs of lines out of one stop, on a late game's many lines, and on the pacing run's
 // card-building companies at the bus ceiling (bench/fixtures). The whole recompute is timed from nothing, its memo let go first,
-// as a load or an event's start runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
+// as a load runs it; a command's, one line's headways changed with the memo kept as the game keeps it (the
 // assignment carries the rides of the cell pairs no changed line has a route in, and the catchments and ride tables nothing
 // changed, AssignMemo), and on the late companies a fare's, which keeps the catchments, a Shelter's, which works them out
 // afresh, and a festival's start and end, which change the trips of the pairs near it. Results go to .cache/bench/recompute.json.
@@ -64,7 +64,7 @@ function time(name: string, run: () => void, gate = true): { p50: number; p95: n
 
 /**
  * The whole recompute from nothing, as a load runs it: the memo's last assignment and its kept tables let go first (its arenas
- * kept, as the game keeps them once it has run). A festival's start keeps the catchments and the tables as well.
+ * kept, as the game keeps them once it has run). A festival's start and end carry the pairs it leaves alone (aFestival).
  */
 const fromNothing = (w: World) => () => {
   w.assignMemo!.last = null;
@@ -114,9 +114,10 @@ const aShelter = (w: World) => {
 };
 
 /**
- * A festival's start or end, as the close that starts or ends it recomputes (step.ts): each run a festival today round one of the
- * company's stops, stop after stop, or none, the memo kept between runs as the game keeps it. Its trips are boosted afresh at
- * each start (commutersToday), as at a festival's first close.
+ * A festival's start or end, as the recompute at the close that starts or ends it runs (step.ts, where recomputeInService works
+ * out the lines' services once more first, 5–7 ms on these companies): each run a festival today round one of the company's
+ * stops, stop after stop, or none, the memo kept between runs as the game keeps it. Its trips are boosted afresh at each start
+ * (commutersToday), as at a festival's first close.
  */
 const aFestival = (w: World, freshAtStart: number[]) => {
   const day = toCalendarTime(w.state.elapsed).day;
@@ -299,8 +300,8 @@ if (inner) {
     exactAfter(`its fares'`, company, seed);
     time(`Inner Boston, a Shelter's recompute, ${name}`, aShelter(company), false);
     exactAfter(`its Shelters'`, company, seed);
-    // A festival's start and end; then the cell pairs with trips its starts worked out afresh, against a whole assignment's, and
-    // the event as it was.
+    // A festival's start and end; then the cell pairs with trips and a route its starts worked out afresh, against a whole
+    // assignment's, and the event as it was.
     const event = company.state.event;
     const freshAtStart: number[] = [];
     time(`Inner Boston, a festival's start or end, ${name}`, aFestival(company, freshAtStart), false);
@@ -313,7 +314,7 @@ if (inner) {
     freshAtStart.sort((a, b) => a - b);
     const median = freshAtStart[Math.floor(freshAtStart.length / 2)]!;
     results[`a festival's fresh pairs at its start, seed ${seed}`] = { median, most: freshAtStart.at(-1), whole };
-    console.log(`bench: a festival's start on seed ${seed} works out ${median} cell pairs afresh at the median, ${freshAtStart.at(-1)} at most, of the ${whole} with trips`);
+    console.log(`bench: a festival's start on seed ${seed} works out ${median} cell pairs afresh at the median, ${freshAtStart.at(-1)} at most, of the ${whole} with trips that the lines serve`);
     keepingAgainstNot(`of the pacing run's company on seed ${seed}`, company);
     // What the memo holds: its two arenas, the last assignment's rides and the next one's.
     const memo = company.assignMemo!;

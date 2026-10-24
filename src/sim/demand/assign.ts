@@ -457,7 +457,7 @@ interface AssignKept {
   readonly cellPairs: Int32Array;
   /** The home cells it worked out afresh, the rest carried again whole: all of them from nothing. */
   readonly freshCells: number;
-  /** The cell pairs with trips it worked out afresh, the rest carried again: all of them from nothing. */
+  /** The cell pairs with trips and a route it worked out afresh, the rest carried again: all of them from nothing. */
   readonly freshPairs: number;
 }
 
