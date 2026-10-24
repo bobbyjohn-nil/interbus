@@ -44,7 +44,10 @@ describe('the assignment’s memo', () => {
   // catchments marked, not the last one's, off from the stop moved; without sameOrder, off from the two lines in the other order;
   // with the fare left out of what a line's tables are made from (tableSignature), off from the fare changed; with the walk
   // bonus left out of what its catchments are made from (reachSignature), off from the Shelter; with the changed trips left
-  // unmarked, off from the festival; and with other distances let through, off from those distances.
+  // unmarked, off from the festival; with other distances let through, off from those distances; with the pairs near a Shelter
+  // marked by their home end alone, or their work end alone, off from the Shelter; and with a change's penalty taken for a walk
+  // bonus (NOT_WALKED), off from the penalty changed, and off from the Station without that step. The second test's last count
+  // goes off with no line taken for walk-only.
   it('finds the same riders as an assignment from nothing, number for number, through a run of changes', () => {
     const world = grownCompany(5, 500_000_000);
     const base = runningPlans(world);
@@ -72,6 +75,19 @@ describe('the assignment’s memo', () => {
     // plans as they were (after the penalty, its line's catchments would be worked out afresh anyway).
     check(base);
     check(at(2, { walkBonusMin: base[2]!.stops.map((_, q) => (q === 1 ? STOP_TIERS[2].walkBonusMin : (base[2]!.walkBonusMin?.[q] ?? 0))) }));
+    // Only the pairs with an end that walks to a Shelter are worked out afresh. A Station changes a change's penalty there as well,
+    // which reaches every pair that changes lines at that stop, near it or not: at the third line's first stop, where riders change.
+    check(base);
+    const tierAt = (plan: LinePlan, q: number, tier: 2 | 3): LinePlan => ({
+      ...plan,
+      walkBonusMin: plan.stops.map((_, r) => (r === q ? STOP_TIERS[tier].walkBonusMin : (plan.walkBonusMin?.[r] ?? 0))),
+      transferPenaltyMin: plan.stops.map((_, r) => (r === q ? STOP_TIERS[tier].transferPenaltyMin : (plan.transferPenaltyMin?.[r] ?? 6))),
+    });
+    check(base.map((p, m) => (m === 2 ? tierAt(p, 0, 3) : p)));
+    check(base);
+    // Shelters on two lines at once, and back.
+    check(base.map((p, m) => (m === 0 ? tierAt(p, 1, 2) : m === 3 ? tierAt(p, 2, 2) : p)));
+    check(base);
     check(at(4, { rush: 0.5 }));
     // A line gone and back, and one more drawn beside the first.
     check(base.filter((_, m) => m !== 2));
@@ -133,5 +149,14 @@ describe('the assignment’s memo', () => {
     expect(near).toBeLessThan(whole);
     assign(world.city, world.commuters, plans, { memo });
     expect(memo.last!.freshPairs).toBe(near);
+    // A Sign made a Shelter works out afresh only the pairs with an end that walks to it: fewer than its line's headways do.
+    const shelter = plans.map((p, m) => (m === 2 ? { ...p, walkBonusMin: p.stops.map((_, q) => (q === 1 ? STOP_TIERS[2].walkBonusMin : (p.walkBonusMin?.[q] ?? 0))) } : p));
+    assign(world.city, world.commuters, shelter, { memo });
+    const nearStop = memo.last!.freshPairs;
+    assign(world.city, world.commuters, plans, { memo });
+    expect(memo.last!.freshPairs).toBe(nearStop);
+    assign(world.city, world.commuters, plans.map((p, m) => (m === 2 ? { ...p, headways: { ...p.headways, peak: 1_800 } } : p)), { memo });
+    expect(nearStop).toBeGreaterThan(0);
+    expect(nearStop).toBeLessThan(memo.last!.freshPairs);
   });
 });
