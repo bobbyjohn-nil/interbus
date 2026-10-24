@@ -28,8 +28,9 @@ function differences(a: unknown, b: unknown, path = '', out: string[] = []): str
 
 describe('the assignment’s memo', () => {
   // Shown failing (TS-04) with a line's headways left out of what tells a changed line (lineSignature), off from the first headway
-  // change; with only this assignment's catchments marked, not the last one's, off from the stop moved; and without sameOrder,
-  // off from the two lines in the other order.
+  // change, and likewise its distances and its change penalties, off from each changed alone; with only this assignment's
+  // catchments marked, not the last one's, off from the stop moved; and without sameOrder, off from the two lines in the other
+  // order.
   it('finds the same riders as an assignment from nothing, number for number, through a run of changes', () => {
     const world = grownCompany(5, 500_000_000);
     const base = runningPlans(world);
@@ -45,6 +46,14 @@ describe('the assignment’s memo', () => {
     check(at(2, { kmh: 31 }));
     check(at(3, { stops: base[3]!.stops.map(([x, y], q) => (q === 1 ? ([x + 120, y - 80] as const) : ([x, y] as const))) }));
     check(at(1, { walkBonusMin: base[1]!.stops.map((_, q) => (q === 0 ? 2 : 0)), transferPenaltyMin: base[1]!.stops.map(() => 3) }));
+    // Two of a plan's fields each changed alone, which nothing in the game does: the distances along a line (a detour), and the penalty
+    // of a change onto the third line at its first stop, where riders off two others make one, 2 minutes for a Sign's 6, which
+    // moves riders (some 26 boardings a day among the lines).
+    check(at(3, { stopDistM: base[3]!.stopDistM.map((m, q) => (q === 0 ? m : m * 1.1)) }));
+    const penalty = at(2, { transferPenaltyMin: base[2]!.stops.map((_, q) => (q === 0 ? 2 : (base[2]!.transferPenaltyMin?.[q] ?? 6))) });
+    const ridersOf = (plans: readonly LinePlan[]) => assign(world.city, world.commuters, plans).lines.get(base[2]!.id)!.perDay;
+    expect(ridersOf(penalty)).not.toBe(ridersOf(base));
+    check(penalty);
     check(at(4, { rush: 0.5 }));
     // A line gone and back, and one more drawn beside the first.
     check(base.filter((_, m) => m !== 2));

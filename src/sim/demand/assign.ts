@@ -367,7 +367,10 @@ export interface AssignOptions {
   readonly only?: LinePlan['id'];
   /** The catchments of these plans' stops, worked out once for several assignments of the same stops. */
   readonly reach?: Catchments;
-  /** What the last assignment of these commuters kept (AssignMemo), read and replaced; not with `only`. */
+  /**
+   * What the last assignment of these commuters kept (AssignMemo), read and replaced; not with `only`, nor with `reach`, whose
+   * catchments the memo cannot tell from the plans'.
+   */
   readonly memo?: AssignMemo | undefined;
 }
 
@@ -384,7 +387,7 @@ export interface AssignMemo {
   /**
    * The two arenas the rides are kept in, the last assignment's and the one the next writes over, so that once both have grown to
    * a network's size an assignment allocates no rides of its own: allocated afresh for each assignment, a late game's took a whole
-   * one 8–14% longer than keeping none, and pooled 2–7% (DECISIONS, Measured).
+   * one 8–14% longer than keeping none, and pooled 2–8% (DECISIONS, Measured).
    */
   arenas?: RideArena[];
 }
@@ -423,12 +426,19 @@ interface AssignKept {
 }
 
 /**
- * Everything of a line's plan its rides depend on, as text: two lines with the same signature carry the same rides. Its seats
- * are read only after the rides, as the buses fill (spread), and its metres through roadworks not at all.
+ * The fields of a line's plan its rides do not depend on: its id, by which the memo keys it; its seats, read only after the rides,
+ * as the buses fill (spread); and its metres through roadworks, which only its round trip drives.
+ */
+const NOT_RIDDEN = ['id', 'seats', 'worksM'] as const;
+
+/**
+ * Everything else of a line's plan, as text: two lines with the same signature carry the same rides. A field a plan gains is in
+ * it until it is shown to belong with NOT_RIDDEN, so one left in costs the memo only speed.
  */
 function lineSignature(plan: LinePlan): string {
-  const { stops, stopDistM, headways, fareCents, kmh, walkBonusMin, transferPenaltyMin, rush } = plan;
-  return JSON.stringify([stops, stopDistM, headways, fareCents, kmh ?? null, walkBonusMin ?? null, transferPenaltyMin ?? null, rush ?? null]);
+  const ridden: Record<string, unknown> = { ...plan };
+  for (const key of NOT_RIDDEN) delete ridden[key];
+  return JSON.stringify(ridden);
 }
 
 /**
@@ -596,8 +606,9 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   // The memo (AssignMemo): the last assignment's rides, reused for the pairs no changed line has a route in. A pair's route is
   // a line from a home cell and, for a change, the line it changes onto to the work cell, so the pairs a changed line has a route
   // in are found from the catchments, the last assignment's and this one's: a route gone or come is in one of them.
-  // Nor with a line id or a line's stops past what a ride's words hold (PACK), which no game comes near.
-  const memo = onlyLine >= 0 || plans.some((plan) => plan.id >= PACK || plan.stops.length >= PACK) ? undefined : options.memo;
+  // Not with `only` (the fare band's), whose assignment rides one line, nor with catchments given (`reach`), which the memo
+  // cannot tell from the plans', nor with a line id or a line's stops past what a ride's words hold (PACK), which no game comes near.
+  const memo = onlyLine >= 0 || options.reach || plans.some((plan) => plan.id >= PACK || plan.stops.length >= PACK) ? undefined : options.memo;
   const ids = plans.map((plan) => plan.id);
   const signatures = memo ? new Map(plans.map((plan) => [plan.id, lineSignature(plan)] as const)) : null;
   const last = memo?.last;
@@ -1295,8 +1306,8 @@ export function assign(city: City, commuters: Commuters, plans: readonly LinePla
   if (memo) {
     cellPairs[n] = pairs;
     arena.pairRide[pairs] = rides;
-    // Grown by doubling as it fills, an arena trimmed to a tenth over what it holds once it is a quarter over, so the two hold
-    // about 31 MB of a late game's rides rather than 40 (DECISIONS, Measured); the next that needs more grows it again.
+    // Grown by doubling as it fills, an arena is trimmed to a tenth over what it holds once it is a quarter over (the two hold 30.5
+    // and 33.7 MB of the late companies' rides; DECISIONS, Measured); the next that needs more grows it again.
     if (arena.stops.length > 3 * (1.25 * rides + 4_096)) {
       const size = Math.ceil(1.1 * rides) + 4_096;
       arena.stops = arena.stops.slice(0, 3 * size);
