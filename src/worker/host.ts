@@ -58,7 +58,10 @@ import { SPEED_RATES } from '../sim/rules/speed';
 
 /** Game-seconds per real second at each speed: 1x is real time (sim/rules/speed.ts; D25). */
 export const SPEEDS: Readonly<Record<Speed, number>> = SPEED_RATES;
-/** A slice of real time longer than this (a tab in the background) runs as this long, so the game never leaps days. */
+/**
+ * A slice of real time longer than this (the worker's timer held up: a long step, or a page the browser froze) runs as this long,
+ * so the game never leaps days. A page out of sight holds the time itself ('hold').
+ */
 export const MAX_SLICE_MS = 250;
 export const SNAPSHOT_EVERY_MS = 100;
 /** While time runs, the game saves at each new game hour and at least this often by the real clock: at 1x a game hour is a real one (D25). */
@@ -439,6 +442,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     writeOwed();
   };
   let speed: Speed = 0;
+  // Whether the page is out of sight, a tab in the background or a window minimised: time holds where it is, at its speed, until
+  // it shows again (useSim). The worker's timer ran on at full speed in a hidden tab, so a game left at 2,700x ran 10 game days in
+  // 330 s, its quarter's report card come and gone unseen (the systems audit's fourteenth round).
+  let held = false;
   let lastMs: number | null = null;
   let carrySeconds = 0;
   let lastSnapshotMs = -Infinity;
@@ -690,7 +697,7 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
 
   /** Time passing on the real clock, at the game's speed: the steps it runs, the saves and the snapshots. */
   const run = (nowMs: number) => {
-    if (!world || speed === 0) {
+    if (!world || speed === 0 || held) {
       lastMs = null;
       return;
     }
@@ -791,6 +798,12 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
         beginSession(encode(read.world.state, build));
         post({ type: 'took-save', ok: true });
         post({ type: 'snapshot', snapshot: snapshot() });
+        return;
+      }
+      if (message.type === 'hold') {
+        held = message.held;
+        // Saved as it goes out of sight, as a pause is: a tab closed or discarded in the background comes back where it went.
+        if (held && world && speed !== 0) save();
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });

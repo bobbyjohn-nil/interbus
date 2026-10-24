@@ -49,6 +49,24 @@ test.describe('starting and leaving a game', () => {
     await expect(panel).toHaveAttribute('data-cash', String(STARTING_CENTS - 15_000_000));
   });
 
+  test('Play resumes the speed last played after a reload, as before it (D25)', async ({ page }) => {
+    // Kept in the page alone, a reload brought back 600× (the systems audit's fourteenth round). Shown failing (TS-04) with the
+    // speed kept in the page alone.
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const panel = page.getByTestId('sim-panel');
+    await setSpeed(page, '2,700×');
+    await expect(panel).toHaveAttribute('data-speed', '4');
+    await page.keyboard.press(' ');
+    await expect(panel).toHaveAttribute('data-speed', '0');
+    await page.reload();
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await leaveHome(page, 'continue');
+    await page.keyboard.press(' ');
+    await expect(panel).toHaveAttribute('data-speed', '4');
+  });
+
   test('starts a new game clean: no tool, route editor or day card of the old game, and a dot’s card on a dot', async ({ page }) => {
     test.setTimeout(150_000);
     await founded(page);

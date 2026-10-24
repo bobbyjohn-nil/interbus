@@ -61,10 +61,33 @@ describe('the sim host', () => {
     host.handle({ type: 'speed', speed: 3 });
     for (let t = 0; t <= 1000; t += 50) host.tick(t);
     expect(last('snapshot')!.snapshot.elapsed).toBe(SPEEDS[3]); // one real second at 600x: ten game-minutes
-    host.tick(1000 + 60_000); // a minute in a background tab
+    host.tick(1000 + 60_000); // a minute the worker's timer waited, as in a page the browser froze
     const leap = (MAX_SLICE_MS / 1000) * SPEEDS[3];
     expect(last('snapshot')!.snapshot.elapsed - SPEEDS[3]).toBeLessThanOrEqual(leap);
     expect(last('snapshot')!.snapshot.elapsed % STEP_SECONDS).toBe(0);
+  });
+
+  it('holds time while the page is out of sight, saved as it goes, and runs on at its speed from where it stood as it shows', () => {
+    // The worker's timer ran on at full speed in a hidden tab, so a game left at 2,700x ran 10 game days in 330 s, its quarter's
+    // report card come and gone unseen (the systems audit's fourteenth round). Shown failing (TS-04) without the hold: 27,000
+    // game seconds ran in the 10 real seconds out of sight; and without the save as it went.
+    const { host, out, last, saves } = started();
+    host.handle({ type: 'hold', held: false }); // heard before a game plays, as the page tells it at the start: no refusal
+    expect(out.some((m) => m.type === 'refused')).toBe(false);
+    host.handle({ type: 'found', name: 'Back Bay Transit', colour: '#2471a3' });
+    host.handle({ type: 'speed', speed: 4 });
+    for (let t = 0; t <= 1_000; t += 50) host.tick(t);
+    const left = last('snapshot')!.snapshot.elapsed;
+    expect(left).toBe(SPEEDS[4]);
+    const saved = saves().length;
+    host.handle({ type: 'hold', held: true });
+    expect(saves().length).toBe(saved + 1);
+    const sent = out.length;
+    for (let t = 1_050; t <= 11_000; t += 50) host.tick(t);
+    expect(out.length).toBe(sent); // no step, save or snapshot while out of sight
+    host.handle({ type: 'hold', held: false });
+    for (let t = 11_050; t <= 12_050; t += 50) host.tick(t);
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: left + SPEEDS[4], speed: 4 });
   });
 
   it('runs 1x in real time, a game second a second, and draws the part-step so buses glide (D25)', () => {

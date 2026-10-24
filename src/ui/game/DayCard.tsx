@@ -44,14 +44,18 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   useLayoutEffect(() => {
     if (over && focusLost()) go.current?.focus();
   }, [card?.day, over]);
-  const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>();
+  // The next close's card is this one with the next day's rows, scrolled to its top, so the focus on Continue or the rows stays
+  // there: built anew, it fell to the page, where Enter did nothing and Space paused (the systems audit's fourteenth round).
+  const [scrollBox, scrolls] = useScrollStop<HTMLDivElement>(card?.day, () => go.current);
+  const self = useRef<HTMLElement>(null);
   // Where the keyboard had the focus as the card showed, so Continue's goes back there as the card goes (App holds the
   // hand-off). The page, or a control the mouse pressed, keeps it on the page, so Space still plays: where the focus came
   // into the card from was the Saves chip on every forward Tab (the review of the stop card's keys). At the run's end the
-  // lender's card takes it instead.
+  // lender's card takes it instead. A close while the focus is in the card leaves where it came from as it was.
   const cameFrom = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const at = document.activeElement;
+    if (at && self.current?.contains(at)) return;
     cameFrom.current = at instanceof HTMLElement && at !== document.body && at.matches(':focus-visible') ? at : null;
   }, [card?.day]);
   const heading = useId();
@@ -62,7 +66,7 @@ export function DayCard({ sim, handBack }: { sim: Sim; handBack: HandBack }) {
   const stamp = card.report ? stampOf(card.report.payoutCents) : null;
   return (
     <section
-      key={card.day}
+      ref={self}
       className="day-card"
       role="dialog" aria-label={`${dateText(card.day)} closed`} data-testid="day-card" data-chrome="panel" data-total={total} data-change={card.cashAfterCents - card.cashBeforeCents}>
       {/* Its rows scroll inside it on a busy close, and hold nothing focusable, so while they scroll the box takes the focus

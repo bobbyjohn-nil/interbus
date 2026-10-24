@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Route } from './base';
+import { expect, test, type Locator, type Page, type Route } from './base';
 import { copyProblems } from '../src/ui/copyRules';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { build, city, onDepotLand, pointAt, setSpeed, withDebugLine, zoomOutOnce } from './shell';
@@ -150,6 +150,49 @@ test('with blocked site data, the map card that cannot start and the replaced bu
   await replaced.getByRole('button', { name: 'Export this game' }).click();
   expect((await again).suggestedFilename()).toMatch(/^interbus-boston-year-\d+-q[1-4]-day-\d+\.json$/);
 });
+
+/** The chips a card lies over the middle of: the top bar's, and the Saves chip. */
+const chipsCovered = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('[data-testid="sim-panel"] > *, [data-testid="saves-chip"]')].flatMap((chip) => {
+      const r = chip.getBoundingClientRect();
+      if (!r.width) return [];
+      return chip.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) ? [] : [chip.textContent ?? ''];
+    }),
+  );
+
+// The replaced build's card stood at the board's top over the chips' middle: the floor's countdown at 1366×768 and 1440×900,
+// Costs/day too at 1152×720, and the checklist with no countdown; saying the game isn't saving itself, Riders/day and the
+// Contracts chip as well (the systems audit's fourteenth round). It stands under them now, where the map's own cards do. Shown
+// failing (TS-04) with the card at the top: at 1152×720 it lay over Costs/day and the countdown, and saying the game isn't
+// saving itself, over Riders/day and the checklist.
+for (const blocked of [false, true]) {
+  test(`the replaced build’s card leaves every chip in sight at I13’s three sizes${blocked ? ', saying the game isn’t saving itself' : ', the floor’s countdown among them'}`, async ({ page }) => {
+    test.skip(!city.sim, 'no sim file in this build yet');
+    test.setTimeout(90_000);
+    if (blocked) await page.addInitScript(blockStorage);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    if (blocked) await expect(page.getByTestId('saves-chip')).toHaveText('Autosave off');
+    else {
+      // Owing $1m more on day 2, a close below the floor behind it.
+      await withDebugLine(page, (d) => {
+        d.ledger.push({ day: 2, kind: 'buses', amountCents: -100_000_000, lineId: null });
+        d.closesBelowFloor = 1;
+      });
+      await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
+    }
+    await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })));
+    const replaced = page.getByTestId('replaced-card');
+    await expect(replaced).toBeVisible();
+    for (const [width, height] of [[1152, 720], [1366, 768], [1440, 900]] as const) {
+      await page.setViewportSize({ width, height });
+      expect(await chipsCovered(page), `at ${width}×${height}`).toEqual([]);
+      expect(await inFront(replaced), `at ${width}×${height}`).toBe(true);
+    }
+  });
+}
 
 // The systems audit's seventh round: the map's card that cannot start stays up while the game plays on without a map, high on
 // the board where the cards that wait for an answer sit, under them, so a day card and the lender's card hid its words and its

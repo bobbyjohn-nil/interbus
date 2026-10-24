@@ -284,6 +284,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Where a running line and a resting one share a street at night, a click on the resting line's faded name lists the running line first, as a click anywhere else on that street does.
 - Time runs more smoothly on the map: it no longer counts the demand dots it draws after every frame while the buses move (15 to 17 ms each time on Boston), nor the buildings in view after each tilt (up to about a fifth of a second).
 - Street names in the day card's roadworks and festival news, and on a line's card, are written properly: Monsignor O’Brien Highway with a curly apostrophe, Route 2A and Route 1 where the map's data says MA 2A and US 1, and I-93 for I 93.
+- A game playing in a tab you switch away from now waits for you: time stands still while the tab is out of sight and runs on at the same speed when you come back. Before, it played on at full speed, so a game left at 2,700× could run ten days in five minutes, its quarter's report card come and gone unseen.
+- When the next midnight's card takes the place of one you were on with the keyboard, the keyboard stays on its Continue, or on its rows while they scroll, and Continue still takes you back where you came from. Before, it fell to the page, where Enter did nothing and Space paused.
+- When a midnight withdraws the offer you were on with the keyboard in Contracts, or pays or ends the contract you were on, the keyboard moves to the contract in its place instead of falling to the page.
+- The “This build was replaced” card stands under the chips along the top, so it no longer hides any of them, the red countdown among them.
+- After a reload, Play resumes the speed you last played at, rather than 600×. This browser remembers it, as it remembers which demand dots you show.
 
 ### Removed
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { CITIES } from "../cities";
 import { MapView, type DotKinds, type HoveredDot, type MapHit } from "../render/map/MapView";
 import { inOpenList } from "../render/map/tilt";
-import { readDotPrefs, writeDotPrefs } from "../platform";
+import { readDotPrefs, readPlaySpeed, writeDotPrefs, writePlaySpeed } from "../platform";
 import { PLAY_SPEED, RUNNING_SPEEDS } from "../sim/rules/speed";
 import type { BusModelId, LngLatPair, Speed } from "../sim/types";
 import { Corner } from "./Corner";
@@ -106,11 +106,13 @@ export function App() {
     hide("help");
   }
   const { probeAt, depotSiteAt, stopSiteAt, draftFor, send } = sim;
-  // Play resumes the speed last played at, 600x the first time (D25).
-  const [playSpeed, setPlaySpeed] = useState<Exclude<Speed, 0>>(PLAY_SPEED);
+  // Play resumes the speed last played at, 600x the first time (D25), kept in this browser: kept in the page alone, a reload
+  // brought back 600x (the systems audit's fourteenth round).
+  const [playSpeed, setPlaySpeed] = useState<Exclude<Speed, 0>>(() => RUNNING_SPEEDS.find((s) => s === readPlaySpeed()) ?? PLAY_SPEED);
   const speedNow = sim.snapshot?.speed ?? 0;
   // Kept as the game runs, during render (React's pattern for state that follows a prop).
   if (speedNow !== 0 && speedNow !== playSpeed) setPlaySpeed(speedNow);
+  useEffect(() => writePlaySpeed(playSpeed), [playSpeed]);
   const over = runOver(sim);
   const speedRef = useRef({ now: speedNow, play: playSpeed, founded: false, over: false });
   useEffect(() => {

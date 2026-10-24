@@ -111,7 +111,10 @@ body,
 .replaced {
   position: absolute;
   z-index: var(--layer-replaced);
-  top: 16px;
+  /* Under the chips, where the map's own cards stand (.map-notice.top), which a replaced build has none of. At the board's top
+     it hid the chips' middle, the floor's countdown among them (the systems audit's fourteenth round), as it had the Cash chip
+     (the seventh). I13 holds the chips to one row, so they end by 40 px. */
+  top: 72px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -137,10 +140,10 @@ body,
   flex-basis: 100%;
 }
 
-/* Stacked, it reached 118 px, over the heading and first row of a day card or the lender's card at 60 px (the review of the
-   seventh round's fixes), so while one is up it drops to the board's foot as the map's cards do. One row, it ends at 66 px,
-   clear of their headings. The lender's card is on the panels' layer now, in a free place from 56 px down, and the same holds. */
-.app:has(.day-card) .replaced.unsaved {
+/* Over the heading and first rows of a day card or the lender's card at 60 px (the review of the seventh round's fixes), so while
+   one is up it drops to the board's foot as the map's cards do. The lender's card is on the panels' layer now, in a free place
+   from 56 px down, and the same holds. */
+.app:has(.day-card) .replaced {
   top: auto;
   bottom: 80px;
 }

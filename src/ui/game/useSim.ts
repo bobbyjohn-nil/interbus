@@ -4,7 +4,7 @@
 // out the sim's saves in src/platform's store, one at a time in the order sent, since a worker has
 // no localStorage; the sim names every key and decides what is set aside.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { applyEffects, build, createWebSaveStore, downloadText, onOtherTabWrites, pickTextFile, readSimFile, startSimWorker, storeRefusal, type SaveStore, type StoreRefusal } from '../../platform';
+import { applyEffects, build, createWebSaveStore, downloadText, onOtherTabWrites, pickTextFile, readSimFile, startSimWorker, storeRefusal, watchHidden, type SaveStore, type StoreRefusal } from '../../platform';
 import { simOf, type City } from '../../cities';
 import type { BusModelId, DayCard, DepotSiteView, StopSiteView, Dots, ExtendData, FareBandView, FromWorker, LineDraftView, LngLatPair, LoadView, RefusalView, SaveAbout, SetAsideWhy, SlotView, Snapshot, ToWorker } from '../../sim/types';
 import { errors } from '../errors';
@@ -184,6 +184,7 @@ export function useSim(city: City | undefined): Sim {
     // a reload would bring it. Null until the start's read is kept: a store that refuses it keeps nothing to write over.
     let live: { key: string; text: string | null; holds: string | null } | null = null;
     let unwatch: (() => void) | undefined;
+    let unhide: (() => void) | undefined;
     // While the browser's game is the newer (`newer`), what this game's clock read when the page found it so, or the first clock
     // the page hears after: the clock run since, or a save of the game's own held back since, is play kept nowhere (`movedOn`).
     let elapsed: number | undefined;
@@ -457,6 +458,8 @@ export function useSim(city: City | undefined): Sim {
         };
         const message: ToWorker = { type: 'init', simText, city: { id: city.id, revision: sim.extent, hash: sim.sha256 }, seed: 1, build: { sha: build.sha, version: build.version } };
         w.postMessage(message);
+        // Out of sight, the game's time holds where it is, at its speed, until the page shows again (watchHidden).
+        unhide = watchHidden((held) => w.postMessage({ type: 'hold', held } satisfies ToWorker));
       })
       .catch((error: unknown) => {
         errors.report({ severity: 'fatal', source: 'sim', code: 'start-failed', detail: String(error) });
@@ -465,6 +468,7 @@ export function useSim(city: City | undefined): Sim {
     return () => {
       stopped = true;
       unwatch?.();
+      unhide?.();
       follow.current = () => undefined;
       worker.current?.terminate();
       worker.current = null;

@@ -1,7 +1,7 @@
 // A viewer's dot choice (D25) is read back as written, outside the save keys, and a storage that
 // refuses gives both kinds rather than an error.
 import { describe, expect, it } from 'vitest';
-import { MAP_PREFS_KEY, readDotPrefs, writeDotPrefs } from './prefs';
+import { MAP_PREFS_KEY, PLAY_PREFS_KEY, readDotPrefs, readPlaySpeed, writeDotPrefs, writePlaySpeed } from './prefs';
 
 const memory = () => {
   const items = new Map<string, string>();
@@ -33,5 +33,27 @@ describe('the map preferences', () => {
     const odd = memory();
     odd.setItem(MAP_PREFS_KEY, '{not json');
     expect(readDotPrefs(odd)).toEqual({ home: true, job: true });
+  });
+
+  it('reads back the speed last played, under its own key, and nothing from a storage that refuses or holds something else', () => {
+    const store = memory();
+    expect(readPlaySpeed(store)).toBeNull();
+    writePlaySpeed(4, store);
+    expect(readPlaySpeed(store)).toBe(4);
+    expect([...store.items.keys()]).toEqual([PLAY_PREFS_KEY]);
+    expect(PLAY_PREFS_KEY.startsWith('interbus.prefs.')).toBe(true);
+    const throwing = {
+      getItem: () => {
+        throw new Error('blocked');
+      },
+      setItem: () => {
+        throw new Error('blocked');
+      },
+    };
+    expect(readPlaySpeed(throwing)).toBeNull();
+    expect(() => writePlaySpeed(4, throwing)).not.toThrow();
+    const odd = memory();
+    odd.setItem(PLAY_PREFS_KEY, '{not json');
+    expect(readPlaySpeed(odd)).toBeNull();
   });
 });

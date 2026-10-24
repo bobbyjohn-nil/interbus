@@ -1,6 +1,6 @@
-// A viewer's own map settings, not part of any game: which demand dots show (D25). They live in this
-// browser only, under a key apart from the saves (interbus.save., .slot., .backup., .quarter.), so no
-// save, export or set-aside ever carries them; a storage that refuses gives the defaults.
+// A viewer's own settings, not part of any game: which demand dots show, and the speed Play resumes (D25). They live in this
+// browser only, under keys apart from the saves (interbus.save., .slot., .backup., .quarter.), so no save, export or set-aside
+// ever carries them; a storage that refuses gives the defaults.
 
 /** Which kinds of demand dot the map shows. */
 export interface DotPrefs {
@@ -40,5 +40,27 @@ export function writeDotPrefs(dots: DotPrefs, store: Store | null = browserStore
     store?.setItem(MAP_PREFS_KEY, JSON.stringify({ dots: { home: dots.home, job: dots.job } }));
   } catch {
     // Private windows and full storage refuse; the choice holds for this visit.
+  }
+}
+
+export const PLAY_PREFS_KEY = 'interbus.prefs.play';
+
+/** The speed this viewer last played at, as kept (App checks it is one), or null. */
+export function readPlaySpeed(store: Store | null = browserStore()): unknown {
+  try {
+    const raw = store?.getItem(PLAY_PREFS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return (parsed as { speed?: unknown } | null)?.speed ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers the speed last played at; a storage that refuses forgets it quietly. */
+export function writePlaySpeed(speed: number, store: Store | null = browserStore()): void {
+  try {
+    store?.setItem(PLAY_PREFS_KEY, JSON.stringify({ speed }));
+  } catch {
+    // Private windows and full storage refuse; the speed holds for this visit.
   }
 }

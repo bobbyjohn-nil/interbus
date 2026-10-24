@@ -373,6 +373,8 @@ export type ToWorker =
   /** The page's answer to read-save: the text under that key, or null. */
   | { readonly type: 'save-text'; readonly text: string | null }
   | { readonly type: 'speed'; readonly speed: Speed }
+  /** The page out of sight (a tab in the background, a window minimised), or in sight again: time holds while it is out, at its speed (useSim). */
+  | { readonly type: 'hold'; readonly held: boolean }
   /** How many live (a home dot) or work (a job dot) within a walk of `at`. */
   | { readonly type: 'probe'; readonly id: number; readonly at: LngLatPair; readonly kind: 'home' | 'job' }
   | { readonly type: 'depot-site'; readonly id: number; readonly at: LngLatPair }
