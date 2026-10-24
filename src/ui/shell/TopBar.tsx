@@ -18,7 +18,8 @@ const SPEED_OPTIONS = RUNNING_SPEEDS.map((speed) => ({ value: speed, label: spee
  * the speed, Cash, Riders/day and the day's costs, and the checklist's next step (K20). The speed
  * waits until the company is founded. While paused, Undo names the command it would take back (I9);
  * below the credit line's floor, a countdown names the day closes left (D10), and back above it with a
- * close below behind, says to stay above tonight. The checklist's last
+ * close below behind, says to stay above tonight, or that the company is heading below it, as the coming
+ * close is set to count (sim/step.ts cashAtClose). The checklist's last
  * step opens Contracts, and once the checklist is done its place is the Contracts chip (the M3 spec,
  * items 11 and 12), so contracts add nothing to the shell at rest (I13). The medals held show there
  * too, a dot of each one's metal; the Contracts panel names the ladder and the trips left to silver
@@ -83,11 +84,21 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
       ) : null}
       {s.floor && !s.floor.ended ? (
         // Back above the floor with a close below behind, a close above clears the count and one below goes on with it: it said
-        // the days to get above, there already (the systems audit's fourteenth round).
-        <span className="chip countdown" data-testid="countdown" data-left={s.floor.closesLeft} data-above={belowFloor(s.cashCents) ? 'no' : 'yes'}>
+        // the days to get above, there already (the systems audit's fourteenth round). Above it, the words judge the cash the
+        // coming close is set to count, as the close counts it: $50 above at 23:50, it said to stay above tonight as the last
+        // hour's costs and the interest took the company below and ended the run (the fifteenth round).
+        <span
+          className="chip countdown"
+          data-testid="countdown"
+          data-left={s.floor.closesLeft}
+          data-above={belowFloor(s.cashCents) ? 'no' : 'yes'}
+          data-tonight={belowFloor(s.floor.tonightCents) ? 'below' : 'above'}
+        >
           {belowFloor(s.cashCents)
             ? `${s.floor.closesLeft} ${s.floor.closesLeft === 1 ? 'day' : 'days'} to get above ${usdK(-CREDIT_LIMIT_CENTS)}`
-            : `Stay above ${usdK(-CREDIT_LIMIT_CENTS)} tonight`}
+            : belowFloor(s.floor.tonightCents)
+              ? `Heading below ${usdK(-CREDIT_LIMIT_CENTS)} tonight`
+              : `Stay above ${usdK(-CREDIT_LIMIT_CENTS)} tonight`}
         </span>
       ) : null}
       {undo ? (

@@ -49,7 +49,7 @@ import { landmarkFigures } from '../sim/economy/contracts';
 import { contractDaysLeft, contractMet } from '../sim/rules/contract';
 import { eventDaysLeft, eventPhase } from '../sim/rules/event';
 import { newGame, type CityEvent, type CityRef, type EarlierRun } from '../sim/state';
-import { simStep } from '../sim/step';
+import { cashAtClose, simStep } from '../sim/step';
 import { before, newUndo, nextUndo, remember, timeRuns, undo, type UndoLabel } from '../sim/undo';
 import type { ContractView, DayCard, DepotSiteView, StopSiteView, Dots, EventView, ExtendData, SettlingView, FromWorker, HeadwaysData, LineDraftView, LineView, LngLatPair, LoadView, RefusalView, SetAsideWhy, SlotView, Snapshot, Speed, StopView, ToWorker } from '../sim/types';
 import { createWorld, depotDrive, depotSiteContext, legBetween, lineDraftContext, nearestNode, type Settling, type World } from '../sim/world';
@@ -579,6 +579,18 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
     return financeView;
   };
 
+  // Worked out again only when a row is posted, the hour turns or the network changes: what the coming close banks (cashAtClose).
+  let tonightKey = '';
+  let tonightCents = 0;
+  const tonightNow = (w: World): number => {
+    const key = `${w.state.ledger.rows.length}|${w.state.ledger.cashCents}|${Math.floor(w.state.elapsed / 3_600)}|${linesVersion}`;
+    if (key !== tonightKey) {
+      tonightKey = key;
+      tonightCents = cashAtClose(w);
+    }
+    return tonightCents;
+  };
+
   // Worked out again only when the network, the contracts or the hour change.
   let contractsKey = '';
   let contractsView: ContractView[] = [];
@@ -650,12 +662,13 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
       finance: money,
       undo: speed === 0 ? nextUndo(undoStack) : null,
-      // The countdown, while cash is below the floor or a close below is behind (the chip's words follow the cash, TopBar), and
-      // the run's end. Hidden above the floor, it left a company four closes behind and $50 above it with no word, as tonight's
-      // interest took it below and ended the run (the review of the fourteenth round's fixes).
+      // The countdown, while cash is below the floor or a close below is behind (the chip's words follow the cash and what the
+      // coming close is set to count, TopBar), and the run's end. Hidden above the floor, it left a company four closes behind
+      // and $50 above it with no word, as tonight's interest took it below and ended the run (the review of the fourteenth
+      // round's fixes).
       floor:
         belowFloor(w.state.ledger.cashCents) || w.state.closesBelowFloor > 0
-          ? { closesLeft: Math.max(0, FAILURE_CLOSES - w.state.closesBelowFloor), ended: runEnded(w.state.closesBelowFloor) }
+          ? { closesLeft: Math.max(0, FAILURE_CLOSES - w.state.closesBelowFloor), ended: runEnded(w.state.closesBelowFloor), tonightCents: tonightNow(w) }
           : null,
       contracts: contractsNow(w, t.day),
       contractTaken: w.state.contracts.some((c) => c.acceptedDay !== null) || w.state.ledger.rows.some((r) => r.kind === 'contract'),

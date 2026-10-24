@@ -3,6 +3,7 @@ import { MEDAL_IDS, tripsToSilver } from '../../sim/rules/medal';
 import type { ContractView } from '../../sim/types';
 import { useFocusBack } from '../focusBack';
 import { focusLost } from '../focusLost';
+import { giveFocus } from '../giveFocus';
 import { runOver } from '../game/runOver';
 import { askText, capitalise, dateText, figureText, MEDAL_NAMES, medalBarText, usd } from '../format';
 import type { Sim } from '../game/useSim';
@@ -17,13 +18,11 @@ import type { Sim } from '../game/useSim';
  */
 export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
   // Take it goes as its contract is held, so the focus goes to that contract's row, which now says its days met (useFocusBack).
-  // The row takes the focus only then, as Panels' box does, so a press on a row's text still leaves the arrows to the panel.
+  // The row takes the focus only then, as Panels' box does (giveFocus), so a press on a row's text still leaves the arrows to
+  // the panel.
   const handBack = useFocusBack();
   const root = useRef<HTMLElement>(null);
-  const toRow = (id: number) => () => {
-    const row = root.current?.querySelector<HTMLElement>(`[data-contract="${id}"]`);
-    return row && focusable(row);
-  };
+  const toRow = (id: number) => () => root.current?.querySelector<HTMLElement>(`[data-contract="${id}"]`);
   // A close takes rows away (an offer withdrawn, a contract paid or lapsed): one going with the keyboard's focus in it says where
   // it stood, and the row now there takes the focus, or the one above, or the panel, rather than the page (the systems audit's
   // fourteenth round). The close that ends the run leaves it to the day card's Continue (DayCard), whose layout effect runs after
@@ -35,7 +34,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
     gone.current = null;
     if (at === null || over || !focusLost() || !root.current) return;
     const rows = root.current.querySelectorAll<HTMLElement>('[data-contract]');
-    focusable(rows[Math.min(at, rows.length - 1)] ?? root.current).focus();
+    giveFocus(rows[Math.min(at, rows.length - 1)] ?? root.current);
   });
   const s = sim.snapshot;
   if (!s) return null;
@@ -107,13 +106,6 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
       </section>
     </aside>
   );
-}
-
-/** Makes `el` take the focus until the focus leaves it, as Panels' box does: a row or the panel is no stop of its own. */
-function focusable(el: HTMLElement): HTMLElement {
-  el.tabIndex = -1;
-  el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
-  return el;
 }
 
 /**

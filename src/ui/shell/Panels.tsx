@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { focusLost } from "../focusLost";
+import { giveFocus } from "../giveFocus";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
 export interface PanelItem {
@@ -106,24 +107,6 @@ export function freePlace(w: number, h: number, taken: readonly Rect[], width: n
 function put(box: HTMLElement, at: { x: number; y: number }): void {
   Object.assign(box.style, { left: `${at.x}px`, top: `${at.y}px` });
   box.style.setProperty("--room", `${roomBelow(at.y, window.innerHeight)}px`);
-}
-
-/**
- * Gives `el` the keyboard's focus, made focusable until the focus leaves it where it no longer takes it. A panel's box holds
- * the focus only so: always focusable, it took the focus from a press on a panel's text, so the keys no longer scrolled the
- * panel (the review of the ninth audit round). So does a contract's row Take it focused (Contracts.tsx). Handed back to,
- * either could no longer take the focus, which fell to the page: Help, opened with ? from Lines' box (the review of round 10)
- * or from the row (round 11), and closed.
- */
-function giveFocus(el: HTMLElement): void {
-  el.focus();
-  if (document.activeElement === el) return;
-  el.tabIndex = -1;
-  // Only its own: a tabindex the page set since (a scrolling region's) stays.
-  const unset = () => void (el.getAttribute("tabindex") === "-1" && el.removeAttribute("tabindex"));
-  el.focus();
-  if (document.activeElement === el) el.addEventListener("blur", unset, { once: true });
-  else unset();
 }
 
 /**

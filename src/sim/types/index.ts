@@ -242,8 +242,12 @@ export interface Snapshot {
   readonly finance: FinanceView;
   /** While paused, the command an undo would take back, such as create-line "Line 2" (sim/undo.ts); null otherwise. */
   readonly undo: { readonly command: string; readonly subject: string } | null;
-  /** Below the credit line's −$150k, or counting closes below it: day closes left before the run ends, and whether it has (D10); null otherwise. */
-  readonly floor: { readonly closesLeft: number; readonly ended: boolean } | null;
+  /**
+   * Below the credit line's −$150k, or counting closes below it: day closes left before the run ends, whether it has (D10), and
+   * the cash the coming close is set to count, its hours left banked as they stand and the interest on what is owed after them
+   * (sim/step.ts cashAtClose); null otherwise.
+   */
+  readonly floor: { readonly closesLeft: number; readonly ended: boolean; readonly tonightCents: number } | null;
   /** Contracts on offer and held, at most three (the M3 spec, item 11; the M4 spec, item 1). */
   readonly contracts: readonly ContractView[];
   /** A contract has been taken, held now or paid: the checklist's last step. */

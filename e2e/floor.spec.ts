@@ -113,6 +113,37 @@ test.describe('the failure floor', () => {
     await expect(countdown).toHaveCount(0);
   });
 
+  // Four closes behind and $50 above the floor at 23:50, the chip said to stay above tonight, and the close banked the last hour's
+  // costs and charged the interest first, $158.28, and ended the run (the systems audit's fifteenth round). It judges what the
+  // coming close is set to count now: heading below, and above $200 up. Shown failing (TS-04) on main, where both said "Stay
+  // above -$150k tonight".
+  for (const [aboveCents, words] of [
+    [5_000, 'Heading below -$150k tonight'],
+    [20_000, 'Stay above -$150k tonight'],
+  ] as const) {
+    test(`four closes behind and $${aboveCents / 100} above the floor at 23:50, says “${words}”, as the close then counts`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.goto('./');
+      const panel = page.getByTestId('sim-panel');
+      await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+      await foundCompany(page);
+      await withDebugLine(page, (d) => {
+        d.closesBelowFloor = 4;
+        d.ledger.push({ day: 1, kind: 'buses', amountCents: -(STARTING_CENTS + 100_000 + 15_000_000 - aboveCents), lineId: null });
+        d.clock.elapsed = 86_400 + 18 * 3_600 + 50 * 60; // day 2, 23:50
+      });
+      await expect(panel).toHaveAttribute('data-cash', String(-15_000_000 + aboveCents));
+      const countdown = page.getByTestId('countdown');
+      await expect(countdown).toHaveText(words);
+      await expect(countdown).toHaveAttribute('data-left', '1');
+      await setSpeed(page, '60×');
+      const day = page.getByTestId('day-card');
+      await expect(day).toBeVisible({ timeout: 30_000 });
+      await day.getByRole('button', { name: 'Continue' }).click();
+      await expect(page.getByTestId('failure-card')).toHaveCount(aboveCents === 5_000 ? 1 : 0);
+    });
+  }
+
   // The lender's card stays until Restart this quarter, and stood at the window's top centre over the panels: with Contracts,
   // Lines and Finance opened in turn, Finance's views and Close were under it at 1152×720 to 1440×900, and a press on its Lines
   // view landed on the card (the review of #142). It takes a free place on the panel layer now, so the panels open beside it,

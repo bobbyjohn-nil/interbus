@@ -15,12 +15,11 @@ import { SECONDS_PER_DAY, SECONDS_PER_HOUR, START_SECOND_OF_DAY, STEP_SECONDS } 
 import { toCalendarTime } from './core/calendar';
 import { DEPOT_UPKEEP_PER_HOUR_CENTS, lineCostsInHour, stopsUpkeepCents } from './economy/costs';
 import { checkHour, closeContracts, rollOffers, type ContractOutcome } from './economy/contracts';
-import { bankedBetween, closeDay, post, rowsOfDay, type LedgerRow } from './economy/ledger';
+import { bankedBetween, closeDay, post, rowsOfDay, type Ledger, type LedgerRow } from './economy/ledger';
 import { gradeQuarter, type ReportCard } from './economy/reportCard';
 import { rollEvent } from './events/roll';
 import { DAYS_PER_QUARTER } from './config/time';
-import { INTEREST_PER_DAY_PPM } from './config/economy';
-import { belowFloor } from './rules/credit';
+import { belowFloor, interestCents } from './rules/credit';
 import { medalsEarned } from './rules/medal';
 import type { MedalId } from './config/medals';
 import { subsidyCents } from './rules/fare';
@@ -75,6 +74,21 @@ function bankHour(world: World, hour: number, day: number): void {
   if (stopsHour > 0) post(world.state.ledger, { day, kind: 'stopUpkeep', amountCents: -stopsHour });
 }
 
+/**
+ * The cash the coming close counts against the floor (D10), as simStep counts it, if the day runs on as it is set: the hours left
+ * in it banked as they stand, then the lender's interest on what is owed after them. Not a contract's reward, nor a quarter's
+ * grant or fine: the close decides those as it comes. The countdown's words read it (TopBar): four closes behind and $50 above
+ * the floor at 23:50, the last hour's costs and the interest took $158.28 and ended the run under "Stay above -$150k tonight"
+ * (the systems audit's fifteenth round). It banks on a copy of the lines and the ledger, so the world is as it was.
+ */
+export function cashAtClose(world: World): number {
+  const ledger: Ledger = { rows: [], cashCents: world.state.ledger.cashCents };
+  const copy: World = { ...world, state: { ...world.state, ledger, lines: world.state.lines.map((line) => ({ ...line })) } };
+  const now = toCalendarTime(world.state.elapsed);
+  for (let hour = now.hour; hour < 24; hour++) bankHour(copy, hour, now.day);
+  return ledger.cashCents - interestCents(ledger.cashCents);
+}
+
 /** What a step between hour boundaries returns: nothing, without a new array each second. */
 const QUIET: readonly SimEvent[] = Object.freeze([]);
 
@@ -92,10 +106,8 @@ export function simStep(world: World): readonly SimEvent[] {
   // The interest is a running cost the quarter's card grades with the rest, so it is charged before the
   // card, on what is owed before its grant or fine: graded after it, the quarter's last day of interest
   // was graded in no quarter (the systems audit's fourth round).
-  if (state.ledger.cashCents < 0) {
-    const interest = Math.round((-state.ledger.cashCents * INTEREST_PER_DAY_PPM) / 1_000_000);
-    if (interest > 0) post(state.ledger, { day: ended.day, kind: 'interest', amountCents: -interest });
-  }
+  const interest = interestCents(state.ledger.cashCents);
+  if (interest > 0) post(state.ledger, { day: ended.day, kind: 'interest', amountCents: -interest });
   const card = ended.dayOfQuarter === DAYS_PER_QUARTER ? gradeQuarter(world, ended.quarter, ended.day) : null;
   if (card && card.payoutCents !== 0) post(state.ledger, { day: ended.day, kind: 'card', amountCents: card.payoutCents });
   const trips = state.tripsToday;

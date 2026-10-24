@@ -64,7 +64,7 @@ describe('contracts once the run has ended', () => {
   const panel = (s: Sim) => renderToStaticMarkup(createElement(Contracts, { sim: s, onClose: () => undefined }));
   it('lists the offers with Take it disabled', () => {
     expect(panel(sim({}))).toContain('<button type="button">Take it</button>');
-    expect(panel(sim({ floor: { closesLeft: 0, ended: true } }))).toContain('<button type="button" disabled="">Take it</button>');
+    expect(panel(sim({ floor: { closesLeft: 0, ended: true, tonightCents: -20_012_000 } }))).toContain('<button type="button" disabled="">Take it</button>');
   });
 });
 

@@ -292,6 +292,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Once a sale brings your cash back above -$150k, the red countdown chip says to stay above it tonight, rather than counting the days to get above it. A midnight above it clears the countdown; below it, the count goes on.
 - A line that snow or roadworks leave short of buses says so on its card, with the headway it runs meanwhile, in the words Contracts uses for it: “A bus short in the snow: runs every 16.1 min at peak and off-peak”. Before, the card showed only the headways you set.
 - In the medal ladder, “since” follows its middot in lower case, as the rest of the game’s words do.
+- On a midnight's card, Continue takes the keyboard back to the contract you were on in Contracts, the one Take it moved you to or the one in a withdrawn offer's place, or to Contracts itself when the offer you came from has gone. Before, it fell to the page, where Space paused.
+- With a close below -$150k behind you and your cash just above it, the red countdown says “Heading below -$150k tonight” when the rest of the day's costs and the lender's interest will take midnight's cash below it. Before, it said to stay above it tonight, and four closes behind, that midnight ended the run.
+- A notice that comes while the game's tab is out of sight, such as another tab changing the autosave or a save from an older build set aside, waits for you to come back, then stays its few seconds. Before, it came and went unseen.
+- An open Build menu stays in front of the “This build was replaced” card, so its tools can still be picked, and the card is whole again once the menu closes. Before, the card covered the menu's tools.
 
 ### Removed
 
