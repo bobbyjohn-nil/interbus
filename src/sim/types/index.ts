@@ -223,7 +223,7 @@ export interface Snapshot {
   readonly speed: Speed;
   /** The company, unnamed until founded. */
   readonly company: { readonly name: string; readonly colour: string };
-  /** Seconds since midnight of the game day, with the part-step run so far, and game seconds per real second (0 paused): the vehicle layer runs the clock on between snapshots. */
+  /** Seconds since midnight of the game day, with the part-step run so far, and game seconds per real second (0 paused, or held while the page is out of sight): the vehicle layer runs the clock on between snapshots. */
   readonly secondOfDay: number;
   readonly rate: number;
   readonly cashCents: number;

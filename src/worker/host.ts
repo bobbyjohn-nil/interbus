@@ -637,7 +637,9 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       // The part-step of game time run so far counts on the clock the buses are drawn by, so at 1x they
       // glide rather than wait for the next whole step (display only: the sim's clock is whole steps).
       secondOfDay: ((START_SECOND_OF_DAY + w.state.elapsed) % SECONDS_PER_DAY) + carrySeconds,
-      rate: SPEEDS[speed],
+      // Held out of sight, time runs at no rate: the map ran its last snapshot's clock on by a quarter-second, 675 game seconds at
+      // 2,700x, as the page showed again (the review of the fourteenth round's fixes).
+      rate: held ? 0 : SPEEDS[speed],
       cashCents: w.state.ledger.cashCents,
       ridersPerDay: w.assignment.tripsPerDay,
       profitableDays: profitableDays(w.state.ledger, t.day),
@@ -802,8 +804,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       }
       if (message.type === 'hold') {
         held = message.held;
+        if (!world) return;
         // Saved as it goes out of sight, as a pause is: a tab closed or discarded in the background comes back where it went.
-        if (held && world && speed !== 0) save();
+        if (held && speed !== 0) save();
+        post({ type: 'snapshot', snapshot: snapshot() });
         return;
       }
       if (!world) return post({ type: 'refused', command: message.type, reason: 'not_started' });

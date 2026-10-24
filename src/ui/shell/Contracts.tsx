@@ -26,12 +26,14 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
   };
   // A close takes rows away (an offer withdrawn, a contract paid or lapsed): one going with the keyboard's focus in it says where
   // it stood, and the row now there takes the focus, or the one above, or the panel, rather than the page (the systems audit's
-  // fourteenth round).
+  // fourteenth round). The close that ends the run leaves it to the day card's Continue (DayCard), whose layout effect runs after
+  // this one: the row took it first, its Take it turned off (the review of the round's fixes).
   const gone = useRef<number | null>(null);
+  const over = runOver(sim);
   useLayoutEffect(() => {
     const at = gone.current;
     gone.current = null;
-    if (at === null || !focusLost() || !root.current) return;
+    if (at === null || over || !focusLost() || !root.current) return;
     const rows = root.current.querySelectorAll<HTMLElement>('[data-contract]');
     focusable(rows[Math.min(at, rows.length - 1)] ?? root.current).focus();
   });
@@ -65,7 +67,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
               <span className="controls">
                 <button
                   type="button"
-                  disabled={runOver(sim)}
+                  disabled={over}
                   onClick={(e) => {
                     handBack(e.currentTarget, toRow(c.id));
                     sim.send({ type: 'accept-contract', contractId: c.id });

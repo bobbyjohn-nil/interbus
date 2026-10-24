@@ -151,23 +151,28 @@ test('with blocked site data, the map card that cannot start and the replaced bu
   expect((await again).suggestedFilename()).toMatch(/^interbus-boston-year-\d+-q[1-4]-day-\d+\.json$/);
 });
 
-/** The chips a card lies over the middle of: the top bar's, and the Saves chip. */
-const chipsCovered = (page: Page) =>
-  page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('[data-testid="sim-panel"] > *, [data-testid="saves-chip"]')].flatMap((chip) => {
-      const r = chip.getBoundingClientRect();
-      if (!r.width) return [];
-      return chip.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) ? [] : [chip.textContent ?? ''];
-    }),
+/** Of the controls and words that `selector` finds, those a card lies over the middle of, by their text. */
+const covered = (page: Page, selector: string) =>
+  page.evaluate(
+    (selector) =>
+      [...document.querySelectorAll<HTMLElement>(selector)].flatMap((el) => {
+        const r = el.getBoundingClientRect();
+        if (!r.width) return [];
+        return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) ? [] : [el.textContent ?? ''];
+      }),
+    selector,
   );
+/** The top bar's chips and the Saves chip; the open panels' headings and Finance's views; the dock's buttons. */
+const CHROME = '[data-testid="sim-panel"] > *, [data-testid="saves-chip"], .panel h2, [data-testid="finance"] [role="tab"], [data-testid="dock"] button';
 
 // The replaced build's card stood at the board's top over the chips' middle: the floor's countdown at 1366×768 and 1440×900,
 // Costs/day too at 1152×720, and the checklist with no countdown; saying the game isn't saving itself, Riders/day and the
-// Contracts chip as well (the systems audit's fourteenth round). It stands under them now, where the map's own cards do. Shown
+// Contracts chip as well (the systems audit's fourteenth round). Under the chips, at 72 px, it lay over the panels' headings and
+// Finance's views with three panels open (the review of its fixes). It stands at the board's foot now, above the dock. Shown
 // failing (TS-04) with the card at the top: at 1152×720 it lay over Costs/day and the countdown, and saying the game isn't
-// saving itself, over Riders/day and the checklist.
+// saving itself, over Riders/day and the checklist; and at 72 px, over Finance's heading and views.
 for (const blocked of [false, true]) {
-  test(`the replaced build’s card leaves every chip in sight at I13’s three sizes${blocked ? ', saying the game isn’t saving itself' : ', the floor’s countdown among them'}`, async ({ page }) => {
+  test(`the replaced build’s card leaves the chips, the panels’ headings and the dock in sight at I13’s three sizes${blocked ? ', saying the game isn’t saving itself' : ', the floor’s countdown among them'}`, async ({ page }) => {
     test.skip(!city.sim, 'no sim file in this build yet');
     test.setTimeout(90_000);
     if (blocked) await page.addInitScript(blockStorage);
@@ -182,6 +187,11 @@ for (const blocked of [false, true]) {
         d.closesBelowFloor = 1;
       });
       await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
+      // Lines, Finance and Contracts open side by side.
+      await page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true }).click();
+      await page.getByTestId('dock').getByRole('button', { name: 'Finance', exact: true }).click();
+      await page.getByTestId('checklist').or(page.getByTestId('contracts-chip')).click();
+      await expect(page.locator('.panel h2')).toHaveCount(3);
     }
     // The splash's bus tows it off to the right, over the Saves chip last: it has gone before the chips are read.
     await bootGone(page);
@@ -190,7 +200,7 @@ for (const blocked of [false, true]) {
     await expect(replaced).toBeVisible();
     for (const [width, height] of [[1152, 720], [1366, 768], [1440, 900]] as const) {
       await page.setViewportSize({ width, height });
-      expect(await chipsCovered(page), `at ${width}×${height}`).toEqual([]);
+      expect(await covered(page, CHROME), `at ${width}×${height}`).toEqual([]);
       expect(await inFront(replaced), `at ${width}×${height}`).toBe(true);
     }
   });

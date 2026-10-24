@@ -12,6 +12,7 @@ import type { FromWorker, Snapshot, ToWorker } from '../sim/types';
 import type { Sim } from '../ui/game/useSim';
 import { Finance } from '../ui/shell/Finance';
 import { createHost, fileDate, MAX_SLICE_MS, SPEEDS } from './host';
+import { replaySession } from './replay';
 
 const baked = bakeSim('boston', 'mini-boston');
 const CITY = { id: 'boston', revision: 'mini-boston', hash: baked.sha256 };
@@ -82,12 +83,20 @@ describe('the sim host', () => {
     const saved = saves().length;
     host.handle({ type: 'hold', held: true });
     expect(saves().length).toBe(saved + 1);
+    // The map runs no clock on while held: it ran the last one on by a quarter-second as the page showed (its review).
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: left, speed: 4, rate: 0 });
     const sent = out.length;
     for (let t = 1_050; t <= 11_000; t += 50) host.tick(t);
     expect(out.length).toBe(sent); // no step, save or snapshot while out of sight
     host.handle({ type: 'hold', held: false });
+    expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: left, speed: 4, rate: SPEEDS[4] });
     for (let t = 11_050; t <= 12_050; t += 50) host.tick(t);
     expect(last('snapshot')!.snapshot).toMatchObject({ elapsed: left + SPEEDS[4], speed: 4 });
+    // No command: the session records none, and replays to the same game.
+    host.handle({ type: 'export-session' });
+    const file = last('export')!;
+    expect((JSON.parse(file.text) as { commands: { message: ToWorker }[] }).commands.map((c) => c.message.type)).toEqual(['speed']);
+    expect(replaySession(baked.text, file.text)).toMatchObject({ ok: true, matches: true });
   });
 
   it('runs 1x in real time, a game second a second, and draws the part-step so buses glide (D25)', () => {

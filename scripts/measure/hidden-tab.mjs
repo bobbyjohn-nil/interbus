@@ -18,6 +18,8 @@ const profile = mkdtempSync(join(tmpdir(), 'interbus-hidden-'));
 // As root (a container), Chromium starts only without its sandbox, as Playwright starts it there.
 const root = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
 const browser = spawn(chromium, ['--headless=new', ...root, '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--enable-unsafe-swiftshader', '--use-angle=swiftshader', 'about:blank']);
+// The profile comes away once the browser has let go of it: removed at once, it was still being written (ENOTEMPTY).
+const exited = new Promise((done) => browser.once('exit', done));
 const endpoint = await new Promise((done, fail) => {
   browser.stderr.on('data', (d) => {
     const found = /DevTools listening on (ws:\/\/\S+)/.exec(String(d));
@@ -93,5 +95,6 @@ try {
 } finally {
   socket.close();
   browser.kill();
+  await exited;
   rmSync(profile, { recursive: true, force: true });
 }

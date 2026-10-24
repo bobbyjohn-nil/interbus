@@ -56,6 +56,16 @@ test.describe('the failure floor', () => {
     await dayCard.getByRole('button', { name: 'Continue' }).click();
     await expect(failure).toBeVisible();
     await expect(failure).toContainText('The lender has called in the loan');
+    // In a window 200 px high its words scroll, a stop for the keyboard; grown again they fit, and Restart this quarter takes the
+    // focus from them, which fell to the page (the review of the fourteenth round's fixes). Shown failing (TS-04) without it.
+    const size = page.viewportSize()!;
+    await page.setViewportSize({ width: size.width, height: 200 });
+    const words = failure.locator('.day-card-scroll');
+    await expect(words).toHaveAttribute('tabindex', '0');
+    await words.focus();
+    await page.setViewportSize(size);
+    await expect(words).not.toHaveAttribute('tabindex');
+    await expect(failure.getByRole('button', { name: 'Restart this quarter' })).toBeFocused();
 
     await failure.getByRole('button', { name: 'Restart this quarter' }).click();
     await expect(failure).toHaveCount(0);
