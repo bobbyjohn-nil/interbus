@@ -57,7 +57,7 @@ describe('the copy convention in the word tables', () => {
   it('holds for every refusal, set-aside line, ledger row, checklist step, speed and medal', () => {
     const refusals = CODES.map((reason) => refusalText({ reason, limitM: 150, nearestM: 80, room: 2, shortCents: 2_380_000, limit: 32 }));
     const tables = [...refusals, ...Object.values(LOAD_COPY).filter((t): t is string => t !== null), STORE_REFUSED_COPY, STORE_FULL_COPY, ...Object.values(STORE_LINE_COPY), ...Object.values(SLOT_REFUSED_COPY), UNBACKED_COPY, AUTOSAVE_OFF_CHIP, AUTOSAVE_OFF_NAME, AUTOSAVE_OFF_TITLE, unbackedRowText('A save from an older build (format 15)'), UNBACKED_ROW_TITLE, MAP_UNSAVED_COPY.words, MAP_UNSAVED_COPY.keep, NEWER_COPY, NEWER_LINE_COPY, BACK_HOME_ASK_COPY, failedText('start', 'Boston'), failedText('stopped', 'Boston'), ...Object.values(ROW_NAMES), ...CHECKLIST, ...Object.values(SPEED_HINTS), ...Object.values(MEDAL_NAMES)];
-    for (const kind of ['roadworks', 'festival', 'snow'] as const) for (const news of ['tomorrow', 'over'] as const) tables.push(eventNewsText({ kind, street: 'Huntington Avenue', days: 2, news }));
+    for (const kind of ['roadworks', 'festival', 'snow'] as const) for (const news of ['tomorrow', 'over'] as const) tables.push(eventNewsText({ kind, street: 'Huntington Avenue', startDay: 3, days: 2, news }));
     for (const m of ['bronze', 'silver', 'gold'] as const) tables.push(medalNewsText(m));
     expect(copyProblems(tables)).toEqual([]);
   });

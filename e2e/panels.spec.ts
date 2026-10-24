@@ -254,6 +254,27 @@ test.describe('movable panels', () => {
     expect(await z(finance)).toBeGreaterThan(await z(saves));
     expect(await grabbed()).toBe('Finance');
   });
+
+  // Kept whole one by one as the window changed size, panels piled up: as Chrome's zoom went to 110%, Finance lay 119×302 px over
+  // Lines, and stayed there once it was back at 100% (the systems audit's seventeenth round). One that the change leaves over
+  // another is placed afresh beside the rest, as on opening. Shown failing (TS-04) with the panels kept whole alone.
+  test('keep panels in free places apart as the window shrinks, as Chrome’s zoom does, and grows again', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 790 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    const panels = [page.getByTestId('inspector'), page.getByTestId('finance'), page.getByTestId('contracts')];
+    for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+    await page.getByTestId('checklist').click(); // "5/5 Take a contract" opens Contracts
+    for (const panel of panels) await expect(panel).toBeVisible();
+    const allApart = async () => (await apart(panels[0]!, panels[1]!)) && (await apart(panels[0]!, panels[2]!)) && (await apart(panels[1]!, panels[2]!));
+    expect(await allApart()).toBe(true);
+    for (const [width, height] of [[1309, 718], [1440, 790], [1366, 768], [1440, 790]] as const) {
+      await page.setViewportSize({ width, height });
+      await expect.poll(allApart, { message: `at ${width}×${height}` }).toBe(true);
+    }
+  });
 });
 
 // Played by keyboard alone (the systems audit's ninth round). A panel the keyboard opens takes the focus, as a dialog does, so

@@ -85,6 +85,7 @@ test.describe('the day card', () => {
     await expect(card.getByTestId('report-card')).toBeVisible();
     await expect(card.getByTestId('contract-outcome')).toHaveAttribute('data-outcome', 'paid');
     await expect(card.getByTestId('event-news')).toHaveAttribute('data-news', 'tomorrow');
+    await expect(card.getByTestId('event-news')).toHaveText(/ from Q2 Day 2, for \d+ days?/);
     await expect(card.locator('tr[data-kind="interest"]')).toHaveCount(1);
     await expect(card.getByTestId('medal-news')).toHaveCount(1);
 

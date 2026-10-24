@@ -171,7 +171,8 @@ export interface PanelFront {
  * first at the top right), and stays there; it is dragged by its heading anywhere on the screen, and
  * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
  * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
- * free place whole, and a dragged one's heading in reach. A tool's card is a panel like the others.
+ * free place whole, placed afresh where it would lie over another, and a dragged one's heading in reach.
+ * A tool's card is a panel like the others.
  * One the keyboard opened takes the focus (`focus`), as a dialog does, so Tab goes on inside it.
  * Places live on the elements, not in React state, so a drag re-renders nothing. The panels are raised
  * among themselves on a layer of their own, under the menus and the cards beside the pointer however
@@ -242,9 +243,12 @@ export function Panels({
   // the run's end found the focus held, not lost, and gave Continue none (the review of the ninth audit round).
   const takes = useRef(takesFocus);
   const itemIds = useRef<readonly string[]>([]);
+  /** The items no panel may cover (PanelItem.clear), for a resize to place panels clear of. */
+  const clears = useRef<ReadonlySet<string>>(new Set());
   useLayoutEffect(() => {
     takes.current = takesFocus;
     itemIds.current = items.map((i) => i.id);
+    clears.current = new Set(items.filter((i) => i.clear).map((i) => i.id));
   });
   // What each panel the keyboard opened took the focus from, and the panel the player was last in, by the focus or a press.
   // One that closes while the player was in it, by its Close, Escape or the game, hands the focus back to what opened it, as
@@ -313,13 +317,36 @@ export function Panels({
     giveFocus(box);
   }, [focus]);
 
-  // A window that changes size keeps a panel in a free place whole, and a dragged one in reach, as a drag does.
+  // A window that changes size keeps a dragged panel in reach, as a drag does, and one in a free place whole; and one in a free
+  // place that the change left over another, the dragged ones or those it opened after, is placed afresh beside them, as on
+  // opening. Kept whole one by one, Lines, Finance and Contracts piled up as Chrome's zoom went to 110%, Finance 119×302 px over
+  // Lines, and stayed piled once it was back at 100% (the systems audit's seventeenth round).
   useEffect(() => {
+    const rectOf = (box: HTMLElement): Rect => {
+      const r = box.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    };
+    const across = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
     const resize = () => {
+      const [width, height] = [window.innerWidth, window.innerHeight];
+      const settled: Rect[] = [];
       for (const [id, box] of boxes.current) {
+        if (!dragged.current.has(id)) continue;
         const r = box.getBoundingClientRect();
-        const [width, height] = [window.innerWidth, window.innerHeight];
-        put(box, dragged.current.has(id) ? inReach({ x: r.left, y: r.top }, r.width, width, height) : keptWhole({ x: r.left, y: r.top }, r.width, width, height));
+        put(box, inReach({ x: r.left, y: r.top }, r.width, width, height));
+        settled.push(rectOf(box));
+      }
+      const clear = [...clears.current].flatMap((id) => {
+        const box = boxes.current.get(id);
+        return box ? [rectOf(box)] : [];
+      });
+      for (const id of placed.current) {
+        const box = boxes.current.get(id);
+        if (!box || dragged.current.has(id)) continue;
+        const r = box.getBoundingClientRect();
+        put(box, keptWhole({ x: r.left, y: r.top }, r.width, width, height));
+        if (settled.some((other) => across(rectOf(box), other))) put(box, freePlace(box.offsetWidth, box.offsetHeight, settled, width, height, clear));
+        settled.push(rectOf(box));
       }
     };
     window.addEventListener("resize", resize);

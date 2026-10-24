@@ -65,11 +65,12 @@ test.describe('roadworks a day ahead', () => {
     await expect(roundTrip).toHaveAttribute('data-works-s', '0');
     const calm = Number(await roundTrip.getAttribute('data-peak'));
 
-    // Day 3's close rolls them for day 5: hatched on day 4, with the notice on the day card.
+    // Day 3's close rolls them for day 5: hatched on day 4, with the notice on the day card, which names day 5 (the systems
+    // audit's seventeenth round: its "tomorrow" read as day 4).
     await setSpeed(page, '5,400×');
     const news = page.getByTestId('day-card').getByTestId('event-news');
-    await expect(news).toHaveText(/^Roadworks on .+ tomorrow, for 3 days$/, { timeout: 30_000 });
-    const street = (await news.textContent())!.replace(/^Roadworks on (.+) tomorrow, for 3 days$/, '$1');
+    await expect(news).toHaveText(/^Roadworks on .+ from Q1 Day 5, for 3 days$/, { timeout: 30_000 });
+    const street = (await news.textContent())!.replace(/^Roadworks on (.+) from Q1 Day 5, for 3 days$/, '$1');
     await expect(map).toHaveAttribute('data-event', `${street}:5:pending:3`);
 
     // Day 5: solid, and the line card's round trip is slower by what the works add.
@@ -88,7 +89,7 @@ test.describe('roadworks a day ahead', () => {
     await expect(page.getByTestId('day-card').getByTestId('event-news')).toHaveText(`Roadworks on ${street} are over`, { timeout: 30_000 });
     await expect(map).toHaveAttribute('data-event', '');
   });
-  test('snow and a festival: named the evening before, and snow slows the line card’s round trip while it falls', async ({ page }) => {
+  test('snow and a festival: named a day ahead, and snow slows the line card’s round trip while it falls', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
@@ -108,13 +109,13 @@ test.describe('roadworks a day ahead', () => {
     const map = page.getByTestId('map');
     const news = page.getByTestId('day-card').getByTestId('event-news');
 
-    // Snow rolled at day 3's close for day 5, one day: named the evening before, hatched over the city.
+    // Snow rolled at day 3's close for day 5, one day: named on day 3's card, hatched over the city on day 4.
     await edited(page, (d) => company(d, 'snow', 3));
     await page.getByRole('button', { name: 'Lines' }).click();
     const roundTrip = page.getByTestId('round-trip');
     const calm = Number(await roundTrip.getAttribute('data-peak'));
     await setSpeed(page, '5,400×');
-    await expect(news).toHaveText('Snow tomorrow, for 1 day: every bus drives slower', { timeout: 30_000 });
+    await expect(news).toHaveText('Snow from Q1 Day 5, for 1 day: every bus drives slower', { timeout: 30_000 });
     await expect(map).toHaveAttribute('data-event', ':5:pending:1');
     // Day 5: it falls, and the line card's round trip says what it adds.
     await expect(map).toHaveAttribute('data-event', ':5:on:1', { timeout: 30_000 });
@@ -128,7 +129,7 @@ test.describe('roadworks a day ahead', () => {
     // A festival rolled the same way gathers at one of the line's stops, a ring round it.
     await edited(page, (d) => company(d, 'festival', 3));
     await setSpeed(page, '5,400×');
-    await expect(news).toHaveText(/^A festival near .+ tomorrow, for 1 day: more riders to and from there$/, { timeout: 30_000 });
+    await expect(news).toHaveText(/^A festival near .+ from Q1 Day 5, for 1 day: more riders to and from there$/, { timeout: 30_000 });
     await expect(map).toHaveAttribute('data-event', /^.+:5:pending:1$/);
   });
 

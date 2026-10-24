@@ -53,6 +53,15 @@ export function remember(stack: UndoStack, label: UndoLabel, state: SaveData): v
   stack.timeRan = false;
 }
 
+/**
+ * A command went through while time ran, which keeps nothing to undo: an undo then says time has passed, as after a pause.
+ * It said there was nothing to undo, as though no command had gone through: M4's exit check inserted a stop at speed and
+ * tried one undo (the systems audit's seventeenth round).
+ */
+export function tookWhileRunning(stack: UndoStack): void {
+  stack.timeRan = true;
+}
+
 /** Time starts to run: nothing taken before it can be undone. */
 export function timeRuns(stack: UndoStack): void {
   if (stack.entries.length > 0) stack.timeRan = true;

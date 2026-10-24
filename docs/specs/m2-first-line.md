@@ -10,10 +10,10 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 
 "Found, depot, 4 stops, every 20 min, overnight off: cash moves exactly as the inspector said" (PLAN §10 week 4). Concretely, on mini-Boston:
 1. Name and colour the company. Cash reads the founding capital, its one ledger row.
-2. Place a depot on the green tint; the cursor card reads "Industrial ✓ · street N m ✓ · $150k".
+2. Place a depot on the green tint; the cursor card reads "Industrial land ✓ · street N m away ✓ · $150k".
 3. Draw four stops from Copley to Longwood. The card reads "every 20 min needs 2 Sparrows · $190k"; Create buys them.
 4. Press play at 05:00. Buses pull out of the depot, run the line and go back at 24:00.
-5. At 24:00 the day card's rows (fares, subsidy, running, wages, depot upkeep, deadhead) are ledger rows that sum to the change in cash, and each cost equals the line inspector's forecast to the cent.
+5. At 24:00 the day card's rows (fares, subsidy, running, wages, depot upkeep, deadhead) are ledger rows that sum to the change in cash, and each cost equals Finance's Day forecast to the cent (the line inspector's, until D25 took the money off the line card), day 2's card against day 2's forecast (STATUS has why).
 
 ## Dates
 

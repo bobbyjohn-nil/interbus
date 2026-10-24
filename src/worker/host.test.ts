@@ -740,15 +740,22 @@ describe('undo while paused (I9)', () => {
     expect(saves()).toHaveLength(saved);
   });
 
-  it('keeps no command taken while time runs', () => {
+  // Kept nothing, the undo after a pause said "Nothing to undo", as though no command had gone through: M4's exit check inserted
+  // a stop at speed and tried one undo (the systems audit's seventeenth round). It says time has passed, as after commands taken
+  // while paused. Shown failing (TS-04) with nothing marked: nothing_to_undo.
+  it('keeps no command taken while time runs, and says time has passed to an undo after it', () => {
     const { host, last } = foundedWithSaves();
     host.handle({ type: 'speed', speed: 3 });
     host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
     host.handle({ type: 'speed', speed: 0 });
     expect(last('snapshot')!.snapshot.undo).toBeNull();
     host.handle({ type: 'undo' });
-    expect(last('refused')).toMatchObject({ reason: 'nothing_to_undo' });
+    expect(last('refused')).toEqual({ type: 'refused', command: 'undo', reason: 'time_has_run' });
     expect(last('snapshot')!.snapshot.depots).toHaveLength(1);
+    // A command taken while paused after that is kept, and the undo takes it back.
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    host.handle({ type: 'undo' });
+    expect(last('snapshot')!.snapshot).toMatchObject({ lines: [], depots: [{}], undo: null });
   });
 });
 
@@ -1435,6 +1442,9 @@ describe('city events (the M4 spec, item 2)', () => {
     for (; day <= 60 && news('tomorrow').length === 0; day++) host.advanceTo(closeOf(day));
     const rolled = news('tomorrow')[0];
     if (!rolled) throw new Error('no roadworks in 60 days');
+    // Rolled at a day's close for the next, they start the day after that, the day the card names (the systems audit's
+    // seventeenth round: its "tomorrow" read as the next day).
+    expect(rolled.startDay).toBe(rolled.day + 2);
     const pending = now();
     expect(pending.event).toMatchObject({ kind: 'roadworks', phase: 'pending', street: rolled.street, daysLeft: rolled.days });
     expect(pending.event!.path.length).toBeGreaterThan(0);

@@ -10,9 +10,9 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 
 "Checklist → profitable day → contract in about 8 min; the report card; overspend → countdown → restart" (PLAN §10 week 6). Concretely, on Inner Boston r1:
 1. Found, place a depot, draw a line and close a day in profit, following the checklist, in about 8 minutes.
-2. "5/5 Take a contract": a HEADWAY contract near Longwood ("every 15 min at Longwood, 10 days") shows today's headway against the ask; meeting it for 10 days pays it, as one ledger row.
-3. Day 10 closes the quarter: the report card grades Coverage, Reliability, Comfort and Money, and pays or fines as a ledger row.
-4. Overspend into the credit line: a countdown chip reads "5 days to get above −$150k"; let it run out and **Restart this quarter** reopens the quarter-start save.
+2. "5/5 Take a contract": a HEADWAY contract shows today's headway against the ask; meeting it 8 days in a row pays it, as one ledger row. Every game deals the same offers (seed 1): "Every 20 min at Kenmore" from Day 2, met by a line from Kenmore to Copley (the systems audit's seventeenth round; the Longwood ask this item named before does not come early).
+3. Day 8 closes the quarter: the report card grades Coverage, Reliability, Comfort and Money, and pays or fines as a ledger row.
+4. Below the credit line: a purchase that would pass −$150k is refused in words, so a close below it comes from days run at a loss, and a first network earns. From a file that owes $160,000 (a session sends one, as `e2e/floor.spec.ts` edits its own), a countdown chip reads "5 days to get above −$150k"; let it run out and **Restart this quarter** reopens the quarter-start save, here where the file was loaded.
 5. Two lines sharing a stop at Kenmore carry riders who transfer (week 7): the stop's card says how many change there (52.6 a day on the fixture, `e2e/transfer.spec.ts`).
 
 ## Dates
