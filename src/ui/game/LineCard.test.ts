@@ -83,6 +83,21 @@ describe('the line card', () => {
     expect(render({ rush: 0.4, cycles: clear }, null, { kind: 'snow', street: '', phase: 'pending' })).not.toContain('snow adds');
   });
 
+  // Snow and roadworks lengthen a round trip and buy no bus: Line 1's 2 Sparrows, set to every 15 min, ran every 16.1 in the
+  // snow (1,934 s over 2), as Contracts said, while the card said only "Every 15 min" (the systems audit's fourteenth round).
+  // Shown failing (TS-04) without the line's running headway on the card.
+  it('says when snow or roadworks leave the line a bus short, and the headway it runs then, as Contracts reads it', () => {
+    const snowy = { headways: { peak: 900, offpeak: 900, overnight: null }, buses: 2, cycle: 1_934, cycles: { peak: 1_934, offpeak: 1_690, overnight: 1_690 } };
+    expect(render(snowy, null, { kind: 'snow', street: '', phase: 'on' })).toContain('>A bus short in the snow: runs every 16.1 min at peak and off-peak<');
+    const works = render({ ...snowy, worksM: 400 }, null, { kind: 'roadworks', street: 'Albany Street', phase: 'on' });
+    expect(works).toContain('>A bus short for the roadworks: runs every 16.1 min at peak and off-peak<');
+    // Every 10 min at peak needs 4 in the snow, 2 more than it has; off-peak, every 30, runs as set.
+    const two = render({ ...snowy, headways: { peak: 600, offpeak: 1_800, overnight: null } }, null, { kind: 'snow', street: '', phase: 'on' });
+    expect(two).toContain('>2 buses short in the snow: runs every 16.1 min at peak<');
+    // On a clear day the 2 run every 15 min as set, and the card says nothing more.
+    expect(render({ ...snowy, cycle: 1_549, cycles: { peak: 1_549, offpeak: 1_400, overnight: 1_400 } })).not.toContain('short');
+  });
+
   it('says Express beside the name of a line of 5 km or more with its stops 1.2 km apart, and nothing beside a local one', () => {
     // The heading the Lines panel draws above its tabs (Inspector.tsx).
     const heading = (change: Partial<LineView>) => renderToStaticMarkup(createElement(LineHeading, { line: lineView(change) }));

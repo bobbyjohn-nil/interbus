@@ -90,7 +90,7 @@ test.describe('medals', () => {
     await card.getByRole('button', { name: 'Continue' }).click();
     await expect(dots).toHaveAttribute('data-held', 'bronze');
     await contracts.click();
-    await expect(ladder.locator('li[data-medal="bronze"]')).toContainText('Since Year 1, Q1, Day 8');
+    await expect(ladder.locator('li[data-medal="bronze"]')).toContainText('· since Year 1, Q1, Day 8');
     const left = Number(await ladder.getAttribute('data-to-silver'));
     expect(left).toBeGreaterThan(0);
     expect(left).toBeLessThan(5_000); // the evening's trips counted
@@ -105,7 +105,7 @@ test.describe('medals', () => {
     await card.getByRole('button', { name: 'Continue' }).click();
     await expect(dots).toHaveAttribute('data-held', 'bronze silver');
     await contracts.click();
-    await expect(silver).toContainText('Since Year 1, Q2, Day 1 · the Goliath is for sale');
+    await expect(silver).toContainText('· since Year 1, Q2, Day 1 · the Goliath is for sale');
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Lines' }).click();
     await models.click();

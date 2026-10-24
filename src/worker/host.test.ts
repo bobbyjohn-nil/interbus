@@ -1216,6 +1216,28 @@ describe('the failure floor', () => {
     expect(last('snapshot')!.snapshot.floor).toEqual({ closesLeft: 2, ended: false });
   });
 
+  // A sale that brought cash back above the floor between closes left the chip counting the days to get above it, until the
+  // next close reset the count (the systems audit's fourteenth round). Shown failing (TS-04) with the countdown kept while a
+  // close below is behind it: { closesLeft: 4, ended: false } at -$97,000.
+  it('counts down only while cash is below the floor: a sale back above it clears the chip, and the close after the count', () => {
+    const { send, last, store, host } = founded();
+    send({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    send({ type: 'create-line', clicks: CLICKS });
+    const save = JSON.parse(store.get(KEY)!) as { data: { closesBelowFloor: number; ledger: { day: number; kind: string; amountCents: number; lineId: null }[] } };
+    save.data.closesBelowFloor = 1;
+    save.data.ledger.push({ day: 1, kind: 'buses', amountCents: -(last('snapshot')!.snapshot.cashCents + 20_000_000), lineId: null });
+    send({ type: 'import', text: JSON.stringify(save) });
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -20_000_000, floor: { closesLeft: 4, ended: false } });
+    send({ type: 'close-line', lineId: 1 }); // its 2 Sparrows sold for $95k and 4 stops for $8k
+    expect(last('snapshot')!.snapshot).toMatchObject({ cashCents: -9_700_000, floor: null });
+    // Still above at midnight: the close resets the count, and no chip comes back.
+    send({ type: 'speed', speed: 5 });
+    for (let t = 0; last('snapshot')!.snapshot.day < 2 && t < 600_000; t += 250) host.tick(t);
+    send({ type: 'export' });
+    expect((JSON.parse(last('export')!.text) as { data: { closesBelowFloor: number } }).data.closesBelowFloor).toBe(0);
+    expect(last('snapshot')!.snapshot.floor).toBeNull();
+  });
+
   // Interest is a running cost (sim/rules/money.ts) and Finance forecasts a day of it while owing; the
   // chip left it out, so here, owing $556,000, it read $333.60 a day less than Finance's running costs.
   // Shown failing (TS-04) with Costs/day summed without the interest.

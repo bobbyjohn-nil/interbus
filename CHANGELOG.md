@@ -289,6 +289,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When a midnight withdraws the offer you were on with the keyboard in Contracts, or pays or ends the contract you were on, the keyboard moves to the contract in its place instead of falling to the page.
 - The “This build was replaced” card stands at the foot of the map, above the dock, so it no longer hides the chips along the top, the red countdown among them, or the headings of the panels you have open.
 - After a reload, Play resumes the speed you last played at, rather than 600×. This browser remembers it, as it remembers which demand dots you show.
+- The red countdown chip goes as soon as a sale brings your cash back above -$150k, rather than at the next midnight. If cash falls below again before midnight, it comes back with the days it had.
+- A line that snow or roadworks leave short of buses says so on its card, with the headway it runs meanwhile, as Contracts measures it: “A bus short in the snow: runs every 16.1 min at peak and off-peak”. Before, the card showed only the headways you set.
+- In the medal ladder, “since” follows its middot in lower case, as the rest of the game’s words do.
 
 ### Removed
 

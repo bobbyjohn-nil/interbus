@@ -1183,7 +1183,8 @@ button.chip.checklist,
   font-weight: 600;
 }
 
-.full {
+.full,
+.short-of-buses {
   font-weight: 600;
 }
 

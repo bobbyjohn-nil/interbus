@@ -87,7 +87,7 @@ export function Contracts({ sim, onClose }: { sim: Sim; onClose: () => void }) {
             const day = s.medals[m];
             const status =
               day !== null
-                ? `Since ${dateText(day)}${m === 'silver' ? ' · the Goliath is for sale' : ''}`
+                ? `since ${dateText(day)}${m === 'silver' ? ' · the Goliath is for sale' : ''}`
                 : m === 'silver'
                   ? // Silver is awarded at the day's close: from 25,000 trips until then the bar read "0 trips to go · unlocks the
                     // Goliath" while the Goliath stayed locked (the systems audit's eighth round).

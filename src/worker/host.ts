@@ -650,8 +650,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
       depots: w.state.depots.map((d) => ({ id: d.id, at: [d.lon, d.lat] })),
       finance: money,
       undo: speed === 0 ? nextUndo(undoStack) : null,
+      // The countdown while cash is below the floor, and the run's end. A sale that brought cash back above it between closes left
+      // the chip counting the days to get above until the next close reset the count (the systems audit's fourteenth round).
       floor:
-        belowFloor(w.state.ledger.cashCents) || w.state.closesBelowFloor > 0
+        belowFloor(w.state.ledger.cashCents) || runEnded(w.state.closesBelowFloor)
           ? { closesLeft: Math.max(0, FAILURE_CLOSES - w.state.closesBelowFloor), ended: runEnded(w.state.closesBelowFloor) }
           : null,
       contracts: contractsNow(w, t.day),
