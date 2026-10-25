@@ -6,6 +6,7 @@ import type { BusModelId, LineDraftView } from "../../sim/types";
 import { refusalText } from "../copy";
 import { Dropdown } from "../Dropdown";
 import { focusLost } from "../focusLost";
+import { useHeldFocus } from "../heldFocus";
 import { about, busCount, every, km, usdK } from "../format";
 import { useBesidePointer } from "./besidePointer";
 import type { Sim } from "./useSim";
@@ -143,17 +144,20 @@ export function DraftCard({
   // does nothing (as a line card's Buy and run): disabled, a close that left the cash short under the keyboard dropped the
   // focus to the page, where Space paused the game with the day's card up (the systems audit's seventeenth round).
   const said = useId();
-  // Remove last stop turns itself off as it takes the last stop, and the focus on it fell to the page, where Space played (the
-  // systems audit's seventeenth round): it goes on to Cancel.
+  // Remove last stop turns itself off as it takes the line's only stop, and Create with it, by a press or by Backspace, Help's
+  // key for it: the focus on either fell to the page, where Space played (the systems audit's seventeenth round, and its review
+  // for Backspace). The control the keyboard has in the card (useHeldFocus) goes on to Cancel, whatever took the stop.
+  const card = useRef<HTMLElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  const removing = useRef(false);
+  const heldRef = useHeldFocus(card);
   useLayoutEffect(() => {
-    if (!removing.current) return;
-    removing.current = false;
-    if (focusLost()) cancel.current?.focus();
+    if (clicks || !heldRef.current || !focusLost()) return;
+    heldRef.current = null;
+    cancel.current?.focus();
   });
   return (
     <section
+      ref={card}
       className="panel tool-card"
       aria-label={title}
       data-testid="draft-card"
@@ -228,10 +232,7 @@ export function DraftCard({
         </button>
         <button
           type="button"
-          onClick={(e) => {
-            removing.current = document.activeElement === e.currentTarget;
-            onUndo();
-          }}
+          onClick={onUndo}
           disabled={!clicks}
         >
           Remove last stop

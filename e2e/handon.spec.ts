@@ -1,10 +1,12 @@
 // The keyboard's focus where the control it is on goes from under it, or turns itself off, by something other than a press that
-// hands the focus on (the systems audit's seventeenth round): Sell it as a close's snow needs its bus, a change card's button as
-// Ctrl+Z takes back the change it was picked against, Remove last stop as it takes the last stop, the Undo chip as its undo is
-// done or time runs, and the Contracts chip as Ctrl+Z turns it back into the checklist's last step. Each time the focus fell to
-// the page, where Space ran the game or stopped it. And Continue on a midnight's card gave the focus to Pause, pressed by the
-// mouse to close the list the keyboard was in as the card showed. Shown failing (TS-04) on main, each with the focus on the page,
-// and Continue's on Pause.
+// hands the focus on (the systems audit's seventeenth round and its review): Sell it as a close's snow needs its bus, a change
+// card's button as Ctrl+Z takes back the change it was picked against, a stop's button as Ctrl+Z takes back the route edit that
+// added its stop, Remove last stop and Create as the last stop goes by a press or Backspace, the Undo chip as its undo is done or
+// time runs, and the Contracts chip as Ctrl+Z turns it back into the checklist's last step. Each time the focus fell to the page,
+// where Space ran the game or stopped it; but a control the mouse focused is handed nothing, so Space plays. And Continue on a
+// midnight's card gave the focus to Pause, pressed by the mouse to close the list the keyboard was in as the card showed. Shown
+// failing (TS-04) on main, each with the focus on the page, and Continue's on Pause; the mouse's case with any focus held, as
+// the round's first fix held it.
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
@@ -93,20 +95,101 @@ test.describe('the focus where the control it is on goes from under it', () => {
     await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
   });
 
-  test('Remove last stop, turned off as it takes the last stop, hands the focus to Cancel', async ({ page }) => {
+  // By its own press, or by Backspace, Help's key for it, which turned off Create with it too (the round's review: Backspace
+  // left the focus on the page from either). Shown failing (TS-04) for Backspace with the hand-on made only by the button's press.
+  test('Remove last stop and Create, turned off as the last stop goes, hand the focus to Cancel', async ({ page }) => {
     await game(page);
     await build(page, 'Draw a line');
     const draft = page.getByTestId('draft-card');
+    const remove = draft.getByRole('button', { name: 'Remove last stop' });
+    const cancel = draft.getByRole('button', { name: 'Cancel' });
     // The map takes the tool's clicks a frame or so after the card shows.
     await frames(page);
     const [x, y] = await toScreen(page, DEBUG_STOPS[0]!.at);
-    await page.mouse.click(x, y);
-    const remove = draft.getByRole('button', { name: 'Remove last stop' });
-    await expect(remove).toBeEnabled();
-    await tabOnto(page, remove);
+    for (const [on, key] of [['Remove last stop', 'Enter'], ['Remove last stop', 'Backspace'], ['Create', 'Backspace']] as const) {
+      await page.mouse.click(x, y);
+      await expect(draft).toContainText('1 stop', { timeout: 10_000 });
+      await tabOnto(page, draft.getByRole('button', { name: on, exact: true }));
+      await page.keyboard.press(key);
+      await expect(remove).toBeDisabled();
+      await expect(cancel, `${key} on ${on}`).toBeFocused();
+    }
+  });
+
+  // A control the mouse focused is not held, nor one a press on the card's text left, which focuses nothing: handed on, the pick's
+  // headway took Space, which opened its list in place of playing (the round's review). The page keeps the focus, and Space
+  // plays, as after Lines' Close it (the review of #156). Shown failing (TS-04) with any focus held, and with the press not
+  // letting it go.
+  test('a change card’s button the mouse focused, or left by a press on the card’s text, hands nothing on: Space plays', async ({ page }) => {
+    test.setTimeout(90_000);
+    const cashOf = (d: SaveData) => (d.ledger as { amountCents: number }[]).reduce((sum, row) => sum + row.amountCents, 0);
+    // 4 buses and the cash $50k above the floor, short of a bus: Every 5 min's Buy and run is refused, so a press does nothing.
+    const panel = await lines(page, (d) => {
+      Object.assign((d.lines as Record<string, unknown>[])[0]!, { buses: 4 });
+      (d.ledger as Record<string, unknown>[]).push({ day: 2, kind: 'buses', amountCents: -10_000_000 - cashOf(d), lineId: null });
+    });
+    const peak = panel.getByTestId('headway-peak');
+    const change = panel.getByTestId('headway-change');
+    const buy = change.getByRole('button', { name: 'Buy and run' });
+    const speed = page.getByTestId('sim-panel');
+    /** Ctrl+Z, taking back every 30 and the pick made against it, then Space: it plays, and opens no list. Space again pauses. */
+    const undoThenSpace = async () => {
+      await page.keyboard.press('Control+z');
+      await expect(change).toHaveCount(0);
+      await page.keyboard.press(' ');
+      await expect(speed).not.toHaveAttribute('data-speed', '0');
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await page.keyboard.press(' ');
+      await expect(speed).toHaveAttribute('data-speed', '0');
+    };
+    // The keyboard: every 30 run, every 5 picked against it, Buy and run reached by Tab, and a press on the card's first words.
+    await tabOnto(page, peak);
+    await pickByKey(page, /^Every 30 min$/);
+    await tabOnto(page, change.getByRole('button', { name: 'Run it' }));
     await page.keyboard.press('Enter');
-    await expect(remove).toBeDisabled();
-    await expect(draft.getByRole('button', { name: 'Cancel' })).toBeFocused();
+    await expect(change).toHaveCount(0);
+    await expect(page.getByTestId('undo')).toBeVisible();
+    await expect(peak).toHaveText('Every 30 min');
+    await pickByKey(page, /^Every 5 min$/);
+    await tabOnto(page, buy);
+    await panel.getByTestId('line-card').locator('p').first().click();
+    await undoThenSpace();
+    // The mouse: the same, and a press on the refused Buy and run, which focuses it.
+    await peak.click();
+    await page.getByRole('option', { name: 'Every 30 min', exact: true }).click();
+    await change.getByRole('button', { name: 'Run it' }).click();
+    await expect(change).toHaveCount(0);
+    await expect(peak).toHaveText('Every 30 min');
+    await peak.click();
+    await page.getByRole('option', { name: 'Every 5 min', exact: true }).click();
+    await expect(change).toHaveAttribute('data-ok', 'no');
+    await buy.click({ force: true });
+    await expect(buy).toBeFocused();
+    await undoThenSpace();
+  });
+
+  // The stops row's buttons are the card's controls too: Ctrl+Z, taking back the route edit that added the last stop, took its
+  // button from under the keyboard, and the focus fell to the page (the round's review). It goes to the stop in its place, or
+  // the row's last. Shown failing (TS-04) with no hand-on for the row.
+  test('a stop’s button, gone as Ctrl+Z takes back the route edit that added it, hands the focus to the row’s last', async ({ page }) => {
+    test.setTimeout(90_000);
+    const panel = await lines(page);
+    await panel.getByRole('button', { name: 'Edit route' }).click();
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    await frames(page);
+    const [x, y] = await toScreen(page, [-71.098, 42.346]);
+    await page.mouse.click(x, y);
+    await expect(editor).toHaveAttribute('data-price', /^[1-9]\d*$/, { timeout: 10_000 });
+    await expect(editor).toHaveAttribute('data-refusal', '');
+    await editor.getByRole('button', { name: 'Save route' }).click();
+    await expect(editor).toHaveCount(0, { timeout: 10_000 });
+    const row = page.getByTestId('inspector').getByTestId('line-stops').getByRole('button');
+    await expect(row).toHaveCount(DEBUG_STOPS.length + 1);
+    await tabOnto(page, row.last());
+    await page.keyboard.press('Control+z');
+    await expect(row).toHaveCount(DEBUG_STOPS.length);
+    await expect(row.last()).toBeFocused();
   });
 
   test('the Undo chip, gone as its undo is done or as time runs, hands the focus to Play or Pause', async ({ page }) => {

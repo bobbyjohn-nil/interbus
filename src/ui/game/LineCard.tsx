@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { busesNeeded, cyclesOf } from '../../sim/rules/cycle';
 import { HEADWAY_MINUTES, sameHeadways, type Period } from '../../sim/rules/periods';
 import { BUS_MODELS, MODEL_IDS, checkHeadwayChange, checkModelChange, checkSellSpares, type FleetContext } from '../../sim/rules/line';
@@ -11,6 +11,7 @@ import { Dropdown } from '../Dropdown';
 import { useFocusBack } from '../focusBack';
 import { focusLost } from '../focusLost';
 import { giveFocus } from '../giveFocus';
+import { useHeldFocus } from '../heldFocus';
 import { showInBody } from '../showWhole';
 import { runOver } from './runOver';
 import { about, busCount, clock, duration, figureText, PERIOD_NAMES, streetName, usd, usdK } from '../format';
@@ -149,6 +150,11 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   const lastPeriod = useRef<Period>('peak');
   const toModel = () => root.current?.querySelector<HTMLElement>('[data-testid="line-model"]');
   const toHeadway = () => root.current?.querySelector<HTMLElement>(`[data-testid="headway-${lastPeriod.current}"]`);
+  /** The stop's button `k`th in the stops row, or the row's last where the row is shorter now. */
+  const toStop = (k: number) => {
+    const row = root.current?.querySelectorAll<HTMLElement>('[data-testid="line-stops"] button');
+    return row?.length ? (row[Math.min(k, row.length - 1)] ?? null) : null;
+  };
   // What a change card says, which describes its button and is its status: refused, the words why are heard as they come and
   // as the button is reached (the review of the systems audit's sixteenth round: refused, nothing said why).
   const changeSaid = useId();
@@ -156,23 +162,26 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   // A control of the card that goes from under the keyboard by something other than its own press, which hands the focus on
   // (handBack), gives it to the control its card came from: Sell it, gone as a close's snow left the line needing every bus,
   // and a change card's buttons, gone as Ctrl+Z took back the change their pick was made against. The focus fell to the page,
-  // where Space ran the game (the systems audit's seventeenth round). The control the focus was on is kept as the focus comes
-  // to it, and let go as it goes anywhere else; off the page, it still names the card it was in.
-  const focusedIn = useRef<Element | null>(null);
-  useEffect(() => {
-    const moved = (event: FocusEvent) => {
-      const to = event.target instanceof Element ? event.target : null;
-      focusedIn.current = to && root.current?.contains(to) ? to : null;
-    };
-    document.addEventListener('focusin', moved, true);
-    return () => document.removeEventListener('focusin', moved, true);
-  }, []);
+  // where Space ran the game (the systems audit's seventeenth round). A stop's button, gone as Ctrl+Z took back the route edit
+  // that added its stop, gives it to the stop now in its place in the row, or to the row's last (the round's review). Only the
+  // control the keyboard has is handed on (useHeldFocus): one the mouse focused, or left by a press on the card's text, handed
+  // the headway Space, which opened its list in place of playing (the round's review).
+  const heldRef = useHeldFocus(root);
   useLayoutEffect(() => {
-    const was = focusedIn.current;
+    const was = heldRef.current;
     if (!was || was.isConnected || !focusLost()) return;
-    focusedIn.current = null;
+    heldRef.current = null;
+    // A change card goes whole, its buttons in it; a stop's button goes alone, out of its row.
     const card = was.closest('[data-testid]')?.getAttribute('data-testid');
-    const to = card === 'headway-change' ? toHeadway() : card === 'model-change' || card === 'line-spares' ? toModel() : null;
+    const stopAt = was.getAttribute('data-stop-at');
+    const to =
+      stopAt !== null
+        ? toStop(Number(stopAt))
+        : card === 'headway-change'
+          ? toHeadway()
+          : card === 'model-change' || card === 'line-spares'
+            ? toModel()
+            : null;
     if (to) giveFocus(to);
   });
   const s = sim.snapshot;
@@ -367,8 +376,8 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
         // (the accessibility pass). Last, so one Tab still goes from the tabs to Buses (many.spec), not through every stop.
         <p className="stops" data-testid="line-stops">
           Stops
-          {line.stopIds.map((id) => (
-            <button key={id} type="button" aria-label={`Stop ${id}`} onClick={(e) => onStop(id, e.currentTarget)}>
+          {line.stopIds.map((id, k) => (
+            <button key={id} type="button" aria-label={`Stop ${id}`} data-stop-at={k} onClick={(e) => onStop(id, e.currentTarget)}>
               {id}
             </button>
           ))}

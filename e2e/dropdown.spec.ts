@@ -4,7 +4,7 @@
 // every option in reach of the mouse. Shown failing (TS-04) on the dropdown before the systems
 // audit's (D26) fix: End left the highlighted $5.00 hidden in the list, and under a button low in the
 // window the fare list ran past the window's bottom, its last fares out of reach.
-import { expect, test, type Locator } from './base';
+import { expect, test, type Locator, type Page } from './base';
 import { FARES_CENTS } from '../src/sim/rules/fare';
 import { usd } from '../src/ui/format';
 import { foundCompany } from './found';
@@ -110,11 +110,9 @@ test.describe('the game’s dropdown', () => {
     await expect(fare).toContainText(fareText(FARES_CENTS.length - 1));
   });
 
-  // Finance dragged past the window's right edge, the keyboard kept on a fare through the drag (a drag's press keeps the focus
-  // where it was): ArrowDown opened the fare's list wholly off the window, holding the keys, and Enter set a fare unseen (the
-  // systems audit's seventeenth round). A key that acts on the control the keyboard is on brings its panel in first, as Tab does.
-  // Shown failing (TS-04) with no key's reveal: the list lay at x 1313–1377 on the 1152-wide window.
-  test('opens beside its button in a panel dragged past the window’s edge, the key bringing the panel in', async ({ page }) => {
+  /** Finance dragged past the window's right edge, the keyboard kept on Line 1's fare through the drag: the fare's button, and
+   *  where the panel stands. */
+  async function fareDraggedOff(page: Page) {
     await page.setViewportSize({ width: W, height: H });
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
@@ -135,17 +133,47 @@ test.describe('the game’s dropdown', () => {
     await page.mouse.move(h.x + 10 + W, h.y + h.height / 2, { steps: 8 });
     await page.mouse.up();
     await expect(fare).toBeFocused();
-    expect((await page.locator('[data-movable="finance"]').boundingBox())!.x).toBeGreaterThan(W - 100);
-    await page.keyboard.press('ArrowDown');
-    const list = page.getByRole('listbox', { name: 'Fare for Line 1' });
-    await expect(list).toBeFocused();
-    const [b, l] = [(await fare.boundingBox())!, (await list.boundingBox())!];
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.width).toBeLessThanOrEqual(W);
-    expect(l.x).toBeGreaterThanOrEqual(0);
-    expect(l.x + l.width).toBeLessThanOrEqual(W);
-    await page.keyboard.press('Escape');
-    await expect(fare).toBeFocused();
+    const at = () => page.locator('[data-movable="finance"]').boundingBox().then((b) => b!.x);
+    expect(await at()).toBeGreaterThan(W - 100);
+    return { fare, at };
+  }
+
+  // Finance dragged past the window's right edge, the keyboard kept on a fare through the drag (a drag's press keeps the focus
+  // where it was): ArrowDown opened the fare's list wholly off the window, holding the keys, and Enter set a fare unseen (the
+  // systems audit's seventeenth round). A key that works the control the keyboard is on brings its panel in first, as Tab does:
+  // ArrowDown, which the list's button takes to open its list, and Enter, which presses it. Shown failing (TS-04) with no key's
+  // reveal (the list at x 1313–1377 on the 1152-wide window), and for Enter with only the keys a control takes.
+  for (const key of ['ArrowDown', 'Enter'])
+    test(`opens beside its button in a panel dragged past the window’s edge, ${key} bringing the panel in`, async ({ page }) => {
+      const { fare } = await fareDraggedOff(page);
+      await page.keyboard.press(key);
+      const list = page.getByRole('listbox', { name: 'Fare for Line 1' });
+      await expect(list).toBeFocused();
+      const [b, l] = [(await fare.boundingBox())!, (await list.boundingBox())!];
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(W);
+      expect(l.x).toBeGreaterThanOrEqual(0);
+      expect(l.x + l.width).toBeLessThanOrEqual(W);
+      await page.keyboard.press('Escape');
+      await expect(fare).toBeFocused();
+    });
+
+  // A key that works nothing there moves nothing: Space, which plays and pauses once a press has dragged the panel (the fare's
+  // button keeps Space only where the keyboard brought the focus to it), brought the panel back as it played, and so did an
+  // arrow the fare's button takes no notice of, where a player had just dragged it out of the way (the round's review). Shown
+  // failing (TS-04) with every acting key bringing it in, Space among them.
+  test('leaves a panel dragged past the window’s edge where it is for Space, which plays, and for a key that works nothing', async ({ page }) => {
+    const { at } = await fareDraggedOff(page);
+    const was = await at();
+    const speed = page.getByTestId('sim-panel');
+    await page.keyboard.press(' ');
+    await expect(speed).not.toHaveAttribute('data-speed', '0');
+    expect(await at()).toBe(was);
+    for (const key of ['ArrowRight', 'ArrowLeft', 'PageDown', 'Home']) await page.keyboard.press(key);
+    await page.keyboard.press(' ');
+    await expect(speed).toHaveAttribute('data-speed', '0');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    expect(await at()).toBe(was);
   });
 
   // The new line's Buses list, opened with the line's card in its free place at the window's right, started at its button's left

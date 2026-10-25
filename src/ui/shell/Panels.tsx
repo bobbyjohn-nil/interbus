@@ -64,9 +64,6 @@ export const keptWhole = (at: { x: number; y: number }, w: number, width: number
   y: Math.round(Math.max(TOP, Math.min(height - BOTTOM - MIN_ROOM, at.y))),
 });
 
-/** The keys that act on the control the keyboard is on (press, open, move, pick), rather than move the focus or a shortcut's. */
-const ACTING_KEYS: ReadonlySet<string> = new Set(["Enter", " ", "ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
-
 /**
  * Where a panel at `at` goes so that `control`, the part of it the keyboard's focus reached (its left and right in the
  * window), shows whole: moved across as little as brings it GAP inside the window `width` wide, or null where it shows
@@ -368,11 +365,15 @@ export function Panels({
 
   const raise = (id: string) => setRaised((r) => (r.at(-1) === id ? r : [...r.filter((x) => x !== id), id]));
   // A control the keyboard focuses past the window's edge brings its panel in as far as shows it (showing), and the panel
-  // stays there, as if dragged there; so does a key that acts on the control the keyboard is on there (ACTING_KEYS), as a drag
-  // keeps the focus where it was. A list then opens beside a button in view: from Finance dragged past the window's right edge,
-  // ArrowDown on a fare kept by the keyboard through the drag opened its list wholly off the window, holding the keys, and
-  // Enter set a fare unseen (the systems audit's seventeenth round). A control in a change card or an ask, such as Close
-  // line's, shows its card whole, so its words are read: 70% of Close line's ask lay past the edge as Close it was pressed.
+  // stays there, as if dragged there; so does a key that works the control the keyboard is on there, as a drag keeps the focus
+  // where it was: one that presses a button (a click no pointer made: Enter, or Space where App leaves Space to the button) or
+  // one a control takes for itself (its handler stops the key's own default, as a list's button does ArrowDown and ArrowUp to
+  // open its list). A list then opens beside a button in view: from Finance dragged past the window's right edge, ArrowDown on
+  // a fare kept by the keyboard through the drag opened its list wholly off the window, holding the keys, and Enter set a fare
+  // unseen (the systems audit's seventeenth round). A key that works nothing there moves nothing: Space, which plays and pauses
+  // once a press has dragged the panel, brought it back as it did, and so did an arrow on a plain button (the round's review).
+  // A control in a change card or an ask, such as Close line's, shows its card whole, so its words are read: 70% of Close
+  // line's ask lay past the edge as Close it was pressed.
   // Only the keyboard's focus moves it (:focus-visible): a press focuses what is under the pointer, on screen already, though
   // a Saves row it focuses may run on past the edge. A dropdown's open list is portaled to the page, placed beside its button
   // (React's focus and keys still bubble here), so it moves no panel.
@@ -425,8 +426,11 @@ export function Panels({
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
             onFocus={(e) => reveal(e.currentTarget, e.target, id)}
-            onKeyDownCapture={(e) => {
-              if (ACTING_KEYS.has(e.key)) reveal(e.currentTarget, e.target, id);
+            onClickCapture={(e) => {
+              if (e.detail === 0) reveal(e.currentTarget, e.target, id);
+            }}
+            onKeyDown={(e) => {
+              if (e.isDefaultPrevented()) reveal(e.currentTarget, e.target, id);
             }}
           >
             {node}

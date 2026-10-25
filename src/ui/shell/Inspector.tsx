@@ -7,6 +7,7 @@ import { runOver } from "../game/runOver";
 import { showInBody } from "../showWhole";
 import { useFocusBack, type HandBack } from "../focusBack";
 import { focusLost } from "../focusLost";
+import { useHeldFocus } from "../heldFocus";
 import { LineCard, LineHeading } from "../game/LineCard";
 import type { Sim } from "../game/useSim";
 import { tabTo } from "../tablist";
@@ -72,32 +73,17 @@ export function Inspector({
   // not held, so after the mouse's Close it the undo leaves the page focused, where Space plays: held, the undo's key handed
   // the tab Space (the review of #156). Only as the line shown changes, so the run's end, which turns controls off, still
   // gives the day card's Continue the focus (DayCard).
-  const held = useRef<Element | null>(null);
-  useEffect(() => {
-    const focusIn = (event: FocusEvent) => {
-      const at = event.target;
-      held.current = at instanceof Element && panel.current?.contains(at) && at.matches(":focus-visible") ? at : null;
-    };
-    const press = (event: PointerEvent) => {
-      if (!(event.target instanceof Node && held.current?.contains(event.target))) held.current = null;
-    };
-    document.addEventListener("focusin", focusIn, true);
-    document.addEventListener("pointerdown", press, true);
-    return () => {
-      document.removeEventListener("focusin", focusIn, true);
-      document.removeEventListener("pointerdown", press, true);
-    };
-  }, []);
+  const heldRef = useHeldFocus(panel);
   const shownId = line?.id;
   useEffect(() => {
-    const was = held.current;
+    const was = heldRef.current;
     if (!was) return;
     const gone = !was.isConnected && focusLost();
     const unchosen = document.activeElement === was && was.getAttribute("role") === "tab" && was.getAttribute("aria-selected") !== "true";
     if (!gone && !unchosen) return;
-    held.current = null;
+    heldRef.current = null;
     panel.current?.querySelector<HTMLElement>(SHOWN)?.focus();
-  }, [shownId]);
+  }, [shownId, heldRef]);
   if (!line) return null;
   const model = BUS_MODELS[line.model];
   // What closing it sells and takes down, on the rule the command checks (sim/rules/route.ts closingOf; GD-05).
