@@ -2,7 +2,9 @@
 // over a panel or Home's card they zoomed the whole page, 1.6 times at a pinch, the chips, the dock and the map's credit out of
 // view, and Chrome kept the page zoomed through a reload (the systems audit's seventeenth round). CDP's synthesizePinchGesture with
 // the mouse as its source is Chrome's own touchpad pinch, as a Mac's trackpad sends it, at a Mac's scale factor. Shown failing
-// (TS-04) with no cancel: the page's scale read 1.6 after a pinch over Home's card and over Finance.
+// (TS-04) with no cancel: the page's scale read 1.6 after a pinch over Home's card and over Finance. And a page zoomed before the
+// game's code ran, by a pinch over the splash, pinches back out (the eighteenth round): shown failing with every pinch off the
+// map cancelled, the page's scale stayed 1.6.
 import { expect, test, type Page } from './base';
 import { foundCompany } from './found';
 
@@ -38,4 +40,22 @@ test('a pinch over Home’s card or a panel leaves the page as it is, and over t
   await pinchAt(page, 300, 400, 1.6);
   await expect.poll(() => mapZoom(page)).toBeGreaterThan(before);
   expect(await pageScale(page)).toBe(1);
+});
+
+test('a page zoomed by a pinch before the game’s code ran pinches back out over Home’s card', async ({ page }) => {
+  test.setTimeout(90_000);
+  // The game's code held back as a slow line holds it, so the splash stands with nothing listening yet.
+  await page.route(/\/assets\/index-[^/]*\.js$/, async (route) => {
+    await new Promise((done) => setTimeout(done, 3_000));
+    await route.continue();
+  });
+  await page.goto('./', { waitUntil: 'commit' });
+  await expect(page.locator('#boot')).toBeVisible({ timeout: 10_000 });
+  await pinchAt(page, 720, 395, 1.6);
+  await expect.poll(() => pageScale(page)).toBeGreaterThan(1.5);
+  await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  // Out again over Home's card: Playwright's box is in the zoomed view's place, as the pinch's place is.
+  const home = (await page.getByTestId('home').boundingBox())!;
+  await pinchAt(page, home.x + home.width / 2, home.y + 40, 1 / 1.6);
+  await expect.poll(() => pageScale(page)).toBeLessThan(1.01);
 });

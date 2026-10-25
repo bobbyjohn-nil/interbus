@@ -305,6 +305,40 @@ test.describe('movable panels', () => {
     }
   });
 
+  // A pile a zoom made, with no free place, comes apart once there is room again, and a panel the window's height caps, grown
+  // back as the window does, does not lie over the one placed under it: only a drag's overlaps stay (the systems audit's
+  // eighteenth round). Kept as they lay before each change, Contracts lay 280×267 px over Lines back at 100% after 150%, and
+  // Finance 28×27 px over Saves' heading after 125%. Shown failing (TS-04) with every overlap from before a change kept.
+  test('bring panels a zoom piled up apart again as the window grows back', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1440, height: 790 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    const panels = [page.getByTestId('inspector'), page.getByTestId('finance'), page.getByTestId('contracts'), page.getByTestId('saves')];
+    for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+    await page.getByTestId('checklist').click(); // "5/5 Take a contract" opens Contracts
+    await page.getByRole('button', { name: 'Saves' }).click();
+    for (const panel of panels) await expect(panel).toBeVisible();
+    // Finance's Breakdown, every group open, runs to the window's height cap.
+    const finance = panels[1]!;
+    await finance.getByTestId('finance-breakdown').click();
+    for (const group of await finance.locator('tr[data-open="no"] button').all()) await group.click();
+    const overlaps = async () => {
+      const found: string[] = [];
+      for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) if (!(await apart(panels[i]!, panels[j]!))) found.push(`${i}×${j}`);
+      return found;
+    };
+    expect(await overlaps()).toEqual([]);
+    // Chrome's 150% and 125% on the owner's Mac at 1440×790, each and back.
+    for (const [width, height] of [[960, 527], [1152, 632]] as const) {
+      await resizeTo(page, width, height);
+      await resizeTo(page, 1440, 790);
+      expect(await overlaps(), `back from ${width}×${height}`).toEqual([]);
+    }
+  });
+
   // One that a drag left lying over another stays where it is as the window changes size: placed afresh at any change of size,
   // Saves, with Finance dragged onto it, jumped from x 582 to 1108 as the window grew (the review of the systems audit's
   // seventeenth round's fixes). Shown failing (TS-04) with every panel lying over another placed afresh.

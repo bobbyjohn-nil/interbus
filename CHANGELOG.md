@@ -324,6 +324,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ctrl+Z in a stop's card you opened from the line card's stops gives the keyboard to Lines, so Space plays. Before, it went to the dock's Lines button, and the next Space closed Lines.
 - Continue on a midnight's card hands the keyboard back to Cancel when the new line's card had handed it there, as Remove last stop or Backspace took the only stop. Before, it went to the card itself.
 - A panel you dragged past the window's edge opens where you left it after a key's press closes it, such as Enter on its × or on the route editor's Save route, and Home on its first tab no longer moves it. Close line's question shows whole as the keyboard opens it there. Before, the press moved where the panel opened next, Home moved the panel, and the question opened partly off the window.
+- Panels that the browser's zoom piled up, with no room to place them apart, come apart again as the window grows back, and a panel that grows taller with the window no longer lies over the one placed under it. Before, they stayed piled back at 100%, Contracts over Lines.
+- A page zoomed by a pinch before the game had loaded, over its splash, or on an earlier build, can be pinched back out over anything but the map. Before, every pinch off the map was stopped, so the page stayed zoomed.
+- A city event that starts in the next year names the year on the day card, as in "Snow from Q1 Day 1 of Year 2". Before, a year's last cards named next year's first days as if they were this year's.
 
 ### Removed
 

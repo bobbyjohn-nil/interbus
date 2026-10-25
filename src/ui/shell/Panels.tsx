@@ -110,6 +110,16 @@ function put(box: HTMLElement, at: { x: number; y: number }): void {
   box.style.setProperty("--room", `${roomBelow(at.y, window.innerHeight)}px`);
 }
 
+/** A box's place and size on the window. */
+const rectOf = (box: Element): Rect => {
+  const r = box.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+};
+/** Whether two places overlap. */
+const across = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+/** Two panels' ids as one key, either way round. */
+const pairOf = (a: string, b: string) => (a < b ? `${a} ${b}` : `${b} ${a}`);
+
 /**
  * What a panel took the keyboard's focus from as it opened (`at`), and the panel that held it (`in`). One that took it from a
  * panel going as it opened, as the route editor takes Lines' place and Lines the editor's, has no control (`at` null), only
@@ -224,6 +234,8 @@ export function Panels({
   const placed = useRef(new Set<string>());
   /** Where a dragged panel lay before a key's press brought it in (reveal), until the next key or press: for a panel that closes. */
   const pressedFrom = useRef<{ readonly id: string; readonly was: { readonly x: number; readonly y: number } } | null>(null);
+  /** The panels a drag left lying over each other (pairOf), which a change of the window's size leaves so. */
+  const dropped = useRef(new Set<string>());
 
   useLayoutEffect(() => {
     const open = new Set(items.map((i) => i.id));
@@ -243,6 +255,7 @@ export function Panels({
       // Where it was dragged to, kept in reach of a window narrower since.
       const was = dragged.current.get(id);
       put(box, was ? inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight) : freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight, clear));
+      if (!was) for (const key of dropped.current) if (key.split(" ").includes(id)) dropped.current.delete(key);
       placed.current.add(id);
     }
   });
@@ -347,21 +360,17 @@ export function Panels({
   }, [focus]);
 
   // A window that changes size keeps a dragged panel in reach, as a drag does, and one in a free place whole; and one in a free
-  // place that the change left over another it lay clear of, a dragged one or one it opened after, is placed afresh beside them,
-  // as on opening. Kept whole one by one, Lines, Finance and Contracts piled up as Chrome's zoom went to 110%, Finance 119×302 px
-  // over Lines, and stayed piled once it was back at 100% (the systems audit's seventeenth round). One a drag left lying over
-  // another stays where it was: placed afresh at any change of size, Saves, with Finance dragged onto it, jumped across the
-  // window as it grew (the review of the round's fixes).
+  // place that the change leaves over another, a dragged one or one it opened after, is placed afresh beside them, as on
+  // opening. Kept whole one by one, Lines, Finance and Contracts piled up as Chrome's zoom went to 110%, Finance 119×302 px over
+  // Lines, and stayed piled once it was back at 100% (the systems audit's seventeenth round). One a drag left lying over another
+  // stays where it was (`dropped`): placed afresh at any change of size, Saves, with Finance dragged onto it, jumped across the
+  // window as it grew (the review of the round's fixes). Only a drag's: kept as they lay before the change, the panels a zoom
+  // with no free place had piled stayed piled once there was room again, Contracts 280×267 px over Lines at 100% after 150%,
+  // and a panel the window's height caps, grown back as the change came, lay over the one placed under it (the eighteenth
+  // round).
   useEffect(() => {
-    const rectOf = (box: HTMLElement): Rect => {
-      const r = box.getBoundingClientRect();
-      return { x: r.left, y: r.top, w: r.width, h: r.height };
-    };
-    const across = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
     const resize = () => {
       const [width, height] = [window.innerWidth, window.innerHeight];
-      // Where each panel lay before this change of size, its place set in pixels and so left where it was by the window.
-      const was = new Map([...boxes.current].map(([id, box]) => [id, rectOf(box)]));
       const settled: { readonly id: string; readonly at: Rect }[] = [];
       for (const [id, box] of boxes.current) {
         if (!dragged.current.has(id)) continue;
@@ -378,11 +387,7 @@ export function Panels({
         if (!box || dragged.current.has(id)) continue;
         const r = box.getBoundingClientRect();
         put(box, keptWhole({ x: r.left, y: r.top }, r.width, width, height));
-        const before = was.get(id);
-        const piled = settled.some((other) => {
-          const then = was.get(other.id);
-          return across(rectOf(box), other.at) && !(before && then && across(before, then));
-        });
+        const piled = settled.some((other) => across(rectOf(box), other.at) && !dropped.current.has(pairOf(id, other.id)));
         if (piled) put(box, freePlace(box.offsetWidth, box.offsetHeight, settled.map((s) => s.at), width, height, clear));
         settled.push({ id, at: rectOf(box) });
       }
@@ -444,7 +449,11 @@ export function Panels({
       box.removeEventListener("pointercancel", end);
       box.classList.remove("dragging");
       // A press that did not move is a press, not a drag: the panel keeps a free place next time.
-      if (e.clientX !== x0 || e.clientY !== y0) dragged.current.set(id, place(e.clientX, e.clientY));
+      if (e.clientX === x0 && e.clientY === y0) return;
+      dragged.current.set(id, place(e.clientX, e.clientY));
+      // And the panels it is left lying over, which a resize leaves so.
+      for (const key of dropped.current) if (key.split(" ").includes(id)) dropped.current.delete(key);
+      for (const [other, at] of boxes.current) if (other !== id && across(rectOf(box), rectOf(at))) dropped.current.add(pairOf(id, other));
     };
     box.addEventListener("pointermove", move);
     box.addEventListener("pointerup", end);
