@@ -69,6 +69,27 @@ describe('number copy', () => {
   });
 });
 
+// The systems audit's eighteenth round: a year's last two closes roll events that start in the next year, and the card
+// headed "Year 1, Q4, Day 7 closed" said "Snow from Q1 Day 1", which read as a day nine months back. Eight days to a quarter,
+// four quarters to a year: day 33 is Year 2's first. Shown failing (TS-04) with the year left out.
+describe('a city event’s day on the day card', () => {
+  it('names the year of a start in a later year than the day the card closes, and only then', () => {
+    const texts = [
+      eventNewsText({ kind: 'snow', street: '', startDay: 33, days: 1, news: 'tomorrow' }, 31),
+      eventNewsText({ kind: 'roadworks', street: 'Longwood Avenue', startDay: 34, days: 4, news: 'tomorrow' }, 32),
+      eventNewsText({ kind: 'snow', street: '', startDay: 32, days: 2, news: 'tomorrow' }, 30),
+      eventNewsText({ kind: 'festival', street: '', startDay: 3, days: 2, news: 'tomorrow' }, 1),
+    ];
+    expect(texts).toEqual([
+      'Snow from Q1 Day 1 of Year 2, for 1 day: every bus drives slower',
+      'Roadworks on Longwood Avenue from Q1 Day 2 of Year 2, for 4 days',
+      'Snow from Q4 Day 8, for 2 days: every bus drives slower',
+      'A festival from Q1 Day 3, for 2 days: more riders to and from there',
+    ]);
+    for (const text of texts) expect(copyProblem(text), text).toBeNull();
+  });
+});
+
 // The systems audit's twelfth round: the city's street names are OpenStreetMap's, and 25 of Inner Boston's 3,535 broke the copy
 // convention in the game's own sentences (D25): "Roadworks on Monsignor O'Brien Highway tomorrow, for 4 days" on the day card (since, "from Q1 Day 3"), and
 // "roadworks on Monsignor O'Brien Highway add 1 min 1 s" on the line card. 18 had a straight apostrophe, 6 were a route's number

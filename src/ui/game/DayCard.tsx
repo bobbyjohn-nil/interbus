@@ -220,7 +220,7 @@ export function DayCard({
         ))}
         {card.events.map((e) => (
           <p key={e.news} className="event-news" data-testid="event-news" data-news={e.news}>
-            {eventNewsText(e)}
+            {eventNewsText(e, card.day)}
           </p>
         ))}
         <table>

@@ -195,20 +195,28 @@ export function streetName(name: string): string {
   return interstate ? `I-${interstate[1]}` : name.replace(/'/g, '’');
 }
 
-/** "Q2 Day 4": a game day as the clock chip names it, the year left to the title. */
-export function dayText(day: number): string {
-  const { quarter, dayOfQuarter } = calendarOfDay(day);
-  return `Q${quarter} Day ${dayOfQuarter}`;
+/**
+ * "Q2 Day 4": a game day as the clock chip names it, the year left to the title; told on day `on`, a day of another year names
+ * its year, as the next year's do, "Q1 Day 1 of Year 2": under "Year 1, Q4, Day 7 closed", a day card's "Snow from Q1 Day 1" read
+ * as a day nine months back (the systems audit's eighteenth round).
+ */
+export function dayText(day: number, on?: number): string {
+  const { year, quarter, dayOfQuarter } = calendarOfDay(day);
+  const later = on !== undefined && year !== calendarOfDay(on).year;
+  return `Q${quarter} Day ${dayOfQuarter}${later ? ` of Year ${year}` : ''}`;
 }
 
 /**
  * A city event's notice on the day card (the M4 spec, item 2): rolled at the close, from the day it starts, or over. Rolled at a
  * close it starts the day after the next, and "tomorrow" on the closed day's card read as the next day: the works were still to
  * come all that day (the systems audit's seventeenth round). So it names its day, as the map's marker reads "tomorrow" the day
- * before.
+ * before. `on` is the day the card closes, for the year of a start in the next (dayText).
  */
-export function eventNewsText(e: { readonly kind: 'roadworks' | 'festival' | 'snow'; readonly street: string; readonly startDay: number; readonly days: number; readonly news: 'tomorrow' | 'over' }): string {
-  const when = `from ${dayText(e.startDay)}, for ${e.days} ${e.days === 1 ? 'day' : 'days'}`;
+export function eventNewsText(
+  e: { readonly kind: 'roadworks' | 'festival' | 'snow'; readonly street: string; readonly startDay: number; readonly days: number; readonly news: 'tomorrow' | 'over' },
+  on?: number,
+): string {
+  const when = `from ${dayText(e.startDay, on)}, for ${e.days} ${e.days === 1 ? 'day' : 'days'}`;
   const street = streetName(e.street);
   if (e.kind === 'festival') {
     const near = street ? ` near ${street}` : '';
