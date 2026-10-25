@@ -117,10 +117,12 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
 
   Its review found 2 minor issues and 4 nits in the fixes, all fixed before the merge: Space brought a dragged panel back as it played; the line card handed on a control the mouse had focused, which then took Space; and Backspace and the stops row's buttons were not covered.
 - [ ] **Round 18** (2026-10-25; DECISIONS, Measured): two lanes at 54245e7, on the shipped build, Inner Boston, and the fixture. The first played the edges of #187's fixes and found 8, 2 minor and 6 nits, four of them new in #187, which [#188](https://github.com/bobbyjohn-nil/interbus/pull/188) fixes:
-  - a drag of a panel by its heading let the keyboard's control go, though the focus stayed, so its hand-on gave the page the focus (the hold now lets go only of a control a press took the focus from);
+  - a drag of a panel by its heading let the keyboard's control go, though the focus stayed, so its hand-on gave the page the focus (the hold now lets a control go only as the focus leaves it for the page, and keeps one the page takes away or turns off until a press);
   - Ctrl+Z, taking back the save a route edit was made on, took the route editor's rows and Save route from under the keyboard (they hand on as the editor's own presses do), and Ctrl+Z in a stop's card gave the dock's Lines the focus, where Space closed Lines (a panel still open takes it);
   - Continue did not follow the new line's card's hand-on to Cancel;
   - a key's press that closed a dragged panel moved where it opened next, Close line's ask opened two thirds on the window, and Home on the first view tab moved the panel.
+
+  Its review found 1 minor issue and 2 nits in the fixes, all fixed before the merge: Save route pressed by Enter gave Cancel the keyboard while its save was on its way, so a second Enter closed the editor on the old route; a key's press that closed its panel only once the sim answered, as Save route and Create do, still moved where it opened next; and a press on the route editor's words could hand a row's button the focus, 1 press in 190.
 
   The second played #186's fixes and the exit checks' new words, at your Mac's and the artist's PC's windows, and found 6, 4 minor and 2 nits, whose fixes come next: panels a zoom piled up stay piled when there is room again, and a capped panel grows back over the one placed under it; a page zoomed before the game's script ran cannot be pinched back; M2's item 5 asks for cents Finance does not show, and names mini-Boston and the rows' inner names; and a year's last closes name next year's days without the year.
 

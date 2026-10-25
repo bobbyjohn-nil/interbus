@@ -222,6 +222,8 @@ export function Panels({
   const dragged = useRef(new Map<string, { x: number; y: number }>());
   /** The panels placed since they opened; one that closes is placed afresh when it opens again. */
   const placed = useRef(new Set<string>());
+  /** Where a dragged panel lay before a key's press brought it in (reveal), until the next key or press: for a panel that closes. */
+  const pressedFrom = useRef<{ readonly id: string; readonly was: { readonly x: number; readonly y: number } } | null>(null);
 
   useLayoutEffect(() => {
     const open = new Set(items.map((i) => i.id));
@@ -289,11 +291,18 @@ export function Panels({
     const at = (event: Event) => {
       lastIn.current = (event.target instanceof Element ? event.target.closest("[data-movable]")?.getAttribute("data-movable") : null) ?? null;
     };
+    const next = () => {
+      pressedFrom.current = null;
+    };
     document.addEventListener("focusin", at, true);
     document.addEventListener("pointerdown", at, true);
+    window.addEventListener("keydown", next, true);
+    window.addEventListener("pointerdown", next, true);
     return () => {
       document.removeEventListener("focusin", at, true);
       document.removeEventListener("pointerdown", at, true);
+      window.removeEventListener("keydown", next, true);
+      window.removeEventListener("pointerdown", next, true);
     };
   }, []);
   const wereOpen = useRef<readonly string[]>([]);
@@ -304,6 +313,11 @@ export function Panels({
     opened.current = null;
     wereOpen.current = now;
     if (!went.length) return;
+    const from = pressedFrom.current;
+    if (from && went.includes(from.id)) {
+      dragged.current.set(from.id, from.was);
+      pressedFrom.current = null;
+    }
     const left = lastIn.current;
     if (!left || !went.includes(left)) return;
     lastIn.current = null;
@@ -456,14 +470,12 @@ export function Panels({
             onFocus={(e) => reveal(e.currentTarget, e.target, id)}
             onClickCapture={(e) => {
               if (e.detail !== 0) return;
-              const box = e.currentTarget;
+              // A press that closes the panel, as its × does, or Save route and Create as the sim answers, leaves where it was
+              // dragged to (pressedFrom, put back as it closes): brought in as the press went, unseen, the panel opened there
+              // next, 398 px from where it was left (the systems audit's eighteenth round), and kept only a task after the
+              // press, the route editor and the new line's card still did (the round's review).
               const was = dragged.current.get(id);
-              if (!reveal(box, e.target, id) || !was) return;
-              // A press that closes the panel, as its × does, leaves where it was dragged to: brought in as the press went,
-              // unseen, the panel opened there next, 398 px from where it was left (the systems audit's eighteenth round).
-              setTimeout(() => {
-                if (!box.isConnected) dragged.current.set(id, was);
-              });
+              if (reveal(e.currentTarget, e.target, id) && was) pressedFrom.current = { id, was };
             }}
             onKeyDown={(e) => {
               // But for a tab's keys, which move the focus to the tab they reach, and the focus brings it in: one that reaches no

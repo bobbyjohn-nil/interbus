@@ -4,12 +4,14 @@
 // Save route from under the keyboard, and a stop's card's Ctrl+Z gave the dock's Lines the focus, where Space closed Lines;
 // Continue gave the new line's card's box where the card had handed the keyboard to Cancel; a key's press that closed a
 // dragged panel moved where it opened next; Close line's ask opened two thirds on the window; and Home on the first view tab
-// moved the panel. Each shown failing (TS-04) with its fix taken out.
+// moved the panel. Then the round's review: Save route pressed by Enter gave Cancel the keyboard while its save was on its way,
+// a press on the route editor's words could hand the focus back to a row's button, and a press that closed its panel only
+// once the sim answered still moved where it opened next. Each shown failing (TS-04) with its fix taken out.
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
 import { lines } from './keys';
-import { build, city, frames, toScreen, withDebugLine, type SaveData } from './shell';
+import { build, city, frames, holdAnswers, toScreen, withDebugLine, type SaveData } from './shell';
 
 /** Day 2 at 23:58:30, a minute and a half before the close. */
 const CLOCK = 86_400 + 18 * 3_600 + 58 * 60 + 30;
@@ -59,8 +61,8 @@ async function clickAt(page: Page, at: readonly [number, number]) {
   await page.mouse.click(x, y);
 }
 
-/** The route editor on Line 1, a stop added past Longwood, and saved while paused: Stop 5 is the route's last stop. */
-async function savedPastLongwood(page: Page, panel: Locator) {
+/** The route editor open on Line 1 from Lines (`panel`), with a stop added past Longwood: Save route is on. */
+async function editedPastLongwood(page: Page, panel: Locator) {
   await panel.getByRole('button', { name: 'Edit route' }).click();
   const editor = page.getByTestId('route-editor');
   await expect(editor).toBeVisible();
@@ -68,10 +70,23 @@ async function savedPastLongwood(page: Page, panel: Locator) {
   await clickAt(page, PAST_LONGWOOD);
   await expect(editor).toHaveAttribute('data-price', /^[1-9]\d*$/, { timeout: 10_000 });
   await expect(editor).toHaveAttribute('data-refusal', '');
+  return editor;
+}
+
+/** As editedPastLongwood, and saved while paused: Stop 5 is the route's last stop. */
+async function savedPastLongwood(page: Page, panel: Locator) {
+  const editor = await editedPastLongwood(page, panel);
   await editor.getByRole('button', { name: 'Save route' }).click();
   await expect(editor).toHaveCount(0, { timeout: 10_000 });
   await expect(panel.getByTestId('line-stops').getByRole('button')).toHaveCount(DEBUG_STOPS.length + 1);
 }
+
+/** Holds the sim's answers back (holdAnswers, added before the page loads) until release. */
+const hold = (page: Page) => page.evaluate(() => void ((window as unknown as { held: unknown[] }).held = []));
+/** How many snapshots the sim has answered with while held. */
+const heldSnapshots = (page: Page) => page.evaluate(() => ((window as unknown as { held: [unknown, string][] | null }).held ?? []).filter(([, type]) => type === 'snapshot').length);
+/** Hands the page the answers held, in one task. */
+const release = (page: Page) => page.evaluate(() => (window as unknown as { release: () => void }).release());
 
 test.describe('what stays where the player left it', () => {
   test.skip(!city.sim, 'no sim file in this build yet');
@@ -215,6 +230,103 @@ test.describe('what stays where the player left it', () => {
     await frames(page);
     await expect(finance).toHaveAttribute('data-view', 'overview');
     expect(await boxX(page, 'finance')).toBe(parked);
+  });
+
+  // Save route turns off while its save is on its way, which the hand-on took for a control turned off under the keyboard: it
+  // gave Cancel the focus, so a second Enter before the sim's answer closed the editor on the old route, and the save landed
+  // after it (the round's review, 3 runs of 3). On again, as a save Ctrl+Z takes back leaves it, Save route has the keyboard
+  // back, unless a press went elsewhere meanwhile. And a press on the editor's words, which focuses nothing, lets the hold go
+  // before the editor draws again: let go a task after the press, a draw between, here the sim's answers handed over as the
+  // press takes the focus, gave Stop 2's × the focus back, where Enter takes the stop off.
+  test('Save route by Enter keeps the keyboard through its save, and a press on the editor’s words leaves it to the page', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(holdAnswers);
+    const panel = await lines(page);
+    const editor = await editedPastLongwood(page, panel);
+    const save = editor.getByRole('button', { name: 'Save route' });
+    await tabOnto(page, save);
+    await hold(page);
+    await page.keyboard.press('Enter');
+    await expect(save).toBeDisabled();
+    await frames(page);
+    await expect(editor.getByRole('button', { name: 'Cancel' })).not.toBeFocused();
+    await page.keyboard.press('Enter');
+    await frames(page);
+    await expect(editor).toBeVisible();
+    // Ctrl+Z before the answer takes the save back: both answered together, the editor stays open on the edit.
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => heldSnapshots(page)).toBe(2);
+    await release(page);
+    await expect(save).toBeEnabled({ timeout: 10_000 });
+    await expect(save).toBeFocused();
+    // Pressed again, and a press on the editor's hint before the answer, the player gone on: back on, Save route has it not.
+    await hold(page);
+    await page.keyboard.press('Enter');
+    await expect(save).toBeDisabled();
+    await frames(page);
+    await editor.locator('p.hint').click();
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => heldSnapshots(page)).toBe(2);
+    await release(page);
+    await expect(save).toBeEnabled({ timeout: 10_000 });
+    await frames(page);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)).toBe('BODY');
+    await save.click();
+    await expect(editor).toHaveCount(0, { timeout: 10_000 });
+    await expect(panel.getByTestId('line-stops').getByRole('button')).toHaveCount(DEBUG_STOPS.length + 1);
+    // The keyboard on Stop 2's ×, time asked to run, and its answers handed over as a press on the editor's hint takes the focus.
+    await panel.getByRole('button', { name: 'Edit route' }).click();
+    await expect(editor.getByTestId('route-stop-4')).toHaveAttribute('data-stop', '5', { timeout: 10_000 });
+    await tabOnto(page, editor.getByRole('button', { name: 'Remove Stop 2' }));
+    await hold(page);
+    await page.keyboard.press('1');
+    await expect.poll(() => heldSnapshots(page)).toBeGreaterThan(0);
+    await page.evaluate(() => document.addEventListener('focusout', () => (window as unknown as { release: () => void }).release(), { once: true }));
+    await editor.locator('p.hint').click();
+    const speed = page.getByTestId('sim-panel');
+    await expect(speed).not.toHaveAttribute('data-speed', '0');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)).toBe('BODY');
+    await page.keyboard.press(' ');
+    await expect(speed).toHaveAttribute('data-speed', '0');
+    await expect(editor.getByRole('listitem')).toHaveCount(DEBUG_STOPS.length + 1);
+  });
+
+  // A key's press that closes its panel once the sim answers, as Save route and Create do, left the place the press brought
+  // the panel in to, as on main: dragged to x 1104 of 1152, the route editor opened next at 1045 and the new line's card at
+  // 1066 (the round's review, 3 runs of 3).
+  test('a dragged panel a key’s press closes as the sim answers opens where it was dragged: Save route and Create', async ({ page }) => {
+    test.setTimeout(90_000);
+    const W = page.viewportSize()!.width;
+    const panel = await lines(page);
+    const editor = await editedPastLongwood(page, panel);
+    await tabOnto(page, editor.getByRole('button', { name: 'Save route' }));
+    await dragBy(page, editor, W);
+    const dragged = await boxX(page, 'route');
+    expect(dragged).toBeGreaterThan(W - 100);
+    await page.keyboard.press('Enter');
+    await expect(editor).toHaveCount(0, { timeout: 10_000 });
+    await expect(panel.getByTestId('line-stops').getByRole('button')).toHaveCount(DEBUG_STOPS.length + 1);
+    await panel.getByRole('button', { name: 'Edit route' }).click();
+    await expect(editor).toBeVisible();
+    expect(await boxX(page, 'route')).toBe(dragged);
+    // The new line's card, dragged with the keyboard on Create.
+    await page.keyboard.press('Escape');
+    await build(page, 'Draw a line');
+    const draft = page.getByTestId('draft-card');
+    await frames(page);
+    for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    await tabOnto(page, draft.getByRole('button', { name: 'Create' }));
+    await dragBy(page, draft, W);
+    const card = await boxX(page, 'tool');
+    expect(card).toBeGreaterThan(W - 100);
+    await page.keyboard.press('Enter');
+    await expect(draft).toHaveCount(0, { timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await build(page, 'Draw a line');
+    await expect(draft).toBeVisible();
+    expect(await boxX(page, 'tool')).toBe(card);
   });
 
   // Close line's ask opens below the button that opens it: the reveal brought Lines in as far as showed Close line, and the

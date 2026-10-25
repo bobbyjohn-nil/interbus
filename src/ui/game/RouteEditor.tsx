@@ -151,13 +151,19 @@ export function RouteEditor({
   // line's again, and took a row's buttons away, or turned Save route off as the route became the line's own. The focus fell
   // to the page, where Space ran time behind the editor (the systems audit's eighteenth round). A row's button gives it to the
   // × of the row now in its place, or of the last; one turned off in its row, as an arrow at the list's new end, to the row's
-  // first button still on; Save route, to Cancel.
+  // first button still on; Save route, to Cancel. Not while a save is on its way, which turns Save route off: pressed by Enter,
+  // it gave Cancel the focus, and a second Enter before the sim's answer closed the editor on the old route, the save landing
+  // after it (the round's review). On again, as a save Ctrl+Z takes back leaves it, Save route takes the focus back itself.
   const root = useRef<HTMLElement>(null);
   const heldRef = useHeldFocus(root);
   useLayoutEffect(() => {
     const was = heldRef.current;
-    if (!was || !focusLost()) return;
+    if (!was || saving || !focusLost()) return;
     heldRef.current = null;
+    if (was instanceof HTMLElement && was.isConnected && !was.matches(":disabled")) {
+      was.focus();
+      return;
+    }
     const row = was.closest<HTMLElement>("li[data-at]");
     const rows = list.current?.children;
     const to =
