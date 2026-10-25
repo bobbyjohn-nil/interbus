@@ -3,6 +3,8 @@ import { BUS_MODELS } from "../../sim/rules/line";
 import { isExpress } from "../../sim/rules/express";
 import type { LineView, LngLatPair } from "../../sim/types";
 import { refusalText } from "../copy";
+import { focusLost } from "../focusLost";
+import { useHeldFocus } from "../heldFocus";
 import { about, km, moreBuses, usdK } from "../format";
 import type { Sim } from "./useSim";
 
@@ -144,6 +146,32 @@ export function RouteEditor({
     const [same, other] = r.up ? [arrows?.[0], arrows?.[1]] : [arrows?.[1], arrows?.[0]];
     (same?.disabled ? other : same)?.focus();
   }, [points]);
+  // A control of the editor that goes from under the keyboard by something other than its own press, or turns off under it,
+  // hands the focus on as those presses do: Ctrl+Z, taking back the save the edit was made against, sets the list to the
+  // line's again, and took a row's buttons away, or turned Save route off as the route became the line's own. The focus fell
+  // to the page, where Space ran time behind the editor (the systems audit's eighteenth round). A row's button gives it to the
+  // × of the row now in its place, or of the last; one turned off in its row, as an arrow at the list's new end, to the row's
+  // first button still on; Save route, to Cancel. Not while a save is on its way, which turns Save route off: pressed by Enter,
+  // it gave Cancel the focus, and a second Enter before the sim's answer closed the editor on the old route, the save landing
+  // after it (the round's review). On again, as a save Ctrl+Z takes back leaves it, Save route takes the focus back itself.
+  const root = useRef<HTMLElement>(null);
+  const heldRef = useHeldFocus(root);
+  useLayoutEffect(() => {
+    const was = heldRef.current;
+    if (!was || saving || !focusLost()) return;
+    heldRef.current = null;
+    if (was instanceof HTMLElement && was.isConnected && !was.matches(":disabled")) {
+      was.focus();
+      return;
+    }
+    const row = was.closest<HTMLElement>("li[data-at]");
+    const rows = list.current?.children;
+    const to =
+      row && !row.isConnected
+        ? (rows?.length ? rows[Math.min(Number(row.dataset.at), rows.length - 1)] : undefined)?.querySelector<HTMLButtonElement>('button[aria-label^="Remove"]')
+        : [...(row?.querySelectorAll("button") ?? [])].find((b) => !b.disabled);
+    (to ?? cancel.current)?.focus();
+  });
   const move = (from: number, to: number, arrow: HTMLButtonElement) => {
     if (document.activeElement === arrow) refocus.current = { at: to, up: to < from };
     onPoints(moved(points, from, to));
@@ -167,6 +195,7 @@ export function RouteEditor({
   const net = draft ? draft.priceCents - (draft.edit?.refundCents ?? 0) : 0;
   return (
     <section
+      ref={root}
       className="panel tool-card route-editor"
       aria-label={`Edit ${line.name}’s route`}
       data-testid="route-editor"
@@ -188,6 +217,7 @@ export function RouteEditor({
               draggable
               className={dragging === k ? "dragging" : undefined}
               data-testid={`route-stop-${k}`}
+              data-at={k}
               data-stop={p.stopId ?? draft?.stops[k]?.joins ?? ""}
               onDragStart={(e) => {
                 setDragging(k);

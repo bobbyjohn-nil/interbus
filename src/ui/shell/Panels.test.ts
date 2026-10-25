@@ -164,6 +164,22 @@ describe('where the focus goes back to as a panel closes', () => {
     expect(walk('stop', [['stop', { at: button('Stop 2', false), in: 'lines' }], ['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
   });
 
+  // The eighteenth round: Ctrl+Z in a stop's card took its stop and the stops row's button that opened it, Lines staying open,
+  // and the walk went on to the dock's Lines, so the next Space closed Lines. A panel still open gives its box; a panel that
+  // stood in for another (the route editor for Lines, its opener no control) still walks on.
+  it('gives the panel still open that held a gone opener', () => {
+    const stop: [string, Opener][] = [
+      ['stop', { at: button('Stop 5', false), in: 'lines' }],
+      ['lines', { at: button('dock Lines'), in: null }],
+    ];
+    const boxOf = (panel: string) => (panel === 'lines' ? button('Lines') : null);
+    const walkOpen = (id: string, openers: [string, Opener][]) =>
+      (handBackTo(id, new Map(openers), none, usable, none, boxOf) as unknown as { name: string } | null)?.name ?? null;
+    expect(walkOpen('stop', stop)).toBe('Lines');
+    expect(walk('stop', stop)).toBe('dock Lines');
+    expect(walkOpen('route', [['route', { at: null, in: 'lines' }], ['lines', { at: button('dock Lines'), in: null }]])).toBe('dock Lines');
+  });
+
   it('goes round no panel twice, and then to what opens one of them now, the first first', () => {
     // Lines after the editor's Cancel took the focus from the editor, which had taken it from Lines.
     const round: [string, Opener][] = [
