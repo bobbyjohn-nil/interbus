@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { focusLost } from "../focusLost";
 import { giveFocus } from "../giveFocus";
+import { SHOWN } from "../showWhole";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
 export interface PanelItem {
@@ -126,7 +127,10 @@ export interface Opener {
  * screen keeps the keyboard (`rest`: the founding card's name). A panel stood in for another kept that one's opener: Escape
  * from the route editor, or from Lines after its Cancel, gave the page the focus. And the checklist's last step opens
  * Contracts until Take it completes it, when the Contracts chip takes its place (round 10). Saves left open over the founding
- * card had nothing to hand back to (round 11).
+ * card had nothing to hand back to (round 11). A control that opened it, gone from a panel still open (`boxOf` gives its box), gives
+ * that panel: Ctrl+Z in a stop's card opened from Lines' stops took the stop and its button, and the walk went on to what
+ * opened Lines, the dock's Lines, so the next Space closed Lines (the systems audit's eighteenth round), where Continue's
+ * hand-back already gave Lines (DayCard).
  */
 export function handBackTo(
   id: string,
@@ -134,6 +138,7 @@ export function handBackTo(
   opens: (panel: string) => Element | null,
   usable: (el: Element) => boolean,
   rest: () => Element | null = () => null,
+  boxOf: (panel: string) => Element | null = () => null,
 ): Element | null {
   if (!openers.has(id)) return null;
   const chain: string[] = [];
@@ -142,6 +147,8 @@ export function handBackTo(
     const opener = openers.get(panel);
     if (!opener) break;
     if (opener.at && usable(opener.at)) return opener.at;
+    const box = opener.at && opener.in !== null ? boxOf(opener.in) : null;
+    if (box && usable(box)) return box;
     panel = opener.in;
   }
   for (const panel of chain) {
@@ -264,7 +271,14 @@ export function Panels({
   // (round 10; keeping the first opener instead sent the card's Close to Stop 2: its review).
   const openers = useRef(new Map<string, Opener>());
   const backFor = (panel: string) =>
-    handBackTo(panel, openers.current, (p) => document.querySelector(`[data-opens="${p}"]`), usable, () => document.querySelector(FOCUS_REST));
+    handBackTo(
+      panel,
+      openers.current,
+      (p) => document.querySelector(`[data-opens="${p}"]`),
+      usable,
+      () => document.querySelector(FOCUS_REST),
+      (p) => boxes.current.get(p) ?? null,
+    );
   useLayoutEffect(() => {
     if (backToRef) backToRef.current = backFor;
   });
@@ -377,14 +391,28 @@ export function Panels({
   // Only the keyboard's focus moves it (:focus-visible): a press focuses what is under the pointer, on screen already, though
   // a Saves row it focuses may run on past the edge. A dropdown's open list is portaled to the page, placed beside its button
   // (React's focus and keys still bubble here), so it moves no panel.
-  const reveal = (box: HTMLDivElement, target: EventTarget, id: string) => {
-    if (!(target instanceof Element) || !box.contains(target) || !target.matches(":focus-visible")) return;
+  // `whole`, what the panel's own code asks to show (showInBody's SHOWN), as Close line's ask as it opens with the keyboard on
+  // Close line.
+  const reveal = (box: HTMLDivElement, target: EventTarget | null, id: string, whole?: Element) => {
+    if (!(target instanceof Element) || !box.contains(target) || !target.matches(":focus-visible")) return false;
     const b = box.getBoundingClientRect();
-    const at = showing({ x: b.left, y: b.top }, (target.closest(".change") ?? target).getBoundingClientRect(), window.innerWidth);
-    if (!at) return;
+    const at = showing({ x: b.left, y: b.top }, (whole ?? target.closest(".change") ?? target).getBoundingClientRect(), window.innerWidth);
+    if (!at) return false;
     put(box, at);
     if (dragged.current.has(id)) dragged.current.set(id, at);
+    return true;
   };
+  const layer = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const at = layer.current;
+    const shown = (event: Event) => {
+      const box = event.target instanceof Element ? event.target.closest<HTMLDivElement>("[data-movable]") : null;
+      const id = box?.getAttribute("data-movable");
+      if (box && id && event.target instanceof Element) reveal(box, document.activeElement, id, event.target);
+    };
+    at?.addEventListener(SHOWN, shown);
+    return () => at?.removeEventListener(SHOWN, shown);
+  }, []);
   const drag = (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
     const target = event.target as Element;
     if (event.button !== 0 || !target.closest("h2") || target.closest("button, a, input")) return;
@@ -410,7 +438,7 @@ export function Panels({
   };
 
   return (
-    <div className="panel-layer">
+    <div className="panel-layer" ref={layer}>
       {items.map(({ id, node, clear }, k) => {
         const lift = raised.indexOf(id);
         return (
@@ -427,10 +455,20 @@ export function Panels({
             onPointerDown={(e) => drag(e, id)}
             onFocus={(e) => reveal(e.currentTarget, e.target, id)}
             onClickCapture={(e) => {
-              if (e.detail === 0) reveal(e.currentTarget, e.target, id);
+              if (e.detail !== 0) return;
+              const box = e.currentTarget;
+              const was = dragged.current.get(id);
+              if (!reveal(box, e.target, id) || !was) return;
+              // A press that closes the panel, as its × does, leaves where it was dragged to: brought in as the press went,
+              // unseen, the panel opened there next, 398 px from where it was left (the systems audit's eighteenth round).
+              setTimeout(() => {
+                if (!box.isConnected) dragged.current.set(id, was);
+              });
             }}
             onKeyDown={(e) => {
-              if (e.isDefaultPrevented()) reveal(e.currentTarget, e.target, id);
+              // But for a tab's keys, which move the focus to the tab they reach, and the focus brings it in: one that reaches no
+              // other tab, as Home on the first, moved the panel and worked nothing (the eighteenth round).
+              if (e.isDefaultPrevented() && !(e.target instanceof Element && e.target.getAttribute("role") === "tab")) reveal(e.currentTarget, e.target, id);
             }}
           >
             {node}

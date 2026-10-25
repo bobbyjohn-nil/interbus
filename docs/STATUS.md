@@ -2,11 +2,11 @@
 
 The handoff between Claude sessions: what is live, what waits on the owner, what is in progress and what is next. Every pull request that merges updates it ([PR-06](history/lessons-ledger.md)). It holds nothing else: finished work lives in git, [CHANGELOG.md](../CHANGELOG.md), [DECISIONS.md](DECISIONS.md) and the merged pull requests, and this file's long form up to 2026-10-16 is `git show a5c0ccd:docs/STATUS.md` (D27). The plan is [PLAN.md](../PLAN.md).
 
-**Updated:** 2026-10-24, at `main` c005f36 ([#186](https://github.com/bobbyjohn-nil/interbus/pull/186): the seventeenth audit round's second lane, five fixes from the owner's exit checks and P1's machines, and the exit checks' words where they could not be done as written), with the round's first lane's ten fixes on this pull request, which closes the round.
+**Updated:** 2026-10-25, at `main` 54245e7 ([#187](https://github.com/bobbyjohn-nil/interbus/pull/187): the seventeenth audit round's first lane, ten fixes for the keyboard's focus and dragged panels, with its review's six), with the eighteenth round's first lane's eight fixes on this pull request.
 
 ## Live now
 
-- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` c005f36 (#186). Deploy preview run 40140855013's live check found that SHA on the build chip and in `version.json`, with the map ready and the sim worker running on the city's sim file, and `main`'s CI passed there (run 40140854948). What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
+- **Preview:** https://bobbyjohn-nil.github.io/interbus/ shows `main` 54245e7 (#187). Deploy preview run 40147267695's live check found that SHA on the build chip and in `version.json`, with the map ready and the sim worker running on the city's sim file, and `main`'s CI passed there (run 40147267700). What it plays is [CHANGELOG.md](../CHANGELOG.md)'s Unreleased.
 - **Retention:** every redeploy keeps the previous two builds' files on the real site.
 - **Repo settings:** `main` is the default branch, and Pages builds from GitHub Actions. The `github-pages` environment allows one Branch rule, `main`.
 - **How code reaches `main` (D23):** Claude opens a pull request from `claude/kind-ride-1zb3tn` and merges it with a merge commit once its checks are green. After a merge the branch fast-forwards to `main`, and the next change is a new pull request.
@@ -116,6 +116,13 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
   - Continue gave the focus to a control the mouse pressed, and to one of two places by timing (an open list's place is its button, and the place follows the focus).
 
   Its review found 2 minor issues and 4 nits in the fixes, all fixed before the merge: Space brought a dragged panel back as it played; the line card handed on a control the mouse had focused, which then took Space; and Backspace and the stops row's buttons were not covered.
+- [ ] **Round 18** (2026-10-25; DECISIONS, Measured): two lanes at 54245e7, on the shipped build, Inner Boston, and the fixture. The first played the edges of #187's fixes and found 8, 2 minor and 6 nits, four of them new in #187, which [#188](https://github.com/bobbyjohn-nil/interbus/pull/188) fixes:
+  - a drag of a panel by its heading let the keyboard's control go, though the focus stayed, so its hand-on gave the page the focus (the hold now lets go only of a control a press took the focus from);
+  - Ctrl+Z, taking back the save a route edit was made on, took the route editor's rows and Save route from under the keyboard (they hand on as the editor's own presses do), and Ctrl+Z in a stop's card gave the dock's Lines the focus, where Space closed Lines (a panel still open takes it);
+  - Continue did not follow the new line's card's hand-on to Cancel;
+  - a key's press that closed a dragged panel moved where it opened next, Close line's ask opened two thirds on the window, and Home on the first view tab moved the panel.
+
+  The second played #186's fixes and the exit checks' new words, at your Mac's and the artist's PC's windows, and found 6, 4 minor and 2 nits, whose fixes come next: panels a zoom piled up stay piled when there is room again, and a capped panel grows back over the one placed under it; a page zoomed before the game's script ran cannot be pinched back; M2's item 5 asks for cents Finance does not show, and names mini-Boston and the rows' inner names; and a year's last closes name next year's days without the year.
 
 Open from the audit:
 - [ ] **For Mon Oct 26's question batch:** a quarter's report card goes at the next close, as every day card does: 32 s later at 2,700× and 16 s at 5,400×, and a reload while it shows takes it away. Nothing else shows the grades or the stamp again, and nothing pauses at a close. Both of round 14's lanes saw it. Recommended: a card with a report stays until its Continue, the later closes' cards waiting behind it, the newest in place of the older, while time runs on; no format change. The other choices: as now, or the last report kept in Finance, which needs its grades saved. With it, from #175's review: a game at 1×, real time, now holds in a background tab too; recommended, every speed holds, as now.

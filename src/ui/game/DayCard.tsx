@@ -131,7 +131,8 @@ export function DayCard({
   // Whether the focus is on the place follows the focus as it moves, and the new place is the keyboard's alone: told by the
   // card's renders, the focus moved on from a line's tab by Tab, then the line closed, gave Continue the line's Buses list or
   // Lines' box as a snapshot drew the card between them or not; and the mouse's press that closed an open list gave it the
-  // control pressed (the seventeenth round).
+  // control pressed (the seventeenth round). A place turned off hands on as one taken away does: Remove last stop, off as it
+  // takes the new line's only stop, gives Cancel the focus, and Continue gave the line's card instead (the eighteenth round).
   const there = useRef(false);
   useEffect(() => {
     const moved = (event: FocusEvent) => {
@@ -142,7 +143,7 @@ export function DayCard({
       else if (event.relatedTarget instanceof Element && box.contains(event.relatedTarget)) wentTo.current = to.closest('[data-movable]')?.getAttribute('data-movable') ?? null;
       else if (!inPanel(wentTo.current, to)) wentTo.current = null;
       const from = cameFrom.current;
-      if (from && there.current && !from.at.isConnected && to instanceof HTMLElement && !box.contains(to) && keyed.current()) cameFrom.current = placeOf(to);
+      if (from && there.current && (!from.at.isConnected || from.at.matches(':disabled')) && to instanceof HTMLElement && !box.contains(to) && keyed.current()) cameFrom.current = placeOf(to);
       there.current = !!cameFrom.current && to === cameFrom.current.at;
     };
     document.addEventListener('focusin', moved, true);
