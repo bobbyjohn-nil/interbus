@@ -196,9 +196,9 @@ export function streetName(name: string): string {
 }
 
 /**
- * "Q2 Day 4": a game day as the clock chip names it, the year left to the title; told on day `on`, a day of a later year names
- * its year, "Q1 Day 1 of Year 2": under "Year 1, Q4, Day 7 closed", a day card's "Snow from Q1 Day 1" read as a day nine months
- * back (the systems audit's eighteenth round).
+ * "Q2 Day 4": a game day as the clock chip names it, the year left to the title; told on day `on`, a day of another year names
+ * its year, as the next year's do, "Q1 Day 1 of Year 2": under "Year 1, Q4, Day 7 closed", a day card's "Snow from Q1 Day 1" read
+ * as a day nine months back (the systems audit's eighteenth round).
  */
 export function dayText(day: number, on?: number): string {
   const { year, quarter, dayOfQuarter } = calendarOfDay(day);

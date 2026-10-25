@@ -13,7 +13,7 @@ One spec per milestone, ≤150 lines, with magnitudes and a cut line ([SC-06](..
 2. Place a depot on the green tint; the cursor card reads "Industrial land ✓ · street N m away ✓ · $150k".
 3. Draw four stops from Copley to Longwood. The card reads "every 20 min needs 2 Sparrows · $190k"; Create buys them.
 4. Press play at 05:00. Buses pull out of the depot, run the line and go back at 24:00.
-5. At 24:00 the day card's rows (Fares, City subsidy, Bus fuel and maintenance, Driver wages, To and from the depot, Depot upkeep, Stop upkeep) are ledger rows that sum to the change in cash, and each cost equals Finance's Day forecast to the dollar, as Finance shows whole dollars where the card shows cents (the line inspector's, until D25 took the money off the line card), day 2's card against day 2's forecast (STATUS has why).
+5. At 24:00 the day card's rows (Fares, City subsidy, Bus fuel and maintenance, Driver wages, To and from the depot, Depot upkeep, Stop upkeep) are ledger rows that sum to the change in cash, and each cost equals Finance's Day forecast (the line inspector's, until D25 took the money off the line card) to the dollar, as Finance shows whole dollars where the card shows cents, day 2's card against day 2's forecast (STATUS has why).
 
 ## Dates
 

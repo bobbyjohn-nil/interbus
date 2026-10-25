@@ -4,7 +4,9 @@
 // the mouse as its source is Chrome's own touchpad pinch, as a Mac's trackpad sends it, at a Mac's scale factor. Shown failing
 // (TS-04) with no cancel: the page's scale read 1.6 after a pinch over Home's card and over Finance. And a page zoomed before the
 // game's code ran, by a pinch over the splash, pinches back out (the eighteenth round): shown failing with every pinch off the
-// map cancelled, the page's scale stayed 1.6.
+// map cancelled, the page's scale stayed 1.6. Only out, and only while zoomed (the round's review): with every Ctrl and wheel
+// let through while zoomed, a pinch in took it from 1.6 to 1.92; with every zoom-out let through, Ctrl and a mouse's wheel
+// turned down at scale 1 went uncancelled.
 import { expect, test, type Page } from './base';
 import { foundCompany } from './found';
 
@@ -15,6 +17,18 @@ async function pinchAt(page: Page, x: number, y: number, scale: number): Promise
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.synthesizePinchGesture', { x, y, scaleFactor: scale, relativeSpeed: 800, gestureSourceType: 'mouse' });
   await cdp.detach();
+}
+
+/** Ctrl and a mouse's wheel turned once at (x, y), towards the player (out), as CDP sends it: whether the page cancelled it. */
+async function ctrlWheelOut(page: Page, x: number, y: number): Promise<boolean> {
+  await page.evaluate(() => {
+    const w = window as unknown as { wheelOut: Promise<boolean> };
+    w.wheelOut = new Promise((done) => window.addEventListener('wheel', (e) => void setTimeout(() => done(e.defaultPrevented)), { once: true }));
+  });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: 100, modifiers: 2 });
+  await cdp.detach();
+  return page.evaluate(() => (window as unknown as { wheelOut: Promise<boolean> }).wheelOut);
 }
 
 /** How far the page itself is zoomed by a pinch (the visual viewport), 1 when it is not. */
@@ -29,6 +43,8 @@ test('a pinch over Home’s card or a panel leaves the page as it is, and over t
   const home = (await page.getByTestId('home').boundingBox())!;
   await pinchAt(page, home.x + home.width / 2, home.y + 40, 1.6);
   expect(await pageScale(page)).toBe(1);
+  // A zoom out at the page's own scale is cancelled too, so Ctrl and a mouse's wheel leave the browser's zoom as it is.
+  expect(await ctrlWheelOut(page, home.x + home.width / 2, home.y + 40)).toBe(true);
   await foundCompany(page);
   await page.getByRole('button', { name: 'Finance', exact: true }).click();
   const finance = (await page.getByTestId('finance').boundingBox())!;
@@ -54,8 +70,12 @@ test('a page zoomed by a pinch before the game’s code ran pinches back out ove
   await pinchAt(page, 720, 395, 1.6);
   await expect.poll(() => pageScale(page)).toBeGreaterThan(1.5);
   await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
-  // Out again over Home's card: Playwright's box is in the zoomed view's place, as the pinch's place is.
+  // Further in over Home's card it stays as it is; out again it comes back to 1. Playwright's box is in the zoomed view's
+  // place, as the pinch's place is.
   const home = (await page.getByTestId('home').boundingBox())!;
+  const zoomed = await pageScale(page);
+  await pinchAt(page, home.x + home.width / 2, home.y + 40, 1.2);
+  expect(await pageScale(page)).toBeCloseTo(zoomed, 3);
   await pinchAt(page, home.x + home.width / 2, home.y + 40, 1 / 1.6);
-  await expect.poll(() => pageScale(page)).toBeLessThan(1.01);
+  await expect.poll(() => pageScale(page)).toBe(1);
 });

@@ -7,7 +7,10 @@ import { onCanvas } from './onePress';
  * zoomed through a reload (the systems audit's seventeenth round). The browser's own zoom stays on Ctrl and plus or minus.
  * Listened to on the way down, and marked not passive: a wheel listener on the window is passive by default, and could not
  * cancel. A page zoomed already can be pinched back out, off the map: zoomed by a pinch before this ran, over the splash as the
- * game's code loaded, or on a build before it, the page stayed zoomed, every pinch back cancelled (the eighteenth round).
+ * game's code loaded, or on a build before it, the page stayed zoomed, every pinch back cancelled (the eighteenth round). A wheel
+ * event cannot tell a pinch from Ctrl and a mouse's wheel, so while the page is zoomed Ctrl and a wheel turned down go through
+ * too, off the map, and on Windows and Linux Chrome steps its own zoom out for them; and the rest of a pinch whose first event
+ * went through come uncancellable, so one that turns back in zooms the page in (the round's review; DECISIONS, Measured).
  */
 export function keepPinchOnMap(win: Window): void {
   win.addEventListener(
