@@ -30,7 +30,16 @@ interface Place {
   readonly in: string | null;
 }
 
-const placeOf = (at: HTMLElement): Place => ({ at, in: at.closest('[data-movable]')?.getAttribute('data-movable') ?? null });
+/**
+ * The place of the control `at`, and its panel. An open list's is its button, where the list gives the focus back as it closes:
+ * a list holds the focus over the page, outside any panel, so with the mouse's press closing it Continue had nothing to go back
+ * to but the panel, or the control pressed (the systems audit's seventeenth round).
+ */
+function placeOf(at: HTMLElement): Place {
+  const list = at.closest('[role="listbox"][id]');
+  const place = (list && document.querySelector<HTMLElement>(`[aria-controls="${list.id}"]`)) || at;
+  return { at: place, in: place.closest('[data-movable]')?.getAttribute('data-movable') ?? null };
+}
 
 /** Whether `at` is in the panel named `panel` (Panels' box, by its id). */
 const inPanel = (panel: string | null, at: Element | null) => panel !== null && !!at?.closest(`[data-movable="${panel}"]`);
@@ -115,6 +124,15 @@ export function DayCard({
   // came from, Help's box was gone as Continue handed the focus back, and the focus went to the page (the review of the fifteenth
   // round's fixes).
   const wentTo = useRef<string | null>(null);
+  // Where the focus came from, taken away with the focus on it, hands the focus on, an offer's Take it to the row now in its
+  // place (Contracts), and where it went is where the focus came from now: the card often shows a render before the snapshot
+  // that withdraws the offer, and Continue's went to the page (the systems audit's fifteenth round). Taken away with the focus
+  // anywhere else, in the card or in Help over it, the place stays gone, and Continue hands the focus to its panel (back).
+  // Whether the focus is on the place follows the focus as it moves, and the new place is the keyboard's alone: told by the
+  // card's renders, the focus moved on from a line's tab by Tab, then the line closed, gave Continue the line's Buses list or
+  // Lines' box as a snapshot drew the card between them or not; and the mouse's press that closed an open list gave it the
+  // control pressed (the seventeenth round).
+  const there = useRef(false);
   useEffect(() => {
     const moved = (event: FocusEvent) => {
       const to = event.target instanceof Element ? event.target : null;
@@ -123,6 +141,9 @@ export function DayCard({
       if (box.contains(to)) wentTo.current = null;
       else if (event.relatedTarget instanceof Element && box.contains(event.relatedTarget)) wentTo.current = to.closest('[data-movable]')?.getAttribute('data-movable') ?? null;
       else if (!inPanel(wentTo.current, to)) wentTo.current = null;
+      const from = cameFrom.current;
+      if (from && there.current && !from.at.isConnected && to instanceof HTMLElement && !box.contains(to) && keyed.current()) cameFrom.current = placeOf(to);
+      there.current = !!cameFrom.current && to === cameFrom.current.at;
     };
     document.addEventListener('focusin', moved, true);
     return () => document.removeEventListener('focusin', moved, true);
@@ -132,16 +153,8 @@ export function DayCard({
     if (at && (self.current?.contains(at) || inPanel(wentTo.current, at))) return;
     cameFrom.current = at instanceof HTMLElement && at !== document.body && keyed.current() ? placeOf(at) : null;
   }, [card?.day]);
-  // Where the focus came from, taken away with the focus on it, hands the focus on, an offer's Take it to the row now in its
-  // place (Contracts), and where it went is where the focus came from now: the card often shows a render before the snapshot
-  // that withdraws the offer, and Continue's went to the page (the systems audit's fifteenth round). That hand-off runs in the commit
-  // that takes the place away, before this effect, so the focus was on the place as this effect last ran. Taken away with the
-  // focus anywhere else, in the card or in Help over it, the place stays gone, and Continue hands the focus to its panel (back).
-  const there = useRef(false);
+  // And as the card draws: the place as it was recorded, and the focus fallen to the page with no hand-off since its place went.
   useEffect(() => {
-    const from = cameFrom.current;
-    const at = document.activeElement;
-    if (from && !from.at.isConnected && there.current && at instanceof HTMLElement && at !== document.body && !self.current?.contains(at)) cameFrom.current = placeOf(at);
     there.current = !!cameFrom.current && document.activeElement === cameFrom.current.at;
   });
   const heading = useId();

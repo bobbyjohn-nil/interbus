@@ -44,7 +44,20 @@ describe('Create on its way', () => {
   it('shows Create shut while it waits', () => {
     const draft = { stops: [], route: [], routeM: 900, people: 12_000, walkM: 400, buses: 2, newStops: 2, stopsCents: 800_000, busesCents: 9_500_000, priceCents: 10_300_000, refusal: null, edit: null, detour: null } as unknown as LineDraftView;
     const render = (creating: boolean) => renderToStaticMarkup(createElement(DraftCard, { sim: { draft, snapshot: null } as unknown as Sim, clicks: 2, model: 'sparrow', creating, onModel: () => undefined, onCreate: () => undefined, onUndo: () => undefined, onCancel: () => undefined }));
-    expect(render(true)).toMatch(/<button type="button" disabled="">Create<\/button>/);
-    expect(render(false)).toMatch(/<button type="button">Create<\/button>/);
+    expect(render(true)).toMatch(/<button type="button" disabled="" aria-describedby="[^"]+">Create<\/button>/);
+    expect(render(false)).toMatch(/<button type="button" aria-describedby="[^"]+">Create<\/button>/);
+  });
+
+  // A close that left the cash short turned Create off under the keyboard, and the focus fell to the page, where Space paused the
+  // game with the day's card up (the systems audit's seventeenth round). Refused, it keeps the focus, described by the words why,
+  // which are a status from the card's first render. Shown failing (TS-04) with Create disabled while refused.
+  it('keeps a refused Create in reach, described by why, the words a status before they come', () => {
+    const draft = (refusal: LineDraftView['refusal']) => ({ stops: [], route: [], routeM: 900, people: 12_000, walkM: 400, buses: 2, newStops: 2, stopsCents: 800_000, busesCents: 9_500_000, priceCents: 10_300_000, refusal, edit: null, detour: null }) as unknown as LineDraftView;
+    const render = (d: LineDraftView | null) => renderToStaticMarkup(createElement(DraftCard, { sim: { draft: d, snapshot: null } as unknown as Sim, clicks: d ? 2 : 0, model: 'sparrow', onModel: () => undefined, onCreate: () => undefined, onUndo: () => undefined, onCancel: () => undefined }));
+    const short = render(draft({ reason: 'insufficient_funds', shortCents: 8_100 } as unknown as LineDraftView['refusal']));
+    const said = /<p id="([^"]+)" class="refusal" role="status">\$81 short<\/p>/.exec(short);
+    expect(said).not.toBeNull();
+    expect(short).toContain(`<button type="button" aria-disabled="true" aria-describedby="${said![1]}">Create</button>`);
+    expect(render(null)).toMatch(/<p id="[^"]+" class="refusal" role="status"><\/p>/);
   });
 });

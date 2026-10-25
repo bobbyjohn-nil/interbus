@@ -214,6 +214,34 @@ test.describe('movable panels', () => {
     expect(await scrolled()).toEqual([0, 0, 0]);
   });
 
+  // In Lines dragged past the window's right edge, Close line's ask opened mostly off the window, and Tab to Close it brought the
+  // panel in only as far as the button: 30% of the ask showed as it could be pressed (the systems audit's seventeenth round). A
+  // control in a change card or an ask shows its card whole. Shown failing (TS-04) with the button alone shown: the ask's left
+  // edge lay off the window.
+  test('Close line’s ask shows whole as Close it takes the keyboard in Lines dragged past the edge', async ({ page }) => {
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await dragBy(page, lines, 'Line 1', 900, 0);
+    expect((await page.locator('[data-movable="lines"]').boundingBox())!.x).toBe(1152 - 48);
+    const closeLine = lines.getByRole('button', { name: 'Close line' });
+    await closeLine.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    const ask = lines.getByTestId('close-line');
+    await expect(ask).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(ask.getByRole('button', { name: 'Close it' })).toBeFocused();
+    const a = (await ask.boundingBox())!;
+    expect(a.x).toBeGreaterThanOrEqual(0);
+    expect(a.x + a.width).toBeLessThanOrEqual(1152);
+  });
+
   test('keep panels in reach when the window narrows: a dragged one’s heading, open or opened again, and one in a free place whole', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto('./');
