@@ -330,6 +330,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After the browser's zoom and back, panels go back where they were: one that opened in a free place goes back there, one you dragged goes back where you put it, and one you dragged another panel onto stays under it. Before, one step of zoom and back moved them for good, so a day's card no longer found room beside them and stood over Finance's heading, two panels dragged side by side near the window's edge stayed one over the other, and with the lender's card up one panel could end up over another.
 - A panel you hold by its heading stays under the pointer as the window changes size, and stays where you let it go, opening there next time. Before, the change could move it away from the pointer, and let go without a move it stayed there and opened next under where the pointer had been, over Lines.
 - On a touch screen, a panel whose heading you drag with a finger no longer opens next in the window's top left corner, over the top bar.
+- Create keeps the keyboard while the new line is on its way: taken back by Ctrl+Z before it lands, or turned down by a day's close, the button stays where you were, where before the keyboard was left on the page and Space ran or paused time.
+- Save route, reached with Tab and then pressed with the mouse, no longer takes the keyboard back as Ctrl+Z takes its save back: Space plays and pauses, as after any press of the mouse, where it saved the route a second time.
+- A button in Lines, the new line's card or the route editor that you reached with Tab and then pressed with the mouse no longer hands the keyboard on when it later goes or turns off: Space plays and pauses, as after any press of the mouse. Before, the keyboard went to the next button, such as Cancel when a later Ctrl+Z turned Save route off or Backspace took the new line's stops, and Space pressed it.
+- After Save route or Create pressed from the keyboard while a day's card shows, Continue gives the keyboard back to Lines, where the save or the new line left it, not to the dock's Lines or the Build menu.
+- A stop card's "Remove from" a line, turned down as Ctrl+Z takes back the line's third stop, keeps the keyboard and says why under it, "A line keeps at least 2 stops", where the keyboard fell to the page and Space played.
 
 ### Removed
 

@@ -6,7 +6,7 @@
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
-import { build, city, frames, toScreen, withDebugLine, type SaveData } from './shell';
+import { build, city, frames, holdAnswers, toScreen, withDebugLine, type SaveData } from './shell';
 
 /** The debug line's game a minute and a half before day 2 closes, paused. */
 const CLOCK = 86_400 + 18 * 3_600 + 58 * 60 + 30;
@@ -36,6 +36,23 @@ const clickAt = async (page: Page, at: readonly [number, number]) => {
   await page.mouse.click(x, y);
 };
 
+/** A new line on the debug line's first two stops: its card, and its price. */
+async function drawTwo(page: Page) {
+  await build(page, 'Draw a line');
+  const draft = page.getByTestId('draft-card');
+  await frames(page);
+  await clickAt(page, DEBUG_STOPS[0]!.at);
+  await clickAt(page, DEBUG_STOPS[1]!.at);
+  await expect(draft).toHaveAttribute('data-price', /^[1-9]\d*$/, { timeout: 10_000 });
+  await expect(draft).toHaveAttribute('data-refusal', '');
+  return { draft, price: Number(await draft.getAttribute('data-price')) };
+}
+
+/** Holds the sim's answers back (holdAnswers, added before the page loads) until release. */
+const hold = (page: Page) => page.evaluate(() => void ((window as unknown as { held: unknown[] }).held = []));
+/** Hands the page the answers held, in one task. */
+const release = (page: Page) => page.evaluate(() => (window as unknown as { release: () => void }).release());
+
 /** The close at 60× (the key 2), the keyboard on `button`, which it refuses: the focus stays on it, and Space presses nothing. */
 async function refusedByTheClose(page: Page, button: Locator, card: Locator) {
   await page.keyboard.press('2');
@@ -55,27 +72,48 @@ test.describe('a close that refuses the Create or Save route the keyboard is on'
   test('leaves the focus on the new line’s Create, where Space presses nothing', async ({ page }) => {
     test.setTimeout(90_000);
     await nearTheClose(page);
-    /** A new line on the debug line's first two stops: its card, and its price. */
-    const drawTwo = async () => {
-      await build(page, 'Draw a line');
-      const draft = page.getByTestId('draft-card');
-      await frames(page);
-      await clickAt(page, DEBUG_STOPS[0]!.at);
-      await clickAt(page, DEBUG_STOPS[1]!.at);
-      await expect(draft).toHaveAttribute('data-price', /^[1-9]\d*$/, { timeout: 10_000 });
-      await expect(draft).toHaveAttribute('data-refusal', '');
-      return { draft, price: Number(await draft.getAttribute('data-price')) };
-    };
-    const { price } = await drawTwo();
+    const { price } = await drawTwo(page);
     await page.keyboard.press('Escape');
     // Again, with the cash $20 over what Create may spend, the floor's $150k under it: the close takes more than $20.
     await nearTheClose(page, () => price - 15_000_000 + 2_000);
-    const { draft } = await drawTwo();
+    const { draft } = await drawTwo(page);
     const create = draft.getByRole('button', { name: 'Create' });
     await draft.getByRole('button', { name: 'Remove last stop' }).focus();
     await page.keyboard.press('Shift+Tab');
     await expect(create).toBeFocused();
     await refusedByTheClose(page, create, draft);
+  });
+
+  // Pressed as the close comes, on the card's verdict from before it, Create turned itself off until the sim answered, and
+  // Chrome took the focus from it: the close and Create's refusal, landing together, turned it on again, aria-disabled, with
+  // the focus on the page, where Space paused the game under the day's card (the systems audit's nineteenth round, 3 runs of 3
+  // at each of three sizes). It keeps the focus while its line is on its way now. Shown failing (TS-04) with it disabled then.
+  test('leaves the focus on a Create pressed as the close refuses it, where Space presses nothing', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(holdAnswers);
+    await nearTheClose(page);
+    const { price } = await drawTwo(page);
+    await page.keyboard.press('Escape');
+    await nearTheClose(page, () => price - 15_000_000 + 2_000);
+    const { draft } = await drawTwo(page);
+    const create = draft.getByRole('button', { name: 'Create' });
+    await draft.getByRole('button', { name: 'Remove last stop' }).focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(create).toBeFocused();
+    // The close comes unseen, the answers held: three game minutes at 60× in 3 s.
+    await hold(page);
+    await page.keyboard.press('2');
+    await page.waitForTimeout(3_000);
+    await page.keyboard.press('Enter');
+    await expect(create).toBeDisabled();
+    await release(page);
+    await expect(page.getByTestId('day-card')).toBeVisible({ timeout: 30_000 });
+    await expect(draft).toHaveAttribute('data-refusal', 'insufficient_funds', { timeout: 10_000 });
+    await expect(create).toBeFocused();
+    await expect(create).toHaveAccessibleDescription(/^\$[\d,.]+ short$/);
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
+    await expect(create).toBeFocused();
   });
 
   test('leaves the focus on the route editor’s Save route, where Space presses nothing', async ({ page }) => {

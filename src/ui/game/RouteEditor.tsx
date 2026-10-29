@@ -116,7 +116,12 @@ export function RouteEditor({
   sim: Sim;
   line: LineView;
   points: readonly RoutePoint[];
-  /** True while a Save route is on its way: a press then does nothing, so the button is disabled. */
+  /**
+   * True while a Save route is on its way: a press then does nothing, and the button keeps the focus, aria-disabled. Disabled,
+   * it gave the page the focus as it went off, so Continue gave the dock's Lines or Build the focus as the save landed; and
+   * pressed by the mouse after Tab had reached it, it took the focus back when Ctrl+Z took the save back, so Space saved again
+   * where after the mouse it plays (the systems audit's nineteenth round).
+   */
   saving?: boolean;
   onPoints: (points: RoutePoint[]) => void;
   onSave: () => void;
@@ -151,9 +156,10 @@ export function RouteEditor({
   // line's again, and took a row's buttons away, or turned Save route off as the route became the line's own. The focus fell
   // to the page, where Space ran time behind the editor (the systems audit's eighteenth round). A row's button gives it to the
   // × of the row now in its place, or of the last; one turned off in its row, as an arrow at the list's new end, to the row's
-  // first button still on; Save route, to Cancel. Not while a save is on its way, which turns Save route off: pressed by Enter,
-  // it gave Cancel the focus, and a second Enter before the sim's answer closed the editor on the old route, the save landing
-  // after it (the round's review). On again, as a save Ctrl+Z takes back leaves it, Save route takes the focus back itself.
+  // first button still on; Save route, to Cancel. Not while a save is on its way: when Save route turned itself off then,
+  // pressed by Enter it gave Cancel the focus, and a second Enter before the sim's answer closed the editor on the old route,
+  // the save landing after it (the round's review). It keeps the focus while saving now, aria-disabled (`saving`), and has it
+  // still as a save Ctrl+Z takes back leaves it on again.
   const root = useRef<HTMLElement>(null);
   const heldRef = useHeldFocus(root);
   useLayoutEffect(() => {
@@ -285,10 +291,10 @@ export function RouteEditor({
         <button
           type="button"
           onClick={() => {
-            if (!refused) onSave();
+            if (!refused && !saving) onSave();
           }}
-          disabled={!draft || unchanged || saving}
-          aria-disabled={refused && !unchanged ? true : undefined}
+          disabled={!draft || unchanged}
+          aria-disabled={(refused && !unchanged) || saving ? true : undefined}
           aria-describedby={said}
         >
           Save route

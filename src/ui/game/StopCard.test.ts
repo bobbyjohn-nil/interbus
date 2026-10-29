@@ -87,6 +87,13 @@ describe('a stop’s card', () => {
   it('takes the stop off each line on the route rule: half its price back when no other line calls, never below two stops (item 14)', () => {
     expect(render({})).toContain('<button type="button">Remove from Line 1 · $2k back</button>');
     expect(render({ lineIds: [1, 2] })).toContain('<button type="button">Remove from Line 1</button>');
-    expect(render({}, [1, 2])).toContain('<button type="button" disabled="" title="A line keeps at least 2 stops">Remove from Line 1</button>');
+    // Refused, it keeps the focus, aria-disabled and described by the words why, shown under it as the tier steps show theirs:
+    // disabled, Ctrl+Z, taking back the edit that gave the line its third stop, turned it off under the keyboard, and the focus
+    // fell to the page (the systems audit's nineteenth round); and said to a screen reader alone, the card showed nothing why
+    // (its review). Shown failing (TS-04) with it disabled while refused, and with the words in a span read only aloud.
+    const two = render({}, [1, 2]);
+    const said = /<p id="([^"]+)" class="refusal" role="status">A line keeps at least 2 stops<\/p>/.exec(two);
+    expect(said).not.toBeNull();
+    expect(two).toContain(`<button type="button" aria-disabled="true" aria-describedby="${said![1]}">Remove from Line 1</button>`);
   });
 });

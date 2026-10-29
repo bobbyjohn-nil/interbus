@@ -8,7 +8,7 @@ import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
 import { countSends, lines, press } from './keys';
-import { build, city, onDepotLand, toScreen, withDebugLine, zoomOutOnce, type SaveData } from './shell';
+import { build, city, frames, onDepotLand, toScreen, withDebugLine, zoomOutOnce, type SaveData } from './shell';
 
 /** The debug line and `more` lines more on its stops, Line 2 on stops 1 and 2 and Line 3 on 2 and 3. */
 const withLines = (more: 1 | 2) => (d: SaveData) => {
@@ -335,6 +335,51 @@ test.describe('the focus as a panel closes, and on a step up to the top', () => 
     await page.keyboard.press('Enter');
     await expect(card).toHaveAttribute('data-tier', '3');
     expect(await sent('set-stop-tier')).toBe(1);
+  });
+
+  // A stop card's Remove from a line its rule refuses, as one that would leave the line under two stops, was disabled, so Ctrl+Z,
+  // taking back the route edit that gave the line its third stop, turned it off under the keyboard, and the focus fell to the
+  // page, where Space played (the systems audit's nineteenth round, 3 runs of 3 at each size). Refused, it keeps the focus,
+  // aria-disabled and described by the words why, shown under it as the tier steps show theirs, and a press sends nothing.
+  // Shown failing (TS-04) with the button disabled, and with the words read only aloud (the round's review: a title gave the
+  // same description, so the check passed with the words gone).
+  test('a stop card’s Remove from a line, refused as Ctrl+Z takes back the line’s third stop, keeps the focus, refused in words', async ({ page }) => {
+    const sent = await countSends(page);
+    // Line 1 on Stops 1 and 4 alone, and a stop added past Longwood, so Stop 4 can come off it until Ctrl+Z takes that back.
+    await game(page, (d) => void Object.assign((d.lines as Record<string, unknown>[])[0]!, { stopIds: [1, 4] }));
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const panel = page.getByTestId('inspector');
+    await panel.getByRole('button', { name: 'Edit route' }).click();
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    await frames(page);
+    const [x, y] = await toScreen(page, [-71.098, 42.346]); // past Longwood
+    await page.mouse.click(x, y);
+    await expect(editor).toHaveAttribute('data-price', /^[1-9]\d*$/, { timeout: 10_000 });
+    await editor.getByRole('button', { name: 'Save route' }).click();
+    await expect(editor).toHaveCount(0, { timeout: 10_000 });
+    const stops = panel.getByTestId('line-stops').getByRole('button');
+    await expect(stops).toHaveCount(3);
+    await tabOnto(page, panel.getByTestId('line-stops').getByRole('button', { name: 'Stop 4' }));
+    await page.keyboard.press('Enter');
+    const card = page.getByTestId('stop-card');
+    await expect(card).toBeVisible();
+    const remove = card.getByRole('button', { name: /^Remove from Line 1/ });
+    await tabOnto(page, remove);
+    await page.keyboard.press('Control+z');
+    await expect(stops).toHaveCount(2, { timeout: 10_000 });
+    await frames(page);
+    await expect(remove).toBeFocused();
+    await expect(remove).toHaveAttribute('aria-disabled', 'true');
+    await expect(remove).toHaveAccessibleDescription('A line keeps at least 2 stops');
+    // Shown as a tier step's words are: read only aloud, they took a pixel.
+    const why = card.getByText('A line keeps at least 2 stops');
+    await expect(why).toBeVisible();
+    expect((await why.boundingBox())!.height).toBeGreaterThanOrEqual(12);
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+    await expect(remove).toBeFocused();
+    expect(await sent('remove-stop')).toBe(0);
   });
 
   test('Escape closing a stop’s card and the Lines it was opened from hands the focus to the dock’s Lines', async ({ page }) => {
