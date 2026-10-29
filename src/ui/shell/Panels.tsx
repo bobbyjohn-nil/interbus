@@ -194,8 +194,8 @@ export interface PanelFront {
  * first at the top right), and stays there; it is dragged by its heading anywhere on the screen, and
  * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
  * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
- * free place whole, placed afresh where the change would leave it over another, and a dragged one's
- * heading in reach.
+ * free place whole, from where it opened, placed afresh where the change would leave it over another,
+ * and a dragged one's heading in reach of where it was dragged to.
  * A tool's card is a panel like the others.
  * One the keyboard opened takes the focus (`focus`), as a dialog does, so Tab goes on inside it.
  * Places live on the elements, not in React state, so a drag re-renders nothing. The panels are raised
@@ -238,6 +238,11 @@ export function Panels({
   const dragged = useRef(new Map<string, { x: number; y: number }>());
   /** The panels placed since they opened; one that closes is placed afresh when it opens again. */
   const placed = useRef(new Set<string>());
+  /**
+   * Where each panel in a free place opened (freePlace), or lay as a drag left another over it, which a change of the window's
+   * size keeps it whole from.
+   */
+  const homes = useRef(new Map<string, { x: number; y: number }>());
   /** Where a dragged panel lay before a key's press brought it in (reveal), until the next key or press: for a panel that closes. */
   const pressedFrom = useRef<{ readonly id: string; readonly was: { readonly x: number; readonly y: number } } | null>(null);
   /** The panels a drag left lying over each other (pairOf), which a change of the window's size leaves so. */
@@ -246,6 +251,7 @@ export function Panels({
   useLayoutEffect(() => {
     const open = new Set(items.map((i) => i.id));
     for (const id of placed.current) if (!open.has(id)) placed.current.delete(id);
+    for (const id of homes.current.keys()) if (!open.has(id)) homes.current.delete(id);
     for (const { id } of items) {
       const box = boxes.current.get(id);
       if (!box || placed.current.has(id)) continue;
@@ -260,8 +266,13 @@ export function Panels({
       });
       // Where it was dragged to, kept in reach of a window narrower since.
       const was = dragged.current.get(id);
-      put(box, was ? inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight) : freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight, clear));
-      if (!was) forget(dropped.current, id);
+      if (was) put(box, inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight));
+      else {
+        const home = freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight, clear);
+        put(box, home);
+        homes.current.set(id, home);
+        forget(dropped.current, id);
+      }
       placed.current.add(id);
     }
   });
@@ -381,6 +392,13 @@ export function Panels({
   // a free place are laid out afresh in the order they opened, as on opening, but for one a drag left lying over another, if
   // that leaves fewer: back from 175% a step at a time at 1152×720, Saves fell back over Finance at 100%, 215×143 px. Laid out
   // afresh whatever it left, more piled up at 150% and 125% on the way there (the review).
+  // Each is kept from where it was put, a dragged one from where it was dragged to and one in a free place from where it opened
+  // or a drag left it lying (`homes`), not from where the last change left it, so a change and back puts every panel back, and
+  // one the pointer holds from where it stands. Kept from where the last change left them, Chrome's 110% and back left Lines,
+  // Finance and Contracts 131 px to the left, and a close's card, with no room beside them, stood over Finance's heading; two
+  // panels dragged apart at the right, kept in reach together at 150%, stayed one on the other, 280×244 px; and with the
+  // lender's card up, Finance, kept clear of where the card stood at 150%, lay over Contracts back at 100%, 56×248 px (the
+  // nineteenth round).
   useEffect(() => {
     const clearFor = (id: string) =>
       [...clears.current].flatMap((other) => {
@@ -392,20 +410,27 @@ export function Panels({
       const all = [...boxes.current].map(([id, box]) => ({ id, at: rectOf(box) }));
       return all.flatMap((a, i) => all.slice(i + 1).filter((b) => across(a.at, b.at) && !dropped.current.has(pairOf(a.id, b.id)))).length;
     };
+    /** Whether the pointer holds panel `id` by its heading, a drag on its way. */
+    const held = (id: string) => boxes.current.get(id)?.classList.contains("dragging") === true;
     const resize = () => {
       const [width, height] = [window.innerWidth, window.innerHeight];
       const settled: { readonly id: string; readonly at: Rect }[] = [];
       for (const [id, box] of boxes.current) {
-        if (!dragged.current.has(id)) continue;
+        // A panel the pointer holds is kept in reach from where it stands, under the pointer, as the drag's own moves keep it:
+        // kept from where its last drag ended, Finance, held on its second drag, stood 180 px from the pointer until the next
+        // move, and Lines was placed clear of it there; held on its first, it went back where it opened (the review of the
+        // systems audit's nineteenth round).
         const r = box.getBoundingClientRect();
-        put(box, inReach({ x: r.left, y: r.top }, r.width, width, height));
+        const was = held(id) ? { x: r.left, y: r.top } : dragged.current.get(id);
+        if (!was) continue;
+        put(box, inReach(was, r.width, width, height));
         settled.push({ id, at: rectOf(box) });
       }
       for (const id of placed.current) {
         const box = boxes.current.get(id);
-        if (!box || dragged.current.has(id)) continue;
+        if (!box || dragged.current.has(id) || held(id)) continue;
         const r = box.getBoundingClientRect();
-        put(box, keptWhole({ x: r.left, y: r.top }, r.width, width, height));
+        put(box, keptWhole(homes.current.get(id) ?? { x: r.left, y: r.top }, r.width, width, height));
         const piled = settled.some((other) => across(rectOf(box), other.at) && !dropped.current.has(pairOf(id, other.id)));
         if (piled) {
           forget(dropped.current, id);
@@ -416,7 +441,7 @@ export function Panels({
       const left = piles();
       if (!left) return;
       const kept = [...boxes.current].map(([id, box]) => ({ id, at: rectOf(box) }));
-      const laid = kept.filter(({ id }) => dragged.current.has(id) || paired(dropped.current, id));
+      const laid = kept.filter(({ id }) => dragged.current.has(id) || held(id) || paired(dropped.current, id));
       for (const id of placed.current) {
         const box = boxes.current.get(id);
         if (!box || laid.some((l) => l.id === id)) continue;
@@ -480,18 +505,39 @@ export function Panels({
     event.preventDefault();
     box.setPointerCapture(event.pointerId);
     box.classList.add("dragging");
-    const move = (e: PointerEvent) => put(box, place(e.clientX, e.clientY));
+    let moved = false;
+    const move = (e: PointerEvent) => {
+      moved = true;
+      put(box, place(e.clientX, e.clientY));
+    };
     const end = (e: PointerEvent) => {
       box.removeEventListener("pointermove", move);
       box.removeEventListener("pointerup", end);
       box.removeEventListener("pointercancel", end);
       box.classList.remove("dragging");
-      // A press that did not move is a press, not a drag: the panel keeps a free place next time.
-      if (e.clientX === x0 && e.clientY === y0) return;
-      dragged.current.set(id, place(e.clientX, e.clientY));
-      // And the panels it is left lying over, which a resize leaves so.
+      // A press that did not move is a press, not a drag: the panel keeps a free place next time. A drag the browser cuts short
+      // ends where its moves left the panel: a finger's on a heading, which Chrome takes for a pan, ends in a pointercancel at
+      // the window's corner, 0,0, and placed there, Finance went into the top left over the chips, and opened there next (the
+      // review of the systems audit's nineteenth round).
+      const cut = e.type === "pointercancel";
+      if (cut ? !moved : e.clientX === x0 && e.clientY === y0) return;
+      // Where it is let go, under the pointer, though the window changed size as it was held: let go without a move after
+      // Chrome's 125%, Finance stayed where the change put it and opened next under the pointer's place, 244×264 px over Lines
+      // (the systems audit's nineteenth round).
+      const stands = rectOf(box);
+      const to = cut ? { x: stands.x, y: stands.y } : place(e.clientX, e.clientY);
+      put(box, to);
+      dragged.current.set(id, to);
+      // And the panels it is left lying over, which a resize leaves so, each from where it lies: kept whole from where it opened,
+      // one a change of size had moved went back there at the next, piled with a third and was placed afresh, 452 px from the
+      // panel dragged onto it (the review of the nineteenth round).
       forget(dropped.current, id);
-      for (const [other, at] of boxes.current) if (other !== id && across(rectOf(box), rectOf(at))) dropped.current.add(pairOf(id, other));
+      for (const [other, at] of boxes.current)
+        if (other !== id && across(rectOf(box), rectOf(at))) {
+          dropped.current.add(pairOf(id, other));
+          const lies = rectOf(at);
+          if (!dragged.current.has(other)) homes.current.set(other, { x: lies.x, y: lies.y });
+        }
     };
     box.addEventListener("pointermove", move);
     box.addEventListener("pointerup", end);
