@@ -325,24 +325,97 @@ test.describe('movable panels', () => {
     expect([Math.round(now.x), Math.round(now.y)]).toEqual([Math.round(s.x), Math.round(s.y)]);
   });
 
-  // A finger's drag on a heading, which Chrome takes for a pan and cuts short with a pointercancel at the window's corner, 0,0,
-  // ends where its moves left the panel: placed by that point, Finance went into the top left, 24 px past the window's edge and
-  // over the chips, and opened there next (the review of the systems audit's nineteenth round, 3 runs of 3). Shown failing
-  // (TS-04) with a pointercancel taken as a pointerup.
+  // A drag whose release the page never hears ends where its moves left the panel: with the window losing the mouse mid-drag,
+  // Chrome sends the next moves with no button held, and the drag went on, the panel following the pointer as it passed over
+  // it, no click ending it, and a close's card waiting for it in the middle of the window; and one whose left button went up as
+  // the right stayed down followed the pointer on the right alone (the systems audit's twentieth round, on Inner Boston, 3 runs
+  // of 3). Moves sent as Playwright sends them, naming the button held, over the DevTools protocol, which can leave out a
+  // release. Shown failing (TS-04) with a drag ended by its release alone.
+  test('end a drag whose release the page never hears where its moves left the panel', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 790 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+    const finance = page.getByTestId('finance');
+    const box = page.locator('[data-movable="finance"]');
+    const cdp = await page.context().newCDPSession(page);
+    const mouse = (type: 'mouseMoved' | 'mousePressed' | 'mouseReleased', x: number, y: number, buttons: number, button: 'left' | 'right' = 'left') =>
+      cdp.send('Input.dispatchMouseEvent', { type, x, y, buttons, button: type === 'mouseMoved' ? (buttons & 1 ? 'left' : buttons & 2 ? 'right' : 'none') : button, clickCount: type === 'mouseMoved' ? 0 : 1, force: buttons ? 0.5 : 0 });
+    const at = async () => {
+      const b = (await box.boundingBox())!;
+      return [Math.round(b.x), Math.round(b.y)];
+    };
+    const grip = async () => {
+      const h = (await finance.getByRole('heading', { name: 'Finance' }).boundingBox())!;
+      return [h.x + 10, h.y + h.height / 2] as const;
+    };
+    // Dragged 120 px left and 40 down in four moves, then moved on with no button held: no release.
+    let [x, y] = await grip();
+    const from = await at();
+    await mouse('mouseMoved', x, y, 0);
+    await mouse('mousePressed', x, y, 1);
+    for (let k = 1; k <= 4; k++) await mouse('mouseMoved', x - 30 * k, y + 10 * k, 1);
+    for (let k = 1; k <= 4; k++) await mouse('mouseMoved', x - 120 + 50 * k, y + 40 + 20 * k, 0);
+    expect(await at(), 'where its moves left it').toEqual([from[0]! - 120, from[1]! + 40]);
+    expect(await box.evaluate((el) => el.classList.contains('dragging')), 'the drag ended').toBe(false);
+    // And it ended: the pointer passing over it with no button held leaves it.
+    const left = await at();
+    for (let k = 1; k <= 3; k++) await mouse('mouseMoved', left[0]! + 100 + 30 * k, left[1]! + 100, 0);
+    expect(await at(), 'still as the pointer passes').toEqual(left);
+    // The left button let go as the right stays down: the drag ends there, and the right's moves leave it.
+    [x, y] = await grip();
+    await mouse('mouseMoved', x, y, 0);
+    await mouse('mousePressed', x, y, 1);
+    await mouse('mouseMoved', x + 50, y + 20, 1);
+    await mouse('mousePressed', x + 50, y + 20, 3, 'right');
+    await mouse('mouseReleased', x + 50, y + 20, 2);
+    for (let k = 1; k <= 4; k++) await mouse('mouseMoved', x + 50 + 40 * k, y + 20 + 20 * k, 2);
+    await mouse('mouseReleased', x + 210, y + 100, 0, 'right');
+    await cdp.detach();
+    expect(await at(), 'where the left button left it').toEqual([left[0]! + 50, left[1]! + 20]);
+    await finance.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await expect(finance).toBeVisible();
+    expect(await at(), 'opened again where it was left').toEqual([left[0]! + 50, left[1]! + 20]);
+  });
+
+  // A finger on a heading drags the panel as the mouse does (the heading's touch-action: none): Chrome took the drag for a pan
+  // and cut it short after its first move, 25 px of 200 (the systems audit's twentieth round). Shown failing (TS-04) with no
+  // touch-action on the headings. A drag the browser does cut short ends where its moves left the panel: placed by the point
+  // Chrome sends with a pointercancel, the window's corner, 0,0, Finance went into the top left, 24 px past the window's edge
+  // and over the chips, and opened there next (the review of the nineteenth round, 3 runs of 3); the cancel is sent here as
+  // Chrome sends it, the DevTools protocol's own carrying the finger's last point. Shown failing (TS-04) with a pointercancel
+  // taken as a pointerup. And a second finger on a heading ends the drag where the first left it: the first drag heard the
+  // second's moves too, so two fingers there moved Finance 180 px left and 80 down, and it opened there next (the twentieth
+  // round, on Inner Boston as the page zoomed 3.87 to 4 times). Shown failing (TS-04) with every pointer's moves heard.
   test.describe('by a finger', () => {
     test.use({ hasTouch: true });
-    test('a finger’s drag on a heading leaves the panel where it moved it, and it opens there next', async ({ page }) => {
+    /** The game with Lines and Finance open, and Finance's heading's grip: a point 10 px into it. */
+    const twoPanels = async (page: Page) => {
       await page.setViewportSize({ width: 1440, height: 790 });
       await page.goto('./');
       await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
       await foundCompany(page);
       await withDebugLine(page);
       for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+      const h = (await page.getByTestId('finance').getByRole('heading', { name: 'Finance' }).boundingBox())!;
+      return [h.x + 10, h.y + h.height / 2] as const;
+    };
+    /** Finance's place, closed and opened again: where it opens next. */
+    const reopened = async (page: Page) => {
       const finance = page.getByTestId('finance');
+      await finance.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.getByRole('button', { name: 'Finance', exact: true }).click();
+      await expect(finance).toBeVisible();
+      const b = (await page.locator('[data-movable="finance"]').boundingBox())!;
+      return [Math.round(b.x), Math.round(b.y)];
+    };
+    test('a finger’s drag on a heading moves the panel as far as the finger, and it opens there next', async ({ page }) => {
+      const [x, y] = await twoPanels(page);
       const box = page.locator('[data-movable="finance"]');
       const before = (await box.boundingBox())!;
-      const h = (await finance.getByRole('heading', { name: 'Finance' }).boundingBox())!;
-      const [x, y] = [h.x + 10, h.y + h.height / 2];
       // 200 px to the left and 40 down, in eight moves.
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
@@ -351,13 +424,39 @@ test.describe('movable panels', () => {
       await cdp.detach();
       await frames(page);
       const after = (await box.boundingBox())!;
-      expect(Math.abs(after.x - before.x), 'moved across no further than the finger').toBeLessThanOrEqual(200);
-      expect(Math.abs(after.y - before.y), 'moved down no further than the finger').toBeLessThanOrEqual(40);
-      await finance.getByRole('button', { name: 'Close', exact: true }).click();
-      await page.getByRole('button', { name: 'Finance', exact: true }).click();
-      await expect(finance).toBeVisible();
-      const again = (await box.boundingBox())!;
-      expect([Math.round(again.x), Math.round(again.y)]).toEqual([Math.round(after.x), Math.round(after.y)]);
+      expect([Math.round(after.x - before.x), Math.round(after.y - before.y)], 'moved as far as the finger').toEqual([-200, 40]);
+      expect(await reopened(page)).toEqual([Math.round(after.x), Math.round(after.y)]);
+    });
+    test('a finger’s drag the browser cuts short ends where its moves left the panel, and it opens there next', async ({ page }) => {
+      const [x, y] = await twoPanels(page);
+      const box = page.locator('[data-movable="finance"]');
+      const before = (await box.boundingBox())!;
+      // The finger's pointer, for the cancel to name.
+      await page.evaluate(() => window.addEventListener('pointerdown', (e) => void ((window as unknown as { finger: number }).finger = e.pointerId), { capture: true, once: true }));
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 25 * k, y: y + 5 * k }] });
+      await box.evaluate((el) => el.dispatchEvent(new PointerEvent('pointercancel', { pointerId: (window as unknown as { finger: number }).finger, pointerType: 'touch', bubbles: true, clientX: 0, clientY: 0 })));
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
+      await frames(page);
+      const after = (await box.boundingBox())!;
+      expect([Math.round(after.x - before.x), Math.round(after.y - before.y)], 'where its moves left it').toEqual([-200, 40]);
+      expect(await reopened(page)).toEqual([Math.round(after.x), Math.round(after.y)]);
+    });
+    test('two fingers on a heading leave the panel where it was, and the page at its own scale', async ({ page }) => {
+      const [x, y] = await twoPanels(page);
+      const box = page.locator('[data-movable="finance"]');
+      const before = (await box.boundingBox())!;
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }, { x: x + 100, y, id: 2 }] });
+      for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 10 * k, y: y + 10 * k, id: 1 }, { x: x + 100 + 10 * k, y: y + 10 * k, id: 2 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
+      await frames(page);
+      expect(await page.evaluate(() => window.visualViewport!.scale), 'the page at its own scale').toBe(1);
+      expect(await reopened(page)).toEqual([Math.round(before.x), Math.round(before.y)]);
     });
   });
 });

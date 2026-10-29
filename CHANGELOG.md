@@ -337,6 +337,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A stop card's "Remove from" a line, turned down as Ctrl+Z takes back the line's third stop, keeps the keyboard and says why under it, "A line keeps at least 2 stops", where the keyboard fell to the page and Space played.
 - A fare list you open in Finance stays beside its button when the open line's fare band appears or goes above it. Before, the band could come after the list had opened and push the button down, and the list lay over the button until you scrolled.
 - The speed list stays under its button as the day runs on. Before, when the clock's period changed, such as from Off-peak to Peak, the speed menu moved along the top bar and its list stayed where it had opened.
+- Panels you piled by dragging one onto another stay piled as you left them when Chrome's zoom or the window's size changes and comes back, and the other panels make room around the pile. Before, a zoom could take the pile apart and move the panel under it, and others, for good.
+- A panel whose heading you hold while the window changes size, and let go without moving, is whole in the window. Before, it could hang past the window's edge, its Close out of reach, until the next change.
+- On a touch screen a pinch zooms only the map: off the map, on the chips, a panel or the dock, it no longer zooms the whole page, which hid the chips, the dock and the map's credit. A finger on a panel's heading drags the panel as far as it goes, and a second finger there stops the drag.
+- A panel's drag ends even when the browser never tells the game its button went up, as when the window loses the mouse mid-drag or the left button goes up while the right is still down. Before, the panel went on following the pointer whenever it passed over it, and the day's card waited in the middle of the window.
 
 ### Removed
 

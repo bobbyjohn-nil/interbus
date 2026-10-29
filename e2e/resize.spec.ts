@@ -1,7 +1,7 @@
 // Panels through changes of the window's size, as Chrome's zoom and a drag of the window's corner make them (the systems audit's
 // eighteenth round, its second lane, and the round's review): a pile a zoom made comes apart once there is room again, laid out
-// afresh as the panels opened where the pass leaves one; a drag's pile goes once one of its panels is placed afresh or dragged
-// clear; and the lender's card stays where it is. Each shown failing (TS-04) with its fix taken out.
+// afresh as the panels opened where the pass leaves one; a drag's pile stays through a change and back, and goes once its panel
+// is dragged clear; and the lender's card stays where it is. Each shown failing (TS-04) with its fix taken out.
 import { expect, test, type Locator, type Page } from './base';
 import { foundCompany, STARTING_CENTS } from './found';
 import { city, resizeTo, setSpeed, withDebugLine } from './shell';
@@ -108,17 +108,78 @@ test.describe('panels through changes of the window’s size', () => {
     expect(await piles(page)).toEqual([]);
   });
 
-  // A drag's pile goes once a change of size places one of its panels afresh: Finance dragged over Saves and Contracts, 175%
-  // placed Contracts afresh, and back at 100% the pair kept it under Finance, 21×290 px (the round's review, 3 runs of 3). Shown
-  // failing (TS-04) with the pair kept.
-  test('forget a drag’s pile once a change of size places one of its panels afresh', async ({ page }) => {
+  // A drag's pile, and every panel, stand through a change of size and back as the drag left them: Finance dragged over Saves
+  // and Contracts, 175% placed Contracts afresh, which forgot its pair, and back at 100% it was placed afresh again, at
+  // (836, 56) for (384, 56) on Inner Boston (the systems audit's twentieth round). The panels a drag left under another are
+  // laid out before those in free places now, and keep their pairs: kept from where they lie, where the drag left them, they
+  // go back under it. Its pair forgotten, as the eighteenth round's review had it in a build that kept no homes, it shows the
+  // pile gone and Contracts moved.
+  test('keep a drag’s pile over two panels, and every panel where it stood, through 175% and back', async ({ page }) => {
     test.setTimeout(90_000);
     await fourPanels(page, 1440, 790);
     await dragBy(page, page.getByTestId('finance'), 'Finance', -604, 100);
     expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance', 'finance/saves']);
+    const before = await places(page);
     await resizeTo(page, 823, 451);
     await resizeTo(page, 1440, 790);
-    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['finance/saves']);
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance', 'finance/saves']);
+    expect(await places(page)).toEqual(before);
+  });
+
+  // A change of size that brings a panel in a free place over the one a drag left under another lays it out around the pile:
+  // taken in the order they opened, Lines, placed afresh at 150% clear of Finance dragged onto Contracts, landed on Contracts,
+  // which was placed afresh in turn and forgot its pair, and back at 100% Contracts was placed afresh again and Saves after it,
+  // the pile gone, at 19 of 24 changes and back on Inner Boston at the owner's and the artist's windows (the systems audit's
+  // twentieth round). At 150% the pile stands as the drag left it. Shown failing (TS-04) with the panels laid out in the order
+  // they opened, a pile's panel placed afresh forgetting its pair, and at 150% with the order alone.
+  test('keep a drag’s pile, and every panel where it stood, through a zoom that brings a panel over it and back', async ({ page }) => {
+    test.setTimeout(90_000);
+    await fourPanels(page, 1440, 790);
+    const at = await places(page);
+    await dragBy(page, page.getByTestId('finance'), 'Finance', at.contracts![0]! + 20 - at.finance![0]!, at.contracts![1]! + 40 - at.finance![1]!);
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance']);
+    const before = await places(page);
+    await resizeTo(page, 960, 527);
+    const zoomed = await places(page);
+    expect([zoomed.contracts, zoomed.finance], 'the pile at 150%').toEqual([before.contracts, before.finance]);
+    await resizeTo(page, 1440, 790);
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance']);
+    expect(await places(page)).toEqual(before);
+  });
+
+  // And one of a pile placed afresh at a change of size keeps its pair, its place still under the panel dragged onto it, so the
+  // change back puts the pile back: kept whole at 200%, Contracts lay under Saves, dragged clear of it at 100%, so it was placed
+  // afresh; with its pair forgotten, as since the eighteenth round's review, it lay back under Finance with none at 100% and was
+  // placed afresh again, the pile gone. Shown failing (TS-04) with the pair forgotten.
+  test('keep a drag’s pile whose panel a zoom placed afresh, and put that panel back under it after', async ({ page }) => {
+    test.setTimeout(90_000);
+    await fourPanels(page, 1440, 790);
+    const at = await places(page);
+    await dragBy(page, page.getByTestId('finance'), 'Finance', at.contracts![0]! + 20 - at.finance![0]!, at.contracts![1]! + 40 - at.finance![1]!);
+    // Saves right of Contracts and below Finance, over neither.
+    const saves = (await places(page)).saves!;
+    await dragBy(page, page.getByTestId('saves'), 'Saves', 700 - saves[0]!, 420 - saves[1]!);
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance']);
+    const before = await places(page);
+    await resizeTo(page, 720, 395);
+    expect((await places(page)).contracts, 'Contracts placed afresh at 200%, clear of Saves').not.toEqual(before.contracts);
+    await resizeTo(page, 1440, 790);
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance']);
+    expect(await places(page)).toEqual(before);
+  });
+
+  // And Chrome's zoom a step at a time to 200% and back, at the artist's PC's 1280×590: back at 100%, Contracts lay over Lines
+  // and Saves, piles no drag made (the round, on Inner Boston). Shown failing (TS-04) the same way.
+  test('keep a drag’s pile, and every panel where it stood, through Chrome’s zoom a step at a time to 200% and back', async ({ page }) => {
+    test.setTimeout(120_000);
+    await fourPanels(page, 1280, 590);
+    const at = await places(page);
+    await dragBy(page, page.getByTestId('finance'), 'Finance', at.contracts![0]! + 20 - at.finance![0]!, at.contracts![1]! + 40 - at.finance![1]!);
+    const [pile, before] = [(await piles(page)).map((p) => p.split(' ')[0]), await places(page)];
+    expect(pile).toContain('contracts/finance');
+    for (const zoom of [1.1, 1.25, 1.5, 1.75, 2, 1.75, 1.5, 1.25, 1.1, 1]) await resizeTo(page, Math.round(1280 / zoom), Math.round(590 / zoom));
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(pile);
+    expect(await places(page)).toEqual(before);
   });
 
   // And a drag that ends clear forgets the panels it had been left over: kept, a window narrowed to 125% slid Lines under
@@ -247,6 +308,30 @@ test.describe('panels through changes of the window’s size', () => {
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await expect(finance).toBeVisible();
     expect((await places(page)).finance).toEqual(left);
+  });
+
+  // A press held on a heading through a change of size, and let go with no move, leaves its panel whole on the window: the
+  // change kept it in reach only, as a drag on its way, and let go after 150%, Finance hung past the window's right edge, its
+  // Close off the window, until the next change (the systems audit's twentieth round, on Inner Boston, 3 runs of 3). Shown
+  // failing (TS-04) with the panels not laid out again as the press ends.
+  test('let a press held through a zoom go with its panel whole on the window', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 790 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+    await page.getByTestId('checklist').click(); // "5/5 Take a contract" opens Contracts
+    const finance = page.getByTestId('finance');
+    await expect(finance).toBeVisible();
+    const h = (await finance.getByRole('heading', { name: 'Finance' }).boundingBox())!;
+    await page.mouse.move(h.x + 10, h.y + h.height / 2);
+    await page.mouse.down();
+    await resizeTo(page, 960, 527);
+    await page.mouse.up();
+    const box = (await page.locator('[data-movable="finance"]').boundingBox())!;
+    expect(box.x + box.width, 'Finance whole on the window').toBeLessThanOrEqual(960);
+    await expect(finance.getByRole('button', { name: 'Close', exact: true })).toBeInViewport({ ratio: 1 });
   });
 
   // A drag's pile stays though a change of size had moved the panel left under it: kept whole from where it opened, Finance,
