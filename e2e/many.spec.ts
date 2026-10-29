@@ -13,6 +13,10 @@ import { axeProblems } from './a11y';
 import { foundCompany } from './found';
 import { build, projector, toScreen } from './shell';
 
+/** How long a test waits for the sim's fare band: with two other games playing on the machine it outran expect's 5 s in 6 runs
+ * of 17 (the review of #192), and a longer wait costs nothing when it comes quickly. */
+const BAND_WAIT = 30_000;
+
 /** The fixture's late game of at most `lines` lines, imported over a founded company, paused. */
 async function lateGame(page: Page, lines = 30) {
   await page.setViewportSize({ width: 1152, height: 720 });
@@ -161,7 +165,7 @@ test.describe('a late game of many lines', () => {
     await lines.getByRole('button', { name: 'Fare and money in Finance' }).click();
     const finance = page.getByTestId('finance');
     await expect(finance.getByRole('button', { name: last.name, exact: true })).toHaveAttribute('aria-expanded', 'true');
-    await expect(finance.getByTestId('fare-band')).toBeVisible();
+    await expect(finance.getByTestId('fare-band')).toBeVisible({ timeout: BAND_WAIT });
     const body = finance.getByTestId('finance-body');
     for (const part of [finance.getByTestId(`line-money-${last.id}`), finance.getByTestId('line-forecast'), finance.getByTestId('fare-band')]) {
       expect(await shownIn(body, part)).toMatchObject({ whole: true });
@@ -182,13 +186,13 @@ test.describe('a late game of many lines', () => {
     await lines.getByRole('button', { name: 'Fare and money in Finance' }).click();
     const finance = page.getByTestId('finance');
     const body = finance.getByTestId('finance-body');
-    await expect(finance.getByTestId('fare-band')).toBeVisible();
+    await expect(finance.getByTestId('fare-band')).toBeVisible({ timeout: BAND_WAIT });
     await body.evaluate((el) => void (el.scrollTop = 0));
     await finance.getByTestId(`fare-${first.id}`).click();
     await page.getByRole('option', { name: first.fareCents === 250 ? '$2.75' : '$2.50', exact: true }).click();
     await expect(finance.getByTestId(`fare-${first.id}`)).toContainText(first.fareCents === 250 ? '$2.75' : '$2.50');
     // The band asked again for the network as it now is comes, and the view stays.
-    await expect(finance.getByTestId('fare-band')).toBeVisible();
+    await expect(finance.getByTestId('fare-band')).toBeVisible({ timeout: BAND_WAIT });
     await page.waitForTimeout(500);
     expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
     expect(await shownIn(body, finance.getByTestId(`line-money-${first.id}`))).toMatchObject({ whole: true });
@@ -262,9 +266,8 @@ test.describe('a late game of many lines', () => {
 
   // The fare band Finance's Lines asks for as it opens, come after a fare list was placed, grew the open line's row by its line,
   // 18.9 px, and moved the list's button down with no scroll: the list, placed again only as a scroll moved the button, stood
-  // over the button's lower 15 px (twice on CI's runners, the test above's 14.9 px against its 10; 5 runs of 6 with the CPU
-  // slowed 4 times, the band coming as late as on them). The list follows its button as what holds it changes size. Shown
-  // failing (TS-04) with the list placed again only by a scroll: 14.9 px.
+  // over the button's lower 15 px (twice on CI's runners, the test above's 14.9 px against its 10). The list follows its button
+  // as what holds it changes size. Shown failing (TS-04) with the list placed again only by a scroll: 14.9 px, 3 runs of 3.
   test('a fare list open in Finance stays beside its button as the open line’s fare band comes and grows its row', async ({ page }) => {
     await page.addInitScript(() => {
       // The sim's fare bands held back while `holdingBands`, then handed over, in order, by `releaseBands`.
@@ -292,7 +295,7 @@ test.describe('a late game of many lines', () => {
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await page.getByTestId('finance-lines').click();
     const finance = page.getByTestId('finance');
-    await expect.poll(() => page.evaluate(() => (window as unknown as { heldBands: unknown[] }).heldBands.length)).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => (window as unknown as { heldBands: unknown[] }).heldBands.length), { timeout: BAND_WAIT }).toBeGreaterThan(0);
     await expect(finance.getByTestId('fare-band')).toHaveCount(0);
     const fare = finance.getByTestId(`fare-${third.id}`);
     await fare.click();
@@ -305,6 +308,18 @@ test.describe('a late game of many lines', () => {
     expect((await fare.boundingBox())!.y - before).toBeGreaterThan(10);
     await expect(list).toBeVisible();
     await expect.poll(async () => Math.abs((await list.boundingBox())!.y - ((await fare.boundingBox())!.y + (await fare.boundingBox())!.height))).toBeLessThan(10);
+    // And there it rests: placed again at every word of what holds it, its button unmoved, it was placed over and over (the
+    // review of #192, with the button's move left out of the observer's test: its style rewritten 363 to 539 times here).
+    const placings = await list.evaluate((el) => new Promise<number>((done) => {
+      let writes = 0;
+      const seen = new MutationObserver((records) => void (writes += records.length));
+      seen.observe(el, { attributes: true, attributeFilter: ['style'] });
+      setTimeout(() => {
+        seen.disconnect();
+        done(writes);
+      }, 1_000);
+    }));
+    expect(placings).toBe(0);
   });
 
   // Under Finance's headings, which stay in view as the rows scroll, a fare list's button was hidden while still in the body's
