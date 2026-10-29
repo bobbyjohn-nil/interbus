@@ -1,10 +1,15 @@
 // The keyboard's way to a stop, and the focus after a stop's, a contract's and a day's buttons (useFocusBack; DayCard's
 // Continue), apart from keyboard.spec.ts so that CI's fifths, which share the tests out by file, can run the two on runners
-// of their own: as one file of 37 tests, its fifth's job took 7.6 minutes of the 8 on #184's push run.
+// of their own: as one file of 37 tests, its fifth's job took 7.6 minutes of the 8 on #184's push run. Its tests share nothing
+// between them, so they run in parallel mode, shared out among the workers of its seventh: run whole on one worker, they
+// started after errors.spec.ts and ran 4.5 minutes alone, the other worker standing idle for 3, so that the second seventh's
+// tests took 6.6 minutes, in a job of 7.25 of the 8, on #191's push run.
 import { expect, test, type Locator, type Page } from './base';
 import { foundCompany, leaveHome } from './found';
 import { lines, press } from './keys';
 import { city, holdAnswers, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, type SaveData } from './shell';
+
+test.describe.configure({ mode: 'parallel' });
 
 // The keyboard's way to a stop (the accessibility pass): the map opens a stop's card only on a press on it, so each line's card
 // lists its stops, and the buttons that go with their card hand the focus on: a stop card's, the day card's Continue and

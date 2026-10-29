@@ -19,7 +19,9 @@
 # #188's pull request run, a job of 8.1, the limit cancelling it as they ended (5.2 on its push run, a job of 5.9), so the
 # e2e ran in sixths. On #189's runs the first sixth's tests took 6.4 and 6.3 minutes, jobs of 7.0 and 6.8, and the same
 # fourth sixth took 4.9 minutes on the pull request run's runner against 3.3 on the push run's: the first had no room for
-# a runner that slow, so the e2e runs in sevenths.
+# a runner that slow, so the e2e runs in sevenths. On #191's first push run the second seventh's tests took 6.6 minutes, a
+# job of 7.25: focusback.spec.ts ran 4.5 of them alone after errors.spec.ts, the other worker idle for 3, so its tests,
+# which share nothing, run in parallel mode, shared out one by one (its last three in the third seventh).
 name: CI
 
 on:
