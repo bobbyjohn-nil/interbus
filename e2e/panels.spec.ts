@@ -436,6 +436,12 @@ test.describe('movable panels', () => {
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 25 * k, y: y + 5 * k }] });
+      // Every move landed, the panel under the finger, before the cut: Chrome hands the page a finger's moves a frame at a time,
+      // and cut short sooner, on CI's runner, the drag ended where seven of the eight had left it.
+      await expect.poll(async () => {
+        const b = (await box.boundingBox())!;
+        return [Math.round(b.x - before.x), Math.round(b.y - before.y)];
+      }).toEqual([-200, 40]);
       await box.evaluate((el) => el.dispatchEvent(new PointerEvent('pointercancel', { pointerId: (window as unknown as { finger: number }).finger, pointerType: 'touch', bubbles: true, clientX: 0, clientY: 0 })));
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await cdp.detach();
