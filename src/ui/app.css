@@ -55,6 +55,13 @@ body,
   overflow: hidden;
 }
 
+/* A pinch is the map's (src/ui/pinch.ts): a touch screen's pinch off the map zoomed the whole page, 3.3 to 4 times, the chips,
+   the dock and the map's credit out of view (the systems audit's twentieth round). A finger still scrolls a panel's body, and
+   the map's canvas takes every touch itself (MapLibre's touch-action: none). */
+html {
+  touch-action: pan-x pan-y;
+}
+
 /* .app > .map outranks maplibre-gl.css's .maplibregl-map { position: relative }, which loads later
    with the map chunk and otherwise collapses the map to zero height. */
 .app > .map {
@@ -1818,10 +1825,12 @@ button.chip.checklist,
   max-height: min(var(--room, calc(100vh - 128px)), 60vh);
 }
 
+/* A finger on a heading drags the panel as the mouse does: Chrome took its drag for a pan and cut it short (Panels.tsx). */
 .movable .panel h2,
 .movable .day-card h2 {
   cursor: grab;
   user-select: none;
+  touch-action: none;
 }
 
 /* The lender's card on the panel layer (App.tsx), placed by the layer as a panel is, and as tall as its place allows. As wide

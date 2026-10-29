@@ -122,3 +122,36 @@ test('a page zoomed by a pinch before the game’s code ran pinches back out ove
   await pinchAt(page, spot!.x, spot!.y, 1 / 1.6);
   await expect.poll(() => pageScale(page)).toBe(1);
 });
+
+// A touch screen's pinch is the map's too (the page's touch-action, app.css): off the map, on the chips, a panel or the dock, it
+// zoomed the whole page 3.3 to 4 times, the chips, the dock and the map's credit out of view, where over the map it zoomed the
+// map (the systems audit's twentieth round, on Inner Boston, 3 runs of 3). Two fingers spread from 60 to 252 px apart over the
+// DevTools protocol, as the round played it. Shown failing (TS-04) with no touch-action on the page.
+test.describe('on a touch screen', () => {
+  test.use({ hasTouch: true });
+  test('a pinch off the map leaves the page as it is, and over the map zooms the map', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = (await page.getByTestId('finance').boundingBox())!;
+    const spread = async (x: number, y: number) => {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x - 30, y, id: 1 }, { x: x + 30, y, id: 2 }] });
+      for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 30 - 12 * k, y, id: 1 }, { x: x + 30 + 12 * k, y, id: 2 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
+      await page.waitForTimeout(500);
+    };
+    for (const [name, x, y] of [['the chips', 360, 26], ['Finance', finance.x + finance.width / 2, finance.y + finance.height * 0.6], ['the dock', 720, 755]] as const) {
+      await spread(x, y);
+      expect(await pageScale(page), `the page after a pinch on ${name}`).toBe(1);
+    }
+    await expect(page.locator('.corner')).toBeInViewport({ ratio: 1 });
+    const before = await mapZoom(page);
+    await spread(300, 400);
+    await expect.poll(() => mapZoom(page)).toBeGreaterThan(before);
+    expect(await pageScale(page)).toBe(1);
+  });
+});
