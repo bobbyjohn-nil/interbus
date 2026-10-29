@@ -17,7 +17,9 @@
 # push run, a job of 7.6, its other worker done in under 3, so the hand-offs of a stop's, a contract's and a day's buttons
 # run from focusback.spec.ts. With the eighteenth audit round's first lane's tests the last fifth's took 7.5 minutes on
 # #188's pull request run, a job of 8.1, the limit cancelling it as they ended (5.2 on its push run, a job of 5.9), so the
-# e2e runs in sixths.
+# e2e ran in sixths. On #189's runs the first sixth's tests took 6.4 and 6.3 minutes, jobs of 7.0 and 6.8, and the same
+# fourth sixth took 4.9 minutes on the pull request run's runner against 3.3 on the push run's: the first had no room for
+# a runner that slow, so the e2e runs in sevenths.
 name: CI
 
 on:
@@ -131,10 +133,10 @@ jobs:
       - name: Smoke test the shipped build, with its busy scene
         run: npx playwright test e2e/smoke.spec.ts e2e/scene.spec.ts
 
-  # The e2e tests are written on mini-Boston, so they run on a build that plays it, in sixths on six runners: this
-  # one and "Fixture e2e, second sixth", "third sixth", "fourth sixth", "fifth sixth" and "last sixth".
-  e2e-first-sixth:
-    name: Fixture e2e, first sixth
+  # The e2e tests are written on mini-Boston, so they run on a build that plays it, in sevenths on seven runners: this one
+  # and "Fixture e2e, second seventh", "third seventh", "fourth seventh", "fifth seventh", "sixth seventh" and "last seventh".
+  e2e-first-seventh:
+    name: Fixture e2e, first seventh
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -170,10 +172,10 @@ jobs:
         uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
-      - run: npm run e2e -- --shard=1/6
+      - run: npm run e2e -- --shard=1/7
 
-  e2e-second-sixth:
-    name: Fixture e2e, second sixth
+  e2e-second-seventh:
+    name: Fixture e2e, second seventh
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -209,10 +211,10 @@ jobs:
         uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
-      - run: npm run e2e -- --shard=2/6
+      - run: npm run e2e -- --shard=2/7
 
-  e2e-third-sixth:
-    name: Fixture e2e, third sixth
+  e2e-third-seventh:
+    name: Fixture e2e, third seventh
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -248,10 +250,10 @@ jobs:
         uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
-      - run: npm run e2e -- --shard=3/6
+      - run: npm run e2e -- --shard=3/7
 
-  e2e-fourth-sixth:
-    name: Fixture e2e, fourth sixth
+  e2e-fourth-seventh:
+    name: Fixture e2e, fourth seventh
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -287,10 +289,10 @@ jobs:
         uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
-      - run: npm run e2e -- --shard=4/6
+      - run: npm run e2e -- --shard=4/7
 
-  e2e-fifth-sixth:
-    name: Fixture e2e, fifth sixth
+  e2e-fifth-seventh:
+    name: Fixture e2e, fifth seventh
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -326,10 +328,10 @@ jobs:
         uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
-      - run: npm run e2e -- --shard=5/6
+      - run: npm run e2e -- --shard=5/7
 
-  e2e-last-sixth:
-    name: Fixture e2e, last sixth
+  e2e-sixth-seventh:
+    name: Fixture e2e, sixth seventh
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -365,4 +367,43 @@ jobs:
         uses: ./.github/actions/chromium
 
       - run: npm run build:fixture
-      - run: npm run e2e -- --shard=6/6
+      - run: npm run e2e -- --shard=6/7
+
+  e2e-last-seventh:
+    name: Fixture e2e, last seventh
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore fonts
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/fonts
+            .cache/fonts
+          # fontnik draws the glyph ranges, so its installed version is part of the key.
+          key: fonts-${{ hashFiles('scripts/fonts/**', 'node_modules/fontnik/package.json') }}
+
+      - run: npm run fonts
+
+      - name: Restore city files
+        uses: actions/cache@v6
+        with:
+          path: public/cities
+          key: cities-${{ hashFiles('cities/index.json') }}
+
+      - run: npm run cities
+
+      - name: Install Playwright's Chromium
+        uses: ./.github/actions/chromium
+
+      - run: npm run build:fixture
+      - run: npm run e2e -- --shard=7/7
