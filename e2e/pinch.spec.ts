@@ -23,7 +23,8 @@ async function pinchAt(page: Page, x: number, y: number, scale: number): Promise
 async function ctrlWheelOut(page: Page, x: number, y: number): Promise<boolean> {
   await page.evaluate(() => {
     const w = window as unknown as { wheelOut: Promise<boolean> };
-    w.wheelOut = new Promise((done) => window.addEventListener('wheel', (e) => void setTimeout(() => done(e.defaultPrevented)), { once: true }));
+    // Heard as it starts down the page (capture), before any listener can stop it, as pinch.ts stops a zoom out while zoomed.
+    w.wheelOut = new Promise((done) => window.addEventListener('wheel', (e) => void setTimeout(() => done(e.defaultPrevented)), { once: true, capture: true }));
   });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: 100, modifiers: 2 });
@@ -35,6 +36,15 @@ async function ctrlWheelOut(page: Page, x: number, y: number): Promise<boolean> 
 const pageScale = (page: Page) => page.evaluate(() => window.visualViewport!.scale);
 /** The map's zoom, as its view reads once it has moved. */
 const mapZoom = async (page: Page) => Number((await page.getByTestId('map').getAttribute('data-view'))!.split(',')[2]);
+/** The map's zoom once a pinch's steps have all landed: the same two reads 300 ms apart. */
+async function settledZoom(page: Page): Promise<number> {
+  for (let last = await mapZoom(page); ; ) {
+    await page.waitForTimeout(300);
+    const now = await mapZoom(page);
+    if (now === last) return now;
+    last = now;
+  }
+}
 
 test('a pinch over Home’s card or a panel leaves the page as it is, and over the map zooms the map', async ({ page }) => {
   test.setTimeout(90_000);
@@ -51,10 +61,15 @@ test('a pinch over Home’s card or a panel leaves the page as it is, and over t
   await pinchAt(page, finance.x + finance.width / 2, finance.y + finance.height / 2, 1.6);
   expect(await pageScale(page)).toBe(1);
   await expect(page.locator('.corner')).toBeInViewport({ ratio: 1 });
-  // Over the map the pinch is the map's, as before: it zooms in, the page as it was.
+  // Over the map the pinch is the map's, as before: it zooms in, the page as it was, and out again, at the page's own scale (the
+  // review of the nineteenth round: with every zoom out over the map kept from the map, this test passed).
   const before = await mapZoom(page);
   await pinchAt(page, 300, 400, 1.6);
   await expect.poll(() => mapZoom(page)).toBeGreaterThan(before);
+  expect(await pageScale(page)).toBe(1);
+  const zoomedIn = await settledZoom(page);
+  await pinchAt(page, 300, 400, 1 / 1.6);
+  await expect.poll(() => mapZoom(page)).toBeLessThan(zoomedIn);
   expect(await pageScale(page)).toBe(1);
 });
 

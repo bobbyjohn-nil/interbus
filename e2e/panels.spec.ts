@@ -13,7 +13,7 @@ import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { LINE_COLOURS } from '../src/sim/config/lines';
 import { foundCompany } from './found';
-import { build, city, resizeTo, toScreen, withDebugLine, zoomOutOnce } from './shell';
+import { build, city, frames, resizeTo, toScreen, withDebugLine, zoomOutOnce } from './shell';
 
 const apart = async (a: Locator, b: Locator) => {
   const [p, q] = [(await a.boundingBox())!, (await b.boundingBox())!];
@@ -323,6 +323,42 @@ test.describe('movable panels', () => {
     await resizeTo(page, 1440, 790);
     const now = (await saves.boundingBox())!;
     expect([Math.round(now.x), Math.round(now.y)]).toEqual([Math.round(s.x), Math.round(s.y)]);
+  });
+
+  // A finger's drag on a heading, which Chrome takes for a pan and cuts short with a pointercancel at the window's corner, 0,0,
+  // ends where its moves left the panel: placed by that point, Finance went into the top left, 24 px past the window's edge and
+  // over the chips, and opened there next (the review of the systems audit's nineteenth round, 3 runs of 3). Shown failing
+  // (TS-04) with a pointercancel taken as a pointerup.
+  test.describe('by a finger', () => {
+    test.use({ hasTouch: true });
+    test('a finger’s drag on a heading leaves the panel where it moved it, and it opens there next', async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 790 });
+      await page.goto('./');
+      await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+      await foundCompany(page);
+      await withDebugLine(page);
+      for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+      const finance = page.getByTestId('finance');
+      const box = page.locator('[data-movable="finance"]');
+      const before = (await box.boundingBox())!;
+      const h = (await finance.getByRole('heading', { name: 'Finance' }).boundingBox())!;
+      const [x, y] = [h.x + 10, h.y + h.height / 2];
+      // 200 px to the left and 40 down, in eight moves.
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 25 * k, y: y + 5 * k }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
+      await frames(page);
+      const after = (await box.boundingBox())!;
+      expect(Math.abs(after.x - before.x), 'moved across no further than the finger').toBeLessThanOrEqual(200);
+      expect(Math.abs(after.y - before.y), 'moved down no further than the finger').toBeLessThanOrEqual(40);
+      await finance.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.getByRole('button', { name: 'Finance', exact: true }).click();
+      await expect(finance).toBeVisible();
+      const again = (await box.boundingBox())!;
+      expect([Math.round(again.x), Math.round(again.y)]).toEqual([Math.round(after.x), Math.round(after.y)]);
+    });
   });
 });
 

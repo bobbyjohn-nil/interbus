@@ -56,6 +56,8 @@ async function runEnded(page: Page) {
   await expect(day).toBeVisible({ timeout: 30_000 });
   await day.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByTestId('failure-card')).toBeVisible();
+  // The four beside the card, or a test of their piles would pass with none open.
+  for (const id of ['contracts', 'inspector', 'finance', 'saves']) await expect(page.getByTestId(id)).toBeVisible();
   return page.locator('[data-movable="lender"]');
 }
 /** The debug line's game on a window `width` by `height`, with Lines, Finance (its Breakdown unfolded), Contracts and Saves opened in turn. */
@@ -209,11 +211,12 @@ test.describe('panels through changes of the window’s size', () => {
     expect(await places(page)).toEqual(put);
   });
 
-  // A panel let go where the pointer is, though the window changed size as it was held: the change placed it as a panel in a
-  // free place, and let go without a move it stayed there and opened next under the pointer's place, 244×264 px over Lines
-  // (the systems audit's nineteenth round, on Inner Boston). Shown failing (TS-04) with the drag's end leaving the panel where
-  // the change put it.
-  test('let a panel go under the pointer though the window changed size as it was held', async ({ page }) => {
+  // A panel held by its heading stays under the pointer as the window changes size, and is let go there: a change placed one
+  // on its first drag as a panel in a free place, and let go without a move, Finance stayed where the change put it and opened
+  // next under the pointer's place, 244×264 px over Lines (the systems audit's nineteenth round, on Inner Boston); and one on
+  // its second drag went back where its first had ended until the next move, 180 px from the pointer (the round's review).
+  // Shown failing (TS-04) with a held panel placed as one in a free place or a dragged one is.
+  test('keep a held panel under the pointer as the window changes size, and let it go there', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 790 });
     await page.goto('./');
     await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
@@ -221,16 +224,54 @@ test.describe('panels through changes of the window’s size', () => {
     await withDebugLine(page);
     for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
     const finance = page.getByTestId('finance');
-    const h = (await finance.getByRole('heading', { name: 'Finance' }).boundingBox())!;
-    await page.mouse.move(h.x + 10, h.y + h.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(h.x + 10 - 200, h.y + h.height / 2 + 40, { steps: 8 });
-    await resizeTo(page, 1152, 632);
-    await page.mouse.up();
+    const heading = finance.getByRole('heading', { name: 'Finance' });
+    /** Whether Finance's heading holds the point (x, y). */
+    const holds = async (x: number, y: number) => {
+      const b = (await heading.boundingBox())!;
+      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
+    };
+    // Its first drag as the window narrows to Chrome's 125%, then its second as it grows back.
+    for (const [width, height, dx, dy] of [[1152, 632, -200, 40], [1440, 790, 150, 60]] as const) {
+      const h = (await heading.boundingBox())!;
+      const [x, y] = [h.x + 10 + dx, h.y + h.height / 2 + dy];
+      await page.mouse.move(h.x + 10, h.y + h.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(x, y, { steps: 8 });
+      await resizeTo(page, width, height);
+      expect(await holds(x, y), `held as the window went to ${width}×${height}`).toBe(true);
+      await page.mouse.up();
+      expect(await holds(x, y), `let go at ${width}×${height}`).toBe(true);
+    }
     const left = (await places(page)).finance;
     await finance.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await expect(finance).toBeVisible();
     expect((await places(page)).finance).toEqual(left);
+  });
+
+  // A drag's pile stays though a change of size had moved the panel left under it: kept whole from where it opened, Finance,
+  // which 110% had placed afresh, went back there at the next pixel, piled with Lines, and was placed afresh 452 px from
+  // Contracts dragged onto it (the review of the systems audit's nineteenth round, 7 runs of 7). Shown failing (TS-04) with
+  // the panel under a drag kept from where it opened.
+  test('keep a drag’s pile though a change of size had moved the panel under it', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 790 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+    await page.getByTestId('checklist').click(); // "5/5 Take a contract" opens Contracts
+    for (const id of ['inspector', 'finance', 'contracts']) await expect(page.getByTestId(id)).toBeVisible();
+    await resizeTo(page, 1309, 718);
+    const moved = await places(page);
+    // Contracts onto Finance, 40 px lower, where 110% placed it.
+    await dragBy(page, page.getByTestId('contracts'), 'Contracts', moved.finance![0]! - moved.contracts![0]!, moved.finance![1]! + 40 - moved.contracts![1]!);
+    const pile = await places(page);
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toEqual(['contracts/finance']);
+    for (const [width, height] of [[1310, 718], [1311, 718], [1440, 790]] as const) {
+      await resizeTo(page, width, height);
+      expect((await places(page)).finance, `at ${width}×${height}`).toEqual(pile.finance);
+      expect((await piles(page)).map((p) => p.split(' ')[0]), `at ${width}×${height}`).toEqual(['contracts/finance']);
+    }
   });
 });
