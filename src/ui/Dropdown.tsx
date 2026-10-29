@@ -66,6 +66,8 @@ export function Dropdown<T extends string | number>({
   const [at, setAt] = useState<{ readonly side: 'below' | 'above'; readonly style: CSSProperties } | null>(null);
   // Bumped to place the list again beside its button, once a scroll has moved the button.
   const [placing, setPlacing] = useState(0);
+  // Where the button stood as the list was last placed, so that a change of size that moves it places the list again.
+  const placedAt = useRef<DOMRect | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -83,6 +85,7 @@ export function Dropdown<T extends string | number>({
   useLayoutEffect(() => {
     if (!open || !button.current || !list.current) return;
     const r = button.current.getBoundingClientRect();
+    placedAt.current = r;
     // Its width with the window's room to grow into, then measured where it will be placed, so its options wrap as they will.
     Object.assign(list.current.style, { left: `${EDGE}px`, minWidth: `${r.width}px` });
     const left = Math.max(EDGE, Math.min(r.left, window.innerWidth - EDGE - list.current.offsetWidth));
@@ -129,8 +132,7 @@ export function Dropdown<T extends string | number>({
     // the focus beside another line's row, a pick there setting a fare out of view (the systems audit's eighth round). The list
     // now goes with its button, placed again, and closes once the button has left the body's view, the focus back on the button
     // where it is, so the scroll stands. A scroll does not bubble, so the window hears it on the way down; the list's own is its.
-    const scrolled = (event: Event) => {
-      if (event.target instanceof Node && list.current?.contains(event.target)) return;
+    const follow = () => {
       const b = button.current?.getBoundingClientRect();
       const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
       // Under its table's headings, which Finance's Lines keeps in view as the rows scroll, the button is out of the view too:
@@ -150,11 +152,27 @@ export function Dropdown<T extends string | number>({
       setOpen(false);
       if (focused) button.current?.focus({ preventScroll: true });
     };
+    const scrolled = (event: Event) => {
+      if (event.target instanceof Node && list.current?.contains(event.target)) return;
+      follow();
+    };
+    // What holds the button changing size moves it with no scroll: the fare band Finance asks for as its Lines opens, come after
+    // a fare list was placed, grew the open line's row by a line and moved the list's button 18.9 px down, and the list stood
+    // over the button's lower 15 px until the next scroll (twice on CI's runners, the second on #191's push run, which found why).
+    // Placed again only once the button has moved, so the observer's first word, as it starts, changes nothing.
+    const holder = button.current?.closest('.panel-body, .panel');
+    const grown = new ResizeObserver(() => {
+      const was = placedAt.current;
+      const b = button.current?.getBoundingClientRect();
+      if (b && was && (b.top !== was.top || b.left !== was.left)) follow();
+    });
+    for (const child of holder?.children ?? []) grown.observe(child);
     window.addEventListener('pointerdown', away);
     window.addEventListener('resize', resized);
     window.addEventListener('scroll', scrolled, true);
     list.current?.focus();
     return () => {
+      grown.disconnect();
       window.removeEventListener('pointerdown', away);
       window.removeEventListener('resize', resized);
       window.removeEventListener('scroll', scrolled, true);

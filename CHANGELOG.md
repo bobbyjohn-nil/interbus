@@ -335,6 +335,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A button in Lines, the new line's card or the route editor that you reached with Tab and then pressed with the mouse no longer hands the keyboard on when it later goes or turns off: Space plays and pauses, as after any press of the mouse. Before, the keyboard went to the next button, such as Cancel when a later Ctrl+Z turned Save route off or Backspace took the new line's stops, and Space pressed it.
 - After Save route or Create pressed from the keyboard while a day's card shows, Continue gives the keyboard back to Lines, where the save or the new line left it, not to the dock's Lines or the Build menu.
 - A stop card's "Remove from" a line, turned down as Ctrl+Z takes back the line's third stop, keeps the keyboard and says why under it, "A line keeps at least 2 stops", where the keyboard fell to the page and Space played.
+- A fare list you open in Finance stays beside its button when the open line's fare band appears above it. Before, on a slower computer, the band could come after the list had opened and push the button down, and the list lay over the button until you scrolled.
 
 ### Removed
 

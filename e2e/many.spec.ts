@@ -260,6 +260,53 @@ test.describe('a late game of many lines', () => {
     await expect(fare).toContainText(`$${(first.fareCents / 100).toFixed(2)}`);
   });
 
+  // The fare band Finance's Lines asks for as it opens, come after a fare list was placed, grew the open line's row by its line,
+  // 18.9 px, and moved the list's button down with no scroll: the list, placed again only as a scroll moved the button, stood
+  // over the button's lower 15 px (twice on CI's runners, the test above's 14.9 px against its 10; 5 runs of 6 with the CPU
+  // slowed 4 times, the band coming as late as on them). The list follows its button as what holds it changes size. Shown
+  // failing (TS-04) with the list placed again only by a scroll: 14.9 px.
+  test('a fare list open in Finance stays beside its button as the open line’s fare band comes and grows its row', async ({ page }) => {
+    await page.addInitScript(() => {
+      // The sim's fare bands held back while `holdingBands`, then handed over, in order, by `releaseBands`.
+      const w = window as unknown as { holdingBands: boolean; heldBands: (() => void)[]; releaseBands: () => void };
+      w.holdingBands = false;
+      w.heldBands = [];
+      w.releaseBands = () => {
+        w.holdingBands = false;
+        for (const deliver of w.heldBands.splice(0)) deliver();
+      };
+      const onmessage = Object.getOwnPropertyDescriptor(Worker.prototype, 'onmessage')!;
+      Object.defineProperty(Worker.prototype, 'onmessage', {
+        ...onmessage,
+        set(this: Worker, fn: ((event: MessageEvent<{ type?: string }>) => void) | null) {
+          onmessage.set!.call(this, fn && ((event: MessageEvent<{ type?: string }>) => {
+            if (w.holdingBands && event.data?.type === 'fare-band') w.heldBands.push(() => fn.call(this, event));
+            else fn.call(this, event);
+          }));
+        },
+      });
+    });
+    const world = await lateGame(page);
+    const third = world.state.lines[2]!;
+    await page.evaluate(() => void ((window as unknown as { holdingBands: boolean }).holdingBands = true));
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const finance = page.getByTestId('finance');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { heldBands: unknown[] }).heldBands.length)).toBeGreaterThan(0);
+    await expect(finance.getByTestId('fare-band')).toHaveCount(0);
+    const fare = finance.getByTestId(`fare-${third.id}`);
+    await fare.click();
+    const list = page.getByRole('listbox', { name: `Fare for ${third.name}` });
+    await expect(list).toBeVisible();
+    const before = (await fare.boundingBox())!.y;
+    await page.evaluate(() => (window as unknown as { releaseBands: () => void }).releaseBands());
+    // The open line's band, in the row above the button, moves it down by its line.
+    await expect(finance.getByTestId('fare-band')).toBeVisible();
+    expect((await fare.boundingBox())!.y - before).toBeGreaterThan(10);
+    await expect(list).toBeVisible();
+    await expect.poll(async () => Math.abs((await list.boundingBox())!.y - ((await fare.boundingBox())!.y + (await fare.boundingBox())!.height))).toBeLessThan(10);
+  });
+
   // Under Finance's headings, which stay in view as the rows scroll, a fare list's button was hidden while still in the body's
   // view, and its list stayed open beside the headings: ArrowDown and Enter there set a fare out of sight (the systems audit's
   // sixteenth round). The list closes once its button has gone under them, and opened again from the keyboard it brings the
