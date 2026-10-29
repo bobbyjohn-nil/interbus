@@ -341,6 +341,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A panel whose heading you hold while the window changes size, and let go without moving, is whole in the window. Before, it could hang past the window's edge, its Close out of reach, until the next change.
 - On a touch screen a pinch zooms only the map: off the map, on the chips, a panel or the dock, it no longer zooms the whole page, which hid the chips, the dock and the map's credit. A finger on a panel's heading drags the panel as far as it goes, and a second finger there stops the drag.
 - A panel's drag ends even when the browser never tells the game its button went up, as when the window loses the mouse mid-drag or the left button goes up while the right is still down. Before, the panel went on following the pointer whenever it passed over it, and the day's card waited in the middle of the window.
+- The keyboard stays in the game when Ctrl+Z, another tab or a quarter's close takes away the button it is on: a stop card's step down or a line's row, a row or group in Finance, a slot's Load or Delete in Saves while another tab deletes that slot, the dock's Lines as the only line goes, and a panel you opened with the mouse as it closes with what it showed. The keyboard goes to the control in its place, the slot's row, or Build. Before, it fell to the page, where Space played or paused the game.
+- After a list you opened with the mouse and closed with Escape, Space plays and pauses the game even once Ctrl+Z has moved the line card on. Before, Ctrl+Z could hand the next line's list the keyboard, and Space opened it.
+- Sell them and Close it work at the next press after Ctrl+Z took back a press of theirs before the game answered. Before, they did nothing until the line changed.
+- Create's card closes, and Lines opens on the new line, whenever its line is bought, even when another line closed at the same moment or Ctrl+Z had just taken a line back. Before, the card stayed open with Create waiting for good.
+- A button waiting for the game's answer, as Create and Save route do, or turned down, as a step up the stop's lines don't allow, has the same grey label as any button that's off. Before, its label was darker.
 
 ### Removed
 

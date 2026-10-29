@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { BACK_HOME_ASK_COPY, NEWER_LINE_COPY, SLOT_REFUSED_COPY, STORE_LINE_COPY, UNBACKED_ROW_TITLE, unbackedRowText } from '../copy';
 import { clock, dateText, savedWhen, usd } from '../format';
 import type { SaveAbout, SetAsideWhy } from '../../sim/types';
 import type { Sim } from '../game/useSim';
+import { focusLost } from '../focusLost';
+import { giveFocus } from '../giveFocus';
+import { useHeldFocus } from '../heldFocus';
 
 /** What a set-aside save is, in its row (D12, DP-06), and a slot this game cannot load. */
 const SET_ASIDE_NAMES: Readonly<Record<'older' | 'newer' | 'unreadable' | 'other-city' | 'off-street', string>> = {
@@ -95,6 +98,20 @@ export function Saves({ sim, onClose, onHome, onHelp }: { sim: Sim; onClose: () 
   useEffect(() => {
     if (leaving) panel.current?.querySelector('[data-testid="saves-home-ask"]')?.parentElement?.scrollIntoView({ block: 'nearest' });
   }, [leaving]);
+  // A row's button the keyboard has (useHeldFocus), gone from under it by something other than its own press, gives the focus
+  // to its row, or to Saves where the row went too: another tab's delete of the slot made its row read Empty, its Load, Delete
+  // or Load's Keep playing gone, and the focus fell to the page, where Space played (the systems audit's twentieth round). Not
+  // to the row's first button, Save here, which a Space would press unasked.
+  const heldRef = useHeldFocus(panel);
+  const heldRow = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const was = heldRef.current;
+    if (!was || was.isConnected || !focusLost()) return;
+    heldRef.current = null;
+    const row = heldRow.current ? panel.current?.querySelector<HTMLElement>(`[data-testid="${heldRow.current}"]`) : null;
+    const to = row ?? panel.current;
+    if (to) giveFocus(to);
+  });
   /** After a press from the keyboard, the focus goes to the button named `name` in the pressed one's row, or to that row (null), or to Saves (`row` false). */
   const keep = (event: MouseEvent<HTMLElement>, name: string | null, row = true) => {
     if (event.detail === 0) keyTo.current = { row: row ? event.currentTarget.closest('li, div.controls') : null, name };
@@ -146,7 +163,15 @@ export function Saves({ sim, onClose, onHome, onHelp }: { sim: Sim; onClose: () 
   // A game to lose: before a company is founded, Load and Import ask nothing.
   const founded = sim.snapshot.company.name !== '';
   return (
-    <aside className="panel saves" aria-label="Saves" data-testid="saves" data-chrome="panel" ref={panel} tabIndex={-1}>
+    <aside
+      className="panel saves"
+      aria-label="Saves"
+      data-testid="saves"
+      data-chrome="panel"
+      ref={panel}
+      tabIndex={-1}
+      onFocus={(e) => void (heldRow.current = e.target instanceof Element ? (e.target.closest('li')?.getAttribute('data-testid') ?? null) : null)}
+    >
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
         ×
       </button>

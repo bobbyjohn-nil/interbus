@@ -1,11 +1,14 @@
-import { useId, useRef } from 'react';
+import { useId, useLayoutEffect, useRef } from 'react';
 import { STOP_LOSS_CENTS, STOP_QUIET_BOARDINGS } from '../../sim/rules/stopDay';
 import { runOver } from './runOver';
 import { checkRemoveStop, checkTakeDownStop } from '../../sim/rules/route';
 import { checkStopTier, STOP_TIERS, stopUpkeepCents, type StopTier } from '../../sim/rules/stopTier';
 import { refusalText } from '../copy';
 import type { HandBack } from '../focusBack';
+import { focusLost } from '../focusLost';
 import { about, usd, usdK } from '../format';
+import { giveFocus } from '../giveFocus';
+import { useHeldFocus } from '../heldFocus';
 import type { Sim } from './useSim';
 
 /**
@@ -44,6 +47,19 @@ export function StopCard({
     root.current?.querySelector<HTMLElement>('button.close') ??
     backTo() ??
     document.querySelector<HTMLElement>('[data-testid="build"]');
+  // A control the keyboard has (useHeldFocus) that goes from under it by something other than its own press, which hands the
+  // focus on (handBack), gives it to the card's first control of its kind, a tier's or a line's (`focusedIn`, where the focus
+  // last came): Ctrl+Z, taking back a step up, took the step down the keyboard was on, and taking back a line took its row,
+  // the line's button or its Remove, and the focus fell to the page, where Space played (the systems audit's twentieth round).
+  const heldRef = useHeldFocus(root);
+  const focusedIn = useRef<'tiers' | 'lines'>('tiers');
+  useLayoutEffect(() => {
+    const was = heldRef.current;
+    if (!was || was.isConnected || !focusLost()) return;
+    heldRef.current = null;
+    const to = next(`.${focusedIn.current}`)();
+    if (to) giveFocus(to);
+  });
   const stop = sim.snapshot?.stops.find((s) => s.id === stopId);
   if (!stop) return null;
   const lines = (sim.snapshot?.lines ?? []).filter((l) => stop.lineIds.includes(l.id));
@@ -89,7 +105,7 @@ export function StopCard({
       )}
       {stop.quiet ? <p className="flag">Quiet: fewer than {STOP_QUIET_BOARDINGS} boardings a day</p> : null}
       {stop.loss ? <p className="flag">Losing money: more than {usd(-STOP_LOSS_CENTS)} a day</p> : null}
-      <div className="controls tiers">
+      <div className="controls tiers" onFocus={() => void (focusedIn.current = 'tiers')}>
         {upTo && up ? (
           // A step its rule refuses (the lines a tier needs, the cash) is aria-disabled, not disabled: a press up to the top step
           // the stop's lines allow turned it off under the focus, and Chrome dropped the focus to the page (the review of the
@@ -128,7 +144,7 @@ export function StopCard({
         </p>
       ) : null}
       {lines.length ? null : <TakeDown sim={sim} stopId={stop.id} tier={tier} onPress={(from) => handBack(from, next('.tiers'))} />}
-      <div className="lines">
+      <div className="lines" onFocus={() => void (focusedIn.current = 'lines')}>
         {lines.map((l) => {
           const removal = checkRemoveStop(l, { id: stop.id, tier }, stop.lineIds.length - 1);
           return (

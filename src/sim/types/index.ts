@@ -492,4 +492,6 @@ export type FromWorker =
   | ({ readonly type: 'refused'; readonly command: string } & RefusalView)
   /** An undo took a command back (its snapshot follows): with an undo's refusal, every undo has its answer, so the page knows which were done. */
   | { readonly type: 'undone' }
+  /** A Create made line `lineId` (after the snapshot it stands in): the page's Create knows its own answer, whatever else the lines did. */
+  | { readonly type: 'created'; readonly lineId: number }
   | { readonly type: 'failed'; readonly problem: string };

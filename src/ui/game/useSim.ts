@@ -45,6 +45,8 @@ export interface Sim {
   readonly routeRefusals: number;
   /** How many Creates the sim has refused, counted as Save route's are, so a Create on its way knows its answer. */
   readonly createRefusals: number;
+  /** How many Creates the sim did (`n`), and the newest one's line (`lineId`): a Create's own answer, which closes its card (App). */
+  readonly created: { readonly n: number; readonly lineId: number | null };
   /**
    * The undos the page has sent the sim (Ctrl+Z, ⌘Z or the Undo chip: `sent`), and the newest of them the
    * sim did, taking a command back, by its place in that count (`done`, 0 before any): every undo has one
@@ -133,6 +135,7 @@ export function useSim(city: City | undefined): Sim {
   const [refusal, setRefusal] = useState<Sim['refusal']>(null);
   const [routeRefusals, setRouteRefusals] = useState(0);
   const [createRefusals, setCreateRefusals] = useState(0);
+  const [created, setCreated] = useState<Sim['created']>({ n: 0, lineId: null });
   const [undos, setUndos] = useState<Sim['undos']>({ sent: 0, done: 0 });
   const [load, setLoad] = useState<LoadView | null>(null);
   const [slots, setSlots] = useState<Sim['slots']>(null);
@@ -447,6 +450,8 @@ export function useSim(city: City | undefined): Sim {
           } else if (m.type === 'undone') {
             const done = ++undoAnswers;
             setUndos((u) => ({ ...u, done }));
+          } else if (m.type === 'created') {
+            setCreated((c) => ({ n: c.n + 1, lineId: m.lineId }));
           } else if (m.type === 'refused') {
             if (m.command === 'undo') undoAnswers++;
             if (LOADS.has(m.command)) refusedLoad();
@@ -543,5 +548,5 @@ export function useSim(city: City | undefined): Sim {
     });
   }, []);
 
-  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, storeNotice, slotsRefused, autosaveRefused, newer, movedOn, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard, followNewest };
+  return { status, dots, depotLand, snapshot, dayCard, probe, depotSite, stopSite, draft, draftOf, fareBand, refusal, routeRefusals, createRefusals, created, undos, load, slots, setAside, unbacked, backup, autosave, stored, storeRefused, storeNotice, slotsRefused, autosaveRefused, newer, movedOn, loaded, send, probeAt, depotSiteAt, stopSiteAt, draftFor, fareBandFor, importSave, closeDayCard, followNewest };
 }

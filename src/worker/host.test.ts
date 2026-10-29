@@ -726,6 +726,26 @@ describe('undo while paused (I9)', () => {
     expect(answers()).toEqual(['done', 'nothing_to_undo', 'time_has_run']);
   });
 
+  // A Create says the line it made once the line stands in the snapshot, so the page's Create closes its card on its own answer:
+  // counted by the lines, a Create answered with Close it on another line, or just after an undo that took a line back, left
+  // their count where it was, and the card stayed open, Create waiting for good (the systems audit's twentieth round). Shown
+  // failing (TS-04) with no such answer.
+  it('says the line each Create made, after the snapshot it stands in, and nothing for a Create refused', () => {
+    const { host, out, last } = foundedWithSaves();
+    host.handle({ type: 'place-depot', at: depotSpot(last('ready')!.depotLand as [number, number][][]) });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    expect(out.at(-1)).toEqual({ type: 'created', lineId: 1 });
+    expect(out.at(-2)).toMatchObject({ type: 'snapshot', snapshot: { lines: [{ id: 1 }] } });
+    // Taken back, the next Create makes a line of the same id, and says so again.
+    host.handle({ type: 'undo' });
+    host.handle({ type: 'create-line', clicks: CLICKS });
+    expect(out.at(-1)).toEqual({ type: 'created', lineId: 1 });
+    const said = out.filter((m) => m.type === 'created').length;
+    host.handle({ type: 'create-line', clicks: CLICKS.slice(0, 1) });
+    expect(last('refused')).toMatchObject({ command: 'create-line' });
+    expect(out.filter((m) => m.type === 'created')).toHaveLength(said);
+  });
+
   // Run it on the line's own headways changes nothing: refused in words, as the same fare is, with nothing kept for the next undo
   // to spend itself on and no save. Shown failing (TS-04) on 2a00661: accepted, the chip reading "Undo: Line 1's headways".
   it('refuses headways the line already runs, and keeps nothing to undo for them', () => {

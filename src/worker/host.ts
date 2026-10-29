@@ -924,6 +924,10 @@ export function createHost(post: (message: FromWorker) => void, now?: () => numb
           save();
         }
         post({ type: 'snapshot', snapshot: snapshot() });
+        // Its own answer, once its line stands in the snapshot, for the page's Create to close its card on: counted by the lines,
+        // a Create answered with a Close it, or just after an undo, left their count where it was (the systems audit's twentieth
+        // round).
+        if (result.ok) post({ type: 'created', lineId: result.lineId });
       } else if (message.type === 'extend-line') {
         const result = command({ command: 'extend-line', subject: world.state.lines.find((l) => l.id === message.lineId)?.name ?? '' }, () =>
           extendLine(world!, message.lineId as LineId, message.end, message.clicks),

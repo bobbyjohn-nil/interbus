@@ -4,7 +4,10 @@ import { FARES_CENTS } from '../../sim/rules/fare';
 import { isOperating, ROW_GROUP, type RowGroup, type RowKind } from '../../sim/rules/money';
 import type { FinanceView } from '../../sim/types';
 import { Dropdown } from '../Dropdown';
+import { focusLost } from '../focusLost';
 import { about, GROUP_NAMES, quarterText, ROW_HINTS, rowName, usd } from '../format';
+import { giveFocus } from '../giveFocus';
+import { useHeldFocus } from '../heldFocus';
 import { bandText } from '../game/LineCard';
 import type { Sim } from '../game/useSim';
 import { showWhole } from '../showWhole';
@@ -39,6 +42,22 @@ const VIEWS: readonly (readonly [FinanceViewName, string])[] = [
  */
 export function Finance({ sim, onClose, view: asked = 'overview', lineId = null }: { sim: Sim; onClose: () => void; view?: FinanceViewName; lineId?: number | null }) {
   const [view, setView] = useState<FinanceViewName>(asked);
+  // A control the keyboard has in the body (useHeldFocus), gone from under it, gives the focus to the control now in its place
+  // among the body's (`focusedAt`, where the focus last came), or the chosen view's tab: Ctrl+Z, taking back the day's only
+  // purchase, took Breakdown's Buying and building, and taking back a line took its row in Lines and its fare list; a
+  // quarter's close took the group as it emptied the quarter's column; and the focus fell to the page, where Space played or
+  // paused the game under the quarter's report (the systems audit's twentieth round).
+  const root = useRef<HTMLElement>(null);
+  const focusedAt = useRef(0);
+  const heldRef = useHeldFocus(root);
+  useLayoutEffect(() => {
+    const was = heldRef.current;
+    if (!was || was.isConnected || !focusLost()) return;
+    heldRef.current = null;
+    const there = [...(root.current?.querySelectorAll<HTMLElement>('.panel-body button:not(:disabled)') ?? [])];
+    const to = there[Math.min(focusedAt.current, there.length - 1)] ?? root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (to) giveFocus(to);
+  });
   const f = sim.snapshot?.finance;
   if (!f) return null;
   const sum = (pick: (r: FinanceView['rows'][number]) => number) => f.rows.reduce((s, r) => s + pick(r), 0);
@@ -54,7 +73,7 @@ export function Finance({ sim, onClose, view: asked = 'overview', lineId = null 
     event.currentTarget.querySelector<HTMLElement>(`[data-testid="finance-${next}"]`)?.focus();
   };
   return (
-    <aside className="panel finance" aria-label="Finance" data-testid="finance" data-chrome="panel" data-view={view} data-today={today} data-quarter={quarter} data-opening={f.openingCents}>
+    <aside ref={root} className="panel finance" aria-label="Finance" data-testid="finance" data-chrome="panel" data-view={view} data-today={today} data-quarter={quarter} data-opening={f.openingCents}>
       <button type="button" className="close" aria-label="Close" onClick={onClose}>
         ×
       </button>
@@ -67,7 +86,14 @@ export function Finance({ sim, onClose, view: asked = 'overview', lineId = null 
         ))}
       </div>
       {/* The body scrolls under the heading, Close and views, so they stay in reach however far it goes. */}
-      <div className="panel-body" data-testid="finance-body">
+      <div
+        className="panel-body"
+        data-testid="finance-body"
+        onFocus={(e) => {
+          const k = [...e.currentTarget.querySelectorAll('button:not(:disabled)')].indexOf(e.target as Element);
+          if (k >= 0) focusedAt.current = k;
+        }}
+      >
         {view === 'overview' ? <Overview finance={f} /> : view === 'breakdown' ? <Breakdown finance={f} today={today} quarter={quarter} /> : <Lines sim={sim} finance={f} open={lineId} />}
       </div>
     </aside>

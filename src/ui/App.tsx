@@ -20,6 +20,7 @@ import { followed, pressSave, RouteEditor, routeOf, saveLanded, type RoutePoint,
 import { createWaits, DepotCard, DraftCard, draftShows, StopSiteCard, type CreatePress, type Tool } from "./game/Tools";
 import { useSim } from "./game/useSim";
 import { focusSource } from "./focusSource";
+import { FocusByKey } from "./heldFocus";
 import { onePress } from "./onePress";
 import { ReplacedCard } from "./ReplacedCard";
 import { Dock, type Panel } from "./shell/Dock";
@@ -47,8 +48,9 @@ export function App() {
   // and the one shown last: showing a panel already open brings it to the front.
   const [open, setOpen] = useState<readonly Exclude<Panel, "none">[]>([]);
   const [front, setFront] = useState<PanelFront | null>(null);
-  // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space and for the panels.
+  // Whether the keyboard, not the pointer, moved the focus where it is (focusSource.ts), for Space, the panels and the hold.
   const focus = useRef(focusSource());
+  const byKey = useCallback(() => focus.current.byKey, []);
   // The panel (or the tool's card) the player opened or showed last, which takes the focus once placed when the keyboard
   // did it (Panels, takesFocus), so the next Tab is its first control. It stayed on what opened it: from the dock, the
   // panel's first control was 11 Tabs on, past the dock's other buttons, the Saves chip, the map's credits, the map and
@@ -328,52 +330,53 @@ export function App() {
     hide("here");
   }
 
-  // Set when Create is pressed, to the undos sent by then: the new line, and only a created one, opens in the inspector (a line
-  // that arrives with a loaded save opens no panel). A load lets it go, as does a Create refused, which brings no line, and an
-  // undo sent after the press that the sim did, which took the Create back (createWaits, game/Tools.tsx). A Create undone with
-  // it in one render brings no line to let it go: the game loaded later opened Lines on its newest line (the systems audit's
-  // fourth round), and an undo bringing back a closed line put the tool down (round 10 and its review).
-  const creating = useRef<number | null>(null);
+  // Set when Create is pressed, to the undos sent by then and the Creates the sim had done: the new line, and only a created
+  // one, opens in the inspector (a line that arrives with a loaded save opens no panel). A load lets it go, as does a Create
+  // refused, which brings no line, and an undo sent after the press that the sim did, which took the Create back (createWaits,
+  // game/Tools.tsx). A Create undone with it in one render brings no line to let it go: the game loaded later opened Lines on
+  // its newest line (the systems audit's fourth round), and an undo bringing back a closed line put the tool down (round 10
+  // and its review). The Create's own answer (sim.created) closes its card and opens its line: counted by the lines, a Create
+  // answered in one render with Close it on another line, or just after an undo that took a line back, left the count where it
+  // was, and the card stayed open, Create waiting for good (the systems audit's twentieth round).
+  const creating = useRef<{ readonly undos: number; readonly created: number } | null>(null);
   useEffect(() => {
     creating.current = null;
   }, [sim.createRefusals]);
   const undone = sim.undos.done;
-  // A tool closes once its purchase lands: a new depot, or a new line from Create. A line an undo brings back is no purchase:
-  // since Close line, an undo grows the count too, and it put down the line half drawn, or the route editor another line had
-  // out, Lines with it (round 10).
+  // A tool closes once its purchase lands: a new depot, or a new line from Create, by its own answer. A line an undo brings
+  // back is no purchase: since Close line, an undo grows the count of lines too, and it put down the line half drawn, or the
+  // route editor another line had out, Lines with it (round 10).
   const started = sim.snapshot !== null;
   const depots = sim.snapshot?.depots.length ?? 0;
-  const lines = sim.snapshot?.lines.length ?? 0;
-  const newest = sim.snapshot?.lines.at(-1)?.id ?? null;
   // A Create on its way: until a Create refused, or its line landed and its card closed with the tool (the effect below), a
   // second press sends nothing (createWaits, game/Tools.tsx). Let go during render, as the route editor follows the game.
   const [createPress, setCreatePress] = useState<CreatePress | null>(null);
   const createNow = { tool, refusals: sim.createRefusals, undos: sim.undos.sent, undone: sim.undos.done, loadedAt: sim.loaded?.at ?? null };
   if (createPress && !createWaits(createPress, createNow)) setCreatePress(null);
-  // Counted from the game as it starts, so a reloaded game's lines are not new ones.
-  const counts = useRef<{ depots: number; lines: number } | null>(null);
+  // Counted from the game as it starts, so a reloaded game's depots are not new ones.
+  const counts = useRef<{ depots: number } | null>(null);
+  const { n: createdN, lineId: createdLine } = sim.created;
   useEffect(() => {
-    if (creating.current !== null && undone > creating.current) creating.current = null;
+    if (creating.current !== null && undone > creating.current.undos) creating.current = null;
     if (!started) return;
     if (!counts.current) {
-      counts.current = { depots, lines };
+      counts.current = { depots };
       return;
     }
-    const created = lines > counts.current.lines && creating.current !== null;
+    const created = creating.current !== null && createdN > creating.current.created;
     if (depots > counts.current.depots || created) {
       setTool("none");
       setClicks([]);
       depotSiteAt(null);
     }
-    // A new line opens in the inspector, so its headways and forecast are one look away: the newest,
-    // as the game keeps its lines in the order they were made.
+    // A new line opens in the inspector, so its headways and forecast are one look away: the line its Create made.
     if (created) {
       creating.current = null;
-      setLineId(newest);
+      setLineId(createdLine);
       show("lines");
     }
-    counts.current = { depots, lines };
-  }, [started, depots, lines, newest, undone, depotSiteAt, show]);
+    counts.current = { depots };
+  }, [started, depots, createdN, createdLine, undone, depotSiteAt, show]);
 
   // A game loaded from a slot, a file or Restart this quarter takes this one's place: any tool out
   // goes down with the game it was drawn in, as with a new game, and so do the cards of its stops and
@@ -584,7 +587,7 @@ export function App() {
           onCreate={() => {
             // One press, one command: a second before the first has its answer sends nothing.
             if (createPress) return;
-            creating.current = createNow.undos;
+            creating.current = { undos: createNow.undos, created: createdN };
             setCreatePress({ refusals: createNow.refusals, undos: createNow.undos, loadedAt: createNow.loadedAt });
             send({ type: "create-line", clicks, model: draftModel });
           }}
@@ -772,6 +775,7 @@ export function App() {
       </main>
     );
   return (
+    <FocusByKey.Provider value={byKey}>
     <main className="app">
       <MapView
         dots={sim.dots}
@@ -854,5 +858,6 @@ export function App() {
       {/* A failed game's worker is gone, and Export with it: its card offers Reload alone. */}
       <ReplacedCard key="replaced" failed={stopped ? failedText(sim.snapshot ? "stopped" : "start", CITIES[0]?.name ?? "The city") : null} unsaved={stopped ? null : mapUnsaved} />
     </main>
+    </FocusByKey.Provider>
   );
 }

@@ -140,13 +140,17 @@ export interface Opener {
  * Where the keyboard's focus goes back to as panel `id` closes with the player in it, for a panel the keyboard opened: what
  * opened it, while it can take the focus (`usable`); or, gone, what opened the panel it was in, and so on, never round a panel
  * twice; or, with none of those left, what opens one of those panels now (`opens`), the first first; or, with none, where the
- * screen keeps the keyboard (`rest`: the founding card's name). A panel stood in for another kept that one's opener: Escape
- * from the route editor, or from Lines after its Cancel, gave the page the focus. And the checklist's last step opens
- * Contracts until Take it completes it, when the Contracts chip takes its place (round 10). Saves left open over the founding
- * card had nothing to hand back to (round 11). A control that opened it, gone from a panel still open (`boxOf` gives its box), gives
- * that panel: Ctrl+Z in a stop's card opened from Lines' stops took the stop and its button, and the walk went on to what
- * opened Lines, the dock's Lines, so the next Space closed Lines (the systems audit's eighteenth round), where Continue's
- * hand-back already gave Lines (DayCard).
+ * screen keeps the keyboard (`rest`: the founding card's name, or in the game Build). A panel stood in for another kept that
+ * one's opener: Escape from the route editor, or from Lines after its Cancel, gave the page the focus. And the checklist's last
+ * step opens Contracts until Take it completes it, when the Contracts chip takes its place (round 10). Saves left open over
+ * the founding card had nothing to hand back to (round 11). A control that opened it, gone from a panel still open (`boxOf`
+ * gives its box), gives that panel: Ctrl+Z in a stop's card opened from Lines' stops took the stop and its button, and the
+ * walk went on to what opened Lines, the dock's Lines, so the next Space closed Lines (the systems audit's eighteenth round),
+ * where Continue's hand-back already gave Lines (DayCard). A panel the mouse opened, which has no opener, is walked on the
+ * same way when the game closed it with the keyboard in it (`byKey`): a stop's card opened by a click, the keyboard on Take
+ * it down as Ctrl+Z took back the stop, and Lines the game opened after the mouse's Create, the keyboard on Edit route as
+ * Ctrl+Z took back the only line, each gave the page the focus, where Space played (the systems audit's twentieth round).
+ * Its Escape or ×, the player's own close, still leaves the page the focus, so Space plays, as the mouse opened it.
  */
 export function handBackTo(
   id: string,
@@ -155,8 +159,9 @@ export function handBackTo(
   usable: (el: Element) => boolean,
   rest: () => Element | null = () => null,
   boxOf: (panel: string) => Element | null = () => null,
+  byKey = false,
 ): Element | null {
-  if (!openers.has(id)) return null;
+  if (!openers.has(id) && !byKey) return null;
   const chain: string[] = [];
   for (let panel: string | null = id; panel !== null && !chain.includes(panel); ) {
     chain.push(panel);
@@ -306,14 +311,15 @@ export function Panels({
   // Escape closing both went round from Lines to the card and back to a gone button, until the walk went round no panel twice
   // (round 10; keeping the first opener instead sent the card's Close to Stop 2: its review).
   const openers = useRef(new Map<string, Opener>());
-  const backFor = (panel: string) =>
+  const backFor = (panel: string, byKey = false) =>
     handBackTo(
       panel,
       openers.current,
       (p) => document.querySelector(`[data-opens="${p}"]`),
       usable,
-      () => document.querySelector(FOCUS_REST),
+      () => document.querySelector(FOCUS_REST) ?? document.querySelector('[data-testid="build"]'),
       (p) => boxes.current.get(p) ?? null,
+      byKey,
     );
   useLayoutEffect(() => {
     if (backToRef) backToRef.current = backFor;
@@ -321,12 +327,16 @@ export function Panels({
   // The panel the keyboard opened in this render, whose opener the layout effect has just set.
   const opened = useRef<string | null>(null);
   const lastIn = useRef<string | null>(null);
+  // Whether the last key was the player's own close of a panel, Escape or a press of its ×, as against the game's close, as
+  // Ctrl+Z takes back what a panel shows: a panel the mouse opened is walked on only after the game's (handBackTo's `byKey`).
+  const ownClose = useRef(false);
   useEffect(() => {
     const at = (event: Event) => {
       lastIn.current = (event.target instanceof Element ? event.target.closest("[data-movable]")?.getAttribute("data-movable") : null) ?? null;
     };
-    const next = () => {
+    const next = (event: Event) => {
       pressedFrom.current = null;
+      ownClose.current = event instanceof KeyboardEvent && (event.key === "Escape" || (event.target instanceof Element && event.target.closest("button.close") !== null));
     };
     document.addEventListener("focusin", at, true);
     document.addEventListener("pointerdown", at, true);
@@ -355,7 +365,7 @@ export function Panels({
     const left = lastIn.current;
     if (!left || !went.includes(left)) return;
     lastIn.current = null;
-    const to = backFor(left);
+    const to = backFor(left, takes.current() && !ownClose.current);
     if (to instanceof HTMLElement && focusLost()) giveFocus(to);
   });
   useLayoutEffect(() => {

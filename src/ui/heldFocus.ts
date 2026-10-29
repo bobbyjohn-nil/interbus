@@ -1,4 +1,12 @@
-import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
+
+/**
+ * Whether the keyboard moved the focus where it is, as the page counts it for Space (App's focusSource): only a control the
+ * keyboard brought the focus to is held. By :focus-visible alone, a list's button the mouse opened, handed the focus back by
+ * Escape, was held, so a hand-on after Ctrl+Z gave the next list Space, which opened it in place of playing (the systems
+ * audit's twentieth round). Every :focus-visible arrival counts where no game provides it.
+ */
+export const FocusByKey = createContext<() => boolean>(() => true);
 
 /**
  * The control the keyboard has inside `root` (:focus-visible), for a hand-on as it goes from under the keyboard: kept as the
@@ -19,10 +27,11 @@ import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react'
  */
 export function useHeldFocus(root: RefObject<Element>): MutableRefObject<Element | null> {
   const held = useRef<Element | null>(null);
+  const byKey = useContext(FocusByKey);
   useEffect(() => {
     const moved = (event: FocusEvent) => {
       const at = event.target;
-      held.current = at instanceof Element && root.current?.contains(at) && at.matches(':focus-visible') ? at : null;
+      held.current = at instanceof Element && root.current?.contains(at) && at.matches(':focus-visible') && byKey() ? at : null;
     };
     const left = (event: FocusEvent) => {
       const at = event.target;
@@ -44,6 +53,6 @@ export function useHeldFocus(root: RefObject<Element>): MutableRefObject<Element
       document.removeEventListener('focusout', left, true);
       document.removeEventListener('pointerdown', pressed, true);
     };
-  }, [root]);
+  }, [root, byKey]);
   return held;
 }

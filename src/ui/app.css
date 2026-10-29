@@ -747,10 +747,15 @@ button.chip.checklist,
   cursor: pointer;
 }
 
+/* A button turned off, and one that keeps the keyboard as it waits or is refused (aria-disabled: Create and Save route as
+   their command is on its way, a refused step or Remove), look the same: Chrome greys a disabled button's label, and an
+   aria-disabled one's stayed black at half the opacity, 123 against 215 on the panel (the systems audit's twentieth round).
+   The label is the grey Chrome gives a disabled one. */
 .panel button:disabled,
 .panel button[aria-disabled='true'] {
   cursor: default;
   opacity: 0.5;
+  color: rgb(16 16 16 / 0.3);
 }
 
 /* The Lines panel's first row is its heading (Inspector.tsx), which clears the ×; its tabs, under it, take the full width. */
