@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { closeOnPressAway } from './pressAway';
 
@@ -30,8 +30,9 @@ function reveal(list: HTMLUListElement | null, i: number): void {
  * without picking, and Tab closes it and goes on to the control after its button (Shift+Tab, before
  * it); the option it is on stays in view. Escape stops there, so it never also closes the panel the
  * dropdown sits in, and the click elsewhere does nothing more, so it never also uses the tool on the
- * map (pressAway.ts). A resize of the window closes it as Escape does; a scroll of what holds its button
- * moves the list with the button, and closes it once the button is out of view. The list is drawn over the page beside its button, so a panel that scrolls never
+ * map (pressAway.ts). A resize of the window closes it as Escape does; a scroll of what holds its button,
+ * or a change of size there that moves the button, moves the list with the button, and closes it once
+ * the button is out of view. The list is drawn over the page beside its button, so a panel that scrolls never
  * clips it, over every panel, and above or below its button within the window's top and bottom.
  */
 export function Dropdown<T extends string | number>({
@@ -64,8 +65,10 @@ export function Dropdown<T extends string | number>({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [at, setAt] = useState<{ readonly side: 'below' | 'above'; readonly style: CSSProperties } | null>(null);
-  // Bumped to place the list again beside its button, once a scroll has moved the button.
+  // Bumped to place the list again beside its button, once a scroll or a change of size has moved the button.
   const [placing, setPlacing] = useState(0);
+  // Where the button stood as the list was last placed, so that a change of size that moves it places the list again.
+  const placedAt = useRef<DOMRect | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -83,6 +86,7 @@ export function Dropdown<T extends string | number>({
   useLayoutEffect(() => {
     if (!open || !button.current || !list.current) return;
     const r = button.current.getBoundingClientRect();
+    placedAt.current = r;
     // Its width with the window's room to grow into, then measured where it will be placed, so its options wrap as they will.
     Object.assign(list.current.style, { left: `${EDGE}px`, minWidth: `${r.width}px` });
     const left = Math.max(EDGE, Math.min(r.left, window.innerWidth - EDGE - list.current.offsetWidth));
@@ -114,6 +118,29 @@ export function Dropdown<T extends string | number>({
     shownOnce.current = true;
   }, [at, chosen, active]);
 
+  // Placed again beside its button once a scroll or a change of size (both below) has moved the button, or closed once the
+  // button has left the view it sits in, the focus back on the button where it is.
+  const follow = useCallback(() => {
+    const b = button.current?.getBoundingClientRect();
+    const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
+    // Under its table's headings, which Finance's Lines keeps in view as the rows scroll, the button is out of the view too:
+    // its list stayed open there with the button hidden, and a pick set a fare out of sight (the systems audit's sixteenth
+    // round). Its cells stick, not the row of them; headings that scroll away lie above the view, or above the button's row.
+    const head = button.current?.closest('table')?.querySelector('thead th')?.getBoundingClientRect();
+    const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity);
+    if (b && b.bottom > top && b.top < (view?.bottom ?? window.innerHeight)) {
+      // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
+      flushSync(() => {
+        setAt(null);
+        setPlacing((n) => n + 1);
+      });
+      return;
+    }
+    const focused = Boolean(list.current?.contains(document.activeElement));
+    setOpen(false);
+    if (focused) button.current?.focus({ preventScroll: true });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const away = closeOnPressAway((target) => Boolean(root.current?.contains(target) || list.current?.contains(target)), () => setOpen(false));
@@ -131,24 +158,7 @@ export function Dropdown<T extends string | number>({
     // where it is, so the scroll stands. A scroll does not bubble, so the window hears it on the way down; the list's own is its.
     const scrolled = (event: Event) => {
       if (event.target instanceof Node && list.current?.contains(event.target)) return;
-      const b = button.current?.getBoundingClientRect();
-      const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
-      // Under its table's headings, which Finance's Lines keeps in view as the rows scroll, the button is out of the view too:
-      // its list stayed open there with the button hidden, and a pick set a fare out of sight (the systems audit's sixteenth
-      // round). Its cells stick, not the row of them; headings that scroll away lie above the view, or above the button's row.
-      const head = button.current?.closest('table')?.querySelector('thead th')?.getBoundingClientRect();
-      const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity);
-      if (b && b.bottom > top && b.top < (view?.bottom ?? window.innerHeight)) {
-        // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
-        flushSync(() => {
-          setAt(null);
-          setPlacing((n) => n + 1);
-        });
-        return;
-      }
-      const focused = Boolean(list.current?.contains(document.activeElement));
-      setOpen(false);
-      if (focused) button.current?.focus({ preventScroll: true });
+      follow();
     };
     window.addEventListener('pointerdown', away);
     window.addEventListener('resize', resized);
@@ -159,7 +169,27 @@ export function Dropdown<T extends string | number>({
       window.removeEventListener('resize', resized);
       window.removeEventListener('scroll', scrolled, true);
     };
-  }, [open, at]);
+  }, [open, at, follow]);
+
+  // What holds the button changing size moves it with no scroll: the fare band Finance asks for as its Lines opens, come after
+  // a fare list was placed, grew the open line's row by a line and moved the list's button 18.9 px down, and the list stood
+  // over the button's lower 15 px until the next scroll (twice on CI's runners, the second on #191's push run, which found
+  // why); and the date's period name, "Off-peak" become "Peak", moved the speed menu 19.25 px along the top bar, its list left
+  // where it opened (the review of #192). So the list follows its button as a child of its panel's body, or of the top bar,
+  // changes size, placed again only once the button has moved, so the observer's first word, as it starts, changes nothing.
+  // One observer an opening: started again at each placement, with the effect above, it started inside its own callback, and
+  // Chrome reported a ResizeObserver loop at every placement it made.
+  useEffect(() => {
+    if (!open) return;
+    const holder = button.current?.closest('.panel-body, .panel, .top-bar');
+    const grown = new ResizeObserver(() => {
+      const was = placedAt.current;
+      const b = button.current?.getBoundingClientRect();
+      if (b && was && (b.top !== was.top || b.left !== was.left)) follow();
+    });
+    for (const child of holder?.children ?? []) grown.observe(child);
+    return () => grown.disconnect();
+  }, [open, follow]);
 
   const enabled = (i: number) => options[i] !== undefined && !options[i]!.disabled;
   const step = (from: number, by: 1 | -1) => {

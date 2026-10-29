@@ -192,4 +192,40 @@ test.describe('the game’s dropdown', () => {
     expect(l.x).toBeGreaterThanOrEqual(8);
     expect(l.x + l.width).toBeLessThanOrEqual(W - 8);
   });
+
+  // The speed list, open as the day ran on, stayed where it had opened as the date's period name, "Off-peak" become "Peak",
+  // narrowed the date chip and moved the speed menu 19.25 px along the top bar: a list followed what held its button only in a
+  // panel (the review of #192). The top bar's chips hold it too now. Shown failing (TS-04) with a panel the only holder:
+  // 19.25 px, 3 runs of 3.
+  test('keeps the speed list under its button as the date’s period name moves it', async ({ page }) => {
+    await page.setViewportSize({ width: W, height: H });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await page.getByTestId('play').click();
+    await page.locator('body').press('5');
+    const menu = page.getByTestId('speed-menu');
+    await expect(menu).toContainText('5,400');
+    await menu.click();
+    await expect(page.getByRole('listbox', { name: 'Speed' })).toBeVisible();
+    // Frame by frame in the page: once the period's name has moved the menu, two frames on, how far the list's left edge lies
+    // from the menu's. A new game opens at 05:00, off-peak, and peak starts at 06:30, a second on at 5,400×.
+    const off = await page.evaluate(() => new Promise<number>((done, fail) => {
+      const menu = document.querySelector('[data-testid="speed-menu"]')!;
+      const was = menu.getBoundingClientRect().left;
+      const t0 = performance.now();
+      const frame = () => {
+        if (Math.abs(menu.getBoundingClientRect().left - was) > 5) {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const list = document.querySelector('[role="listbox"]')?.getBoundingClientRect();
+            if (list) done(Math.abs(list.left - menu.getBoundingClientRect().left));
+            else fail(new Error('the speed list closed'));
+          }));
+        } else if (performance.now() - t0 > 20_000) fail(new Error('the speed menu never moved'));
+        else requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    }));
+    expect(off).toBeLessThan(1);
+  });
 });
