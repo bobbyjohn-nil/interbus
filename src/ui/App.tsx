@@ -345,10 +345,10 @@ export function App() {
   const depots = sim.snapshot?.depots.length ?? 0;
   const lines = sim.snapshot?.lines.length ?? 0;
   const newest = sim.snapshot?.lines.at(-1)?.id ?? null;
-  // A Create on its way: until its own answer (a newer line, or a Create refused), a second press sends
-  // nothing (createWaits, game/Tools.tsx). Let go during render, as the route editor follows the game.
+  // A Create on its way: until a Create refused, or its line landed and its card closed with the tool (the effect below), a
+  // second press sends nothing (createWaits, game/Tools.tsx). Let go during render, as the route editor follows the game.
   const [createPress, setCreatePress] = useState<CreatePress | null>(null);
-  const createNow = { tool, newest: newest ?? 0, refusals: sim.createRefusals, undos: sim.undos.sent, undone: sim.undos.done, loadedAt: sim.loaded?.at ?? null };
+  const createNow = { tool, refusals: sim.createRefusals, undos: sim.undos.sent, undone: sim.undos.done, loadedAt: sim.loaded?.at ?? null };
   if (createPress && !createWaits(createPress, createNow)) setCreatePress(null);
   // Counted from the game as it starts, so a reloaded game's lines are not new ones.
   const counts = useRef<{ depots: number; lines: number } | null>(null);
@@ -585,7 +585,7 @@ export function App() {
             // One press, one command: a second before the first has its answer sends nothing.
             if (createPress) return;
             creating.current = createNow.undos;
-            setCreatePress({ newest: createNow.newest, refusals: createNow.refusals, undos: createNow.undos, loadedAt: createNow.loadedAt });
+            setCreatePress({ refusals: createNow.refusals, undos: createNow.undos, loadedAt: createNow.loadedAt });
             send({ type: "create-line", clicks, model: draftModel });
           }}
           onUndo={removeLast}

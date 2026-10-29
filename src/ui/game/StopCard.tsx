@@ -137,15 +137,15 @@ export function StopCard({
                 <span className="swatch" style={{ background: l.colour }} /> {l.name}
               </button>
               {/* Refused, as a line that would keep fewer than two stops, it keeps the focus, aria-disabled and described by
-                  the words why, as the tier steps do: disabled, Ctrl+Z, taking back the edit that gave the line its third stop,
-                  turned it off under the keyboard, and the focus fell to the page, where Space played (the systems audit's
-                  nineteenth round). */}
+                  the words why, shown under it as the tier steps show theirs: disabled, Ctrl+Z, taking back the edit that gave
+                  the line its third stop, turned it off under the keyboard, and the focus fell to the page, where Space played
+                  (the systems audit's nineteenth round). Said to a screen reader alone, the card showed nothing why (its
+                  review). */}
               <button
                 type="button"
                 disabled={runOver(sim)}
                 aria-disabled={removal.ok ? undefined : true}
                 aria-describedby={removal.ok ? undefined : `${upSaid}-remove-${l.id}`}
-                title={removal.ok ? undefined : refusalText(removal)}
                 onClick={(e) => {
                   if (!removal.ok) return;
                   handBack(e.currentTarget, next('.lines'));
@@ -156,9 +156,9 @@ export function StopCard({
                 {removal.ok && removal.orphaned ? ` · ${usdK(removal.refundCents)} back` : ''}
               </button>
               {removal.ok ? null : (
-                <span id={`${upSaid}-remove-${l.id}`} className="sr-only">
+                <p id={`${upSaid}-remove-${l.id}`} className="refusal" role="status">
                   {refusalText(removal)}
-                </span>
+                </p>
               )}
             </div>
           );

@@ -70,12 +70,10 @@ export function StopSiteCard({ sim, screen }: { sim: Sim; screen: [number, numbe
 }
 
 /**
- * A Create on its way, as App keeps it: the newest line's id as it was pressed (0 with none), how many
- * Creates the sim had refused and how many undos the page had sent by then, and the game it was pressed
- * in (its loaded.at).
+ * A Create on its way, as App keeps it: how many Creates the sim had refused and how many undos the page
+ * had sent as it was pressed, and the game it was pressed in (its loaded.at).
  */
 export interface CreatePress {
-  readonly newest: number;
   readonly refusals: number;
   readonly undos: number;
   readonly loadedAt: number | null;
@@ -88,16 +86,19 @@ export interface CreateNow extends CreatePress {
 }
 
 /**
- * Whether a Create on its way still waits for its answer (one press, one command, as Save route's
- * pressSave): until a line newer than the press stands or the sim refuses a Create, a second press sends
- * nothing. A refresh of the lines that is not its answer, such as the day's close or roadworks retiming
- * them, leaves it waiting. It never outlasts the tool, the game it was pressed in or an undo sent after
- * it that the sim did: a Create and an Undo answered together leave no newer line to see, and Create
- * opens again. An undo not yet answered, or refused, as every undo is while time runs, lets nothing go,
- * so a second press meanwhile still buys no second line.
+ * Whether a Create on its way still waits (one press, one command, as Save route's pressSave): until the
+ * sim refuses a Create, or its line lands and the card closes with the tool, a second press sends nothing.
+ * Its line landing does not let it go by itself: App closes the card a render later, and let go as the line
+ * stood, Create was on again under the keyboard for that render, so a second Enter, or Space's keyup, bought
+ * a second line, 2 times in 123 on the pacing run's late company (the review of the systems audit's
+ * nineteenth round). A refresh of the lines, such as the day's close or roadworks retiming them, leaves it
+ * waiting. It never outlasts the tool, the game it was pressed in or an undo sent after it that the sim did:
+ * a Create and an Undo answered together leave no line, and Create opens again. An undo not yet answered,
+ * or refused, as every undo is while time runs, lets nothing go, so a second press meanwhile still buys no
+ * second line.
  */
 export function createWaits(press: CreatePress, now: CreateNow): boolean {
-  return now.tool === "line" && now.loadedAt === press.loadedAt && now.undone <= press.undos && now.newest <= press.newest && now.refusals <= press.refusals;
+  return now.tool === "line" && now.loadedAt === press.loadedAt && now.undone <= press.undos && now.refusals <= press.refusals;
 }
 
 /**
