@@ -130,7 +130,12 @@ export function DraftCard({
   sim: Sim;
   clicks: number;
   model: BusModelId;
-  /** True while a Create is on its way (createWaits): a press then does nothing, so the button is disabled, as Save route's is. */
+  /**
+   * True while a Create is on its way (createWaits): a press then does nothing, and the button keeps the focus, aria-disabled,
+   * as Save route does. Disabled, it gave the page the focus as it went off, and on again, as Ctrl+Z took back what came
+   * before it or the sim turned it down, it took none back, so Space played, and Continue gave Build the focus (the systems
+   * audit's nineteenth round).
+   */
   creating?: boolean;
   onModel: (model: BusModelId) => void;
   onCreate: () => void;
@@ -222,10 +227,10 @@ export function DraftCard({
         <button
           type="button"
           onClick={() => {
-            if (!refused) onCreate();
+            if (!refused && !creating) onCreate();
           }}
-          disabled={!draft || creating}
-          aria-disabled={refused ? true : undefined}
+          disabled={!draft}
+          aria-disabled={refused || creating ? true : undefined}
           aria-describedby={said}
         >
           Create

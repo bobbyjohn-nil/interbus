@@ -41,10 +41,13 @@ describe('Create on its way', () => {
     expect(createWaits(press, { ...now, undos: 5, newest: 3 })).toBe(false); // refused, and then the line lands
   });
 
-  it('shows Create shut while it waits', () => {
+  // While it waits, Create says a press does nothing and keeps the focus: disabled, it gave the page the focus, and on again, as
+  // Ctrl+Z took back what came before it or the sim turned it down, it took none back, so Space played (the systems audit's
+  // nineteenth round). Shown failing (TS-04) with Create disabled while it waits.
+  it('keeps Create in reach while it waits, a press doing nothing', () => {
     const draft = { stops: [], route: [], routeM: 900, people: 12_000, walkM: 400, buses: 2, newStops: 2, stopsCents: 800_000, busesCents: 9_500_000, priceCents: 10_300_000, refusal: null, edit: null, detour: null } as unknown as LineDraftView;
     const render = (creating: boolean) => renderToStaticMarkup(createElement(DraftCard, { sim: { draft, snapshot: null } as unknown as Sim, clicks: 2, model: 'sparrow', creating, onModel: () => undefined, onCreate: () => undefined, onUndo: () => undefined, onCancel: () => undefined }));
-    expect(render(true)).toMatch(/<button type="button" disabled="" aria-describedby="[^"]+">Create<\/button>/);
+    expect(render(true)).toMatch(/<button type="button" aria-disabled="true" aria-describedby="[^"]+">Create<\/button>/);
     expect(render(false)).toMatch(/<button type="button" aria-describedby="[^"]+">Create<\/button>/);
   });
 

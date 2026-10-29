@@ -81,8 +81,10 @@ describe('the route editor', () => {
     // A refresh of the lines that is not its answer (the day's close retimes them while time runs) leaves
     // it on its way: only its landing or its refusal ends it, so a double-click's guard holds.
     expect(followed(pressed, line, { stops: [...game.stops, { id: 4 }] }, 0, NONE)).toBe(pressed);
-    // While it is on its way, the button says a press does nothing.
-    expect(render(opened.points, { refusal: null }, true)).toMatch(/<button type="button" disabled="" aria-describedby="[^"]+">Save route<\/button>/);
+    // While it is on its way, the button says a press does nothing, and keeps the focus: disabled, it gave the page the focus,
+    // so Continue gave the dock's Lines or Build the focus as the save landed (the systems audit's nineteenth round). Shown
+    // failing (TS-04) with Save route disabled while it waits.
+    expect(render(opened.points, { refusal: null }, true)).toMatch(/<button type="button" aria-disabled="true" aria-describedby="[^"]+">Save route<\/button>/);
     expect(render(opened.points, { refusal: null })).toMatch(/<button type="button" aria-describedby="[^"]+">Save route<\/button>/);
     // Refused (short of cash, as a close can leave it under the keyboard), it keeps the focus, described by the words why, and a
     // press does nothing; disabled, the focus fell to the page (the systems audit's seventeenth round). Shown failing (TS-04)

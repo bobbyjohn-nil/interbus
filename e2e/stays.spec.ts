@@ -6,7 +6,11 @@
 // dragged panel moved where it opened next; Close line's ask opened two thirds on the window; and Home on the first view tab
 // moved the panel. Then the round's review: Save route pressed by Enter gave Cancel the keyboard while its save was on its way,
 // a press on the route editor's words could hand the focus back to a row's button, and a press that closed its panel only
-// once the sim answered still moved where it opened next. Each shown failing (TS-04) with its fix taken out.
+// once the sim answered still moved where it opened next. And the nineteenth round's first lane, on #188's fixes: Create and
+// Save route, turned off by their own press until the sim answered, gave the page the focus, so a Create Ctrl+Z took back left
+// the keyboard on the page, and a day's card's Continue after either did not follow it to Lines; and Save route, reached by Tab
+// and pressed by the mouse, took the focus back as Ctrl+Z took its save back, so Space saved again. Each shown failing (TS-04)
+// with its fix taken out.
 import { expect, test, type Locator, type Page } from './base';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { foundCompany, leaveHome } from './found';
@@ -79,6 +83,29 @@ async function savedPastLongwood(page: Page, panel: Locator) {
   await editor.getByRole('button', { name: 'Save route' }).click();
   await expect(editor).toHaveCount(0, { timeout: 10_000 });
   await expect(panel.getByTestId('line-stops').getByRole('button')).toHaveCount(DEBUG_STOPS.length + 1);
+}
+
+/**
+ * The keyboard on `button`, the close come at 60× and `button` pressed by Enter there: once `card` has gone and Lines has the
+ * focus, Continue, pressed from the keyboard with time paused, gives the focus back to Lines.
+ */
+async function continuedAfterThePress(page: Page, button: Locator, card: Locator) {
+  const day = page.getByTestId('day-card');
+  const box = page.locator('[data-movable="lines"]');
+  await tabOnto(page, button);
+  await page.keyboard.press('2'); // 60×: the close in a game minute and a half
+  await expect(day).toBeVisible({ timeout: 30_000 });
+  await expect(button).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(card).toHaveCount(0, { timeout: 10_000 });
+  await expect(box).toBeFocused();
+  await page.keyboard.press(' '); // paused, so nothing else moves
+  await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+  await day.getByRole('button', { name: 'Continue' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(day).toHaveCount(0);
+  await frames(page);
+  await expect(box).toBeFocused();
 }
 
 /** Holds the sim's answers back (holdAnswers, added before the page loads) until release. */
@@ -203,6 +230,38 @@ test.describe('what stays where the player left it', () => {
     await expect(cancel).toBeFocused();
   });
 
+  // Save route and Create pressed from the keyboard while a day's card shows turned themselves off until the sim answered, and
+  // Chrome took the focus from them, so the card's place for the keyboard stayed on the button gone: as the save or the line
+  // landed and Lines took the focus, Continue gave the dock's Lines, where the next Space closed Lines, or Build (the systems
+  // audit's nineteenth round, 3 runs of 3 at each of three sizes). Each keeps the focus until its answer now, aria-disabled,
+  // so Continue follows the hand-on to Lines, as it follows Cancel's. Shown failing (TS-04) with each disabled on its way.
+  test('Continue follows the keyboard to Lines from a Save route pressed while a day’s card shows', async ({ page }) => {
+    test.setTimeout(90_000);
+    await game(page, (d) => void (d.clock.elapsed = CLOCK));
+    // The route editor opened from the keyboard, a stop clicked past Longwood.
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await tabOnto(page, page.getByTestId('inspector').getByRole('button', { name: 'Edit route' }));
+    await page.keyboard.press('Enter');
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    await frames(page);
+    await clickAt(page, PAST_LONGWOOD);
+    await expect(editor).toHaveAttribute('data-price', /^[1-9]\d*$/, { timeout: 10_000 });
+    await continuedAfterThePress(page, editor.getByRole('button', { name: 'Save route' }), editor);
+  });
+
+  test('Continue follows the keyboard to Lines from a Create pressed while a day’s card shows', async ({ page }) => {
+    test.setTimeout(90_000);
+    await game(page, (d) => void (d.clock.elapsed = CLOCK));
+    await build(page, 'Draw a line');
+    const draft = page.getByTestId('draft-card');
+    await frames(page);
+    for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    await continuedAfterThePress(page, draft.getByRole('button', { name: 'Create' }), draft);
+  });
+
   // A key's press that closes the panel it is in leaves where the panel was dragged to: the × of Finance dragged past the
   // window's right edge, pressed by Enter, brought Finance in as the press went, unseen, and it opened there next, 398 px from
   // where it was left (9 runs of 9). And Home on the first view tab, which moves to no other tab, moved Finance 115 px.
@@ -289,6 +348,63 @@ test.describe('what stays where the player left it', () => {
     await page.keyboard.press(' ');
     await expect(speed).toHaveAttribute('data-speed', '0');
     await expect(editor.getByRole('listitem')).toHaveCount(DEBUG_STOPS.length + 1);
+  });
+
+  // Create, pressed from the keyboard, turned itself off until the sim answered, and Chrome took the focus from it: Ctrl+Z,
+  // taking the line back before the answer, both answered together, left the card open, Create on again and the focus on the
+  // page, where Space played (the systems audit's nineteenth round, by Enter and by Space, 3 runs of 3 at each of three sizes).
+  // It keeps the focus while its line is on its way now, aria-disabled, as Save route does. Shown failing (TS-04) with Create
+  // disabled on its way.
+  test('Create by Enter keeps the keyboard through its line taken back by Ctrl+Z', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(holdAnswers);
+    await game(page);
+    await build(page, 'Draw a line');
+    const draft = page.getByTestId('draft-card');
+    await frames(page);
+    for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    const create = draft.getByRole('button', { name: 'Create' });
+    await tabOnto(page, create);
+    await hold(page);
+    await page.keyboard.press('Enter');
+    await expect(create).toBeDisabled();
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => heldSnapshots(page)).toBe(2);
+    await release(page);
+    await expect(create).toBeEnabled({ timeout: 10_000 });
+    await frames(page);
+    await expect(create).toBeFocused();
+    // From the keyboard still, Space buys the line, time standing still.
+    await page.keyboard.press(' ');
+    await expect(draft).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+  });
+
+  // Save route reached by Tab and then pressed by the mouse stayed the keyboard's: as Ctrl+Z took its save back before the
+  // answer, it took the focus back, ringed, and the next Space pressed it, a second save closing the editor, time still (the
+  // systems audit's nineteenth round, 3 runs of 3 at each of three sizes), where after the mouse alone Space plays. Keeping the
+  // focus through its save, it takes none back, and the mouse's press leaves Space to the game. Shown failing (TS-04) with
+  // Save route disabled on its way.
+  test('Save route reached by Tab and pressed by the mouse leaves Space to the game through its save taken back', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(holdAnswers);
+    const panel = await lines(page);
+    const editor = await editedPastLongwood(page, panel);
+    const save = editor.getByRole('button', { name: 'Save route' });
+    await tabOnto(page, save);
+    await hold(page);
+    await save.click();
+    await expect(save).toBeDisabled();
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => heldSnapshots(page)).toBe(2);
+    await release(page);
+    await expect(save).toBeEnabled({ timeout: 10_000 });
+    await frames(page);
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('sim-panel')).not.toHaveAttribute('data-speed', '0');
+    await expect(editor).toBeVisible();
   });
 
   // A key's press that closes its panel once the sim answers, as Save route and Create do, left the place the press brought
