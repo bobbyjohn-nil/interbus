@@ -194,8 +194,8 @@ export interface PanelFront {
  * first at the top right), and stays there; it is dragged by its heading anywhere on the screen, and
  * opens where it was dragged to for the rest of the session. Opening it, showing it again (`front`)
  * or a press on it brings it to the front. A window that changes size keeps a panel that opened in a
- * free place whole, placed afresh where the change would leave it over another, and a dragged one's
- * heading in reach.
+ * free place whole, from where it opened, placed afresh where the change would leave it over another,
+ * and a dragged one's heading in reach of where it was dragged to.
  * A tool's card is a panel like the others.
  * One the keyboard opened takes the focus (`focus`), as a dialog does, so Tab goes on inside it.
  * Places live on the elements, not in React state, so a drag re-renders nothing. The panels are raised
@@ -238,6 +238,8 @@ export function Panels({
   const dragged = useRef(new Map<string, { x: number; y: number }>());
   /** The panels placed since they opened; one that closes is placed afresh when it opens again. */
   const placed = useRef(new Set<string>());
+  /** Where each panel in a free place opened (freePlace), which a change of the window's size keeps it whole from. */
+  const homes = useRef(new Map<string, { x: number; y: number }>());
   /** Where a dragged panel lay before a key's press brought it in (reveal), until the next key or press: for a panel that closes. */
   const pressedFrom = useRef<{ readonly id: string; readonly was: { readonly x: number; readonly y: number } } | null>(null);
   /** The panels a drag left lying over each other (pairOf), which a change of the window's size leaves so. */
@@ -246,6 +248,7 @@ export function Panels({
   useLayoutEffect(() => {
     const open = new Set(items.map((i) => i.id));
     for (const id of placed.current) if (!open.has(id)) placed.current.delete(id);
+    for (const id of homes.current.keys()) if (!open.has(id)) homes.current.delete(id);
     for (const { id } of items) {
       const box = boxes.current.get(id);
       if (!box || placed.current.has(id)) continue;
@@ -260,8 +263,13 @@ export function Panels({
       });
       // Where it was dragged to, kept in reach of a window narrower since.
       const was = dragged.current.get(id);
-      put(box, was ? inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight) : freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight, clear));
-      if (!was) forget(dropped.current, id);
+      if (was) put(box, inReach(was, box.offsetWidth, window.innerWidth, window.innerHeight));
+      else {
+        const home = freePlace(box.offsetWidth, box.offsetHeight, taken, window.innerWidth, window.innerHeight, clear);
+        put(box, home);
+        homes.current.set(id, home);
+        forget(dropped.current, id);
+      }
       placed.current.add(id);
     }
   });
@@ -381,6 +389,12 @@ export function Panels({
   // a free place are laid out afresh in the order they opened, as on opening, but for one a drag left lying over another, if
   // that leaves fewer: back from 175% a step at a time at 1152×720, Saves fell back over Finance at 100%, 215×143 px. Laid out
   // afresh whatever it left, more piled up at 150% and 125% on the way there (the review).
+  // Each is kept from where it was put, a dragged one from where it was dragged to and one in a free place from where it opened
+  // (`homes`), not from where the last change left it, so a change and back puts every panel back: kept from there, Chrome's
+  // 110% and back left Lines, Finance and Contracts 131 px to the left, and a close's card, with no room beside them, stood
+  // over Finance's heading; two panels dragged apart at the right, kept in reach together at 150%, stayed one on the other,
+  // 280×244 px; and with the lender's card up, Finance, kept clear of where the card stood at 150%, lay over Contracts back at
+  // 100%, 56×248 px (the nineteenth round).
   useEffect(() => {
     const clearFor = (id: string) =>
       [...clears.current].flatMap((other) => {
@@ -396,16 +410,16 @@ export function Panels({
       const [width, height] = [window.innerWidth, window.innerHeight];
       const settled: { readonly id: string; readonly at: Rect }[] = [];
       for (const [id, box] of boxes.current) {
-        if (!dragged.current.has(id)) continue;
-        const r = box.getBoundingClientRect();
-        put(box, inReach({ x: r.left, y: r.top }, r.width, width, height));
+        const was = dragged.current.get(id);
+        if (!was) continue;
+        put(box, inReach(was, box.getBoundingClientRect().width, width, height));
         settled.push({ id, at: rectOf(box) });
       }
       for (const id of placed.current) {
         const box = boxes.current.get(id);
         if (!box || dragged.current.has(id)) continue;
         const r = box.getBoundingClientRect();
-        put(box, keptWhole({ x: r.left, y: r.top }, r.width, width, height));
+        put(box, keptWhole(homes.current.get(id) ?? { x: r.left, y: r.top }, r.width, width, height));
         const piled = settled.some((other) => across(rectOf(box), other.at) && !dropped.current.has(pairOf(id, other.id)));
         if (piled) {
           forget(dropped.current, id);
@@ -488,7 +502,12 @@ export function Panels({
       box.classList.remove("dragging");
       // A press that did not move is a press, not a drag: the panel keeps a free place next time.
       if (e.clientX === x0 && e.clientY === y0) return;
-      dragged.current.set(id, place(e.clientX, e.clientY));
+      // Where it is let go, under the pointer, though the window changed size as it was held, which placed it as a panel in a
+      // free place: let go without a move after Chrome's 125%, Finance stayed where the change put it and opened next under
+      // the pointer's place, 244×264 px over Lines (the systems audit's nineteenth round).
+      const to = place(e.clientX, e.clientY);
+      put(box, to);
+      dragged.current.set(id, to);
       // And the panels it is left lying over, which a resize leaves so.
       forget(dropped.current, id);
       for (const [other, at] of boxes.current) if (other !== id && across(rectOf(box), rectOf(at))) dropped.current.add(pairOf(id, other));

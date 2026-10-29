@@ -79,3 +79,31 @@ test('a page zoomed by a pinch before the game’s code ran pinches back out ove
   await pinchAt(page, home.x + home.width / 2, home.y + 40, 1 / 1.6);
   await expect.poll(() => pageScale(page)).toBe(1);
 });
+
+// And over the map, as founding leaves the zoomed view all map: MapLibre's handler cancels every wheel it takes, so each pinch
+// back zoomed the map, 14 to about 13.5 in five, and the page stayed at 1.6, its chips, dock and credit out of view (the
+// systems audit's nineteenth round, on Inner Boston). Shown failing (TS-04) with a zoom out over the map left to the map.
+test('a page zoomed by a pinch before the game’s code ran pinches back out over the map', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.route(/\/assets\/index-[^/]*\.js$/, async (route) => {
+    await new Promise((done) => setTimeout(done, 3_000));
+    await route.continue();
+  });
+  await page.goto('./', { waitUntil: 'commit' });
+  await expect(page.locator('#boot')).toBeVisible({ timeout: 10_000 });
+  await pinchAt(page, 720, 395, 1.6);
+  await expect.poll(() => pageScale(page)).toBeGreaterThan(1.5);
+  await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+  // A spot of the zoomed view on the map's canvas, in the zoomed view's own points, as the pinch's place is.
+  const spot = await page.evaluate(() => {
+    const v = window.visualViewport!;
+    for (const [fx, fy] of [[0.5, 0.75], [0.8, 0.5], [0.2, 0.5], [0.5, 0.3], [0.8, 0.8], [0.2, 0.8]] as const) {
+      const [x, y] = [Math.round(v.width * fx), Math.round(v.height * fy)];
+      if (document.elementFromPoint(v.offsetLeft + x, v.offsetTop + y)?.closest('.maplibregl-canvas-container')) return { x, y };
+    }
+    return null;
+  });
+  expect(spot, 'a spot of the zoomed view on the map').not.toBeNull();
+  await pinchAt(page, spot!.x, spot!.y, 1 / 1.6);
+  await expect.poll(() => pageScale(page)).toBe(1);
+});
