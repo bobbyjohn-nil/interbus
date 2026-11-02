@@ -52,6 +52,17 @@ test.describe('the GPU ladder', () => {
 
   test('software rendering is Low graphics: flat, with its frames counted by ?fps', async ({ page }) => {
     test.setTimeout(90_000);
+    // Every frame the page draws: MapLibre draws each in a requestAnimationFrame callback, and nothing else in the game asks for one.
+    await page.addInitScript(() => {
+      const w = window as unknown as { framesDrawn: number };
+      w.framesDrawn = 0;
+      const ask = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (callback) =>
+        ask((t) => {
+          w.framesDrawn++;
+          callback(t);
+        });
+    });
     await page.goto('./?fps');
     const map = page.getByTestId('map');
     await expect(map).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
@@ -61,8 +72,8 @@ test.describe('the GPU ladder', () => {
     await expect(page.getByTestId('flat-notice')).toHaveText('Low graphics: the map stays flat on this computer.');
     await expect(map).toHaveAttribute('data-mode', '2d');
 
-    // A line running at speed: the readout counts the frames drawn, never more than 30 a second (its
-    // cap is gpu.test.ts's; this browser's software rendering is slower than the cap).
+    // A line running at speed: the readout counts the frames drawn, never more than 30 a second (its cap is gpu.test.ts's), every
+    // one a frame the buses asked for.
     await zoomOutOnce(page);
     await build(page, 'Place a depot');
     const [dx, dy] = await toScreen(page, onDepotLand());
@@ -79,8 +90,30 @@ test.describe('the GPU ladder', () => {
     // The readout names where it was read: the camera's zoom and pitch, and the rung.
     await expect(page.getByTestId('fps')).toContainText(/ fps · p95 \d+ ms · zoom 1\d\.\d · 0° · Low graphics$/, { timeout: 10_000 });
     await expect.poll(async () => Number(await map.getAttribute('data-fps')), { timeout: 10_000 }).toBeGreaterThan(0);
-    await page.waitForTimeout(2_500); // a full window of frames at speed
-    expect(Number(await map.getAttribute('data-fps'))).toBeLessThanOrEqual(31);
+    // In a window small enough to draw every frame asked for, so the cap is what holds them: at the test's own size this
+    // browser's software rendering drew 5 or 6 frames a second, under any cap. A frame asked for at each of the sim's snapshots on
+    // top of the buses' took Low graphics to 34–38 a second here, every one past the buses' a frame they had not asked for. On two
+    // CI runs the readout read 47 and 147 (#150's push run and #196's), past the 40 a second the buses and the clock could ask for
+    // together, so those had frames from elsewhere too: the counts below say how many were the buses'.
+    await page.setViewportSize({ width: 200, height: 150 });
+    await page.waitForTimeout(2_500); // a full window of frames at speed, at the small size
+    const count = () =>
+      page.evaluate(() => ({
+        drawn: (window as unknown as { framesDrawn: number }).framesDrawn,
+        asked: Number(document.querySelector('[data-testid="map"]')?.getAttribute('data-asked') ?? 0),
+        at: performance.now(),
+      }));
+    const from = await count();
+    await page.waitForTimeout(2_500);
+    const to = await count();
+    const seconds = (to.at - from.at) / 1_000;
+    const [drawn, asked] = [to.drawn - from.drawn, to.asked - from.asked];
+    const says = `${(drawn / seconds).toFixed(1)} frames a second drawn, ${(asked / seconds).toFixed(1)} of them the buses'`;
+    // The buses ran, near their cap, so the cap is what held them; every frame drawn but a stray one was one they asked for; and
+    // the readout stands under the cap.
+    expect(asked / seconds, says).toBeGreaterThan(20);
+    expect(drawn - asked, says).toBeLessThanOrEqual(2);
+    expect(Number(await map.getAttribute('data-fps')), says).toBeLessThanOrEqual(31);
   });
 
   test('with no WebGL2, a calm card asks for hardware acceleration, and Saves and Export still work', async ({ page }) => {

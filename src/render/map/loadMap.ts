@@ -602,8 +602,13 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       rest();
     },
     setClock: (second, rate, day) => {
+      // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics, and runs the clock on
+      // between snapshots: a frame asked for on top at each snapshot, 10 a second, took Low graphics to 34–38 frames a second in a
+      // window small enough to draw them, over its cap, and with no bus out it drew a frame a snapshot with nothing on the map
+      // changing (the fix's review). So a frame is asked for only as the buses start or stop, or as the clock is set while time stands.
+      const driving = fleet.running;
       fleet.setClock(second, rate, performance.now(), day);
-      map.triggerRepaint();
+      if (driving !== fleet.running || rate === 0) map.triggerRepaint();
       clockSecond = second;
       lightWanted = darkStep(second);
       if (loaded && lightWanted !== light) showLight(lightWanted, true);
