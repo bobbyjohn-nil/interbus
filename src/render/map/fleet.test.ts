@@ -76,13 +76,29 @@ describe('the fleet the vehicle layer draws', () => {
     expect(fleet.secondAt(100)).toBeCloseTo(50, 6); // past midnight, into the next day
   });
 
-  it('asks for frames only while the clock runs and a line has buses (I14)', () => {
+  // And only while a bus is drawn: with every bus parked, as overnight off, it asked for 25–28 frames a second of nothing new in a
+  // small window (the systems audit's twenty-first round), and a snapshot that finds a bus out starts it again. Shown failing
+  // (TS-04) with the frames asked for whenever a line exists.
+  it('asks for frames only while the clock runs and a bus is drawn (I14)', () => {
     const fleet = new Fleet();
     fleet.setLines([line()]);
     fleet.setClock(43_200, 0, 0);
-    expect(fleet.running).toBe(false);
+    expect(fleet.running).toBe(false); // paused
     fleet.setClock(43_200, 600, 0);
     expect(fleet.running).toBe(true);
+    // 02:00 on day 3, overnight off: every bus parked, by the snapshot's clock and by a frame's.
+    fleet.setClock(2 * 3_600, 600, 0, 3);
+    expect(fleet.running).toBe(false);
+    expect(fleet.frame(100).count).toBe(0);
+    expect(fleet.running).toBe(false);
+    // The day's first bus out by a snapshot's clock, then parked by a frame's: the last at noon goes home at 00:05 on day 3.
+    fleet.setClock(5 * 3_600 + 10, 600, 0, 3);
+    expect(fleet.running).toBe(true);
+    fleet.setClock(4 * 60 + 30, 600, 0, 3);
+    expect(fleet.running).toBe(true);
+    expect(fleet.frame(250).count).toBe(0); // 150 game seconds on
+    expect(fleet.running).toBe(false);
+    fleet.setClock(43_200, 600, 0);
     fleet.setLines([line(0)]);
     expect(fleet.running).toBe(false);
     expect(fleet.frame(0).count).toBe(0);

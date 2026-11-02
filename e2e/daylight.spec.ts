@@ -1,7 +1,8 @@
 // The day and night tint (PLAN §4's charm moments, §8 rule 8; D13; src/render/map/daylight.ts): the map dims from 19:00 a
 // step each half hour to night at 20:30, and lightens from 05:00, its paints set once a step and never per frame (RN-04), each
-// step carried by MapLibre's transition, at once with less motion asked for. A line with overnight off rests, faded, from its
-// last bus's return after 00:00 until 05:00, so the time of day never rests on the tint alone.
+// step carried by MapLibre's transition, at once with less motion asked for or in Low graphics, which these tests' browser
+// draws in (loadMap.test.ts holds the fade itself). A line with overnight off rests, faded, from its last bus's return after
+// 00:00 until 05:00, so the time of day never rests on the tint alone.
 import { expect, test, type Page } from './base';
 import { foundCompany, leaveHome } from './found';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
@@ -68,7 +69,10 @@ test.describe('the day and night tint', () => {
     // Four steps, four sets of the paints, while the map drew on: 39 frames here in software GL's Low graphics.
     expect(Number(await map.getAttribute('data-daylight-sets')) - sets).toBe(4);
     expect(Number(await map.getAttribute('data-asked')) - asked).toBeGreaterThan(8);
-    await expect(map).toHaveAttribute('data-daylight-fade', '1500');
+    // In Low graphics each step comes at once: MapLibre draws a fade a frame at a time, as fast as the screen takes them, and a
+    // fade took Low graphics past its cap of 30 a second, to 50 in the headless shell (the systems audit's twenty-first round).
+    // Shown failing (TS-04) on 409570e, which faded each step over 1,500 ms.
+    await expect(map).toHaveAttribute('data-daylight-fade', '0');
     // MapLibre takes every paint: a value it refused would be logged.
     expect(errors).toEqual([]);
   });
@@ -112,8 +116,19 @@ test.describe('the day and night tint', () => {
     await expect(map).toHaveAttribute('data-resting', '1', { timeout: 30_000 });
     await frames(page);
     expect(await links()).toBe(before);
+    // With every bus parked the buses ask for no frames while time runs, where they asked for 25–28 a second of nothing new in a
+    // small window (the systems audit's twenty-first round); the snapshot that finds the first bus out at 05:00 starts them again.
+    // Shown failing (TS-04) on 409570e, whose buses asked on through the night.
+    await expect(map).toHaveAttribute('data-buses', '0', { timeout: 30_000 });
+    await frames(page);
+    const asked = async () => Number((await map.getAttribute('data-asked')) ?? 0);
+    const parked = await asked();
+    await page.waitForTimeout(2_000);
+    expect(await asked()).toBeLessThanOrEqual(parked + 1);
     await page.keyboard.press('4'); // 2,700×: 05:00 in about seven seconds, then the peak from 06:30 for two
     await expect(map).toHaveAttribute('data-resting', '', { timeout: 30_000 });
+    await expect.poll(async () => Number(await map.getAttribute('data-buses')), { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect.poll(asked, { timeout: 30_000 }).toBeGreaterThan(parked + 2);
     // Lighter than night, at once: at 2,700× each step's half hour passes in two thirds of a second.
     await expect(map).toHaveAttribute('data-daylight', /^[0-3]$/);
     await expect(map).toHaveAttribute('data-daylight-fade', '0');

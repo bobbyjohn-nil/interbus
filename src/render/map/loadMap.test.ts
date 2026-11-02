@@ -328,6 +328,30 @@ describe('the day and night tint', () => {
     board.setClock(12 * 3_600 + 120, 600, 2);
     board.setClock(12 * 3_600 + 180, 0, 2); // it stops: a frame
     expect(repaint).toHaveBeenCalledTimes(3);
+    // Overnight off: at 02:00 every bus is parked, and the layer asks for no frames, so the snapshots ask for none, but for the
+    // one that finds the first bus out at 05:00 (the systems audit's twenty-first round; shown failing (TS-04) with no frame asked
+    // for there, which leaves the first bus unseen until something else draws a frame).
+    board.setClock(2 * 3_600, 600, 3);
+    board.setClock(2 * 3_600 + 60, 600, 3);
+    repaint.mockClear();
+    board.setClock(4 * 3_600, 600, 3);
+    board.setClock(4.5 * 3_600, 600, 3);
+    expect(repaint).not.toHaveBeenCalled();
+    board.setClock(5 * 3_600 + 10, 600, 3);
+    expect(repaint).toHaveBeenCalledTimes(1);
+  });
+
+  // Low graphics steps the tint at once, as less motion does: MapLibre draws a fade a frame at a time, as fast as the screen takes
+  // them, past the buses' cap of 30 a second (the systems audit's twenty-first round). Shown failing (TS-04) with the fade kept.
+  it('steps the tint at once in Low graphics', async () => {
+    const mounted = await mountMap({} as HTMLElement, city, 'low');
+    const map = fake.maps.at(-1)!;
+    map.styleLoaded = true;
+    map.fire('load');
+    (window as unknown as { matchMedia: () => { matches: boolean } }).matchMedia = () => ({ matches: false });
+    mounted.setClock(19 * 3_600, 600, 2); // dusk's first step
+    expect(map.paint.get('background.background-color-transition')).toEqual({ duration: 0, delay: 0 });
+    expect(map.paint.get('background.background-color')).toBe(dim(LIGHT.void, 1));
   });
 
   it('fades the lines with overnight off from 00:00 to 05:00 with no bus in service, set as the lines resting change', async () => {

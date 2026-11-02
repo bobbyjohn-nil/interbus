@@ -51,4 +51,19 @@ describe('the fps meter', () => {
     expect(s.p95Ms).toBeGreaterThan(33);
     expect(meter.summary(now + 5_000)).toBeNull(); // nothing drawn lately
   });
+
+  // The systems audit's twenty-first round: after a pause, or a stall longer than the window, the window held the two frames
+  // drawn as time ran again, a few milliseconds apart, and the readout divided by the time between them: 33 to 294 a second
+  // where the buses drew 3 or 4. Shown failing (TS-04) on 409570e, which read 333 here.
+  it('counts two frames after a pause as the frames of the window they fall in, not as the rate between them', () => {
+    const meter = new FpsMeter(2_000);
+    for (let k = 0; k <= 90; k++) meter.frame(k * (1_000 / 30)); // 30 a second for 3 s
+    meter.frame(8_000); // 5 s paused, then the first frame and the buses' next, 3 ms on
+    meter.frame(8_003);
+    expect(meter.summary(8_003)!.fps).toBeCloseTo(1, 5);
+    // And from the first frame, before a whole window has passed: 30 a second.
+    const fresh = new FpsMeter(2_000);
+    for (let k = 0; k <= 15; k++) fresh.frame(10_000 + k * (1_000 / 30));
+    expect(fresh.summary(10_500)!.fps).toBeCloseTo(30, 5);
+  });
 });
