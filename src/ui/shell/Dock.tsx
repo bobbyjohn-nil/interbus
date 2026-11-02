@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Tool } from '../game/Tools';
+import { focusLost } from '../focusLost';
+import { useHeldFocus } from '../heldFocus';
 import { closeOnPressAway } from '../pressAway';
 
 export type Panel = 'none' | 'lines' | 'stop' | 'here' | 'finance' | 'saves' | 'contracts' | 'help';
@@ -73,8 +75,19 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
     };
   }, [open]);
   const building = tool !== 'none' && tool !== 'route';
+  // Lines turns off as the game's last line goes, and under the keyboard it gives the keyboard to Build: Ctrl+Z taking back
+  // the only line turned it off and the focus fell to the page, where Space played (the systems audit's twentieth round). Held
+  // only from the keyboard (useHeldFocus), so after the mouse's press the page keeps the focus.
+  const dock = useRef<HTMLElement>(null);
+  const linesButton = useRef<HTMLButtonElement>(null);
+  const heldRef = useHeldFocus(dock);
+  useLayoutEffect(() => {
+    if (hasLines || heldRef.current !== linesButton.current || !linesButton.current || !focusLost()) return;
+    heldRef.current = null;
+    button.current?.focus();
+  });
   return (
-    <nav className="dock" aria-label="Tools" data-testid="dock" data-chrome="rest">
+    <nav ref={dock} className="dock" aria-label="Tools" data-testid="dock" data-chrome="rest">
       {/* The menu comes after Build in the page, so Tab goes from Build through its tools in order, and
           the focus leaving for another control (Tab past the last, Shift+Tab from Build) closes it, as
           Tab closes a dropdown's list. */}
@@ -118,7 +131,7 @@ export function Dock({ tool, panels, hasLines, locked = false, onTool, onPanel }
           </div>
         ) : null}
       </div>
-      <button type="button" aria-pressed={panels.includes('lines')} disabled={!hasLines} data-opens="lines" onClick={() => onPanel('lines')}>
+      <button ref={linesButton} type="button" aria-pressed={panels.includes('lines')} disabled={!hasLines} data-opens="lines" onClick={() => onPanel('lines')}>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M4 6h12M4 10h12M4 14h8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>

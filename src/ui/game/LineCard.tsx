@@ -144,8 +144,9 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   const handBack = useFocusBack();
   // The line and its bus count Sell them was pressed at: one press, one sale (D26), so a second press before the sale lands
   // sends nothing (two Enters sent two, and the second's refusal said the line needed every bus). Its buses changing, another
-  // line or a refusal lets it go.
-  const [soldAt, setSoldAt] = useState<{ lineId: number; buses: number } | null>(null);
+  // line, a refusal or an undo the sim did after the press lets it go: taken back by Ctrl+Z before its answer, the two landing
+  // together, the sale left the buses as they were, and Sell them, on again, sent nothing (the systems audit's twentieth round).
+  const [soldAt, setSoldAt] = useState<{ lineId: number; buses: number; undos: number } | null>(null);
   const root = useRef<HTMLElement>(null);
   const lastPeriod = useRef<Period>('peak');
   const toModel = () => root.current?.querySelector<HTMLElement>('[data-testid="line-model"]');
@@ -187,7 +188,7 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
   const s = sim.snapshot;
   if (!s) return null;
   const over = runOver(sim);
-  if (soldAt && (soldAt.lineId !== line.id || soldAt.buses !== line.buses || sim.refusal?.command === 'sell-spares')) setSoldAt(null);
+  if (soldAt && (soldAt.lineId !== line.id || soldAt.buses !== line.buses || sim.refusal?.command === 'sell-spares' || sim.undos.done > soldAt.undos)) setSoldAt(null);
   const game = sim.loaded?.at ?? null;
   // A pick made before an undo or a load is dropped, not sent with the line as it now stands.
   const held = heldPick(wanted, line, game);
@@ -298,7 +299,7 @@ export function LineCard({ sim, line, onFinance, onStop }: { sim: Sim; line: Lin
               disabled={over}
               onClick={(e) => {
                 if (soldAt?.lineId === line.id) return;
-                setSoldAt({ lineId: line.id, buses: line.buses });
+                setSoldAt({ lineId: line.id, buses: line.buses, undos: sim.undos.sent });
                 handBack(e.currentTarget, toModel);
                 sim.send({ type: 'sell-spares', lineId: line.id });
               }}

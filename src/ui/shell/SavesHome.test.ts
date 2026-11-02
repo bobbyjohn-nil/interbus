@@ -26,6 +26,9 @@ vi.mock('react', async (original) => ({
     return hooks.cells[k];
   },
   useEffect: () => undefined,
+  useLayoutEffect: () => undefined,
+  // The one context Saves reads, whether the keyboard moved the focus (heldFocus), is read only from effects, which never run here.
+  useContext: () => () => true,
 }));
 
 type El = ReactElement<{ children?: ReactNode; onClick?: (event: unknown) => void; 'data-testid'?: string }>;

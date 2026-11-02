@@ -208,4 +208,16 @@ describe('where the focus goes back to as a panel closes', () => {
     expect(walk('saves', [saves], (panel) => (panel === 'saves' ? button('Saves chip') : null), () => button('the name'))).toBe('Saves chip');
     expect(walk('saves', [saves], none, () => button('the name', false))).toBeNull();
   });
+
+  // Round 20: a stop's card opened by a click, the keyboard on Take it down as Ctrl+Z took back the stop, had no opener and
+  // handed back nothing, the focus falling to the page; with the keyboard in it, it is walked on as one whose opener is gone.
+  it('walks on a panel the mouse opened when the keyboard was in it as it closed', () => {
+    const byKey = (id: string, opens: (panel: string) => Element | null = none, rest: () => Element | null = none) =>
+      (handBackTo(id, new Map(), opens, usable, rest, none, true) as unknown as { name: string } | null)?.name ?? null;
+    expect(byKey('stop', (panel) => (panel === 'stop' ? button('a stop row') : null))).toBe('a stop row');
+    expect(byKey('lines', () => button('dock Lines', false), () => button('Build'))).toBe('Build');
+    expect(byKey('lines', none, () => button('Build', false))).toBeNull();
+    // The mouse's own close still hands back nothing.
+    expect(walk('stop', [], () => button('a stop row'), () => button('Build'))).toBeNull();
+  });
 });
