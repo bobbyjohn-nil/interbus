@@ -243,7 +243,8 @@ export function DraftCard({
         >
           Remove last stop
         </button>
-        <button type="button" ref={cancel} onClick={onCancel}>
+        {/* The card's own close, as a panel's × is (Panels' ownClose). */}
+        <button type="button" ref={cancel} onClick={onCancel} data-closes="">
           Cancel
         </button>
       </div>

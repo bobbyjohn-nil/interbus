@@ -357,7 +357,10 @@ export function App() {
   const counts = useRef<{ depots: number } | null>(null);
   const { n: createdN, lineId: createdLine } = sim.created;
   useEffect(() => {
-    if (creating.current !== null && undone > creating.current.undos) creating.current = null;
+    // Let go, as createWaits lets the press go, once the line tool is put down or another taken out: the answer put down the
+    // route editor the player had opened meanwhile, and opened Lines on the new line in its place (the review of the
+    // systems audit's twentieth round).
+    if (creating.current !== null && (undone > creating.current.undos || tool !== "line")) creating.current = null;
     if (!started) return;
     if (!counts.current) {
       counts.current = { depots };
@@ -376,7 +379,7 @@ export function App() {
       show("lines");
     }
     counts.current = { depots };
-  }, [started, depots, createdN, createdLine, undone, depotSiteAt, show]);
+  }, [started, depots, createdN, createdLine, undone, tool, depotSiteAt, show]);
 
   // A game loaded from a slot, a file or Restart this quarter takes this one's place: any tool out
   // goes down with the game it was drawn in, as with a new game, and so do the cards of its stops and

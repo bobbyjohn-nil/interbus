@@ -312,29 +312,30 @@ export function Panels({
   // Escape closing both went round from Lines to the card and back to a gone button, until the walk went round no panel twice
   // (round 10; keeping the first opener instead sent the card's Close to Stop 2: its review).
   const openers = useRef(new Map<string, Opener>());
-  const backFor = (panel: string, byKey = false) => {
-    // A panel the mouse opened, walked as the game closed it under the keyboard, rests the keyboard on Build in the game; one
-    // the keyboard opened from the page hands it back to the page, so Space plays, as before.
-    const mouseOpened = !openers.current.has(panel);
-    return handBackTo(
+  // A panel the game closed under the keyboard (`byKey`) rests the keyboard on Build in the game, with nothing left to hand it
+  // to, whoever opened it: Lines the keyboard opened from the dock, its opener turned off as Ctrl+Z took back the only line,
+  // gave the page the focus (the review of the systems audit's twentieth round). One the player closed by a key hands it back
+  // to the page there, so Space plays, as before: Help opened from the page and closed by ?.
+  const backFor = (panel: string, byKey = false) =>
+    handBackTo(
       panel,
       openers.current,
       (p) => document.querySelector(`[data-opens="${p}"]`),
       usable,
-      () => document.querySelector(FOCUS_REST) ?? (mouseOpened ? document.querySelector('[data-testid="build"]') : null),
+      () => document.querySelector(FOCUS_REST) ?? (byKey ? document.querySelector('[data-testid="build"]') : null),
       (p) => boxes.current.get(p) ?? null,
       byKey,
     );
-  };
   useLayoutEffect(() => {
     if (backToRef) backToRef.current = backFor;
   });
   // The panel the keyboard opened in this render, whose opener the layout effect has just set.
   const opened = useRef<string | null>(null);
   const lastIn = useRef<string | null>(null);
-  // Whether the last key was the player's own close of a panel, Escape, ? (Help's own) or a press of its ×, as against the
-  // game's close, as Ctrl+Z takes back what a panel shows: a panel the mouse opened is walked on only after the game's
-  // (handBackTo's `byKey`).
+  // Whether the last key was the player's own close of a panel, Escape, ? (Help's own) or a press of its × or its Cancel
+  // (`data-closes`), as against the game's close, as Ctrl+Z takes back what a panel shows: a panel the mouse opened is walked
+  // on only after the game's (handBackTo's `byKey`). Cancel on the new line's card, not counted, gave Build the keyboard, and
+  // Space opened the Build menu (the review of the twentieth round).
   const ownClose = useRef(false);
   useEffect(() => {
     const at = (event: Event) => {
@@ -342,7 +343,7 @@ export function Panels({
     };
     const next = (event: Event) => {
       pressedFrom.current = null;
-      ownClose.current = event instanceof KeyboardEvent && (event.key === "Escape" || event.key === "?" || (event.target instanceof Element && event.target.closest("button.close") !== null));
+      ownClose.current = event instanceof KeyboardEvent && (event.key === "Escape" || event.key === "?" || (event.target instanceof Element && event.target.closest("button.close, [data-closes]") !== null));
     };
     document.addEventListener("focusin", at, true);
     document.addEventListener("pointerdown", at, true);

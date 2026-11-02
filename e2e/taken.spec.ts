@@ -161,7 +161,9 @@ test.describe('the keyboard’s control taken from under it, and a press after a
     await expect(row).toBeFocused();
   });
 
-  test('a panel the mouse opened, the keyboard in it, gone with what it showed, and the dock’s Lines turned off, give Build the focus', async ({ page }) => {
+  // Lines the keyboard opened from the dock, closed so, gave the page the focus too, its opener turned off with the line (the
+  // review of #194, 3 runs of 3 at three sizes). Shown failing (TS-04) with Build given only for a panel the mouse opened.
+  test('a panel gone with what it showed under the keyboard, opened by the mouse or the keyboard, and the dock’s Lines turned off, give Build the focus', async ({ page }) => {
     test.setTimeout(120_000);
     await game(page, (d) => void (d.lines = []));
     const build_ = page.getByTestId('build');
@@ -170,6 +172,16 @@ test.describe('the keyboard’s control taken from under it, and a press after a
     // Lines, opened by the game after the mouse's Create, the keyboard on Edit route: Ctrl+Z takes back the only line.
     await bought(page);
     const panel = page.getByTestId('inspector');
+    await tabOnto(page, panel.getByRole('button', { name: 'Edit route' }));
+    await page.keyboard.press('Control+z');
+    await expect(panel).toHaveCount(0, { timeout: 10_000 });
+    await expect(build_).toBeFocused();
+    // Lines opened by the keyboard from the dock, the same way.
+    await bought(page);
+    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    await tabOnto(page, lines);
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeVisible();
     await tabOnto(page, panel.getByRole('button', { name: 'Edit route' }));
     await page.keyboard.press('Control+z');
     await expect(panel).toHaveCount(0, { timeout: 10_000 });
@@ -301,5 +313,57 @@ test.describe('the keyboard’s control taken from under it, and a press after a
     await expect(shown).toHaveAttribute('data-line', '3');
     await expect(page.getByTestId('undo')).toHaveText('Undo: Create Line 3');
     expect(await sent('create-line')).toBe(3);
+    // Create pressed, then Edit route opened in Lines while its line is on its way: the answer leaves the route editor out, where
+    // it put the editor down and opened Lines on the new line in its place (the review of #194, 3 runs of 3, older). Shown
+    // failing (TS-04) with the press kept through the line tool's going.
+    const third = await drawTwo(page);
+    await hold(page);
+    await third.create.click();
+    await expect.poll(() => sent('create-line')).toBe(4);
+    await panel.getByRole('button', { name: 'Edit route' }).click();
+    const editor = page.getByTestId('route-editor');
+    await expect(editor).toBeVisible();
+    await release(page);
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Create Line 4', { timeout: 10_000 });
+    await frames(page);
+    await expect(editor).toBeVisible();
+  });
+
+  // The player's own close by a key of a panel the mouse opened leaves the page the focus, so Space plays, as Escape does
+  // (focusback.spec's tier test): the new line's card's Cancel, counted as the game's close, gave Build the keyboard, and Space
+  // opened the Build menu (the review of #194, 3 runs of 3 at three sizes, new in it); and nothing held a ×'s or Help's ?
+  // there. Shown failing (TS-04) with Cancel not counted the player's, and with Escape alone counted.
+  test('the player’s own close by a key leaves Space to the game: the new line’s Cancel, Finance’s × and Help’s ?', async ({ page }) => {
+    test.setTimeout(90_000);
+    await game(page);
+    const speed = page.getByTestId('sim-panel');
+    /** Space plays, the page holding the focus, and Space again pauses. */
+    const spacePlays = async (after: string) => {
+      expect(await page.evaluate(() => document.activeElement === document.body), `the page has the focus after ${after}`).toBe(true);
+      await page.keyboard.press(' ');
+      await expect(speed, `Space plays after ${after}`).not.toHaveAttribute('data-speed', '0');
+      await page.keyboard.press(' ');
+      await expect(speed).toHaveAttribute('data-speed', '0');
+    };
+    const { draft } = await drawTwo(page);
+    await tabOnto(page, draft.getByRole('button', { name: 'Cancel' }));
+    await page.keyboard.press('Enter');
+    await expect(draft).toHaveCount(0);
+    await spacePlays('Cancel');
+    await page.getByTestId('dock').getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await tabOnto(page, finance.getByRole('button', { name: 'Close', exact: true }));
+    await page.keyboard.press('Enter');
+    await expect(finance).toHaveCount(0);
+    await spacePlays('Finance’s ×');
+    await page.getByRole('button', { name: 'Saves' }).click();
+    await page.getByTestId('saves').getByRole('button', { name: 'Help' }).click();
+    const help = page.getByTestId('help');
+    await expect(help).toBeVisible();
+    // The keyboard on its chosen view's tab, not its ×, so the ? alone closes it.
+    await tabOnto(page, help.locator('[role="tab"][aria-selected="true"]'));
+    await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    await spacePlays('Help’s ?');
   });
 });

@@ -299,7 +299,8 @@ export function RouteEditor({
         >
           Save route
         </button>
-        <button type="button" ref={cancel} onClick={onCancel}>
+        {/* The editor's own close, as its × is (Panels' ownClose). */}
+        <button type="button" ref={cancel} onClick={onCancel} data-closes="">
           Cancel
         </button>
       </div>
