@@ -58,14 +58,16 @@ export function Inspector({
   const handBack = useFocusBack();
   // The line Close it was pressed for, while its ask stays: one press, one command (D26), so a second press before the line
   // goes sends nothing, as a Create on its way waits (the review of the hand-back: two Enters sent two, and the second's
-  // refusal said the line was gone). A refusal lets it go, so Close it can be pressed again.
-  const [sentId, setSentId] = useState<number | null>(null);
+  // refusal said the line was gone). A refusal lets it go, so Close it can be pressed again, and so does an undo the sim did
+  // after the press: taken back by Ctrl+Z before its answer, the two landing together, the close left the line and its ask,
+  // and Close it sent nothing (the systems audit's twentieth round).
+  const [sent, setSent] = useState<{ readonly id: number; readonly undos: number } | null>(null);
   const panel = useRef<HTMLElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const lines = sim.snapshot?.lines ?? [];
   const line = lines.find((l) => l.id === lineId) ?? lines[0];
   if (closingId !== null && closingId !== line?.id) setClosingId(null);
-  if (sentId !== null && (sentId !== closingId || sim.refusal?.command === "close-line")) setSentId(null);
+  if (sent && (sent.id !== closingId || sim.refusal?.command === "close-line" || sim.undos.done > sent.undos)) setSent(null);
   // The control the keyboard has in this panel (:focus-visible, as the day card's cameFrom), until the focus goes elsewhere or
   // the player presses elsewhere. An undo that brings back the line App still names (Close it, then Ctrl+Z) shows its card in
   // place of the one the focus was in, and the focus fell to the page; among three lines or more it stayed on a tab no longer
@@ -175,8 +177,8 @@ export function Inspector({
                 type="button"
                 disabled={runOver(sim)}
                 onClick={(e) => {
-                  if (sentId === line.id) return;
-                  setSentId(line.id);
+                  if (sent?.id === line.id) return;
+                  setSent({ id: line.id, undos: sim.undos.sent });
                   closeHandBack(
                     e.currentTarget,
                     () => panel.current?.querySelector<HTMLElement>(SHOWN) ?? document.querySelector<HTMLElement>('[data-testid="build"]'),
