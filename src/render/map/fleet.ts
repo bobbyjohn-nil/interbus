@@ -3,15 +3,20 @@
 // apart from its caches; the numbers come from sim/rules (positionsInEffect), the same plan the costs
 // bill (I6), a line settling after a change on its merged plan (rules/transition.ts). The renderer
 // computes no sim number (AR-04), only where to draw.
-import { inServiceAt, mostOut, positionsInEffect, prepareGeometry, type PreparedGeometry } from '../../sim/rules/position';
+import { inServiceAt, mostOut, positionsInEffect, prepareGeometry, WHERE_FLOATS, type PreparedGeometry } from '../../sim/rules/position';
 import { planInEffect, type PlanInEffect } from '../../sim/rules/transition';
 import type { LineView } from '../../sim/types';
 import { MODEL_GLYPHS } from './glyphs';
+import { placesOf, sidesAlong, type Places } from './sides';
 
 const SECONDS_PER_DAY = 86_400;
 
-/** Floats per bus in a frame: lon, lat, heading (degrees), red, green, blue (0–1), and the glyph's length and width in CSS pixels. */
-export const BUS_FLOATS = 8;
+/**
+ * Floats per bus in a frame: lon, lat, heading (degrees), red, green, blue (0–1), the glyph's length and width in CSS pixels, and
+ * its side: its line's place on the street, in ribbon widths to the right of the way the bus drives (sides.ts), so it rides on
+ * its line's ribbon where lines share a street.
+ */
+export const BUS_FLOATS = 9;
 
 interface Prepared {
   readonly id: number;
@@ -22,6 +27,8 @@ interface Prepared {
   readonly frameDay: number | null;
   readonly colour: readonly [number, number, number];
   readonly glyph: { readonly lengthPx: number; readonly widthPx: number };
+  /** Each version's sides along its route, as the line's ribbon stands on each segment now (sides.ts). */
+  readonly sides: readonly Float32Array[];
 }
 
 /** A line's second at `absolute` (game seconds since the first day's midnight): of the day, or of its merged plan's frame. */
@@ -41,27 +48,31 @@ export interface BusSource {
 export class Fleet implements BusSource {
   private lines: Prepared[] = [];
   private scratch = new Float64Array(0);
+  private where = new Float64Array(0);
   private frameData = new Float64Array(0);
   private clock = { second: 0, rate: 0, atMs: 0, day: 0 };
 
-  /** Rebuilds the plans when the lines change: never per frame. */
-  setLines(lines: readonly LineView[]): void {
+  /** Rebuilds the plans when the lines change: never per frame. `places` stands the lines on their streets (sides.ts). */
+  setLines(lines: readonly LineView[], places: Places = placesOf(lines)): void {
     this.lines = lines
       .filter((l) => l.stopAt.length >= 2 && l.plan.timing.buses > 0)
       .map((l) => {
         const earlier = l.settling?.earlier ?? [];
+        const geos = [...earlier.map((e) => prepareGeometry(e)), prepareGeometry(l)];
         return {
           id: l.id,
           plan: planInEffect(l.plan, earlier.map((e) => ({ inputs: e.plan, until: e.until, sameModel: e.sameModel, sameStart: e.sameStart }))),
-          geos: [...earlier.map((e) => prepareGeometry(e)), prepareGeometry(l)],
+          geos,
           frameDay: l.settling?.frameDay ?? null,
           colour: rgb(l.colour),
           glyph: MODEL_GLYPHS[l.model],
+          sides: geos.map((g) => sidesAlong(places, l.id, g.geometry.route)),
         };
       });
     const most = this.lines.reduce((n, l) => Math.max(n, mostOut(l.plan)), 0);
     const total = this.lines.reduce((n, l) => n + mostOut(l.plan), 0);
     this.scratch = new Float64Array(3 * Math.max(1, most));
+    this.where = new Float64Array(WHERE_FLOATS * Math.max(1, most));
     this.frameData = new Float64Array(BUS_FLOATS * Math.max(1, total));
   }
 
@@ -99,7 +110,7 @@ export class Fleet implements BusSource {
     const absolute = this.absoluteAt(nowMs);
     let count = 0;
     for (const line of this.lines) {
-      const n = positionsInEffect(line.plan, line.geos, secondOf(line, absolute), this.scratch);
+      const n = positionsInEffect(line.plan, line.geos, secondOf(line, absolute), this.scratch, this.where);
       for (let i = 0; i < n; i++) {
         const at = BUS_FLOATS * count++;
         const d = this.frameData;
@@ -111,6 +122,10 @@ export class Fleet implements BusSource {
         d[at + 5] = line.colour[2];
         d[at + 6] = line.glyph.lengthPx;
         d[at + 7] = line.glyph.widthPx;
+        // Its line's place on the segment it drives, to the right of the way it drives: driving back, the other side of the route's.
+        const segment = this.where[WHERE_FLOATS * i + 1]!;
+        const side = segment >= 0 ? (line.sides[this.where[WHERE_FLOATS * i]!]?.[segment] ?? 0) : 0;
+        d[at + 8] = this.where[WHERE_FLOATS * i + 2] && side ? -side : side;
       }
     }
     return { count, data: this.frameData };

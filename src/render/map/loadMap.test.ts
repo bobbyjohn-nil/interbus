@@ -102,6 +102,8 @@ const fake = vi.hoisted(() => {
     isMoving = () => false;
     triggerRepaint() {}
     queryRenderedFeatures = () => [];
+    /** A place on screen: x east and y south, 100,000 px a degree, from Copley. */
+    project = ([lng, lat]: readonly [number, number]) => ({ x: (lng + 71.08) * 1e5, y: (42.35 - lat) * 1e5 });
     getCanvasContainer = () => this.box;
     getCanvas = () => this.box;
     getContainer = () => ({ dataset: {} });
@@ -261,6 +263,34 @@ describe('the day and night tint', () => {
     board.onClick((_, h) => void (hit = h));
     map.fire('click', { point: { x: 100, y: 100 }, lngLat: { lng: -71.08, lat: 42.35 }, originalEvent: { detail: 1 } });
     expect(hit).toMatchObject({ lineId: 1, lineIds: [1, 2] });
+  });
+
+  // Lines on a street they share stand side by side (sides.ts), wider than the click's 4 px: a click on one ribbon found that
+  // line alone, so Lines here no longer listed the others there, as it did when they were drawn over one another. Shown failing
+  // (TS-04) with the lines the click hit alone.
+  it('lists every line on the street a click is on, those side by side beyond its 4 px too, and none elsewhere', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number, route: number[][]) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route, headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    const street = [
+      [-71.08, 42.35],
+      [-71.078, 42.35],
+      [-71.076, 42.35],
+    ];
+    board.setLines([line(1, street), line(2, street), line(3, street), line(4, [[-71.08, 42.352], [-71.078, 42.352]])] as never, [] as never);
+    // The click's 4 px reach Line 3's ribbon alone, halfway along the first block.
+    map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3 } }]) as never;
+    let hit: { lineId: number | null; lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: { lng: -71.079, lat: 42.35 }, originalEvent: { detail: 1 } });
+    expect(hit!.lineIds[0]).toBe(3);
+    expect([...hit!.lineIds].sort()).toEqual([1, 2, 3]);
+    // A hit on a run of a route takes that run's segments alone: here Line 3's second block, which it drives alone.
+    board.setLines([line(1, street.slice(0, 2)), line(2, street.slice(0, 2)), line(3, street)] as never, [] as never);
+    map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 1, last: 1 } }]) as never;
+    map.fire('click', { point: map.project([-71.0795, 42.35]), lngLat: { lng: -71.0795, lat: 42.35 }, originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3]);
   });
 
   it('fades the lines with overnight off from 00:00 to 05:00 with no bus in service, set as the lines resting change', async () => {

@@ -156,7 +156,8 @@ function driveOf(world: World, from: number | null, to: number | null): LngLatPa
   return out.length > 1 ? out : [];
 }
 
-function lineViews(world: World): LineView[] {
+/** Each line as the page draws it; `npm run bench sides` times the map's work on them. */
+export function lineViews(world: World): LineView[] {
   const { city, state } = world;
   const kept = routedRuns.get(world);
   const routed = new Map<string, RoutedRun>();

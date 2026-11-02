@@ -319,7 +319,7 @@ describe('a line resting while it runs no service (D13)', () => {
     const stops = ['in', ['get', 'stop'], ['literal', [7]]];
     expect(filter('lines-route-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], lines]);
     expect(filter('lines-route')).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['!', lines]]);
-    expect(filter('lines-name-resting')).toEqual(['all', ['==', ['get', 'kind'], 'route'], lines]);
+    expect(filter('lines-name-resting')).toEqual(['all', ['==', ['get', 'kind'], 'name'], lines]);
     expect(filter('lines-stops-resting')).toEqual(['all', ['==', ['get', 'kind'], 'stop'], lines]);
     expect(filter('stops-flag-ring-resting')).toEqual(['all', ['==', ['get', 'kind'], 'flag'], stops]);
     expect(filter('stops-flag-word')).toEqual(['all', ['==', ['get', 'kind'], 'flag'], ['!', stops]]);

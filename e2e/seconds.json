@@ -1,5 +1,5 @@
 {
-  "measured": "Each spec file’s tests’ seconds, summed as one worker ran them, on CI: the mean of #195’s two runs at 2642bce, its push run 41474238297 and pull request run 41474375884 (2026-11-02), from each part’s e2e seconds line (scripts/e2e-seconds.mjs), which summed each test’s duration then, leaving its file’s beforeAll hooks out (swap.spec.ts’s builds, about 15 s). Both of a part’s workers stay busy to its end, as Playwright’s count-based sevenths left them less often, so these sum to 64.3 minutes, against 55.4 on main 5ae4f48’s run 41456604313.",
+  "measured": "Each spec file’s tests’ seconds, summed as one worker ran them, on CI: the mean of #195’s two runs at 2642bce, its push run 41474238297 and pull request run 41474375884 (2026-11-02), from each part’s e2e seconds line (scripts/e2e-seconds.mjs), which summed each test’s duration then, leaving its file’s beforeAll hooks out (swap.spec.ts’s builds, about 15 s). Both of a part’s workers stay busy to its end, as Playwright’s count-based sevenths left them less often, so these sum to 64.3 minutes, against 55.4 on main 5ae4f48’s run 41456604313. ribbons.spec.ts, new with lines side by side, from its first local run (its page’s server and its 7 cameras, 7.8 s), until CI measures it.",
   "seconds": {
     "boot.spec.ts": 32.1,
     "build.spec.ts": 18.3,
@@ -37,6 +37,7 @@
     "reach.spec.ts": 0,
     "refused.spec.ts": 51.7,
     "resize.spec.ts": 208.3,
+    "ribbons.spec.ts": 8,
     "room.spec.ts": 26.7,
     "route.spec.ts": 23.1,
     "save.spec.ts": 4.8,

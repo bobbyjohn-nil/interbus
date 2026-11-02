@@ -9,6 +9,7 @@ import { restsAt } from '../../sim/rules/periods';
 import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
+import { placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -89,7 +90,13 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     type: 'line',
     source: LINES,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'colour'], 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 16, 7] },
+    // Each run of the route at its place among the lines on its street (sides.ts), a ribbon's width a place, so lines on a
+    // street they share stand side by side, each its own colour, where the later hid the earlier.
+    paint: {
+      'line-color': ['get', 'colour'],
+      'line-width': ['interpolate', ['linear'], ['zoom'], 12, RIBBON_PX[0], 16, RIBBON_PX[1]],
+      'line-offset': ['interpolate', ['linear'], ['zoom'], 12, ['*', ['get', 'side'], RIBBON_PX[0]], 16, ['*', ['get', 'side'], RIBBON_PX[1]]],
+    },
   };
   const stops: LayerSpecification = {
     id: 'lines-stops',
@@ -218,12 +225,13 @@ export type PaintName = Parameters<MapLibreMap['setPaintProperty']>[1];
  * a running one on a street they share, and its name is placed after theirs (MapLibre places the upper layer's names first).
  * - The route and the stops are opaque, their colours RESTING_OPACITY of themselves over the resting ground (`mixes`): laid at
  *   RESTING_OPACITY over the streets, two lines resting on a street they share blended, each over the other, into neither's colour,
- *   and every new line rests at night, overnight off (the systems audit's twelfth round). Opaque, the later hides the earlier, as by day.
+ *   and every new line rests at night, overnight off (the systems audit's twelfth round). Opaque, the later hides the earlier where they
+ *   lie over one another, as at a stop they share, as by day; on a street they share they stand side by side (sides.ts).
  * - The names and the flags, which never lie over one another, are laid at RESTING_OPACITY (`fades`).
  */
 const RESTING: readonly { readonly layer: string; readonly kind: string; readonly by: 'id' | 'stop'; readonly fades: readonly string[]; readonly mixes: readonly string[] }[] = [
   { layer: 'lines-route', kind: 'route', by: 'id', fades: [], mixes: ['line-color'] },
-  { layer: 'lines-name', kind: 'route', by: 'id', fades: ['text-opacity'], mixes: [] },
+  { layer: 'lines-name', kind: 'name', by: 'id', fades: ['text-opacity'], mixes: [] },
   { layer: 'lines-stops', kind: 'stop', by: 'id', fades: [], mixes: ['circle-color', 'circle-stroke-color'] },
   { layer: 'stops-flag-ring', kind: 'flag', by: 'stop', fades: ['circle-stroke-opacity'], mixes: [] },
   { layer: 'stops-flag-word', kind: 'flag', by: 'stop', fades: ['text-opacity'], mixes: [] },
@@ -394,10 +402,17 @@ export function flagWord(stop: Pick<StopView, 'quiet' | 'loss'>): string | null 
   return stop.quiet && stop.loss ? 'Quiet · loss' : stop.quiet ? 'Quiet' : stop.loss ? 'Loss' : null;
 }
 
-export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[]): void {
+/** The lines' routes, stops and names, and the stops no line calls at; `places` stands the lines on their streets (sides.ts). */
+export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[], places: Places = placesOf(lines)): void {
   const features = [
     ...lines.flatMap((line) => [
-      { type: 'Feature' as const, properties: { kind: 'route', colour: line.colour, id: line.id, name: line.name }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
+      // The route in runs, each at its place among the lines on that street (`side`), and the name along the whole of it.
+      ...runsOf(line.route, sidesAlong(places, line.id, line.route)).map((run) => ({
+        type: 'Feature' as const,
+        properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last },
+        geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
+      })),
+      { type: 'Feature' as const, properties: { kind: 'name', id: line.id, name: line.name }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
       ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
     ]),
     ...stops.flatMap((s) => (s.lineIds.length ? [] : [{ type: 'Feature' as const, properties: { kind: 'lone', stop: s.id }, geometry: { type: 'Point' as const, coordinates: [...s.at] } }])),

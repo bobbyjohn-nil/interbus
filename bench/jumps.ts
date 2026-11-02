@@ -8,7 +8,7 @@
 import { bakeSim } from '../tools/bake/sim.mjs';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import type { FromWorker, LineView, Snapshot, ToWorker } from '../src/sim/types';
-import { Fleet } from '../src/render/map/fleet';
+import { BUS_FLOATS, Fleet } from '../src/render/map/fleet';
 import { createHost } from '../src/worker/host';
 import { addDebugLine } from '../src/sim/commands/debugLine';
 import { createRng } from '../src/sim/core/rng';
@@ -62,7 +62,7 @@ function jump(before: Fleet, after: Fleet, second: number, day: number): { maxM:
   const place = (f: Fleet) => {
     f.setClock(second, 0, 0, day);
     const { count, data } = f.frame(0);
-    return Array.from({ length: count }, (_, i) => [data[8 * i]!, data[8 * i + 1]!] as const);
+    return Array.from({ length: count }, (_, i) => [data[BUS_FLOATS * i]!, data[BUS_FLOATS * i + 1]!] as const);
   };
   const a = place(before);
   const b = place(after);

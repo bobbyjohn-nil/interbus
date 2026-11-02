@@ -59,7 +59,7 @@ describe('the game layers', () => {
     addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
     const names = specs.get('lines-name')!;
     expect(names.type).toBe('symbol');
-    expect(names.filter).toEqual(['all', ['==', ['get', 'kind'], 'route'], ['!', ['in', ['get', 'id'], ['literal', []]]]]);
+    expect(names.filter).toEqual(['all', ['==', ['get', 'kind'], 'name'], ['!', ['in', ['get', 'id'], ['literal', []]]]]);
     expect(names.layout).toMatchObject({ 'symbol-placement': 'line', 'text-field': ['get', 'name'] });
     expect(names.layout!['text-size']).toBeGreaterThanOrEqual(12);
     expect(names.paint).toMatchObject({ 'text-color': LIGHT.label, 'text-halo-color': LIGHT.labelHalo });
@@ -74,11 +74,14 @@ describe('the game layers', () => {
     // of the twelfth round's second lane).
     expect(layers.slice(layers.indexOf('lines-route-resting'), layers.indexOf('lines-name') + 1)).toEqual(['lines-route-resting', 'lines-stops-resting', 'lines-route', 'lines-name-resting', 'lines-name']);
     for (const under of ['lines-stops', 'stops-lone', 'stops-flag-ring-resting', 'stops-flag-ring', 'stops-flag-word-resting', 'stops-flag-word']) expect(layers.indexOf('lines-name')).toBeLessThan(layers.indexOf(under));
-    // The route carries the line's name.
+    // The name runs along the whole route, apart from the route's runs, which carry the line's colour and place (sides.ts).
     const line = { id: 2, name: 'Line 2', colour: '#2471a3', route: [[-71.08, 42.35], [-71.09, 42.34]], stops: [], stopIds: [] } as unknown as LineView;
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);
-    const route = (data[0] as { features: { properties: Record<string, unknown> }[] }).features.find((f) => f.properties.kind === 'route')!;
-    expect(route.properties).toMatchObject({ name: 'Line 2', colour: '#2471a3' });
+    const features = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] }).features;
+    const name = features.find((f) => f.properties.kind === 'name')!;
+    expect(name.properties).toMatchObject({ name: 'Line 2', id: 2 });
+    expect(name.geometry.coordinates).toEqual(line.route);
+    expect(features.find((f) => f.properties.kind === 'route')!.properties).toMatchObject({ colour: '#2471a3', id: 2, side: 0 });
   });
 
   it('draw homes filled and jobs ringed, so the two kinds differ in shape as well as colour', () => {
