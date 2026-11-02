@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { focusLost } from "../focusLost";
+import { MODIFIERS } from "../focusSource";
 import { giveFocus } from "../giveFocus";
 import { SHOWN } from "../showWhole";
 
@@ -249,7 +250,10 @@ export function Panels({
    * size keeps it whole from.
    */
   const homes = useRef(new Map<string, { x: number; y: number }>());
-  /** Where a dragged panel lay before a key's press brought it in (reveal), until the next key or press: for a panel that closes. */
+  /**
+   * Where a dragged panel lay before a key's press brought it in (reveal), until the next key, but for a modifier alone, or press:
+   * for a panel that closes.
+   */
   const pressedFrom = useRef<{ readonly id: string; readonly was: { readonly x: number; readonly y: number } } | null>(null);
   /** The panels a drag left lying over each other (pairOf), which a change of the window's size leaves so. */
   const dropped = useRef(new Set<string>());
@@ -342,7 +346,10 @@ export function Panels({
       lastIn.current = (event.target instanceof Element ? event.target.closest("[data-movable]")?.getAttribute("data-movable") : null) ?? null;
     };
     const next = (event: Event) => {
-      pressedFrom.current = null;
+      // A modifier alone presses nothing, so the place kept waits on through it for the press the key goes with: Shift pressed as
+      // Create waited for the sim let it go, and the new line's card opened next where Enter had brought it in (the fix's
+      // review, 3 runs of 3).
+      if (!(event instanceof KeyboardEvent && MODIFIERS.includes(event.key))) pressedFrom.current = null;
       ownClose.current = event instanceof KeyboardEvent && (event.key === "Escape" || event.key === "?" || (event.target instanceof Element && event.target.closest("button.close, [data-closes]") !== null));
     };
     document.addEventListener("focusin", at, true);
@@ -356,6 +363,26 @@ export function Panels({
       window.removeEventListener("pointerdown", next, true);
     };
   }, []);
+  // A panel a key's press closed as the sim answered goes back to where it was dragged (pressedFrom) in the commit that takes it
+  // off the page. Put back in the effect after the paint, as before, a key pressed in between, which lets the place go, left it
+  // where the press had brought it in: on #195's pull request run, a test's Escape, on a runner with both workers busy, opened
+  // the new line's card next 38 px left of where it was dragged. The same commit keeps whether the panels it takes went by the
+  // player's own close (ownClose), for the hand-back after the paint: an Escape pressed in between, once the game had closed
+  // Lines under the keyboard, counted as the player's own close, and the focus stayed on the page, where Space plays (the fix's
+  // review, 2 runs of 3 at a quarter of the processor's speed).
+  const wereOpenLaid = useRef<readonly string[]>([]);
+  const ownAtClose = useRef(false);
+  useLayoutEffect(() => {
+    const now = items.map((i) => i.id);
+    const went = wereOpenLaid.current.filter((id) => !now.includes(id));
+    wereOpenLaid.current = now;
+    if (went.length) ownAtClose.current = ownClose.current;
+    const from = pressedFrom.current;
+    if (from && went.includes(from.id)) {
+      dragged.current.set(from.id, from.was);
+      pressedFrom.current = null;
+    }
+  });
   const wereOpen = useRef<readonly string[]>([]);
   useEffect(() => {
     const now = items.map((i) => i.id);
@@ -364,15 +391,10 @@ export function Panels({
     opened.current = null;
     wereOpen.current = now;
     if (!went.length) return;
-    const from = pressedFrom.current;
-    if (from && went.includes(from.id)) {
-      dragged.current.set(from.id, from.was);
-      pressedFrom.current = null;
-    }
     const left = lastIn.current;
     if (!left || !went.includes(left)) return;
     lastIn.current = null;
-    const to = backFor(left, takes.current() && !ownClose.current);
+    const to = backFor(left, takes.current() && !ownAtClose.current);
     if (to instanceof HTMLElement && focusLost()) giveFocus(to);
   });
   useLayoutEffect(() => {
