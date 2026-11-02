@@ -293,6 +293,43 @@ describe('the day and night tint', () => {
     expect(hit!.lineIds).toEqual([3]);
   });
 
+  // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics. A frame asked for on top at each
+  // of the sim's snapshots, 10 a second, took Low graphics over its cap where frames were cheap enough to draw them all: 34–38 a
+  // second in a small window. With no bus out, each snapshot drew a frame of nothing new (the fix's review). Shown failing (TS-04)
+  // with a frame asked for at every snapshot, and with one at each snapshot while no bus runs.
+  it('asks for a frame of its own as the buses start or stop, or as the clock is set while time stands, and none at a snapshot while it runs', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    // No line yet: time runs, and nothing on the map moves.
+    const idle = vi.spyOn(map, 'triggerRepaint');
+    board.setClock(6 * 3_600, 600, 2);
+    board.setClock(6 * 3_600 + 60, 600, 2);
+    expect(idle).not.toHaveBeenCalled();
+    idle.mockRestore();
+    // A line with two buses out, so the fleet runs while time does.
+    const east = (m: number) => [-71.1 + m / 82_220, 42.35];
+    const route = [east(0), east(1_339), east(2_425), east(3_535)];
+    const headways = { peak: 1_200, offpeak: 1_200, overnight: null };
+    board.setLines(
+      [
+        {
+          ...{ id: 1, name: 'Line 1', colour: '#c0392b', stops: route, stopIds: [1, 2, 3, 4], route, stopAt: [0, 1, 2, 3], stopDistM: [0, 1_339, 2_425, 3_535] },
+          ...{ pullOut: [], pullIn: [], settling: null, headways, buses: 2, model: 'sparrow', cycle: 1_539 },
+          plan: { timing: { cycle: 1_539, headways, buses: 2 }, oneWayS: 529.5, pullOutS: 0, pullInS: 0 },
+        },
+      ] as never,
+      [] as never,
+    );
+    const repaint = vi.spyOn(map, 'triggerRepaint');
+    board.setClock(12 * 3_600, 0, 2); // set while time stands: a frame
+    board.setClock(12 * 3_600, 600, 2); // time starts: a frame
+    board.setClock(12 * 3_600 + 60, 600, 2); // two snapshots while it runs: none
+    board.setClock(12 * 3_600 + 120, 600, 2);
+    board.setClock(12 * 3_600 + 180, 0, 2); // it stops: a frame
+    expect(repaint).toHaveBeenCalledTimes(3);
+  });
+
   it('fades the lines with overnight off from 00:00 to 05:00 with no bus in service, set as the lines resting change', async () => {
     const { mounted: board, map } = await mounted();
     map.styleLoaded = true;
