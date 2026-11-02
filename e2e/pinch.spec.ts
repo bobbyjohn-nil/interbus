@@ -154,4 +154,32 @@ test.describe('on a touch screen', () => {
     await expect.poll(() => mapZoom(page)).toBeGreaterThan(before);
     expect(await pageScale(page)).toBe(1);
   });
+
+  // A page zoomed already pinches back to its own scale: the root's touch-action kept a zoom Chrome brought back through a
+  // reload from a build before it at 3.13 times, the map's credit out of view (the review of the systems audit's twentieth
+  // round, 3 runs of 3). Zoomed here as that build left it, the root's touch-action set aside for the spread. Shown failing
+  // (TS-04) with the root's touch-action kept as it is while the page is zoomed.
+  test('a page zoomed already pinches back to its own scale', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    /** Two fingers `from` px apart on the chips at (360, 26), moved to `to` px apart in eight moves. */
+    const pinch = async (from: number, to: number) => {
+      const cdp = await page.context().newCDPSession(page);
+      const at = (d: number) => [{ x: 360 - d / 2, y: 26, id: 1 }, { x: 360 + d / 2, y: 26, id: 2 }];
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(from) });
+      for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(from + ((to - from) * k) / 8) });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
+      await page.waitForTimeout(500);
+    };
+    await page.evaluate(() => void (document.documentElement.style.touchAction = 'auto'));
+    await pinch(60, 252);
+    await page.evaluate(() => void (document.documentElement.style.touchAction = ''));
+    expect(await pageScale(page), 'zoomed as a build before this left it').toBeGreaterThan(2);
+    await pinch(252, 40);
+    await expect.poll(() => pageScale(page), { message: 'pinched back to its own scale' }).toBe(1);
+    await expect(page.locator('.corner')).toBeInViewport({ ratio: 1 });
+  });
 });

@@ -28,4 +28,13 @@ export function keepPinchOnMap(win: Window): void {
     },
     { capture: true, passive: false },
   );
+  // A touch screen's pinch is kept off the page by the root's touch-action (app.css), and so was a pinch back out of a page
+  // zoomed already: a zoom Chrome brought back through a reload from a build before it stayed at 3.13 times, the map's credit
+  // out of view (the review of the systems audit's twentieth round). While the page is zoomed the root lets a pinch through,
+  // which touch-action cannot let through one way only, so a pinch in zooms it too until it is back at its own scale.
+  const view = win.visualViewport;
+  if (!view) return;
+  const zoomed = () => win.document.documentElement.classList.toggle('zoomed', view.scale > 1);
+  view.addEventListener('resize', zoomed);
+  zoomed();
 }

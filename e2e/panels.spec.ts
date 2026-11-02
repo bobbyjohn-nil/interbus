@@ -373,12 +373,26 @@ test.describe('movable panels', () => {
     await mouse('mouseReleased', x + 50, y + 20, 2);
     for (let k = 1; k <= 4; k++) await mouse('mouseMoved', x + 50 + 40 * k, y + 20 + 20 * k, 2);
     await mouse('mouseReleased', x + 210, y + 100, 0, 'right');
-    await cdp.detach();
     expect(await at(), 'where the left button left it').toEqual([left[0]! + 50, left[1]! + 20]);
     await finance.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await expect(finance).toBeVisible();
     expect(await at(), 'opened again where it was left').toEqual([left[0]! + 50, left[1]! + 20]);
+    // A drag whose pointer capture the page loses ends there too, where its moves left the panel: no test held that end (the
+    // review of the twentieth round, which took its listener out and saw every test pass, where the moves after the loss went
+    // on dragging Finance). Shown failing (TS-04) with the listener taken out.
+    const reopened = await at();
+    await page.evaluate(() => window.addEventListener('pointerdown', (e) => void ((window as unknown as { pressed: number }).pressed = e.pointerId), { capture: true, once: true }));
+    [x, y] = await grip();
+    await mouse('mouseMoved', x, y, 0);
+    await mouse('mousePressed', x, y, 1);
+    for (let k = 1; k <= 4; k++) await mouse('mouseMoved', x - 20 * k, y + 10 * k, 1);
+    await box.evaluate((el) => el.releasePointerCapture((window as unknown as { pressed: number }).pressed));
+    for (let k = 1; k <= 4; k++) await mouse('mouseMoved', x - 80 + 10 * k, y + 40 + 5 * k, 1);
+    await mouse('mouseReleased', x - 40, y + 60, 0);
+    await cdp.detach();
+    expect(await at(), 'where its moves left it as the capture went').toEqual([reopened[0]! - 80, reopened[1]! + 40]);
+    expect(await box.evaluate((el) => el.classList.contains('dragging')), 'the drag ended').toBe(false);
   });
 
   // A finger on a heading drags the panel as the mouse does (the heading's touch-action: none): Chrome took the drag for a pan
@@ -412,7 +426,10 @@ test.describe('movable panels', () => {
       const b = (await page.locator('[data-movable="finance"]').boundingBox())!;
       return [Math.round(b.x), Math.round(b.y)];
     };
-    test('a finger’s drag on a heading moves the panel as far as the finger, and it opens there next', async ({ page }) => {
+    // So does one while another finger rests on the map: only the page's first pointer dragged, so the finger on the heading,
+    // the page's second, dragged nothing (the review of the twentieth round, 3 runs of 3, and the same with it resting on the
+    // dock). Shown failing (TS-04) with only the page's first pointer dragging.
+    test('a finger’s drag on a heading moves the panel as far as the finger, with another finger on the map too, and it opens there next', async ({ page }) => {
       const [x, y] = await twoPanels(page);
       const box = page.locator('[data-movable="finance"]');
       const before = (await box.boundingBox())!;
@@ -421,11 +438,25 @@ test.describe('movable panels', () => {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 25 * k, y: y + 5 * k }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await cdp.detach();
       await frames(page);
       const after = (await box.boundingBox())!;
       expect([Math.round(after.x - before.x), Math.round(after.y - before.y)], 'moved as far as the finger').toEqual([-200, 40]);
       expect(await reopened(page)).toEqual([Math.round(after.x), Math.round(after.y)]);
+      // A finger resting on the map, then another on the heading drags Finance 200 px back.
+      const resting = { x: 300, y: 500, id: 1 };
+      const [gx, gy] = [x - 200, y + 40];
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [resting] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [resting, { x: gx, y: gy, id: 2 }] });
+      for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [resting, { x: gx + 25 * k, y: gy - 5 * k, id: 2 }] });
+      await expect
+        .poll(async () => {
+          const b = (await box.boundingBox())!;
+          return [Math.round(b.x - after.x), Math.round(b.y - after.y)];
+        }, { message: 'moved with a finger resting on the map' })
+        .toEqual([200, -40]);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [resting] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await cdp.detach();
     });
     test('a finger’s drag the browser cuts short ends where its moves left the panel, and it opens there next', async ({ page }) => {
       const [x, y] = await twoPanels(page);

@@ -422,8 +422,35 @@ export function Panels({
     };
     /** Whether the pointer holds panel `id` by its heading, a drag on its way. */
     const held = (id: string) => boxes.current.get(id)?.classList.contains("dragging") === true;
+    /** Where each panel stands, as put put it. */
+    const standing = () => new Map([...boxes.current].map(([id, box]) => [id, { x: parseFloat(box.style.left), y: parseFloat(box.style.top) }] as const));
+    const same = (a: ReadonlyMap<string, { x: number; y: number }>, b: ReadonlyMap<string, { x: number; y: number }>) =>
+      a.size === b.size && [...a].every(([id, at]) => b.get(id)?.x === at.x && b.get(id)?.y === at.y);
+    // The window's size the panels were laid out at, where each stood then, and where the last pass left them: a change of size
+    // and back puts every panel where it stood, whatever the passes between did, so long as nothing but them moved a panel
+    // since. Laid out again at the size it came back to, a panel opened with no free place, over others, pushed them out of
+    // their places once a drag had piled another onto it, and they stayed moved: Lines 744 px left at 1280×590 after a pixel's
+    // change and back, and the lender's card 604 px at 1152×720 (the review of the systems audit's twentieth round).
+    let size = { w: window.innerWidth, h: window.innerHeight };
+    let before: { readonly w: number; readonly h: number; readonly at: ReadonlyMap<string, { x: number; y: number }> } | null = null;
+    let after: ReadonlyMap<string, { x: number; y: number }> = new Map();
     const resize = () => {
       const [width, height] = [window.innerWidth, window.innerHeight];
+      const now = standing();
+      if (!before || !same(now, after)) before = { w: size.w, h: size.h, at: now };
+      size = { w: width, h: height };
+      if (before.w === width && before.h === height) {
+        for (const [id, at] of before.at) {
+          const box = boxes.current.get(id);
+          if (box && !held(id)) put(box, at);
+        }
+        after = standing();
+        return;
+      }
+      pass(width, height);
+      after = standing();
+    };
+    const pass = (width: number, height: number) => {
       const settled: { readonly id: string; readonly at: Rect }[] = [];
       for (const [id, box] of boxes.current) {
         // A panel the pointer holds is kept in reach from where it stands, under the pointer, as the drag's own moves keep it:
@@ -438,7 +465,23 @@ export function Panels({
         settled.push({ id, at: rectOf(box) });
       }
       const free = [...placed.current].filter((id) => !dragged.current.has(id) && !held(id));
-      for (const id of [...free.filter((id) => paired(dropped.current, id)), ...free.filter((id) => !paired(dropped.current, id))]) {
+      // But one of a pile that fell over panels opened before it, as it opened with no free place, keeps its turn after them:
+      // laid out first, Saves, fallen over Lines and then piled with Finance by a drag, pushed Lines from its place, 744 px
+      // left at 1280×590 at a pixel's change, and Contracts after it over Finance (the review of the twentieth round).
+      const homeOf = (id: string): Rect | null => {
+        const box = boxes.current.get(id);
+        const home = homes.current.get(id);
+        return box && home ? { ...home, w: box.offsetWidth, h: box.offsetHeight } : null;
+      };
+      const fellOver = (id: string) => {
+        const mine = homeOf(id);
+        return mine !== null && free.slice(0, free.indexOf(id)).some((other) => {
+          const theirs = homeOf(other);
+          return theirs !== null && across(mine, theirs);
+        });
+      };
+      const first = free.filter((id) => paired(dropped.current, id) && !fellOver(id));
+      for (const id of [...first, ...free.filter((id) => !first.includes(id))]) {
         const box = boxes.current.get(id);
         if (!box) continue;
         const r = box.getBoundingClientRect();
@@ -495,6 +538,8 @@ export function Panels({
     return true;
   };
   const layer = useRef<HTMLDivElement>(null);
+  /** The press of a second pointer that ended a drag on its panel (drag's `others`), which starts no drag of its own. */
+  const cutBy = useRef<Event | null>(null);
   useEffect(() => {
     const at = layer.current;
     const shown = (event: Event) => {
@@ -509,8 +554,10 @@ export function Panels({
     const target = event.target as Element;
     // One pointer drags a panel, the first to press it: a second finger on a heading started a drag of its own, and the first
     // drag heard its moves too, so two fingers there moved the panel by the second's and kept it there as dragged (the systems
-    // audit's twentieth round). A second pointer on the panel ends the drag where the first left it, as Chrome cuts one short.
-    if (event.button !== 0 || !event.isPrimary || !target.closest("h2") || target.closest("button, a, input")) return;
+    // audit's twentieth round). A second pointer on the panel ends the drag where the first left it, as Chrome cuts one short,
+    // and starts none. The first on the panel, not the page's first: a finger resting on the map left the one on a heading
+    // dragging nothing, where it had dragged the panel 200 px (the round's review).
+    if (event.button !== 0 || event.nativeEvent === cutBy.current || !target.closest("h2") || target.closest("button, a, input")) return;
     const box = event.currentTarget;
     const pointer = event.pointerId;
     const start = box.getBoundingClientRect();
@@ -531,7 +578,9 @@ export function Panels({
       put(box, place(e.clientX, e.clientY));
     };
     const others = (e: PointerEvent) => {
-      if (e.pointerId !== pointer) end(e);
+      if (e.pointerId === pointer) return;
+      cutBy.current = e;
+      end(e);
     };
     const end = (e: PointerEvent) => {
       if (e.type !== "pointerdown" && e.pointerId !== pointer) return;

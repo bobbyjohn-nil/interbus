@@ -218,14 +218,55 @@ test.describe('panels through changes of the window’s size', () => {
   // With the lender's card up, a zoom and back leaves the panels as they opened: kept whole from where the change left them,
   // Finance, kept clear of where the card stood at 150%, lay over Contracts back at 100%, 56×248 px (the systems audit's
   // nineteenth round, on Inner Boston). Shown failing (TS-04) with each panel kept whole from where it stands.
-  test('leave no panel over another after a zoom and back with the lender’s card up', async ({ page }) => {
+  // And with Saves dragged onto the card, which fell over Contracts and Lines as it opened, a change of size and back puts every
+  // panel where it stood: laid out again back at the size, the card was placed afresh away from the drag's pile, 604 px left,
+  // and Finance under it, at a pixel's change and back and at 125% and 150% and back (the review of the systems audit's
+  // twentieth round, 3 runs of 3). Shown failing (TS-04) with the panels laid out again at the size they came back to.
+  test('leave no panel over another after a zoom and back with the lender’s card up, and every panel where it stood with Saves dragged onto it', async ({ page }) => {
     test.setTimeout(90_000);
-    await runEnded(page);
+    const lender = await runEnded(page);
     expect(await pilesButLender(page)).toEqual([]);
     for (const zoom of [1.5, 1.25]) {
       await resizeTo(page, Math.round(1152 / zoom), Math.round(720 / zoom));
       await resizeTo(page, 1152, 720);
       expect(await pilesButLender(page), `back from ${zoom * 100}%`).toEqual([]);
+    }
+    const [card, saves] = [(await lender.boundingBox())!, (await page.locator('[data-movable="saves"]').boundingBox())!];
+    await dragBy(page, page.getByTestId('saves'), 'Saves', Math.round(card.x - 60 - saves.x), Math.round(card.y + 40 - saves.y));
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toContain('lender/saves');
+    const stood = await places(page);
+    for (const [width, height] of [[1151, 720], [922, 576]] as const) {
+      await resizeTo(page, width, height);
+      await resizeTo(page, 1152, 720);
+      expect(await places(page), `back from ${width}×${height}`).toEqual(stood);
+    }
+  });
+
+  // A panel that opens with no free place falls over the panels opened before it, and a drag that piles another onto it gives
+  // it a pair: laid out before them at the next change of size, Saves, fallen over Lines, pushed Lines 744 px left at a pixel's
+  // change, and Contracts over Finance, and they stayed moved once the window was back (the review of the systems audit's
+  // twentieth round, on the artist's PC's 1280×590, 3 runs of 3, and at 125% and 150% and back). It keeps its turn after them
+  // now, and a change and back puts every panel where it stood. Shown failing (TS-04) with it laid out first: Lines at 244.
+  test('leave the panels a panel fell over where they stand when a drag piles another onto it, through a pixel’s change and a zoom and back', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 590 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    for (const name of ['Lines', 'Finance']) await page.getByRole('button', { name, exact: true }).click();
+    await page.getByTestId('checklist').click(); // "5/5 Take a contract" opens Contracts
+    await page.getByRole('button', { name: 'Saves' }).click();
+    for (const id of ['inspector', 'finance', 'contracts', 'saves']) await expect(page.getByTestId(id)).toBeVisible();
+    // Saves, with no free place, falls over Lines as it opens; Finance dragged 40 px down lies under it, a drag's pile.
+    expect((await piles(page)).map((p) => p.split(' ')[0])).toContain('lines/saves');
+    await dragBy(page, page.getByTestId('finance'), 'Finance', 0, 40);
+    const stood = await places(page);
+    await resizeTo(page, 1279, 590);
+    const narrower = await places(page);
+    for (const id of ['lines', 'contracts']) expect(Math.abs(narrower[id]![0]! - stood[id]![0]!), `${id} at 1279×590`).toBeLessThanOrEqual(1);
+    for (const [width, height] of [[1280, 590], [1024, 472], [1280, 590]] as const) {
+      await resizeTo(page, width, height);
+      if (width === 1280) expect(await places(page), `back at ${width}×${height}`).toEqual(stood);
     }
   });
 
