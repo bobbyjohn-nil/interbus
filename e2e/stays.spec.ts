@@ -567,8 +567,11 @@ test.describe('what stays where the player left it', () => {
   // The place kept for a dragged panel a key's press closes as the sim answers went back in the effect after the paint, and a
   // key pressed before it let the place go: on #195's pull request run the test above's Escape came in between, on a runner with
   // both workers busy, and the new line's card opened next 38 px left of where it was dragged, where Create's press had brought
-  // it in. Here a key comes in that gap every time: the card's leaving the page fires one, from a MutationObserver, whose
-  // callback runs after React's commit and before its effects. Shown failing (TS-04) with the place put back after the paint.
+  // it in. Here a key comes in that gap: the card's leaving the page fires one, from a MutationObserver, whose callback runs as
+  // the task that took the card off the page ends. React runs the effect after the paint in that same task unless the task has
+  // run past its scheduler's 5 ms slice, which Create's commit did by 4 to 7 ms on the review's machine (the fix's review), so
+  // the processor runs at a quarter of its speed here, the commit well past it on a faster runner too. Shown failing (TS-04)
+  // with the place put back after the paint.
   test('a key pressed as a dragged card closes on the sim’s answer leaves it to open where it was dragged', async ({ page }) => {
     const W = page.viewportSize()!.width;
     await game(page);
@@ -576,6 +579,7 @@ test.describe('what stays where the player left it', () => {
     const draft = page.getByTestId('draft-card');
     await frames(page);
     for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
     await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
     await tabOnto(page, draft.getByRole('button', { name: 'Create' }));
     await dragBy(page, draft, W);
@@ -586,11 +590,46 @@ test.describe('what stays where the player left it', () => {
       const watch = new MutationObserver(() => {
         if (box.isConnected) return;
         watch.disconnect();
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+        // Tab as the window hears it: a key that is no modifier alone, and moves no focus as an event the page sends itself.
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
       });
       watch.observe(document.body, { childList: true, subtree: true });
     });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     await page.keyboard.press('Enter');
+    await expect(draft).toHaveCount(0, { timeout: 20_000 });
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await page.keyboard.press('Escape');
+    await build(page, 'Draw a line');
+    await expect(draft).toBeVisible();
+    expect(await boxX(page, 'tool')).toBe(card);
+  });
+
+  // A modifier alone let the place go too, as every key did, though it presses nothing: Shift pressed as Create waited for the
+  // sim's answer, and the new line's card opened next where Enter had brought it in, 38 px left of where it was dragged (the
+  // fix's review, 3 runs of 3). The sim's answers wait here until the keys are in. Shown failing (TS-04) with every key letting
+  // the place go.
+  test('a modifier pressed as a dragged card waits on the sim leaves it to open where it was dragged', async ({ page }) => {
+    const W = page.viewportSize()!.width;
+    await page.addInitScript(holdAnswers);
+    await game(page);
+    await build(page, 'Draw a line');
+    const draft = page.getByTestId('draft-card');
+    await frames(page);
+    for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    const create = draft.getByRole('button', { name: 'Create' });
+    await tabOnto(page, create);
+    await dragBy(page, draft, W);
+    const card = await boxX(page, 'tool');
+    expect(card).toBeGreaterThan(W - 100);
+    await hold(page);
+    await page.keyboard.press('Enter');
+    await expect(create).toBeDisabled();
+    for (const key of ['Shift', 'Control', 'Alt']) await page.keyboard.press(key);
+    await release(page);
     await expect(draft).toHaveCount(0, { timeout: 10_000 });
     await page.keyboard.press('Escape');
     await build(page, 'Draw a line');

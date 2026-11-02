@@ -16,8 +16,10 @@
 // (Safari, and Firefox on macOS), where the menu's button had no focus to leave before the menu took it.
 import { CONTROLS } from './onePress';
 
+/** A modifier alone, which presses nothing and moves no focus. */
+export const MODIFIERS: readonly string[] = ['Alt', 'Control', 'Meta', 'Shift'];
 /** Keys that move no focus of the player's: a modifier alone, and Escape. */
-const SILENT = ['Alt', 'Control', 'Meta', 'Shift', 'Escape'];
+const SILENT = [...MODIFIERS, 'Escape'];
 
 export interface FocusSource {
   /** A pointer press or a key, as the window hears it. */

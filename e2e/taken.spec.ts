@@ -161,6 +161,37 @@ test.describe('the keyboard’s control taken from under it, and a press after a
     await expect(row).toBeFocused();
   });
 
+  // The hand-back as the game closes a panel under the keyboard asked whether the player's last key was their own close in the
+  // effect after the paint: an Escape pressed between the commit that took Lines off the page and that effect counted, and the
+  // focus stayed on the page, where Space plays (the review of the dragged card's fix, 2 runs of 3 at a quarter of the
+  // processor's speed). The commit keeps the answer now. Here the Escape comes in that gap, from a MutationObserver, the
+  // processor at a twentieth of its speed so React's effects wait for a task of their own. Shown failing (TS-04) with the
+  // player's own close asked after the paint.
+  test('an Escape pressed as the game closes Lines under the keyboard still gives Build the focus', async ({ page }) => {
+    test.setTimeout(90_000);
+    await game(page, (d) => void (d.lines = []));
+    const build_ = page.getByTestId('build');
+    await bought(page);
+    const panel = page.getByTestId('inspector');
+    await tabOnto(page, panel.getByRole('button', { name: 'Edit route' }));
+    await page.evaluate(() => {
+      const box = document.querySelector('[data-movable="lines"]')!;
+      const watch = new MutationObserver(() => {
+        if (box.isConnected) return;
+        watch.disconnect();
+        // Where a key goes once the control with the focus has left the page: the page's body.
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      });
+      watch.observe(document.body, { childList: true, subtree: true });
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 });
+    await page.keyboard.press('Control+z');
+    await expect(panel).toHaveCount(0, { timeout: 30_000 });
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await expect(build_).toBeFocused();
+  });
+
   // Lines the keyboard opened from the dock, closed so, gave the page the focus too, its opener turned off with the line (the
   // review of #194, 3 runs of 3 at three sizes). Shown failing (TS-04) with Build given only for a panel the mouse opened.
   test('a panel gone with what it showed under the keyboard, opened by the mouse or the keyboard, and the dock’s Lines turned off, give Build the focus', async ({ page }) => {
