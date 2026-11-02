@@ -9,7 +9,7 @@
 // overnight turned on at night, starts from the depot.
 import { describe, expect, it } from 'vitest';
 import { bakeSim } from '../../tools/bake/sim.mjs';
-import { Fleet } from '../render/map/fleet';
+import { BUS_FLOATS, Fleet } from '../render/map/fleet';
 import { addDebugLine, DEBUG_STOPS } from '../sim/commands/debugLine';
 import { createRng, type Rng } from '../sim/core/rng';
 import { pickRoadworks } from '../sim/events/roll';
@@ -75,7 +75,7 @@ function fleetOf(snapshot: Snapshot): Fleet {
 function drawn(fleet: Fleet, second: number, day: number): LngLatPair[] {
   fleet.setClock(second % 86_400, 0, 0, day + Math.floor(second / 86_400));
   const { count, data } = fleet.frame(0);
-  return Array.from({ length: count }, (_, i) => [data[8 * i]!, data[8 * i + 1]!]);
+  return Array.from({ length: count }, (_, i) => [data[BUS_FLOATS * i]!, data[BUS_FLOATS * i + 1]!]);
 }
 
 /** The largest distance from a bus of `from` to the nearest one of `to`, leaving out buses within 5 m of a depot end. */

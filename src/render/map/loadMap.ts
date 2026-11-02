@@ -12,6 +12,7 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
+import { linesBeside, placesOf, type Places } from './sides';
 import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
@@ -339,7 +340,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let loaded = false;
   let pending: {
     dots?: Dots;
-    lines?: { lines: readonly LineView[]; stops: readonly StopView[] };
+    lines?: { lines: readonly LineView[]; stops: readonly StopView[]; places: Places };
     depotLand?: readonly (readonly LngLatPair[])[];
     depots?: readonly DepotView[];
     tint?: boolean;
@@ -380,6 +381,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // of the stops only they call at; set only when they change.
   let clockSecond: number | null = null;
   let linesNow: readonly LineView[] = [];
+  // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click.
+  let placesNow: Places = new Map();
   let stopsNow: readonly StopView[] = [];
   let restingShown = '|';
   let restingNow: readonly number[] = [];
@@ -424,7 +427,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const waiting = pending;
     pending = {};
     if (waiting.dots) setDots(map, waiting.dots);
-    if (waiting.lines) setLines(map, waiting.lines.lines, waiting.lines.stops);
+    if (waiting.lines) setLines(map, waiting.lines.lines, waiting.lines.stops, waiting.lines.places);
     if (waiting.depotLand) setDepotLand(map, waiting.depotLand);
     if (waiting.depots) setDepots(map, waiting.depots);
     if (waiting.tint !== undefined) setTint(map, waiting.tint);
@@ -545,7 +548,21 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     // still the topmost one under the click.
     const resting = (h: (typeof hits)[number]) => (RESTING_LAYERS as readonly string[]).includes(h.layer.id);
     const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
-    const lineIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
+    const hitIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
+    // With them, every line beside them on the street clicked, which side by side may stand beyond the click's 4 px (sides.ts):
+    // the running lines still first, then the resting ones.
+    const project = (p: LngLatPair): [number, number] => {
+      const at = map.project(p);
+      return [at.x, at.y];
+    };
+    // Each hit with the run of its route the map drew there, if it was a route's run (overlays.ts setLines).
+    const hitRuns = ordered.flatMap((h) => {
+      const id = numberOf(h.properties?.id);
+      return id === null ? [] : [{ id, first: numberOf(h.properties?.first) ?? undefined, last: numberOf(h.properties?.last) ?? undefined }];
+    });
+    const all = [...new Set([...hitIds, ...linesBeside(placesNow, linesNow, hitRuns, [e.point.x, e.point.y], project)])];
+    const rests = new Set(restingNow);
+    const lineIds = [...all.filter((id) => !rests.has(id)), ...all.filter((id) => rests.has(id))];
     click?.([e.lngLat.lng, e.lngLat.lat], { lineId: lineIds[0] ?? null, lineIds, stopId: numberOf(stop?.properties?.stop), double });
   });
 
@@ -575,12 +592,13 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       else pending.dotKinds = shown;
     },
     setLines: (lines, stops) => {
-      fleet.setLines(lines);
+      placesNow = placesOf(lines);
+      fleet.setLines(lines, placesNow);
       map.triggerRepaint();
       linesNow = lines;
       stopsNow = stops;
-      if (loaded) setLines(map, lines, stops);
-      else pending.lines = { lines, stops };
+      if (loaded) setLines(map, lines, stops, placesNow);
+      else pending.lines = { lines, stops, places: placesNow };
       rest();
     },
     setClock: (second, rate, day) => {

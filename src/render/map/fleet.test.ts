@@ -45,6 +45,27 @@ describe('the fleet the vehicle layer draws', () => {
     for (let i = 0; i < count; i++) expect(data[BUS_FLOATS * i + 1]).toBeCloseTo(LAT, 6);
   });
 
+  // Lines on a street they share stand side by side (sides.ts), and so do their buses: each rides its own line's ribbon, its
+  // side to the right of the way it drives, where the buses of two lines drove over one another in the street's middle.
+  it('stands each bus on its line’s ribbon, either side of the street’s middle where two lines share it, and in the middle alone', () => {
+    const together = new Fleet();
+    together.setLines([line(), { ...line(), id: 2, name: 'Line 2' }]);
+    together.setClock(12 * 3_600, 0, 1_000);
+    const { count, data } = together.frame(5_000);
+    expect(count).toBe(4);
+    // Each bus's side of the street itself, as it drives east (90°) or back west: Line 1's two buses first, then Line 2's.
+    const ofStreet = Array.from({ length: count }, (_, i) => data[BUS_FLOATS * i + 8]! * (Math.abs(data[BUS_FLOATS * i + 2]! - 90) < 1 ? 1 : -1));
+    expect(new Set(ofStreet.map(Math.abs))).toEqual(new Set([0.5]));
+    expect([ofStreet[1], ofStreet[2], ofStreet[3]]).toEqual([ofStreet[0], -ofStreet[0]!, -ofStreet[0]!]);
+    // Both ways along the route at noon, so a bus driving back stands on the same side of the street as one driving out.
+    expect(new Set(Array.from({ length: count }, (_, i) => Math.round(data[BUS_FLOATS * i + 2]!))).size).toBe(2);
+    const alone = new Fleet();
+    alone.setLines([line()]);
+    alone.setClock(12 * 3_600, 0, 1_000);
+    const one = alone.frame(5_000);
+    expect(Array.from({ length: one.count }, (_, i) => one.data[BUS_FLOATS * i + 8])).toEqual([0, 0]);
+  });
+
   it('runs the clock on between snapshots at the sim’s rate, never more than a quarter-second ahead', () => {
     const fleet = new Fleet();
     fleet.setLines([line()]);

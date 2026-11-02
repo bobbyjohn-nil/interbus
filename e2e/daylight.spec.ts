@@ -148,8 +148,9 @@ test.describe('the day and night tint', () => {
 
   // The systems audit's twelfth round: each resting line was laid at 0.35 over the streets, so two resting on a street they share
   // blended, the later over the earlier, into neither's colour: (96, 146, 133) on Huntington Avenue, 0.058 in OKLab from Line 2's
-  // own faded colour. Every new line rests at night, overnight off. Opaque, the later hides the earlier, as by day.
-  test('two lines resting on a street they share show the later one alone, faded, as by day it hides the earlier', async ({ page }) => {
+  // own faded colour. Every new line rests at night, overnight off. Opaque, the later hid the earlier, as by day; side by side
+  // now (sides.ts), each shows in its own faded colour, as by day each shows in its own.
+  test('two lines resting on a street they share show side by side, each in its own faded colour, neither over the other', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     // 02:00 on day 3, paused: Line 1 and Line 2, drawn after it, on the same four stops, both overnight off.
     await at(page, hour(26), (d) => {
@@ -166,10 +167,39 @@ test.describe('the day and night tint', () => {
     const rgb = (hex: string) => [16, 8, 0].map((shift) => (Number.parseInt(hex.slice(1), 16) >> shift) & 255);
     const over = (top: number[], under: number[]) => top.map((c, k) => Math.round(RESTING_OPACITY * c + (1 - RESTING_OPACITY) * under[k]!));
     const [blue, green, ground] = [rgb('#2471a3'), rgb('#1e8449'), rgb(GAME_LIGHT.restingGround)];
-    // Line 2's own faded colour, and Line 2 laid over Line 1 as they were, on Huntington Avenue at night (the arterials' colour).
+    // Each line's own faded colour, and Line 2 laid over Line 1 as they were, on Huntington Avenue at night (the arterials' colour).
     const street = rgb(dim(LIGHT.arterial, NIGHT_STEP));
-    const colours = { own: over(green, ground), blend: over(green, over(blue, street)) };
-    await expect.poll(async () => (await pixels(page, mid, colours)).own, { timeout: 15_000 }).toBeGreaterThan(20);
+    const colours = { one: over(blue, ground), two: over(green, ground), blend: over(green, over(blue, street)) };
+    const fewer = async () => {
+      const n = await pixels(page, mid, colours);
+      return Math.min(n.one ?? 0, n.two ?? 0);
+    };
+    await expect.poll(fewer, { timeout: 15_000 }).toBeGreaterThan(20);
     expect((await pixels(page, mid, colours)).blend).toBe(0);
+  });
+});
+
+// Lines on a street they share, side by side (src/render/map/sides.ts; DECISIONS, Open: many lines on the map): drawn over one
+// another, the later hid the earlier, so on Huntington Avenue Line 1 and Line 2 showed Line 2's green alone. Each stands at its
+// own place now, a ribbon's width from the next, in its own colour, its buses on its ribbon. Shown failing (TS-04) with every
+// line in the street's middle.
+test.describe('lines on a street they share', () => {
+  test.skip(!city.sim, 'no sim file in this build yet');
+
+  test('stand side by side by day, each in its own colour, where the later hid the earlier', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    // Noon on day 2, paused: Line 1 and Line 2, drawn after it, on the same four stops.
+    await at(page, hour(12), (d) => {
+      const one = (d.lines as Record<string, unknown>[])[0]!;
+      d.lines = [
+        { ...one, id: 1, name: 'Line 1', colour: '#2471a3' },
+        { ...one, id: 2, name: 'Line 2', colour: '#1e8449' },
+      ];
+      d.nextIds = { ...d.nextIds, line: 3 };
+    });
+    const [a, b] = [DEBUG_STOPS[0]!.at, DEBUG_STOPS[1]!.at];
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const;
+    const colours = { one: [0x24, 0x71, 0xa3], two: [0x1e, 0x84, 0x49] };
+    await expect.poll(async () => Math.min(...Object.values(await pixels(page, mid, colours))), { timeout: 15_000 }).toBeGreaterThan(20);
   });
 });

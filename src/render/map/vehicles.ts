@@ -9,6 +9,7 @@
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl';
 import { frameDelayMs } from './gpu';
 import { BUS_FLOATS, type BusSource } from './fleet';
+import { ribbonPx } from './sides';
 
 export const VEHICLE_LAYER = 'vehicles';
 
@@ -18,19 +19,26 @@ const VERTEX = `#version 300 es
 uniform mat4 u_matrix;
 uniform vec2 u_viewport;
 uniform float u_pixelRatio;
+uniform float u_ribbon;
 in vec2 a_corner;
 in vec2 a_pos;
 in float a_heading;
 in vec3 a_colour;
 in vec2 a_size;
+in float a_side;
 out vec2 v_px;
 out vec2 v_size;
 out vec3 v_colour;
 void main() {
-  vec4 c = u_matrix * vec4(a_pos, 0.0, 1.0);
-  // The heading's direction on screen: a step along it in mercator (north is -y), projected.
   float h = radians(a_heading);
-  vec4 ahead = u_matrix * vec4(a_pos + vec2(sin(h), -cos(h)) * 1e-6, 0.0, 1.0);
+  // On its line's ribbon: its side, in ribbons' widths to the right of the way it drives (render/map/sides.ts), laid on the ground
+  // as the route's line-offset lays the ribbon, the right of a heading in mercator (x east, y south) being (cos h, sin h). Laid on
+  // the screen after the projection instead, a tilted bus missed its ribbon by 3.7 px at pitch 50 and zoom 16, and by up to 8.4 px
+  // at pitch 60 and zoom 17 (the change's review): the ground's offset shrinks with the distance, the screen's did not.
+  vec2 pos = a_pos + vec2(cos(h), sin(h)) * a_side * u_ribbon;
+  vec4 c = u_matrix * vec4(pos, 0.0, 1.0);
+  // The heading's direction on screen: a step along it in mercator (north is -y), projected.
+  vec4 ahead = u_matrix * vec4(pos + vec2(sin(h), -cos(h)) * 1e-6, 0.0, 1.0);
   vec2 here = c.xy / c.w * u_viewport * 0.5;
   vec2 there = ahead.xy / ahead.w * u_viewport * 0.5;
   vec2 fwd = there - here;
@@ -121,7 +129,7 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
       g.attachShader(program, compile(g, g.FRAGMENT_SHADER, FRAGMENT));
       g.linkProgram(program);
       if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(`vehicles: ${g.getProgramInfoLog(program) ?? 'link failed'}`);
-      for (const name of ['u_matrix', 'u_viewport', 'u_pixelRatio']) where[name] = g.getUniformLocation(program, name);
+      for (const name of ['u_matrix', 'u_viewport', 'u_pixelRatio', 'u_ribbon']) where[name] = g.getUniformLocation(program, name);
       vao = g.createVertexArray();
       g.bindVertexArray(vao);
       corners = g.createBuffer();
@@ -133,7 +141,7 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
       instances = g.createBuffer();
       g.bindBuffer(g.ARRAY_BUFFER, instances);
       const stride = BUS_FLOATS * 4;
-      for (const [name, size, offset] of [['a_pos', 2, 0], ['a_heading', 1, 2], ['a_colour', 3, 3], ['a_size', 2, 6]] as const) {
+      for (const [name, size, offset] of [['a_pos', 2, 0], ['a_heading', 1, 2], ['a_colour', 3, 3], ['a_size', 2, 6], ['a_side', 1, 8]] as const) {
         const at = g.getAttribLocation(program, name);
         g.enableVertexAttribArray(at);
         g.vertexAttribPointer(at, size, g.FLOAT, false, stride, offset * 4);
@@ -173,6 +181,7 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
           relative[at + 5] = data[at + 5]!;
           relative[at + 6] = data[at + 6]!;
           relative[at + 7] = data[at + 7]!;
+          relative[at + 8] = data[at + 8]!;
         }
         const m = options.defaultProjectionData.mainMatrix as ArrayLike<number>;
         const matrix = new Float32Array(16);
@@ -188,6 +197,8 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
         g.uniformMatrix4fv(where.u_matrix!, false, matrix);
         g.uniform2f(where.u_viewport!, g.drawingBufferWidth, g.drawingBufferHeight);
         g.uniform1f(where.u_pixelRatio!, ratio);
+        // A ribbon's width in mercator, whose world is 512 px across at zoom 0, as MapLibre lays line-offset at the map's zoom.
+        g.uniform1f(where.u_ribbon!, ribbonPx(map.getZoom()) / (512 * 2 ** map.getZoom()));
         g.bindVertexArray(vao);
         g.bindBuffer(g.ARRAY_BUFFER, instances);
         g.bufferData(g.ARRAY_BUFFER, relative.subarray(0, BUS_FLOATS * count), g.DYNAMIC_DRAW);

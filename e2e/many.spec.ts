@@ -95,9 +95,11 @@ async function shownIn(panel: Locator, el: Locator) {
 }
 
 test.describe('a late game of many lines', () => {
-  // Lines on the same streets draw over one another, and a click there opened only the line drawn on top: the others were
+  // Lines on the same streets drew over one another, and a click there opened only the line drawn on top: the others were
   // reached only from Lines' tabs (DECISIONS, Open: many lines on the map, its recommended (b)). Such a click now lists every
-  // line under it, each to open. Shown failing (TS-04) with the click opening the line on top, as before.
+  // line under it, each to open. Shown failing (TS-04) with the click opening the line on top, as before. Side by side now
+  // (sides.ts), the lines on a street stand wider than the click's 4 px reach, and it lists every line on the street segment
+  // under it; shown failing (TS-04) with it listing the lines it hit alone, 2 runs of 2.
   test('a click on streets that several lines share lists them, and each opens its line', async ({ page }) => {
     const world = await lateGame(page);
     const shared = await sharedInView(page, world);

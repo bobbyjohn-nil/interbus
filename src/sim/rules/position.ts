@@ -55,14 +55,17 @@ export function prepareGeometry(geometry: LineGeometry): PreparedGeometry {
   return { geometry, route: path(geometry.route), pullOut: path(geometry.pullOut), pullIn: path(geometry.pullIn) };
 }
 
-/** Writes the point `m` metres along `p` into out[at..at+2] as lon, lat and bearing (degrees clockwise from north); `back` faces the other way. */
-function placeAt(p: Path, m: number, back: boolean, out: Float64Array, at: number): void {
+/**
+ * Writes the point `m` metres along `p` into out[at..at+2] as lon, lat and bearing (degrees clockwise from north); `back` faces
+ * the other way. Returns the segment it lies on, from point i to i + 1, or -1 on a path of one point.
+ */
+function placeAt(p: Path, m: number, back: boolean, out: Float64Array, at: number): number {
   const { pts, cum } = p;
   if (pts.length === 1) {
     out[at] = pts[0]![0];
     out[at + 1] = pts[0]![1];
     out[at + 2] = 0;
-    return;
+    return -1;
   }
   const total = cum[cum.length - 1]!;
   const d = Math.max(0, Math.min(total, m));
@@ -81,6 +84,7 @@ function placeAt(p: Path, m: number, back: boolean, out: Float64Array, at: numbe
   const k = Math.cos((a[1] * Math.PI) / 180);
   const bearing = (Math.atan2((b[0] - a[0]) * k, b[1] - a[1]) * 180) / Math.PI;
   out[at + 2] = (bearing + (back ? 540 : 360)) % 360;
+  return lo;
 }
 
 /** Metres along the route `u` seconds into a run out from the first stop. */
@@ -111,27 +115,47 @@ interface Reading {
   pullOutS(s: Stint): number;
   pullOutGeometry(s: Stint): PreparedGeometry;
   pullInGeometry(s: Stint): PreparedGeometry;
+  /** The version of a geometry the plan reads (positionsInEffect's `geos` index; 0 with one). */
+  versionOf(g: PreparedGeometry): number;
 }
+
+/**
+ * Where each bus lies, for a caller that draws it beside others on its street (render/map/sides.ts): three numbers a bus, its
+ * geometry's version, the segment of its route it is on (-1 on a drive to or from the depot), and 1 when it drives the route
+ * back, 0 when out.
+ */
+export const WHERE_FLOATS = 3;
 
 const firstStopOf = (g: PreparedGeometry) => g.route.cum[g.geometry.stopAt[0]!]!;
 
-function place(r: Reading, second: number, out: Float64Array): number {
+function place(r: Reading, second: number, out: Float64Array, where?: Float64Array): number {
   let n = 0;
+  const on = (k: number, g: PreparedGeometry, segment: number, back: boolean) => {
+    if (!where) return;
+    where[WHERE_FLOATS * k] = r.versionOf(g);
+    where[WHERE_FLOATS * k + 1] = segment;
+    where[WHERE_FLOATS * k + 2] = back ? 1 : 0;
+  };
   for (const s of r.stints) {
     if (second < s.leaveDepot || second >= s.arriveDepot) continue;
-    const at = 3 * n++;
+    const k = n++;
+    const at = 3 * k;
     const pullOutS = r.pullOutS(s);
     if (second < s.leaveDepot + pullOutS) {
       const g = r.pullOutGeometry(s);
-      if (g.pullOut.pts.length) placeAt(g.pullOut, ((second - s.leaveDepot) / pullOutS) * g.pullOut.cum[g.pullOut.cum.length - 1]!, false, out, at);
-      else placeAt(g.route, firstStopOf(g), false, out, at);
+      if (g.pullOut.pts.length) {
+        placeAt(g.pullOut, ((second - s.leaveDepot) / pullOutS) * g.pullOut.cum[g.pullOut.cum.length - 1]!, false, out, at);
+        on(k, g, -1, false);
+      } else on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false);
       continue;
     }
     if (second >= s.lastArrival) {
       const g = r.pullInGeometry(s);
       const length = g.pullIn.cum[g.pullIn.cum.length - 1] ?? 0;
-      if (g.pullIn.pts.length) placeAt(g.pullIn, ((second - s.lastArrival) / (s.arriveDepot - s.lastArrival)) * length, false, out, at);
-      else placeAt(g.route, firstStopOf(g), false, out, at);
+      if (g.pullIn.pts.length) {
+        placeAt(g.pullIn, ((second - s.lastArrival) / (s.arriveDepot - s.lastArrival)) * length, false, out, at);
+        on(k, g, -1, false);
+      } else on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false);
       continue;
     }
     // The trip under way: the last departure at or before now; before its first, it waits at the first stop.
@@ -139,7 +163,7 @@ function place(r: Reading, second: number, out: Float64Array): number {
     for (const t of s.trips) if (t <= second) trip = t;
     if (trip === undefined) {
       const g = r.pullOutGeometry(s);
-      placeAt(g.route, firstStopOf(g), false, out, at);
+      on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false);
       continue;
     }
     // Its own period's round trip: a peak run takes longer than a midday one (tripTimes).
@@ -147,10 +171,10 @@ function place(r: Reading, second: number, out: Float64Array): number {
     const { cycle, oneWayS } = r.timesOf(trip);
     const half = cycle / 2;
     const u = second - trip;
-    if (u >= half + oneWayS) placeAt(g.route, firstStopOf(g), false, out, at); // waiting at the first stop
-    else if (u < oneWayS) placeAt(g.route, routeMetresAt(g, oneWayS, u), false, out, at);
-    else if (u < half) placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS), true, out, at); // layover at the far end
-    else placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS - (u - half)), true, out, at);
+    if (u >= half + oneWayS) on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false); // waiting at the first stop
+    else if (u < oneWayS) on(k, g, placeAt(g.route, routeMetresAt(g, oneWayS, u), false, out, at), false);
+    else if (u < half) on(k, g, placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS), true, out, at), true); // layover at the far end
+    else on(k, g, placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS - (u - half)), true, out, at), true);
   }
   return n;
 }
@@ -160,9 +184,14 @@ function place(r: Reading, second: number, out: Float64Array): number {
  * written into `out` as lon, lat, bearing triples. Returns how many buses it wrote; `out` must hold
  * three numbers for each bus the plan can have out (busesOut).
  */
-export function busPositionsAt(plan: DayPlan, g: PreparedGeometry, second: number, out: Float64Array): number {
+export function busPositionsAt(plan: DayPlan, g: PreparedGeometry, second: number, out: Float64Array, where?: Float64Array): number {
   const { inputs } = plan;
-  return place({ stints: plan.stints, timesOf: (t) => tripTimes(inputs, t), tripGeometry: () => g, pullOutS: () => inputs.pullOutS, pullOutGeometry: () => g, pullInGeometry: () => g }, second, out);
+  return place(
+    { stints: plan.stints, timesOf: (t) => tripTimes(inputs, t), tripGeometry: () => g, pullOutS: () => inputs.pullOutS, pullOutGeometry: () => g, pullInGeometry: () => g, versionOf: () => 0 },
+    second,
+    out,
+    where,
+  );
 }
 
 /**
@@ -170,9 +199,14 @@ export function busPositionsAt(plan: DayPlan, g: PreparedGeometry, second: numbe
  * handover the merged plan, each trip and drive on the geometry of the version it ran on (`geos`,
  * oldest first, the line's own last), and from then on its own day plan.
  */
-export function positionsInEffect(p: PlanInEffect, geos: readonly PreparedGeometry[], second: number, out: Float64Array): number {
+export function positionsInEffect(p: PlanInEffect, geos: readonly PreparedGeometry[], second: number, out: Float64Array, where?: Float64Array): number {
   const m = p.merged;
-  if (!m || second >= m.handover) return busPositionsAt(p.periodic, geos[geos.length - 1]!, ((second % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY, out);
+  if (!m || second >= m.handover) {
+    const n = busPositionsAt(p.periodic, geos[geos.length - 1]!, ((second % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY, out, where);
+    // The line's own geometry, the last.
+    if (where) for (let k = 0; k < n; k++) where[WHERE_FLOATS * k] = geos.length - 1;
+    return n;
+  }
   const geoAt = (t: number) => geos[versionAt(m, t)]!;
   const lastOf = (s: Stint) => s.trips[s.trips.length - 1] ?? s.leaveDepot;
   return place(
@@ -183,9 +217,11 @@ export function positionsInEffect(p: PlanInEffect, geos: readonly PreparedGeomet
       pullOutS: (s) => inputsAt(m, s.leaveDepot).pullOutS,
       pullOutGeometry: (s) => geoAt(s.leaveDepot),
       pullInGeometry: (s) => geoAt(lastOf(s)),
+      versionOf: (g) => geos.indexOf(g),
     },
     second,
     out,
+    where,
   );
 }
 
