@@ -26,7 +26,9 @@
 # and Close line's tests: on main 5ae4f48's push run the sevenths took 5.7 to 3.2 minutes of tests, the first a job of 7.2,
 # and on #194's last push run, its new tests moving errors.spec.ts into the first, the first and fourth took jobs of 7.5
 # and 7.8. An eighth shard would hold the same first files, 5.6 minutes by those times. So the e2e runs in eight parts that
-# share the spec files out by their measured seconds (scripts/e2e-parts.mjs), about 3.5 minutes of tests each by them.
+# share the spec files out by their measured seconds (scripts/e2e-parts.mjs). By main's times the parts took jobs of 3.7
+# to 6.9 minutes on #195's first runs, the files 16% slower with both workers busy to the end; by those runs' own times,
+# the table since, they take about 4.1 minutes of tests each.
 name: CI
 
 on:

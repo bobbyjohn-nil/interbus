@@ -16,11 +16,33 @@ export const UNMEASURED = 60;
 /** A spec in parallel mode hands its tests out one by one; they take about this many seconds each. */
 const PIECE = 10;
 
-/** The spec files Playwright finds, in its order, but for a session's own `zz-` probes, which git never sees. */
-export const specs = () =>
-  readdirSync(E2E)
-    .filter((f) => f.endsWith('.spec.ts') && !f.startsWith('zz-'))
-    .sort((a, b) => a.localeCompare(b));
+// Playwright's default testMatch, `**/*.@(spec|test).?(c|m)[jt]s?(x)`: the files it runs, in any folder under e2e/.
+const TEST_FILE = /\.(spec|test)\.(c|m)?[jt]sx?$/;
+
+/** Two paths under e2e/ in Playwright's order: it walks the folder, each folder's entries sorted by localeCompare. */
+export const byWalk = (a, b) => {
+  const [x, y] = [a.split('/'), b.split('/')];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const c = x[i].localeCompare(y[i]);
+    if (c) return c;
+  }
+  return x.length - y.length;
+};
+
+/**
+ * The test files Playwright finds under `dir` (e2e/), as paths from it, in its order: every folder but node_modules, which
+ * it never searches, and every file but a session's own `zz-` probes, which git never sees.
+ */
+export function specs(dir = E2E) {
+  const walk = (at) =>
+    readdirSync(new URL(at, dir), { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .flatMap((e) => {
+        if (e.isDirectory()) return e.name === 'node_modules' ? [] : walk(`${at}${e.name}/`);
+        return TEST_FILE.test(e.name) && !e.name.startsWith('zz-') ? [`${at}${e.name}`] : [];
+      });
+  return walk('');
+}
 
 /** The specs whose tests run in parallel mode, each its own piece of work for a free worker. */
 export const parallelSpecs = (files) =>
@@ -37,7 +59,7 @@ const secondsOf = (seconds, file) => seconds[file] ?? UNMEASURED;
  */
 export function span(files, seconds, parallel = new Set()) {
   const workers = Array(WORKERS).fill(0);
-  for (const file of [...files].sort((a, b) => a.localeCompare(b))) {
+  for (const file of [...files].sort(byWalk)) {
     const total = secondsOf(seconds, file);
     const pieces = parallel.has(file) ? Math.max(1, Math.round(total / PIECE)) : 1;
     for (let k = 0; k < pieces; k++) workers[workers.indexOf(Math.min(...workers))] += total / pieces;
@@ -58,7 +80,7 @@ export function parts(files, n, seconds, parallel = new Set()) {
     });
     out[best].push(file);
   }
-  return out.map((part) => part.sort((a, b) => a.localeCompare(b)));
+  return out.map((part) => part.sort(byWalk));
 }
 
 /** `3/8` → part 3's files as Playwright's arguments; `8` → every part's minutes and files. */

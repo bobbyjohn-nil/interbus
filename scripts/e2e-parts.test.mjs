@@ -9,8 +9,8 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UNMEASURED, main, measured, parallelSpecs, parts, span, specs } from './e2e-parts.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { UNMEASURED, byWalk, main, measured, parallelSpecs, parts, span, specs } from './e2e-parts.mjs';
 import E2eSeconds from './e2e-seconds.mjs';
 
 const E2E = new URL('../e2e/', import.meta.url);
@@ -47,7 +47,10 @@ const takes = (argument, file) => new RegExp(argument, 'gi').test(fileURLToPath(
 
 test('every spec file runs in exactly one of CI’s parts, each taken by its own argument alone', () => {
   const n = matrix().length;
-  const all = readdirSync(E2E).filter((f) => f.endsWith('.spec.ts'));
+  // Every file under e2e/ Playwright's default testMatch takes, a session's own zz- probes among them.
+  const all = readdirSync(E2E, { recursive: true })
+    .map((f) => String(f).split('\\').join('/'))
+    .filter((f) => /\.(spec|test)\.(c|m)?[jt]sx?$/.test(f) && !f.split('/').includes('node_modules'));
   const runs = new Map(specs().map((f) => [f, []]));
   for (let k = 1; k <= n; k++) {
     for (const argument of argumentsOf(k, n)) {
@@ -89,6 +92,18 @@ test('the part’s step runs Playwright on the script’s files, and fails, runn
     calls: 'npm run e2e -- e2e/a.spec.ts e2e/b.spec.ts\n',
   });
   assert.deepEqual(run('echo "Part 3 of 8 holds no spec files" >&2; exit 1'), { status: 1, calls: '' });
+});
+
+test('the specs are the files Playwright runs under e2e/, in any folder, in the order it walks them', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'e2e-specs-'));
+  for (const f of ['b.spec.ts', 'a.test.ts', 'i12/main.ts', 'i12/extra.spec.ts', 'i12.spec.ts', 'z/deep/x.spec.mjs', 'zz-probe.spec.ts', 'node_modules/m.spec.ts', 'helper.ts', 'c.spec.tsx']) {
+    mkdirSync(join(dir, f, '..'), { recursive: true });
+    writeFileSync(join(dir, f), '');
+  }
+  const found = specs(pathToFileURL(`${dir}/`));
+  assert.deepEqual(found, ['a.test.ts', 'b.spec.ts', 'c.spec.tsx', 'i12/extra.spec.ts', 'i12.spec.ts', 'z/deep/x.spec.mjs']);
+  // A part's files are in the same order, the folder's own before the file that shares its name.
+  assert.deepEqual([...found].reverse().sort(byWalk), found);
 });
 
 test('the seconds table names only spec files that exist', () => {
@@ -139,15 +154,19 @@ test('the command line takes a part of so many, or so many, and nothing else', (
   assert.match(lines[0], /^1\/8: \d+\.\d\d min {2}\S+\.spec\.ts/);
 });
 
-test('the reporter prints each file’s seconds, its tests’ durations summed, in one line as the run ends', () => {
+test('the reporter prints each file’s seconds, each test’s from its start, before its beforeAll hooks, to its end', () => {
   const lines = [];
-  const reporter = new E2eSeconds({ out: (line) => lines.push(line) });
+  let clock = 0;
+  const reporter = new E2eSeconds({ out: (line) => lines.push(line), now: () => clock });
+  reporter.onBegin({ projects: [{ testDir: '/runner/work/interbus/e2e' }] });
   const at = (file) => ({ location: { file: `/runner/work/interbus/e2e/${file}` } });
-  reporter.onTestEnd(at('b.spec.ts'), { duration: 1250 });
-  reporter.onTestEnd(at('a.spec.ts'), { duration: 300 });
-  reporter.onTestEnd(at('b.spec.ts'), { duration: 2000 });
-  reporter.onTestEnd(at('a.spec.ts'), { duration: 0 });
+  // Each test ends `clock` seconds in; its `duration` leaves out a beforeAll hook's 15 s, which its start comes before.
+  const run = (file, start, end, duration) => ((clock = end * 1000), reporter.onTestEnd(at(file), { startTime: new Date(start * 1000), duration: duration * 1000 }));
+  run('b.spec.ts', 0, 16.25, 1.25);
+  run('a.spec.ts', 1, 1.3, 0.3);
+  run('b.spec.ts', 16.25, 18.25, 2);
+  run('i12/extra.spec.ts', 2, 2, 0);
   assert.deepEqual(lines, []);
   reporter.onEnd();
-  assert.deepEqual(lines, ['e2e seconds {"a.spec.ts":0.3,"b.spec.ts":3.3}']);
+  assert.deepEqual(lines, ['e2e seconds {"a.spec.ts":0.3,"b.spec.ts":18.3,"i12/extra.spec.ts":0}']);
 });
