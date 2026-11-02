@@ -166,8 +166,11 @@ test.describe('the keyboard’s control taken from under it, and a press after a
   // focus stayed on the page, where Space plays (the review of the dragged card's fix, 2 runs of 3 at a quarter of the
   // processor's speed). The commit keeps the answer now. Here the Escape comes in that gap, from a MutationObserver, the
   // processor at a twentieth of its speed so React's effects wait for a task of their own. Shown failing (TS-04) with the
-  // player's own close asked after the paint.
-  test('an Escape pressed as the game closes Lines under the keyboard still gives Build the focus', async ({ page }) => {
+  // player's own close asked after the paint. And Build so focused showed the ring, but Space played: the Escape, a silent key,
+  // kept its silence for the hand-on that came after it, which took Build's source as the mouse had left it (the systems
+  // audit's twenty-first round, 4 runs of 4 that landed in the gap). Space presses Build now, as without the Escape: shown
+  // failing (TS-04) on 409570e.
+  test('an Escape pressed as the game closes Lines under the keyboard still gives Build the focus, and Space presses it', async ({ page }) => {
     test.setTimeout(90_000);
     await game(page, (d) => void (d.lines = []));
     const build_ = page.getByTestId('build');
@@ -190,6 +193,46 @@ test.describe('the keyboard’s control taken from under it, and a press after a
     await expect(panel).toHaveCount(0, { timeout: 30_000 });
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
     await expect(build_).toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('build-menu')).toBeVisible();
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+  });
+
+  // The same hand-on with a key in the way, the sim's answer held as it went in: a Shift, whose silence was kept for the hand-on
+  // after it, and an Escape that closed Lines' headway list, counted as the player's own close of Lines, which left the focus
+  // on the page. Either way Space then played, 15 runs of 15 at five sizes (the systems audit's twenty-first round). Shown
+  // failing (TS-04) on 409570e.
+  test('a Shift, or an Escape that closes a list, as Ctrl+Z’s answer is on its way leaves Build the focus and Space', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(holdAnswers);
+    await game(page, (d) => void (d.lines = []));
+    const build_ = page.getByTestId('build');
+    const panel = page.getByTestId('inspector');
+    const menu = page.getByTestId('build-menu');
+    for (const between of ['Shift', 'list'] as const) {
+      await bought(page);
+      const peak = panel.getByTestId('headway-peak');
+      await tabOnto(page, peak);
+      await hold(page);
+      await page.keyboard.press('Control+z');
+      if (between === 'Shift') await page.keyboard.press('Shift');
+      else {
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByRole('listbox')).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+        await expect(peak).toBeFocused();
+      }
+      await expect(panel).toBeVisible();
+      await release(page);
+      await expect(panel).toHaveCount(0, { timeout: 10_000 });
+      await expect(build_, between).toBeFocused();
+      await page.keyboard.press(' ');
+      await expect(menu, between).toBeVisible();
+      await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+      await page.keyboard.press('Escape');
+      await expect(menu).toHaveCount(0);
+    }
   });
 
   // Lines the keyboard opened from the dock, closed so, gave the page the focus too, its opener turned off with the line (the

@@ -817,7 +817,15 @@ export function App() {
       {ready ? <DemandMenu dots={sim.dots} shown={dotKinds} onShown={showDots} /> : null}
       {tool === "depot" && !stopped ? <DepotCard sim={sim} screen={screen} /> : null}
       {tool === "stop" && !stopped ? <StopSiteCard sim={sim} screen={screen} /> : null}
-      <Panels key="panels" items={stopped ? [] : panelItems} front={front} focus={focusAt} takesFocus={() => focus.current.byKey} backToRef={panelsBack} />
+      <Panels
+        key="panels"
+        items={stopped ? [] : panelItems}
+        front={front}
+        focus={focusAt}
+        takesFocus={() => focus.current.byKey}
+        dragged={() => focus.current.dragged()}
+        backToRef={panelsBack}
+      />
       {ready && sim.snapshot?.company.name ? (
         <Dock
           tool={tool}

@@ -129,3 +129,74 @@ describe('where the focus came from', () => {
     expect(f.byKey).toBe(true);
   });
 });
+
+// The systems audit's twenty-first round. Shown failing (TS-04) on 409570e: a silent key kept its silence until the next key or
+// press, so the game's hand-on after it took the target's old source ("a silent key's own arrival"); the press of a drag read
+// as the pointer's ("a drag of a panel by its heading"); and AltGr or Caps Lock alone read as the keyboard's ("a lock alone").
+describe('where the focus came from, the twenty-first round', () => {
+  /** A key as the window hears it, its dispatch running until `done`. */
+  const heard = (k: string) => {
+    const event = { type: 'keydown', key: k, eventPhase: 1 };
+    return { event, done: () => void (event.eventPhase = 0) };
+  };
+
+  it('a silent key’s own arrival is silent, and one that comes once its dispatch is over is not', () => {
+    const build = { name: 'build' };
+    const headway = { name: 'headway' };
+    const f = focusSource();
+    f.input(press); // Build pressed with the mouse: its source the pointer's as the focus leaves it
+    f.arrived(build);
+    f.input(key('Tab'));
+    f.arrived(headway); // the keyboard on Lines' headway
+    f.input(key('z')); // Ctrl+Z, its answer on its way
+    const shift = heard('Shift');
+    f.input(shift.event);
+    shift.done();
+    f.arrived(build); // the game's hand-on as the answer takes Lines away
+    expect(f.byKey).toBe(true);
+    // An Escape that closes a menu the mouse opened hands its button back as the mouse had it, arrows or not, as before: the
+    // menu hands it back in the Escape's own dispatch.
+    const [speed, list] = [{ name: 'speed' }, { name: 'list' }];
+    f.input(press);
+    f.arrived(speed);
+    f.arrived(list);
+    f.input(key('ArrowDown'));
+    const escape = heard('Escape');
+    f.input(escape.event);
+    f.arrived(speed);
+    escape.done();
+    expect(f.byKey).toBe(false);
+  });
+
+  it('a drag of a panel by its heading leaves the focus as it came', () => {
+    const f = focusSource();
+    f.input(key('Tab'));
+    f.arrived('create');
+    f.input(press); // the card's heading, dragged: the focus stays on Create
+    f.dragged();
+    expect(f.byKey).toBe(true);
+    f.arrived('lines'); // Enter on Create opens Lines, which the keyboard's focus goes to
+    expect(f.byKey).toBe(true);
+    // A press that is no drag still says the pointer acts, and a drag after it leaves it so.
+    f.input(press);
+    expect(f.byKey).toBe(false);
+    f.input(press);
+    f.dragged();
+    expect(f.byKey).toBe(false);
+    // A drag told of after a key changes nothing: the key was the last input.
+    f.input(key('Tab'));
+    f.arrived('play');
+    f.dragged();
+    expect(f.byKey).toBe(true);
+  });
+
+  it('a lock or AltGr alone moves nothing, as Alt', () => {
+    for (const k of ['AltGraph', 'CapsLock', 'NumLock', 'ScrollLock', 'Fn']) {
+      const f = focusSource();
+      f.input(press);
+      f.input(key(k));
+      f.arrived('finance');
+      expect(f.byKey, k).toBe(false);
+    }
+  });
+});

@@ -3,6 +3,7 @@ import { focusLost } from "../focusLost";
 import { MODIFIERS } from "../focusSource";
 import { giveFocus } from "../giveFocus";
 import { SHOWN } from "../showWhole";
+import { inOpenList } from "../../render/map/tilt";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
 export interface PanelItem {
@@ -214,6 +215,7 @@ export function Panels({
   front = null,
   focus = null,
   takesFocus = () => false,
+  dragged: draggedBy = () => undefined,
   backToRef,
 }: {
   items: readonly PanelItem[];
@@ -222,6 +224,8 @@ export function Panels({
   focus?: PanelFront | null;
   /** Whether that panel takes the focus: when the keyboard opened it (App's focusSource). */
   takesFocus?: () => boolean;
+  /** Told that the last pointer press drags a panel by its heading, which leaves the focus where it was and as it came (App's focusSource). */
+  dragged?: () => void;
   /**
    * Set to where the focus goes back to as a panel closed with the player in it (handBackTo on the openers kept), for what
    * hands the focus back later, the day card's Continue, so the two agree.
@@ -339,7 +343,9 @@ export function Panels({
   // Whether the last key was the player's own close of a panel, Escape, ? (Help's own) or a press of its × or its Cancel
   // (`data-closes`), as against the game's close, as Ctrl+Z takes back what a panel shows: a panel the mouse opened is walked
   // on only after the game's (handBackTo's `byKey`). Cancel on the new line's card, not counted, gave Build the keyboard, and
-  // Space opened the Build menu (the review of the twentieth round).
+  // Space opened the Build menu (the review of the twentieth round). A key an open list or menu keeps is the list's (inOpenList,
+  // as App's keys): an Escape that closed Lines' headway list as Ctrl+Z's answer was on its way, counted, made the game's
+  // close of Lines the player's, and the focus fell to the page, where Space played, 15 runs of 15 (the twenty-first round).
   const ownClose = useRef(false);
   useEffect(() => {
     const at = (event: Event) => {
@@ -348,9 +354,12 @@ export function Panels({
     const next = (event: Event) => {
       // A modifier alone presses nothing, so the place kept waits on through it for the press the key goes with: Shift pressed as
       // Create waited for the sim let it go, and the new line's card opened next where Enter had brought it in (the fix's
-      // review, 3 runs of 3).
+      // review, 3 runs of 3), and so did AltGr and Caps Lock, 38 px left of where it was dragged (the twenty-first round).
       if (!(event instanceof KeyboardEvent && MODIFIERS.includes(event.key))) pressedFrom.current = null;
-      ownClose.current = event instanceof KeyboardEvent && (event.key === "Escape" || event.key === "?" || (event.target instanceof Element && event.target.closest("button.close, [data-closes]") !== null));
+      ownClose.current =
+        event instanceof KeyboardEvent &&
+        !inOpenList(event.target) &&
+        (event.key === "Escape" || event.key === "?" || (event.target instanceof Element && event.target.closest("button.close, [data-closes]") !== null));
     };
     document.addEventListener("focusin", at, true);
     document.addEventListener("pointerdown", at, true);
@@ -597,6 +606,9 @@ export function Panels({
     // and starts none. The first on the panel, not the page's first: a finger resting on the map left the one on a heading
     // dragging nothing, where it had dragged the panel 200 px (the round's review).
     if (event.button !== 0 || event.nativeEvent === cutBy.current || !target.closest("h2") || target.closest("button, a, input")) return;
+    // The focus stays where it was, so it stays as it came: the press read as the pointer's left the keyboard's Enter on Create
+    // opening Lines without the focus, which fell to the page (the systems audit's twenty-first round).
+    draggedBy();
     const box = event.currentTarget;
     const pointer = event.pointerId;
     const start = box.getBoundingClientRect();
