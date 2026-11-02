@@ -9,7 +9,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  reporter: process.env.CI ? [['list'], ['github']] : 'list',
+  // On CI each run's log ends with its spec files' seconds, which e2e/seconds.json holds to share the files out among the
+  // e2e's parts (scripts/e2e-parts.mjs).
+  reporter: process.env.CI ? [['list'], ['github'], ['./scripts/e2e-seconds.mjs']] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173/',
     launchOptions: {
