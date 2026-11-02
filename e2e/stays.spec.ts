@@ -564,6 +564,40 @@ test.describe('what stays where the player left it', () => {
     expect(await boxX(page, 'tool')).toBe(card);
   });
 
+  // The place kept for a dragged panel a key's press closes as the sim answers went back in the effect after the paint, and a
+  // key pressed before it let the place go: on #195's pull request run the test above's Escape came in between, on a runner with
+  // both workers busy, and the new line's card opened next 38 px left of where it was dragged, where Create's press had brought
+  // it in. Here a key comes in that gap every time: the card's leaving the page fires one, from a MutationObserver, whose
+  // callback runs after React's commit and before its effects. Shown failing (TS-04) with the place put back after the paint.
+  test('a key pressed as a dragged card closes on the sim’s answer leaves it to open where it was dragged', async ({ page }) => {
+    const W = page.viewportSize()!.width;
+    await game(page);
+    await build(page, 'Draw a line');
+    const draft = page.getByTestId('draft-card');
+    await frames(page);
+    for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    await tabOnto(page, draft.getByRole('button', { name: 'Create' }));
+    await dragBy(page, draft, W);
+    const card = await boxX(page, 'tool');
+    expect(card).toBeGreaterThan(W - 100);
+    await page.evaluate(() => {
+      const box = document.querySelector('[data-movable="tool"]')!;
+      const watch = new MutationObserver(() => {
+        if (box.isConnected) return;
+        watch.disconnect();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+      });
+      watch.observe(document.body, { childList: true, subtree: true });
+    });
+    await page.keyboard.press('Enter');
+    await expect(draft).toHaveCount(0, { timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await build(page, 'Draw a line');
+    await expect(draft).toBeVisible();
+    expect(await boxX(page, 'tool')).toBe(card);
+  });
+
   // Close line's ask opens below the button that opens it: the reveal brought Lines in as far as showed Close line, and the
   // ask opened 67% on the window, whole only once Tab reached Close it (9 runs of 9). It shows whole as it opens now.
   test('Close line’s ask shows whole as Enter opens it in Lines dragged past the window’s edge', async ({ page }) => {

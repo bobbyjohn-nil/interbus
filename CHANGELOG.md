@@ -346,6 +346,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sell them and Close it work at the next press after Ctrl+Z took back a press of theirs before the game answered. Before, they did nothing until the line changed.
 - Create's card closes, and Lines opens on the new line, whenever its line is bought, even when another line closed at the same moment or Ctrl+Z had just taken a line back. Before, the card stayed open with Create waiting for good. A route editor you open while the new line is on its way stays open as it arrives.
 - A button waiting for the game's answer, as Create and Save route do, or turned down, as a step up the stop's lines don't allow, has the same grey label as any button that's off. Before, its label was darker.
+- A panel you dragged aside and closed with a key, as Enter on Create or Save route closes its card once the game answers, opens next where you dragged it, even if you press another key straight away. Before, a key pressed at that moment could leave it opening where the press had brought it into view.
 
 ### Removed
 

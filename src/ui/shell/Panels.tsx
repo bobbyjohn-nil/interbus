@@ -356,6 +356,21 @@ export function Panels({
       window.removeEventListener("pointerdown", next, true);
     };
   }, []);
+  // A panel a key's press closed as the sim answered goes back to where it was dragged (pressedFrom) in the commit that takes it
+  // off the page. Put back in the effect after the paint, as before, a key pressed in between, which lets the place go, left it
+  // where the press had brought it in: on #195's pull request run, a test's Escape, on a runner with both workers busy, opened
+  // the new line's card next 38 px left of where it was dragged.
+  const wereOpenLaid = useRef<readonly string[]>([]);
+  useLayoutEffect(() => {
+    const now = items.map((i) => i.id);
+    const went = wereOpenLaid.current.filter((id) => !now.includes(id));
+    wereOpenLaid.current = now;
+    const from = pressedFrom.current;
+    if (from && went.includes(from.id)) {
+      dragged.current.set(from.id, from.was);
+      pressedFrom.current = null;
+    }
+  });
   const wereOpen = useRef<readonly string[]>([]);
   useEffect(() => {
     const now = items.map((i) => i.id);
@@ -364,11 +379,6 @@ export function Panels({
     opened.current = null;
     wereOpen.current = now;
     if (!went.length) return;
-    const from = pressedFrom.current;
-    if (from && went.includes(from.id)) {
-      dragged.current.set(from.id, from.was);
-      pressedFrom.current = null;
-    }
     const left = lastIn.current;
     if (!left || !went.includes(left)) return;
     lastIn.current = null;
