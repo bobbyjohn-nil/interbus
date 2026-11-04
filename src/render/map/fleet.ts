@@ -79,6 +79,24 @@ export class Fleet implements BusSource {
     this.drawn = this.clock.rate > 0 ? this.frame(this.clock.atMs).count : 0;
   }
 
+  /**
+   * Stands the lines on their streets again (`places`, sides.ts), each version's sides along its own route: as a settling line's
+   * earlier route hands over (loadMap.ts), and the lines it shared streets with stand back in their places.
+   */
+  setPlaces(places: Places): void {
+    this.lines = this.lines.map((l) => ({ ...l, sides: l.geos.map((g) => sidesAlong(places, l.id, g.geometry.route)) }));
+  }
+
+  /**
+   * The game second, since the first day's midnight, at which line `id`'s merged plan hands over to its own day plan: from then
+   * every bus of it drives its own route (positionsInEffect). Null for a line that settles no more, or has no plan here.
+   */
+  handoverOf(id: number): number | null {
+    const line = this.lines.find((l) => l.id === id);
+    const merged = line?.plan.merged;
+    return line && merged ? (line.frameDay ?? 0) * SECONDS_PER_DAY + merged.handover : null;
+  }
+
   /** The sim's clock at a snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
   setClock(second: number, rate: number, atMs: number, day = 0): void {
     this.clock = { second, rate, atMs, day };

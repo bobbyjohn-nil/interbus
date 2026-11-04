@@ -370,6 +370,36 @@ describe('the day and night tint', () => {
     expect(places()).toBe(3);
   });
 
+  // A line settling onto a change of route still runs buses on the route as it was until its merged plan hands over: stood without
+  // that route, the street re-centred under such a bus as the change came, which stepped it 3.5 px across onto another line's
+  // ribbon until the handover (the systems audit's twenty-first round). The other line keeps its place beside the old route until
+  // the handover, then stands alone. Shown failing (TS-04) with the places stood from the lines' own routes alone.
+  it('keeps a settling line’s earlier route among the places until it hands over', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const at = (lat: number) => (m: number): [number, number] => [-71.1 + m / 82_220, lat];
+    const [a, b] = [at(42.35), at(42.352)];
+    const geometry = (on: (m: number) => [number, number]) => {
+      const route = [on(0), on(1_339), on(2_425), on(3_535)];
+      return { route, stops: route, stopAt: [0, 1, 2, 3], stopDistM: [0, 1_339, 2_425, 3_535], pullOut: [on(0), on(0)], pullIn: [on(0), on(0)] };
+    };
+    const every = (s: number, buses: number) => ({ timing: { cycle: 1_539, headways: { peak: s, offpeak: s, overnight: null }, buses }, oneWayS: 529.5, pullOutS: 0, pullInS: 0 });
+    const base = { name: 'Line', colour: '#c0392b', stopIds: [1, 2, 3, 4], headways: { peak: 600, offpeak: 600, overnight: null }, model: 'sparrow' };
+    // Line 1 cut from every 20 minutes on street A to every 10 on street B at 23:00 on day 2: it hands over at 23:20. Line 2 on A.
+    const was = geometry(a);
+    const one = { ...base, id: 1, ...geometry(b), plan: every(600, 3), settling: { frameDay: 2, earlier: [{ plan: every(1_200, 2), until: 23 * 3_600, sameModel: true, sameStart: true, ...was }] } };
+    const two = { ...base, id: 2, ...geometry(a), plan: every(1_200, 2), settling: null };
+    const sideOf = (id: number) => (map.data.get('lines') as { features: { properties: Record<string, unknown> }[] }).features.find((f) => f.properties.kind === 'route' && f.properties.id === id)!.properties.side;
+    board.setClock(23 * 3_600 + 10 * 60, 600, 2);
+    board.setLines([one, two] as never, [] as never);
+    expect(Math.abs(sideOf(2) as number)).toBe(0.5);
+    board.setClock(23 * 3_600 + 15 * 60, 600, 2);
+    expect(Math.abs(sideOf(2) as number)).toBe(0.5);
+    board.setClock(23 * 3_600 + 25 * 60, 600, 2);
+    expect(sideOf(2)).toBe(0);
+  });
+
   // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics. A frame asked for on top at each
   // of the sim's snapshots, 10 a second, took Low graphics over its cap where frames were cheap enough to draw them all: 34–38 a
   // second in a small window. With no bus out, each snapshot drew a frame of nothing new (the fix's review). Shown failing (TS-04)

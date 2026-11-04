@@ -4,7 +4,7 @@
 // companies at the bus ceiling (bench/fixtures, as `npm run bench recompute` times them) and a late game of 30 lines along the
 // corridors (scene.ts lateScene). `npm run bench sides`; never part of the PR checks.
 import { readFileSync } from 'node:fs';
-import { placesOf, sidesAlong } from '../src/render/map/sides';
+import { bridgesOf, placesOf, ribbonGaps, runsOf, sidesAlong, turnsBack } from '../src/render/map/sides';
 import { lateScene } from '../src/sim/scene';
 import { fromSaveData } from '../src/sim/save/save';
 import type { SaveData } from '../src/sim/save/schema';
@@ -47,5 +47,21 @@ if (!city) {
     const shared = [...placesOf(lines).values()].filter((h) => h.length > 1).length;
     const ms = (xs: number[]) => `${at(xs, 0.5).toFixed(2)} ms at p50 and ${at(xs, 0.95).toFixed(2)} at p95`;
     console.log(`${name}, ${lines.length} lines of ${points} points, ${shared} segments shared: the places ${ms(places)}; every line's sides ${ms(sides)}`);
+    // Where each line's ribbon goes from one run to the next: the widest gap between round caps, in ribbons, with the bridges and
+    // without (bridgesOf; a ribbon is 7 px at zoom 16), and the points where a line turns back off the street's middle.
+    const p = placesOf(lines);
+    let [cuts, turns, broken, brokenBefore, widest, widestBefore] = [0, 0, 0, 0, 0, 0];
+    for (const l of lines) {
+      const s = sidesAlong(p, l.id, l.route);
+      const runs = runsOf(l.route, s, true);
+      cuts += runs.length - 1;
+      for (const run of runs.slice(1)) if (turnsBack(l.route, run.first)) turns++;
+      const [after, before] = [ribbonGaps(l.route, runs, bridgesOf(l.route, runs)), ribbonGaps(l.route, runs, [])];
+      for (const g of after) if (Math.max(...g) > 1 + 1e-9) broken++;
+      for (const g of before) if (Math.max(...g) > 1 + 1e-9) brokenBefore++;
+      widest = Math.max(widest, ...after.flat());
+      widestBefore = Math.max(widestBefore, ...before.flat());
+    }
+    console.log(`  ${cuts} points where a ribbon goes from one run to the next, ${turns} of them turn-backs: ${brokenBefore} broke there without bridges, the widest gap ${(Math.max(0, widestBefore - 1) * 7).toFixed(1)} px at zoom 16; with them ${broken}, the widest link ${widest.toFixed(2)} ribbons`);
   }
 }

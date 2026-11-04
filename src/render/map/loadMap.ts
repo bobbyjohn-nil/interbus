@@ -12,7 +12,7 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { groundAt, linesHere, placesOf, ribbonPx, type Places } from './sides';
+import { groundAt, linesHere, placesOf, ribbonPx, type Places, type RouteOf } from './sides';
 import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
@@ -107,6 +107,10 @@ export interface MapHit {
 
 /** The pointer is reported at most this often. */
 const POINTER_EVERY_MS = 100;
+
+const SECONDS_PER_DAY = 86_400;
+/** No places at all: the fleet's sides wait for the lines to be stood (standLines). */
+const NO_PLACES: Places = new Map();
 
 /** Q and E turn the board over this long. */
 const TURN_MS = 200;
@@ -385,9 +389,29 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // The lines resting now (restingLines: overnight off, from their last bus's return after 00:00 until 05:00), faded with the flags
   // of the stops only they call at; set only when they change.
   let clockSecond: number | null = null;
+  /** The clock in game seconds since the first day's midnight, as the sim last set it. */
+  let clockAt = 0;
   let linesNow: readonly LineView[] = [];
-  // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click.
+  // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click,
+  // and again as a settling line's earlier route hands over (`standsUntil`, the soonest of them).
   let placesNow: Places = new Map();
+  let standsUntil = Infinity;
+  // The places, with the earlier routes of each line still settling onto a change: until its merged plan hands over, some of its
+  // buses drive the route as it was, and kept their line's place there. Stood without them, the street re-centred under such a bus
+  // as the change came, which stepped it 3.5 px across onto another line's ribbon, where it rode until the handover (the systems
+  // audit's twenty-first round).
+  const standLines = () => {
+    const routes: RouteOf[] = [...linesNow];
+    standsUntil = Infinity;
+    for (const l of linesNow) {
+      const until = fleet.handoverOf(l.id);
+      if (until === null || until <= clockAt) continue;
+      for (const e of l.settling?.earlier ?? []) routes.push({ id: l.id, route: e.route });
+      standsUntil = Math.min(standsUntil, until);
+    }
+    placesNow = placesOf(routes);
+    fleet.setPlaces(placesNow);
+  };
   /** The city event shown, and the line drawn or edited, each drawn again as the lines on their streets change (`places`). */
   let eventNow: EventView | null = null;
   let draftNow: { readonly draft: LineDraftView | null; readonly line: number | null } = { draft: null, line: null };
@@ -608,11 +632,11 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       else pending.dotKinds = shown;
     },
     setLines: (lines, stops) => {
-      placesNow = placesOf(lines);
-      fleet.setLines(lines, placesNow);
-      map.triggerRepaint();
+      fleet.setLines(lines, NO_PLACES);
       linesNow = lines;
       stopsNow = stops;
+      standLines();
+      map.triggerRepaint();
       if (loaded) setLines(map, lines, stops, placesNow);
       else pending.lines = { lines, stops, places: placesNow };
       // The event's street and the draft stand at the lines' places too, so they are drawn again with them, or once the map is back.
@@ -636,6 +660,17 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       fleet.setClock(second, rate, performance.now(), day);
       if (driving !== fleet.running || rate === 0) map.triggerRepaint();
       clockSecond = second;
+      clockAt = day * SECONDS_PER_DAY + second;
+      // A settling line's earlier route handed over: the lines stand without it.
+      if (clockAt >= standsUntil) {
+        standLines();
+        if (loaded) {
+          setLines(map, linesNow, stopsNow, placesNow);
+          if (eventNow) setEvent(map, eventNow, placesNow);
+          if (draftNow.draft) setDraft(map, draftNow.draft, placesNow, draftNow.line);
+        } else pending.lines = { lines: linesNow, stops: stopsNow, places: placesNow };
+        map.triggerRepaint();
+      }
       lightWanted = darkStep(second);
       if (loaded && lightWanted !== light) showLight(lightWanted, true);
       rest();

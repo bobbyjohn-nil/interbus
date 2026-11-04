@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LngLatPair } from '../../sim/types';
-import { linesHere, placesAlong, placesOf, ribbonPx, runsOf, segmentOf, sidesAlong } from './sides';
+import { bridgesOf, linesHere, placesAlong, placesOf, ribbonGaps, ribbonPx, runsOf, segmentOf, sidesAlong, turnsBack } from './sides';
 
 // A street grid near Copley: x east, y north, a block 0.002° apart.
 const P = (x: number, y: number): LngLatPair => [-71.08 + 0.002 * x, 42.35 + 0.002 * y];
@@ -177,5 +177,51 @@ describe('the places on a street', () => {
       { id: 2, route: [P(1, 0), P(2, 0), P(1, 0)] },
     ];
     expect([...placesAlong(placesOf(lines), [P(0, 0), P(1, 0), P(2, 0), P(3, 0)])]).toEqual([1, 3, 0]);
+  });
+});
+
+// Where a line's side changes, each run drawn by line-offset ends and the next starts at its own side, and their round caps meet
+// only where the two ends stand within a ribbon of each other: past that the ribbon broke, at corners, where lines joined at once,
+// and where a line turned back, gaps of up to 14 px at zoom 16 on the busy scene (the systems audit's twenty-first round).
+describe('a ribbon carried from run to run', () => {
+  const worst = (route: LngLatPair[], sides: number[], withBridges = true) => {
+    const runs = runsOf(route, new Float32Array(sides), true);
+    return Math.max(...ribbonGaps(route, runs, withBridges ? bridgesOf(route, runs) : []).flat());
+  };
+
+  // Shown failing (TS-04) with no bridges, each case's worst link the gap there: 2, 1.80, 2 and 3 ribbons.
+  it('steps a ribbon across at most a ribbon at a time where lines join at once, along the street', () => {
+    expect(worst([P(0, 0), P(1, 0), P(2, 0)], [1.5, -0.5])).toBeLessThanOrEqual(1 + 1e-9);
+    expect(worst([P(0, 0), P(1, 0), P(2, 0)], [1.5, -0.5], false)).toBeCloseTo(2, 9);
+  });
+
+  it('turns a corner at the side before, then steps across to the side after', () => {
+    // East, then north: from 1.5 ribbons right of the way to 1 right of the next, 1.8 ribbons apart at the corner.
+    const route = [P(0, 0), P(1, 0), P(1, 1)];
+    expect(worst(route, [1.5, 1], false)).toBeCloseTo(Math.hypot(1.5, 1), 2);
+    expect(worst(route, [1.5, 1])).toBeLessThanOrEqual(1 + 1e-9);
+    expect(worst(route, [-2.5, 0.5])).toBeLessThanOrEqual(1 + 1e-9);
+    expect(worst(route, [0, 2])).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
+  it('cuts a run where its line turns back off the street’s middle, and carries it across the street there', () => {
+    // East and back west along the same block: one way 1 ribbon right of the way, the other 1 right of its own way back.
+    const route = [P(0, 0), P(1, 0), P(0, 0)];
+    expect(turnsBack(route, 1)).toBe(true);
+    expect(turnsBack([P(0, 0), P(1, 0), P(1, 1)], 1)).toBe(false);
+    expect(runsOf(route, new Float32Array([1, 1]), true).map((r) => r.side)).toEqual([1, 1]);
+    expect(runsOf(route, new Float32Array([1, 1])).length).toBe(1);
+    expect(runsOf(route, new Float32Array([0, 0]), true).length).toBe(1);
+    expect(worst(route, [1, 1], false)).toBeCloseTo(2, 9);
+    expect(worst(route, [1, 1])).toBeLessThanOrEqual(1 + 1e-9);
+    expect(worst(route, [1.5, 1.5], false)).toBeCloseTo(3, 9);
+    expect(worst(route, [1.5, 1.5])).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
+  it('adds nothing where the runs already meet: a line alone, and a side change of a ribbon or less along the street', () => {
+    expect(bridgesOf([P(0, 0), P(1, 0), P(2, 0)], runsOf([P(0, 0), P(1, 0), P(2, 0)], new Float32Array([0, 0]), true))).toEqual([]);
+    const route = [P(0, 0), P(1, 0), P(2, 0)];
+    const runs = runsOf(route, new Float32Array([0, 1]), true);
+    expect(bridgesOf(route, runs)).toEqual([]);
   });
 });

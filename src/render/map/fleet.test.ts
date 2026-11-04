@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LineView, LngLatPair } from '../../sim/types';
 import { BUS_FLOATS, Fleet } from './fleet';
+import { placesOf } from './sides';
 
 // The debug line laid straight east (sim/rules/position.test.ts), as the worker would send it.
 const LAT = 42.35;
@@ -136,6 +137,26 @@ describe('a line’s buses in service', () => {
     expect(fleet.inService(1)).toBe(true);
     fleet.setClock(12 * 60, 600, 0, 3);
     expect(fleet.inService(1)).toBe(false);
+  });
+
+  // The places a settling line's earlier route keeps until its merged plan hands over (loadMap.ts standLines; the systems audit's
+  // twenty-first round): when that is, and its buses on that route standing at its place there.
+  it('tells when a settling line hands over to its own day plan, and stands each version at its places', () => {
+    const fleet = new Fleet();
+    const was = line();
+    const now = { ...was, plan: { ...was.plan, timing: { ...was.plan.timing, headways: { peak: 600, offpeak: 600, overnight: null }, buses: 3 } } };
+    const { route, stopAt, stopDistM, pullOut, pullIn } = was;
+    fleet.setLines([{ ...now, settling: { frameDay: 2, earlier: [{ plan: was.plan, until: 23 * 3_600, sameModel: true, sameStart: true, route, stopAt, stopDistM, pullOut, pullIn }] } }]);
+    expect(fleet.handoverOf(1)).toBe(2 * 86_400 + 23 * 3_600 + 20 * 60);
+    expect(fleet.handoverOf(2)).toBeNull();
+    fleet.setLines([line()]);
+    expect(fleet.handoverOf(1)).toBeNull();
+    // Stood beside a second line on its street: its buses on its own side of the middle.
+    fleet.setPlaces(placesOf([line(), { ...line(), id: 2 }]));
+    fleet.setClock(12 * 3_600, 0, 1_000);
+    const { count, data } = fleet.frame(5_000);
+    expect(count).toBe(2);
+    expect(Math.abs(data[8]!)).toBe(0.5);
   });
 });
 
