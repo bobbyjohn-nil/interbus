@@ -14,8 +14,9 @@ export function linesHere(lineIds: readonly number[], lines: readonly LineView[]
 
 /**
  * The lines a click on the map found on the same streets (DECISIONS, Open: many lines on the map, its recommended (b)). A late
- * game's lines share corridors and draw over one another, and a click there opened only the line drawn on top: the others
- * were reached only from Lines' tabs. Each line here opens its own card, the topmost first, as the map draws them.
+ * game's lines share corridors, and a click there opened only the line drawn on top: the others were reached only from Lines'
+ * tabs. Side by side now (render/map/sides.ts), they stand wider than a click reaches. Each line here opens its own card, the
+ * line whose ribbon lies nearest the click first, the running lines before the resting ones.
  */
 export function LinesHere({ sim, lineIds, onLine, onClose }: { sim: Sim; lineIds: readonly number[]; onLine: (id: number) => void; onClose: () => void }) {
   const lines = linesHere(lineIds, sim.snapshot?.lines ?? []);

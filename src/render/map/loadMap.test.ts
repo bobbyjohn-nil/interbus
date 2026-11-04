@@ -5,6 +5,7 @@ import type { City } from '../../cities';
 import { DAYLIGHT_FADE_MS, dim, NIGHT_STEP } from './daylight';
 import { BUILDINGS_2D, BUILDINGS_3D } from './tilt';
 import { restingColour } from './overlays';
+import { ribbonPx } from './sides';
 import { GAME_LIGHT, LIGHT, PAPER, V1_PAPER } from './tokens';
 
 const fake = vi.hoisted(() => {
@@ -279,13 +280,14 @@ describe('the day and night tint', () => {
       [-71.076, 42.35],
     ];
     board.setLines([line(1, street), line(2, street), line(3, street), line(4, [[-71.08, 42.352], [-71.078, 42.352]])] as never, [] as never);
-    // The click's 4 px reach Line 3's ribbon alone, halfway along the first block.
+    // The click's 4 px reach Line 3's ribbon alone, halfway along the first block, a ribbon south of the street's middle: Line 3
+    // first, then Line 2 and Line 1, each by how far its ribbon lies (sides.ts linesHere).
     map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3 } }]) as never;
     let hit: { lineId: number | null; lineIds: readonly number[] } | null = null;
     board.onClick((_, h) => void (hit = h));
-    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: { lng: -71.079, lat: 42.35 }, originalEvent: { detail: 1 } });
-    expect(hit!.lineIds[0]).toBe(3);
-    expect([...hit!.lineIds].sort()).toEqual([1, 2, 3]);
+    const middle = map.project([-71.079, 42.35]);
+    map.fire('click', { point: { x: middle.x, y: middle.y + ribbonPx(map.getZoom()) }, lngLat: { lng: -71.079, lat: 42.35 }, originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
     // A hit on a run of a route takes that run's segments alone: here Line 3's second block, which it drives alone.
     board.setLines([line(1, street.slice(0, 2)), line(2, street.slice(0, 2)), line(3, street)] as never, [] as never);
     map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 1, last: 1 } }]) as never;

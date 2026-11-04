@@ -3,22 +3,24 @@
 // bus was moved on the screen after its projection, the ribbon on the ground: flat the two agreed, but tilted the bus missed its
 // ribbon by 3.7 px at pitch 50 and zoom 16, the ribbon 3 px wide on the screen there, and by up to 8.4 px at pitch 60 and zoom
 // 17 (the change's review). Shown failing (TS-04) with the bus moved on the screen.
+import { resolve } from 'node:path';
 import { createServer, type ViteDevServer } from 'vite';
 import { expect, test, type Page } from './base';
 import type { RibbonCase } from './ribbons/main';
 
 let server: ViteDevServer;
 test.beforeAll(async () => {
-  server = await createServer({ root: 'e2e/ribbons', configFile: false, logLevel: 'error', server: { host: '127.0.0.1', port: 0 }, worker: { format: 'es' } });
+  // The game's own fonts (npm run fonts), for the line's name.
+  server = await createServer({ root: 'e2e/ribbons', publicDir: resolve('public'), configFile: false, logLevel: 'error', server: { host: '127.0.0.1', port: 0 }, worker: { format: 'es' } });
   await server.listen();
 });
 test.afterAll(async () => server?.close());
 
-/** The drawn ink's mean offset across the street, in CSS px to the right of its way on the screen, within 30 px of `anchor` along it. */
-async function across(page: Page, anchor: readonly [number, number], dir: readonly [number, number]): Promise<number> {
+/** The drawn ink's mean offset across the street, in CSS px to the right of its way on the screen, within `reach` px of `anchor` along it. */
+async function across(page: Page, anchor: readonly [number, number], dir: readonly [number, number], reach = 30): Promise<number> {
   const png = (await page.locator('#map').screenshot()).toString('base64');
   return page.evaluate(
-    async ([data, anchor, dir]) => {
+    async ([data, anchor, dir, reach]) => {
       const img = new Image();
       img.src = `data:image/png;base64,${data}`;
       await img.decode();
@@ -37,14 +39,14 @@ async function across(page: Page, anchor: readonly [number, number], dir: readon
           if (ink < 0.1) continue;
           const [dx, dy] = [x + 0.5 - anchor[0], y + 0.5 - anchor[1]];
           const [along, right] = [dx * ux + dy * uy, -dx * uy + dy * ux];
-          if (Math.abs(along) > 30 || Math.abs(right) > 80) continue;
+          if (Math.abs(along) > reach || Math.abs(right) > 80) continue;
           weights += ink;
           sum += ink * right;
         }
       }
       return weights > 0 ? sum / weights : Number.NaN;
     },
-    [png, anchor, dir] as const,
+    [png, anchor, dir, reach] as const,
   );
 }
 
@@ -72,5 +74,33 @@ test('a bus with its line’s side stands on the ribbon’s middle, flat and til
     // The ribbon stands its side's ribbons over, so it was drawn at all, and the bus on its middle to a pixel and a half.
     expect.soft(Math.abs(onRibbon), `${name}: the ribbon off the street's middle`).toBeGreaterThan(2);
     expect.soft(Math.abs(onBus - onRibbon), `${name}: the bus ${onBus.toFixed(2)} px across, its ribbon ${onRibbon.toFixed(2)}`).toBeLessThan(1.5);
+  }
+});
+
+// A line's name stands on its own ribbon, where the line's place on the street puts it (overlays.ts NAME_LAYOUT): in the street's
+// middle, on Tremont Street every name of Lines 2, 5 and 9 side by side stood over Line 5's ribbon, Line 2's 9.8 px from its own
+// (the systems audit's twenty-first round). Either way up: MapLibre turns a line's words to read upright, and keeps their offset on
+// the same side of the line. Shown failing (TS-04) with the names in the street's middle.
+const NAMES: readonly (Pick<RibbonCase, 'zoom' | 'heading' | 'side'> & { readonly name: string })[] = [
+  { name: 'zoom 16, heading 90, to the right', zoom: 16, heading: 90, side: 1.5 },
+  { name: 'zoom 16, heading 270, the words turned the other way up', zoom: 16, heading: 270, side: 1.5 },
+  { name: 'zoom 16, heading 20, to the left', zoom: 16, heading: 20, side: -1 },
+  { name: 'zoom 16, heading 200, to the left, the other way up', zoom: 16, heading: 200, side: -1 },
+  { name: 'zoom 14, heading 135, two places over', zoom: 14, heading: 135, side: 2 },
+];
+
+test('a line’s name stands on its own ribbon, either way up', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto(server.resolvedUrls!.local[0]!);
+  await page.waitForFunction(() => window.ribbonsReady === true, null, { timeout: 60_000 });
+  for (const { name, ...c } of NAMES) {
+    const at = { ...c, pitch: 0, at: [0.5, 0.5] as const };
+    const ribbon = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'ribbon' }), at);
+    const onRibbon = await across(page, ribbon.anchor, ribbon.dir, 160);
+    const words = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'name' }), at);
+    const onName = await across(page, words.anchor, words.dir, 160);
+    expect.soft(Math.abs(onRibbon), `${name}: the ribbon off the street's middle`).toBeGreaterThan(2);
+    expect.soft(Math.abs(onName - onRibbon), `${name}: the name ${onName.toFixed(2)} px across, its ribbon ${onRibbon.toFixed(2)}`).toBeLessThan(1.5);
   }
 });

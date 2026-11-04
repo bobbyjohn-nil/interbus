@@ -53,8 +53,10 @@ export interface MapViewProps {
   readonly depotLand?: readonly (readonly LngLatPair[])[] | null;
   readonly tint?: boolean;
   readonly depots?: readonly DepotView[];
-  /** The line being drawn, or null. */
+  /** The line being drawn, or a route being edited, or null. */
   readonly draft?: LineDraftView | null;
+  /** The line whose route the draft edits, or null for a new line (overlays.ts setDraft). */
+  readonly draftLine?: number | null;
   /** Whether a double-click held on the map tilts it: only while no tool is out (loadMap.ts). */
   readonly tiltGesture?: boolean;
   /** The city event pending or on, drawn on its street. */
@@ -97,14 +99,14 @@ export function eventLayerKey(event: EventView | null): string {
 
 const BOTH: DotKinds = { home: true, job: true };
 
-export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, tiltGesture = true, event = null, clock = null, quiet = false, unsaved = null }: MapViewProps) {
+export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], linesVersion = 0, onPointer, onClick, depotLand = null, tint = false, depots = [], draft = null, draftLine = null, tiltGesture = true, event = null, clock = null, quiet = false, unsaved = null }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null);
   /** Set as soon as the map exists, for the game's layers (which wait for the style themselves). */
   const mountedRef = useRef<MountedMap | null>(null);
   const [dotsDrawn, setDotsDrawn] = useState<number | null>(null);
-  const latest = useRef({ dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, tiltGesture, event, clock });
+  const latest = useRef({ dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, draftLine, tiltGesture, event, clock });
   useEffect(() => {
-    latest.current = { dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, tiltGesture, event, clock };
+    latest.current = { dots, dotKinds, lines, stops, onPointer, onClick, depotLand, tint, depots, draft, draftLine, tiltGesture, event, clock };
   });
   const dotKindsKey = (['home', 'job'] as const).filter((k) => dotKinds[k]).join(',');
   // data-event keeps its old form, which e2e/events.spec.ts reads; the layer has a fuller key below.
@@ -230,7 +232,7 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
         if (now.depotLand) mounted.setDepotLand(now.depotLand);
         drawDepots(mounted, now.depots);
         mounted.setTint(now.tint);
-        mounted.setDraft(now.draft);
+        mounted.setDraft(now.draft, now.draftLine);
         mounted.setEvent(now.event);
         if (now.clock) mounted.setClock(now.clock.second, now.clock.rate, now.clock.day);
         mounted.onPointer((at, screen, dot) => latest.current.onPointer?.(at, screen, dot));
@@ -304,8 +306,8 @@ export function MapView({ dots = null, dotKinds = BOTH, lines = [], stops = [], 
   }, [tint]);
 
   useEffect(() => {
-    mountedRef.current?.setDraft(draft);
-  }, [draft]);
+    mountedRef.current?.setDraft(draft, draftLine);
+  }, [draft, draftLine]);
 
   useEffect(() => {
     mountedRef.current?.setEvent(latest.current.event);

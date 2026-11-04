@@ -2,10 +2,12 @@
 // colour (PLAN §8), each line named along its route and jobs ringed where homes are filled. Shown failing (TS-04) on the old
 // overlays: three contract layers, one flag setting both dot layers, and lines and dots told apart by colour alone.
 import { describe, expect, it } from 'vitest';
+import { createExpression, latest } from '@maplibre/maplibre-gl-style-spec';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { addOverlays, setDotKinds, setLines } from './overlays';
+import { addOverlays, setDotKinds, setDraft, setEvent, setLines } from './overlays';
+import { placesOf } from './sides';
 import { ringExpressions } from './pick';
-import type { LineView, StopView } from '../../sim/types';
+import type { EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { FONT_STACKS } from './style';
 import { GAME_LIGHT, LIGHT } from './tokens';
 
@@ -74,14 +76,82 @@ describe('the game layers', () => {
     // of the twelfth round's second lane).
     expect(layers.slice(layers.indexOf('lines-route-resting'), layers.indexOf('lines-name') + 1)).toEqual(['lines-route-resting', 'lines-stops-resting', 'lines-route', 'lines-name-resting', 'lines-name']);
     for (const under of ['lines-stops', 'stops-lone', 'stops-flag-ring-resting', 'stops-flag-ring', 'stops-flag-word-resting', 'stops-flag-word']) expect(layers.indexOf('lines-name')).toBeLessThan(layers.indexOf(under));
-    // The name runs along the whole route, apart from the route's runs, which carry the line's colour and place (sides.ts).
+    // The name runs along each of the route's runs, at its place, as the runs carry the line's colour and place (sides.ts).
     const line = { id: 2, name: 'Line 2', colour: '#2471a3', route: [[-71.08, 42.35], [-71.09, 42.34]], stops: [], stopIds: [] } as unknown as LineView;
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);
     const features = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] }).features;
     const name = features.find((f) => f.properties.kind === 'name')!;
-    expect(name.properties).toMatchObject({ name: 'Line 2', id: 2 });
+    expect(name.properties).toMatchObject({ name: 'Line 2', id: 2, side: 0 });
     expect(name.geometry.coordinates).toEqual(line.route);
     expect(features.find((f) => f.properties.kind === 'route')!.properties).toMatchObject({ colour: '#2471a3', id: 2, side: 0 });
+  });
+
+  // The names sat in the street's middle, over another line's ribbon: on Tremont Street, Lines 2, 5 and 9 side by side, every
+  // name stood over Line 5's, Line 2's 9.8 px from its own (the systems audit's twenty-first round). Each name runs along its
+  // line's runs now, offset as its ribbon is. Shown failing (TS-04) on 409570e, whose names had no side and no offset.
+  it('stand each line’s name on its own ribbon where lines share a street', () => {
+    const { map, specs, data } = fakeMap();
+    addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+    const route: LngLatPair[] = [
+      [-71.08, 42.35],
+      [-71.078, 42.35],
+    ];
+    const lines = [2, 5, 9].map((id) => ({ id, name: `Line ${id}`, colour: '#2471a3', route, stops: [], stopIds: [] }) as unknown as LineView);
+    setLines(map as unknown as MapLibreMap, lines, [] as StopView[]);
+    const features = (data[0] as { features: { properties: Record<string, unknown> }[] }).features;
+    const sideOf = (kind: string, id: number) => features.find((f) => f.properties.kind === kind && f.properties.id === id)!.properties.side;
+    for (const id of [2, 5, 9]) expect(sideOf('name', id)).toBe(sideOf('route', id));
+    expect(new Set([2, 5, 9].map((id) => sideOf('name', id)))).toEqual(new Set([-1, 0, 1]));
+    // Across by its side times a ribbon, in ems of the 12 px words: 3 px a place at zoom 12, 7 at 16.
+    const made = createExpression(specs.get('lines-name')!.layout!['text-offset'], latest.layout_symbol['text-offset'] as never);
+    if (made.result !== 'success') throw new Error(made.value.map((e) => e.message).join('; '));
+    const offset = (zoom: number, side: number) => made.value.evaluate({ zoom }, { type: 'LineString', properties: { side } } as never) as number[];
+    expect(offset(16, 1)[0]).toBe(0);
+    expect(offset(16, 1)[1]).toBeCloseTo(7 / 12, 9);
+    expect(offset(16, -1.5)[1]).toBeCloseTo((-1.5 * 7) / 12, 9);
+    expect(offset(12, 2.5)[1]).toBeCloseTo((2.5 * 3) / 12, 9);
+    expect(offset(14, 0)[1]).toBeCloseTo(0, 9);
+  });
+
+  // Roadworks' hatching, 15 px wide at zoom 16, showed none beside three lines' 21 px of ribbons on a street they share, and half
+  // a pixel a side beside two (the systems audit's twenty-first round). It is as wide as the lines there and 4 px a side more.
+  // Shown failing (TS-04) on 409570e, whose street was one feature of no width of its own.
+  it('draw a city event’s street wider than every line on it, side by side', () => {
+    const { map, specs, data } = fakeMap();
+    addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+    const P = (x: number): LngLatPair => [-71.08 + 0.002 * x, 42.35];
+    const lines = [1, 2, 3].map((id) => ({ id, route: id === 3 ? [P(1), P(2)] : [P(0), P(1), P(2)] }));
+    const event = { kind: 'roadworks', phase: 'pending', daysLeft: 2, at: P(1), path: [[P(0), P(1), P(2), P(3)]] } as unknown as EventView;
+    setEvent(map as unknown as MapLibreMap, event, placesOf(lines));
+    const streets = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] }).features.filter((f) => f.properties.kind === 'street');
+    expect(streets.map((f) => [f.properties.places, f.geometry.coordinates])).toEqual([
+      [2, [P(0), P(1)]],
+      [3, [P(1), P(2)]],
+      [0, [P(2), P(3)]],
+    ]);
+    const made = createExpression(specs.get('event-pending')!.paint!['line-width'], latest.paint_line['line-width'] as never);
+    if (made.result !== 'success') throw new Error(made.value.map((e) => e.message).join('; '));
+    const width = (zoom: number, places: number) => made.value.evaluate({ zoom }, { type: 'LineString', properties: { places } } as never) as number;
+    expect([0, 1, 2, 3].map((n) => width(16, n))).toEqual([15, 15, 22, 29]);
+    expect([0, 1, 3].map((n) => width(12, n))).toEqual([7, 7, 13]);
+  });
+
+  // The route editor's drawing lay in the street's middle, over the middle line's ribbon: Line 2's draft on Tremont Street sat
+  // over Line 5's, 7 px from its own (the systems audit's twenty-first round). Shown failing (TS-04) on 409570e, whose draft had no
+  // side.
+  it('draw a route being edited at its line’s places on the streets it drives already, and a new line’s in the middle', () => {
+    const { map, specs, data } = fakeMap();
+    addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+    const P = (x: number): LngLatPair => [-71.08 + 0.002 * x, 42.35];
+    const lines = [2, 5, 9].map((id) => ({ id, route: [P(0), P(1)] }));
+    const places = placesOf(lines);
+    const draft = { stops: [], route: [P(0), P(1), P(2)], walkM: 400 } as unknown as LineDraftView;
+    setDraft(map as unknown as MapLibreMap, draft, places, 2);
+    const routes = (d: unknown) => (d as { features: { properties: Record<string, unknown> }[] }).features.filter((f) => f.properties.kind === 'route').map((f) => f.properties.side);
+    expect(routes(data[0])).toEqual([-1, 0]);
+    setDraft(map as unknown as MapLibreMap, draft, places, null);
+    expect(routes(data[1])).toEqual([0]);
+    expect(specs.get('draft-route')!.paint!['line-offset']).toEqual(specs.get('lines-route')!.paint!['line-offset']);
   });
 
   it('draw homes filled and jobs ringed, so the two kinds differ in shape as well as colour', () => {

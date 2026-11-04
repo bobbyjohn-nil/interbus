@@ -12,7 +12,7 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { linesBeside, placesOf, type Places } from './sides';
+import { linesHere, placesOf, ribbonPx, type Places } from './sides';
 import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
@@ -73,7 +73,8 @@ export interface MountedMap {
   setDepots(depots: readonly DepotView[]): void;
   /** Shows the depot-land tint while a depot is being placed. */
   setTint(visible: boolean): void;
-  setDraft(draft: LineDraftView | null): void;
+  /** The line being drawn, or a route being edited for line `line` (overlays.ts setDraft). */
+  setDraft(draft: LineDraftView | null, line?: number | null): void;
   /** The city event's street, pending or on, or none. */
   setEvent(event: EventView | null): void;
   /** The sim's clock at a snapshot, for the vehicle layer: seconds of the day, game seconds per real second, and the game day. */
@@ -98,7 +99,7 @@ export interface HoveredDot {
 /** What a click lands on: a line and, at one of its stops, that stop; and whether it is a double-click's second click. */
 export interface MapHit {
   readonly lineId: number | null;
-  /** Every line under the click, the topmost first as the map draws them: lines on the same streets draw over one another. */
+  /** Every line at the click, each nearest the click first by its own ribbon, the running lines before the resting ones (sides.ts linesHere). */
   readonly lineIds: readonly number[];
   readonly stopId: number | null;
   readonly double: boolean;
@@ -345,7 +346,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     depotLand?: readonly (readonly LngLatPair[])[];
     depots?: readonly DepotView[];
     tint?: boolean;
-    draft?: LineDraftView | null;
+    draft?: { readonly draft: LineDraftView | null; readonly line: number | null };
     dotKinds?: DotKinds;
     event?: EventView | null;
   } = {};
@@ -387,6 +388,9 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let linesNow: readonly LineView[] = [];
   // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click.
   let placesNow: Places = new Map();
+  /** The city event shown, and the line drawn or edited, each drawn again as the lines on their streets change (`places`). */
+  let eventNow: EventView | null = null;
+  let draftNow: { readonly draft: LineDraftView | null; readonly line: number | null } = { draft: null, line: null };
   let stopsNow: readonly StopView[] = [];
   let restingShown = '|';
   let restingNow: readonly number[] = [];
@@ -435,9 +439,9 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     if (waiting.depotLand) setDepotLand(map, waiting.depotLand);
     if (waiting.depots) setDepots(map, waiting.depots);
     if (waiting.tint !== undefined) setTint(map, waiting.tint);
-    if (waiting.draft !== undefined) setDraft(map, waiting.draft);
+    if (waiting.draft !== undefined) setDraft(map, waiting.draft.draft, placesNow, waiting.draft.line);
     if (waiting.dotKinds) setDotKinds(map, waiting.dotKinds);
-    if (waiting.event !== undefined) setEvent(map, waiting.event);
+    if (waiting.event !== undefined) setEvent(map, waiting.event, placesNow);
     if (lightWanted !== light) showLight(lightWanted, false);
     rest();
   };
@@ -547,24 +551,25 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS, 'lines-name', ...RESTING_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
-    // The running lines first, then the resting ones, each as MapLibre lists them, topmost first: a resting line's faded name lies
-    // over the running routes, and a click on it listed the resting line ahead (the systems audit's thirteenth round). The stop is
-    // still the topmost one under the click.
+    // The lines hit, and every line beside them on the street clicked, which side by side may stand beyond the click's 4 px: each
+    // by how far its own ribbon lies from the click (sides.ts linesHere), then the running lines first, then the resting ones: a
+    // resting line's faded name lies over the running routes, and a click on it listed the resting line ahead (the systems audit's
+    // thirteenth round). The stop is still the topmost one under the click.
+    // A line the click hit with no route here comes last, the running lines' layers first, each as MapLibre lists them.
     const resting = (h: (typeof hits)[number]) => (RESTING_LAYERS as readonly string[]).includes(h.layer.id);
     const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
     const hitIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
-    // With them, every line beside them on the street clicked, which side by side may stand beyond the click's 4 px (sides.ts):
-    // the running lines still first, then the resting ones.
     const project = (p: LngLatPair): [number, number] => {
       const at = map.project(p);
       return [at.x, at.y];
     };
-    // Each hit with the run of its route the map drew there, if it was a route's run (overlays.ts setLines).
+    // Each hit with the run of its route the map drew there, if it was a route's run or its name's (overlays.ts setLines).
     const hitRuns = ordered.flatMap((h) => {
       const id = numberOf(h.properties?.id);
       return id === null ? [] : [{ id, first: numberOf(h.properties?.first) ?? undefined, last: numberOf(h.properties?.last) ?? undefined }];
     });
-    const all = [...new Set([...hitIds, ...linesBeside(placesNow, linesNow, hitRuns, [e.point.x, e.point.y], project)])];
+    const near = linesHere(placesNow, linesNow, hitRuns, [e.point.x, e.point.y], project, ribbonPx(map.getZoom()));
+    const all = [...near, ...hitIds.filter((id) => !near.includes(id))];
     const rests = new Set(restingNow);
     const lineIds = [...all.filter((id) => !rests.has(id)), ...all.filter((id) => rests.has(id))];
     click?.([e.lngLat.lng, e.lngLat.lat], { lineId: lineIds[0] ?? null, lineIds, stopId: numberOf(stop?.properties?.stop), double });
@@ -603,6 +608,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       stopsNow = stops;
       if (loaded) setLines(map, lines, stops, placesNow);
       else pending.lines = { lines, stops, places: placesNow };
+      if (loaded && eventNow) setEvent(map, eventNow, placesNow);
+      if (loaded && draftNow.draft) setDraft(map, draftNow.draft, placesNow, draftNow.line);
       rest();
     },
     setClock: (second, rate, day) => {
@@ -622,8 +629,16 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     setDepotLand: (rings) => (loaded ? setDepotLand(map, rings) : void (pending.depotLand = rings)),
     setDepots: (depots) => (loaded ? setDepots(map, depots) : void (pending.depots = depots)),
     setTint: (visible) => (loaded ? setTint(map, visible) : void (pending.tint = visible)),
-    setDraft: (draft) => (loaded ? setDraft(map, draft) : void (pending.draft = draft)),
-    setEvent: (event) => (loaded ? setEvent(map, event) : void (pending.event = event)),
+    setDraft: (draft, line = null) => {
+      draftNow = { draft, line };
+      if (loaded) setDraft(map, draft, placesNow, line);
+      else pending.draft = draftNow;
+    },
+    setEvent: (event) => {
+      eventNow = event;
+      if (loaded) setEvent(map, event, placesNow);
+      else pending.event = event;
+    },
     // Asked of both layers whatever is shown: MapLibre leaves a hidden layer out, so this counts what draws.
     // Distinct dots: a dot near a tile's edge is drawn in each tile it reaches, and counted once.
     dotsDrawn: () => {

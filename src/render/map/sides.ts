@@ -89,12 +89,28 @@ export function sidesAlong(places: Places, id: number, route: readonly LngLatPai
   return sides;
 }
 
+/** How many places each segment of `route` has (route.length - 1 of them), as `places` stands the lines: 0 where no line drives it. */
+export function placesAlong(places: Places, route: readonly LngLatPair[]): Float32Array {
+  const counts = new Float32Array(Math.max(0, route.length - 1));
+  eachSegment(route, (i, key) => void (counts[i] = places.get(key)?.length ?? 0));
+  return counts;
+}
+
 /** The squared distance from `p` to the segment from `a` to `b`, all on screen. */
 function toSegment(p: readonly [number, number], a: readonly [number, number], b: readonly [number, number]): number {
   const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
   const length = dx * dx + dy * dy;
   const t = length > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length)) : 0;
   return (a[0] + t * dx - p[0]) ** 2 + (a[1] + t * dy - p[1]) ** 2;
+}
+
+/** The squared distance from `p` to the ribbon `px` pixels to the right of the segment from `a` to `b`, as line-offset lays it (screen, y down). */
+function toRibbon(p: readonly [number, number], a: readonly [number, number], b: readonly [number, number], px: number): number {
+  const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return toSegment(p, a, b);
+  const [rx, ry] = [(-dy / length) * px, (dx / length) * px];
+  return toSegment(p, [a[0] + rx, a[1] + ry], [b[0] + rx, b[1] + ry]);
 }
 
 /** A line a click hit, and the run of its route the map drew there (runsOf's first and last segments) when it hit one. */
@@ -105,33 +121,47 @@ export interface Hit {
 }
 
 /**
- * The lines beside those a click hit: every line on the segment nearest the click (`at`, on screen, where `project` puts a place)
- * of each hit line's run, or of its whole route for a hit on its name or a stop, in their places from the left of that segment's
- * own way. Side by side, the lines on a street stand wider than a click's few pixels reach, so a click on any of them takes them
- * all in, as a click took in every line drawn over another before (DECISIONS, Open: many lines on the map, (b)). Only the run's
- * own segments: the map finds a ribbon where line-offset draws it, but the nearest segment of the whole route, by the street's
- * middle, lay in the street a line turns into near a corner where it turns toward its side, and a click on its ribbon there
- * listed it alone (the change's review).
+ * The lines at a click, nearest first: every line on the segment whose ribbon, among those of the runs the map hit (`hits`, or a
+ * hit line's whole route for a hit on its name or a stop), lies nearest the click (`at`, on screen, where `project` puts a place,
+ * `ribbon` pixels a place), each by how far its own ribbon there lies from the click, then any other line hit, by its own. Side by
+ * side, the lines on a street stand wider than a click's few pixels reach, so a click on any of them takes them all in, as a
+ * click took in every line drawn over another before (DECISIONS, Open: many lines on the map, (b)). Only the run's own segments:
+ * the map finds a ribbon where line-offset draws it, but the nearest segment of the whole route, by the street's middle, lay in
+ * the street a line turns into near a corner where it turns toward its side, and a click on its ribbon there listed it alone
+ * (the change's review). By the ribbons, not the street's middle and not the map's order of the hits: listed in MapLibre's
+ * order, a click in the middle of Line 2's ribbon put Line 5 first, and a click at a corner on Line 4 alone listed Lines 6 and 9
+ * too, which drive the street round it and have no ribbon within 8 px (the systems audit's twenty-first round).
  */
-export function linesBeside(
+export function linesHere(
   places: Places,
   lines: readonly RouteOf[],
   hits: readonly Hit[],
   at: readonly [number, number],
   project: (p: LngLatPair) => readonly [number, number],
+  ribbon: number,
 ): number[] {
-  const beside = new Set<number>();
+  // Where each line stands on a segment: its place from the street's middle, in pixels, to the right of the segment's own way.
+  const pxOf = (here: readonly unknown[], k: number) => (k - (here.length - 1) / 2) * ribbon;
+  const hitAt = new Map<number, number>();
+  let nearest = { key: '', a: [0, 0] as readonly [number, number], b: [0, 0] as readonly [number, number], d: Infinity };
   for (const { id, first, last } of hits) {
     const route = lines.find((l) => l.id === id)?.route ?? [];
-    const nearest = { key: '', d: Infinity };
-    eachSegment(route, (i, key) => {
+    eachSegment(route, (i, key, along) => {
       if ((first !== undefined && i < first) || (last !== undefined && i > last)) return;
-      const d = toSegment(at, project(route[i]!), project(route[i + 1]!));
-      if (d < nearest.d) Object.assign(nearest, { key, d });
+      const here = places.get(key) ?? [];
+      const k = here.findIndex((e) => e.id === id && e.along === along);
+      // The segment as its own way runs, its lesser end first, which the places stand from.
+      const [a, b] = along ? [project(route[i]!), project(route[i + 1]!)] : [project(route[i + 1]!), project(route[i]!)];
+      const d = toRibbon(at, a, b, k < 0 ? 0 : pxOf(here, k));
+      if (d < (hitAt.get(id) ?? Infinity)) hitAt.set(id, d);
+      if (d < nearest.d) nearest = { key, a, b, d };
     });
-    for (const e of places.get(nearest.key) ?? []) beside.add(e.id);
   }
-  return [...beside];
+  const by = new Map<number, number>();
+  const here = places.get(nearest.key) ?? [];
+  here.forEach((e, k) => by.set(e.id, Math.min(by.get(e.id) ?? Infinity, toRibbon(at, nearest.a, nearest.b, pxOf(here, k)))));
+  for (const [id, d] of hitAt) if (!by.has(id)) by.set(id, d);
+  return [...by].sort((x, y) => x[1] - y[1]).map(([id]) => id);
 }
 
 /** A route cut where its side changes: each run's points (its ends shared with the runs either side), its side, and its first and last segments. */

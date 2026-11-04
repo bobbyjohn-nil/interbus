@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Boston starts with no buses, trains or ferries of its own: the map carries none of today's stops, stations, rail lines or ferry routes, and the bus-only streets show as ordinary streets your buses can use.
 - Running a line costs money: $0.90 for each kilometer a bus drives, $26 an hour for each driver on the road, the drive from the depot and back, and $300 a day for each depot. The midnight card lists each, and a Costs/day chip shows what the day is forecast to cost.
 - Stops cost upkeep: a thousandth of what a stop cost to build, every day, so a Sign costs $4 a day, a Shelter $16, a Station $51, an Interchange $141 and a Transfer Hub $341. A stop's card says its upkeep and the next tier's, its upkeep counts in what the stop earns, and Costs/day includes it.
-- A click where several lines run on the same streets lists them all, each with a button that opens its line, instead of opening only the line drawn on top.
+- A click where several lines run on the same streets lists them all, the line you clicked on first, each with a button that opens its line, instead of opening only the line drawn on top.
 - A line with more buses than its headways need, after you run it less often or shorten its route, says so on its card, with a button that sells the spare buses for half what they cost and frees their places at the depot. A slower headway's card says how many of the line's buses it needs.
 - Close line, beside Edit route in Lines, takes a line away after asking: its buses leave the streets at once and sell for half what they cost, and its stops that no other line calls at come down, giving back half of what they and their fittings cost. Undo, while paused, takes back a line closed or spare buses sold, cash and all.
 - Each line's card in Lines lists its stops in route order: press one to open that stop's card, from the keyboard too. Before, only a press on the stop on the map opened it.
@@ -116,7 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - How far people commute now follows Boston's own census records rather than a generic guess, so trips are a little shorter on average and a line from Copley to Longwood carries about 3% fewer riders.
 - Small print is easier to read and small buttons easier to press: the Build menu's descriptions, Finance's chart labels, the route editor's stop numbers and an express line's tag are 12 px or more, and the route editor's Move up, Move down and Remove buttons are 24 px. A crowded chart names fewer of its days, and its money scale sits above the bars instead of on them.
 - When your computer is set to reduce motion, the compass turns at once instead of easing.
-- Each line’s name runs along its route on the map where it has room, beside its colour, and a click on a name opens its line. Where lines share a street one name shows, and a click there lists them all.
+- Each line’s name runs along its route on the map where it has room, along its colour, and a click on a name opens its line. Where lines share a street, each name that has room runs along its own line's colour, and a click there lists them all.
 - On the demand map, jobs are drawn as rings and homes as filled dots, in its legend and on its button too, so the two differ in shape as well as colour.
 - A contract’s figure for today ends in “met now” or “not met now”, beside its colour.
 - The clock says which period it is, Peak, Off-peak or Overnight, after the time. The year moved to the date's tooltip to make room, and screen readers still read it.
@@ -353,6 +353,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In Low graphics, the map darkens at dusk and lightens at dawn a step at a time, as it does with less motion asked for, instead of fading each step, which drew more frames than Low graphics allows.
 - While every bus is parked, overnight or before the day's first bus, the map no longer redraws itself over and over with nothing on it moving.
 - The `?fps` readout no longer reads tens or hundreds of frames a second just after a pause or a hitch: it counts the frames drawn over the last two seconds.
+- On a street several lines share, each line's name runs along its own line's colour. Before, every name there ran along the street's middle, over the middle line's colour.
+- Roadworks' hatching shows on both sides of the lines on a street several lines share. Before, two lines' colours all but covered it, and three hid it.
+- Editing a line's route draws the route along that line's own colour on the streets it already drives. Before, it ran along the street's middle, over another line's colour.
+- A click on a street several lines share lists the line whose colour you clicked first, then the others by how close they run. Before, the order had nothing to do with where you clicked.
+- A click by a corner lists only the lines on the street you clicked. Before, it could list lines on the street round the corner too.
 
 ### Removed
 
