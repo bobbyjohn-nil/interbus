@@ -7,13 +7,13 @@ import { expect, test, type Page } from './base';
 import { foundCompany, leaveHome } from './found';
 import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { RESTING_OPACITY } from '../src/render/map/overlays';
-import { dim, NIGHT_STEP } from '../src/render/map/daylight';
+import { DAYLIGHT_FADE_MS, dim, NIGHT_STEP } from '../src/render/map/daylight';
 import { GAME_LIGHT, LIGHT } from '../src/render/map/tokens';
 import { city, frames, toScreen, withDebugLine, type SaveData } from './shell';
 
-/** The debug line's game past Home, paused at `second` of day 2's clock (a second past 24:00 is the night after it). */
-async function at(page: Page, second: number, edit?: (d: SaveData) => void) {
-  await page.goto('./');
+/** The debug line's game past Home, paused at `second` of day 2's clock (a second past 24:00 is the night after it); `query` for the page. */
+async function at(page: Page, second: number, edit?: (d: SaveData) => void, query = '') {
+  await page.goto(`./${query}`);
   await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   // Home over a new game at 05:00 stands in daylight: dawn ended at 06:30 at first, and Home, the founding card and the first
   // line all stood on a map three quarters of the way to night (the review of the day and night tint).
@@ -75,6 +75,16 @@ test.describe('the day and night tint', () => {
     await expect(map).toHaveAttribute('data-daylight-fade', '0');
     // MapLibre takes every paint: a value it refused would be logged.
     expect(errors).toEqual([]);
+  });
+
+  // In Full graphics each step still fades, over DAYLIGHT_FADE_MS: the test above draws in Low graphics, which steps at once.
+  test('fades each step in Full graphics', async ({ page }) => {
+    await at(page, hour(18, 55), undefined, '?gpu=full');
+    const map = page.getByTestId('map');
+    await expect(map).toHaveAttribute('data-daylight', '0');
+    await page.keyboard.press('3'); // 600×: 19:00 in half a second
+    await expect(map).toHaveAttribute('data-daylight', '1', { timeout: 30_000 });
+    await expect(map).toHaveAttribute('data-daylight-fade', String(DAYLIGHT_FADE_MS));
   });
 
   // One night, as one test for the first quarter's room (three cost about a minute of CI): a line with overnight off rests once its
