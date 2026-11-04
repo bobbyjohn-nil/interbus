@@ -179,6 +179,40 @@ test.describe('the game’s dropdown', () => {
     expect(await at()).toBe(was);
   });
 
+  // A press on another panel's heading raised that panel over the control the keyboard was on, and Space then pressed the control
+  // unseen: Buy and run, for $190,000, under Finance (the review of the twenty-first round). Only a drag of the panel the keyboard
+  // is in keeps the focus's source. Shown failing (TS-04) with every heading's press keeping it.
+  test('leaves Space to the game after a press on another panel’s heading', async ({ page }) => {
+    await page.setViewportSize({ width: W, height: H });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance').getByTestId('finance-lines').click();
+    const fare = page.getByRole('button', { name: 'Fare for Line 1' });
+    await fare.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(fare).toBeFocused();
+    await page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await expect(lines).toBeVisible();
+    await fare.focus(); // the dock's Lines took the press's focus: back to the fare, as the keyboard left it
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(fare).toBeFocused();
+    const h = (await lines.locator('h2').first().boundingBox())!;
+    await page.mouse.move(h.x + 10, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(fare).toBeFocused();
+    const speed = page.getByTestId('sim-panel');
+    await page.keyboard.press(' ');
+    await expect(speed).not.toHaveAttribute('data-speed', '0');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+  });
+
   test('leaves a panel dragged past the window’s edge where it is for Space, which plays on a fare the mouse pressed', async ({ page }) => {
     const { at } = await fareDraggedOff(page, 'by the mouse');
     const was = await at();

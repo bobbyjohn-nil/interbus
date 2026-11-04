@@ -17,10 +17,12 @@
 // A silent key (Escape, a modifier alone) counts for the focus that arrives as it is heard, as the menu's hand-back does, and
 // no longer: kept until the next key or press, it gave a later arrival, the game's hand-on to Build as Ctrl+Z's answer took
 // Lines from under the keyboard, Build's source as the mouse had last left it, so Build showed the ring and Space played, 15
-// runs of 15 with a Shift pressed as the answer was on its way (the systems audit's twenty-first round). A press on a panel's
-// heading drags the panel, keeping the focus on its control (Panels), so it keeps the focus's source too: read as the
-// pointer's, Enter on the control the keyboard was on then opened Lines without the focus, which fell to the page, 30 runs
-// of 30 (the same round).
+// runs of 15 with a Shift pressed as the answer was on its way (the systems audit's twenty-first round). And only heard where
+// the focus is, as a menu's Escape is: an Escape heard on the page, its control gone with Lines, ran the game's hand-on in its
+// own dispatch, React putting its waiting effects through before the Escape's own update, and Build got the mouse's source
+// again, 3 runs of 3 with a real key (the round's review). A press on the heading of the panel the keyboard is in drags it,
+// keeping the focus on its control (Panels), so it keeps the focus's source too: read as the pointer's, Enter on the control
+// then opened Lines without the focus, which fell to the page, 30 runs of 30 (the round).
 import { CONTROLS } from './onePress';
 
 /**
@@ -36,7 +38,7 @@ const DISPATCHED = 0;
 export interface FocusSource {
   /** A pointer press or a key, as the window hears it, with its phase (`eventPhase`, read again as the focus arrives). */
   input(event: { readonly type: string; readonly key?: string; readonly target?: unknown; readonly eventPhase?: number }): void;
-  /** The last pointer press dragged a panel by its heading, which leaves the focus where it was and as it came. */
+  /** The last pointer press dragged the panel the focus is in by its heading, which leaves the focus where it was and as it came. */
   dragged(): void;
   /** The window itself lost the focus, `active` holding it. */
   left(active: unknown): void;
@@ -48,8 +50,8 @@ export interface FocusSource {
 
 export function focusSource(): FocusSource {
   let pressedByKey = false;
-  // The last silent key, while it is the last key or press: silent for an arrival only while the window still dispatches it
-  // (one with no phase, as a test's, until the next key or press).
+  // The last silent key heard where the focus last arrived, while it is the last key or press: silent for an arrival only while
+  // the window still dispatches it (one with no phase, as a test's, until the next key or press).
   let silentKey: { readonly eventPhase?: number } | null = null;
   // The sources as they stood before the last pointer press, for a drag that leaves them so.
   let beforePress: { readonly pressedByKey: boolean; readonly byKey: boolean } | null = null;
@@ -63,7 +65,7 @@ export function focusSource(): FocusSource {
   return {
     input(event) {
       const silent = event.type !== 'pointerdown' && SILENT.includes(event.key ?? '');
-      silentKey = silent ? event : null;
+      silentKey = silent && event.target === at ? event : null;
       beforePress = null;
       if (event.type === 'pointerdown') {
         beforePress = { pressedByKey, byKey };

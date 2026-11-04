@@ -356,10 +356,14 @@ export function Panels({
       // Create waited for the sim let it go, and the new line's card opened next where Enter had brought it in (the fix's
       // review, 3 runs of 3), and so did AltGr and Caps Lock, 38 px left of where it was dragged (the twenty-first round).
       if (!(event instanceof KeyboardEvent && MODIFIERS.includes(event.key))) pressedFrom.current = null;
+      // The × or Cancel by the key that presses it, Enter or Space: Ctrl+Z on Lines' × counted, and the game's close of Lines that
+      // it took back gave the page the focus (the round's review).
       ownClose.current =
         event instanceof KeyboardEvent &&
         !inOpenList(event.target) &&
-        (event.key === "Escape" || event.key === "?" || (event.target instanceof Element && event.target.closest("button.close, [data-closes]") !== null));
+        (event.key === "Escape" ||
+          event.key === "?" ||
+          ((event.key === "Enter" || event.key === " ") && event.target instanceof Element && event.target.closest("button.close, [data-closes]") !== null));
     };
     document.addEventListener("focusin", at, true);
     document.addEventListener("pointerdown", at, true);
@@ -567,8 +571,8 @@ export function Panels({
   // one a control takes for itself (its handler stops the key's own default, as a list's button does ArrowDown and ArrowUp to
   // open its list). A list then opens beside a button in view: from Finance dragged past the window's right edge, ArrowDown on
   // a fare kept by the keyboard through the drag opened its list wholly off the window, holding the keys, and Enter set a fare
-  // unseen (the systems audit's seventeenth round). A key that works nothing there moves nothing: Space, which plays and pauses
-  // once a press has dragged the panel, brought it back as it did, and so did an arrow on a plain button (the round's review).
+  // unseen (the systems audit's seventeenth round). A key that works nothing there moves nothing: Space where it plays and pauses,
+  // on a control the mouse pressed, brought it back as it did, and so did an arrow on a plain button (the round's review).
   // A control in a change card or an ask, such as Close line's, shows its card whole, so its words are read: 70% of Close
   // line's ask lay past the edge as Close it was pressed.
   // Only the keyboard's focus moves it (:focus-visible): a press focuses what is under the pointer, on screen already, though
@@ -606,10 +610,12 @@ export function Panels({
     // and starts none. The first on the panel, not the page's first: a finger resting on the map left the one on a heading
     // dragging nothing, where it had dragged the panel 200 px (the round's review).
     if (event.button !== 0 || event.nativeEvent === cutBy.current || !target.closest("h2") || target.closest("button, a, input")) return;
-    // The focus stays where it was, so it stays as it came: the press read as the pointer's left the keyboard's Enter on Create
-    // opening Lines without the focus, which fell to the page (the systems audit's twenty-first round).
-    draggedBy();
+    // The focus stays where it was, so in the panel it is in it stays as it came: the press read as the pointer's left the
+    // keyboard's Enter on Create opening Lines without the focus, which fell to the page (the systems audit's twenty-first round).
+    // Only that panel's: a press on another's heading raised it over the control, and Space then pressed what no one could see,
+    // Buy and run for $190,000 under Finance (the round's review).
     const box = event.currentTarget;
+    if (box.contains(document.activeElement)) draggedBy();
     const pointer = event.pointerId;
     const start = box.getBoundingClientRect();
     const [x0, y0] = [event.clientX, event.clientY];
