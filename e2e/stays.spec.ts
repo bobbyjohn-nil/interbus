@@ -608,8 +608,9 @@ test.describe('what stays where the player left it', () => {
 
   // A modifier alone let the place go too, as every key did, though it presses nothing: Shift pressed as Create waited for the
   // sim's answer, and the new line's card opened next where Enter had brought it in, 38 px left of where it was dragged (the
-  // fix's review, 3 runs of 3). The sim's answers wait here until the keys are in. Shown failing (TS-04) with every key letting
-  // the place go.
+  // fix's review, 3 runs of 3), and so did AltGr and Caps Lock, as the four modifiers alone kept it (the systems audit's
+  // twenty-first round, 3 runs of 3 at five sizes). The sim's answers wait here until the keys are in. Shown failing (TS-04)
+  // with every key letting the place go, and on 409570e for AltGr and Caps Lock.
   test('a modifier pressed as a dragged card waits on the sim leaves it to open where it was dragged', async ({ page }) => {
     const W = page.viewportSize()!.width;
     await page.addInitScript(holdAnswers);
@@ -628,13 +629,51 @@ test.describe('what stays where the player left it', () => {
     await hold(page);
     await page.keyboard.press('Enter');
     await expect(create).toBeDisabled();
-    for (const key of ['Shift', 'Control', 'Alt']) await page.keyboard.press(key);
+    for (const key of ['Shift', 'Control', 'Alt', 'CapsLock']) await page.keyboard.press(key);
+    // AltGr as a keyboard sends it, which Playwright's keyboard does not name.
+    const cdp = await page.context().newCDPSession(page);
+    for (const type of ['rawKeyDown', 'keyUp'] as const) await cdp.send('Input.dispatchKeyEvent', { type, key: 'AltGraph', code: 'AltRight', windowsVirtualKeyCode: 225 });
+    await cdp.detach();
     await release(page);
     await expect(draft).toHaveCount(0, { timeout: 10_000 });
     await page.keyboard.press('Escape');
     await build(page, 'Draw a line');
     await expect(draft).toBeVisible();
     expect(await boxX(page, 'tool')).toBe(card);
+  });
+
+  // A drag of a panel by its heading keeps the focus on the control the keyboard was on, and the press told the page the pointer
+  // acted: Enter there on Save route or Create then left the focus to fall to the page as the panel went, where with no drag
+  // Lines' box takes it, 30 runs of 30 at five sizes (the systems audit's twenty-first round). Shown failing (TS-04) on 409570e.
+  test('a drag of a panel by its heading leaves Enter on Save route and on Create to hand Lines the focus', async ({ page }) => {
+    test.setTimeout(90_000);
+    const panel = await lines(page);
+    const box = page.locator('[data-movable="lines"]');
+    const editor = await editedPastLongwood(page, panel);
+    const save = editor.getByRole('button', { name: 'Save route' });
+    await tabOnto(page, save);
+    await dragBy(page, editor, -150, 30);
+    await expect(save).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(editor).toHaveCount(0, { timeout: 10_000 });
+    await expect(panel.getByTestId('line-stops').getByRole('button')).toHaveCount(DEBUG_STOPS.length + 1);
+    await expect(box).toBeFocused();
+    // The new line's card the same way.
+    await page.keyboard.press('Escape');
+    await build(page, 'Draw a line');
+    const draft = page.getByTestId('draft-card');
+    await frames(page);
+    for (const stop of DEBUG_STOPS.slice(0, 2)) await clickAt(page, stop.at);
+    await expect(draft).toContainText('2 stops', { timeout: 10_000 });
+    await expect(draft).toHaveAttribute('data-refusal', '', { timeout: 10_000 });
+    const create = draft.getByRole('button', { name: 'Create' });
+    await tabOnto(page, create);
+    await dragBy(page, draft, -150, 30);
+    await expect(create).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(draft).toHaveCount(0, { timeout: 10_000 });
+    await expect(panel).toBeVisible();
+    await expect(box).toBeFocused();
   });
 
   // Close line's ask opens below the button that opens it: the reveal brought Lines in as far as showed Close line, and the
