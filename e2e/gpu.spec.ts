@@ -93,8 +93,9 @@ test.describe('the GPU ladder', () => {
     // In a window small enough to draw every frame asked for, so the cap is what holds them: at the test's own size this
     // browser's software rendering drew 5 or 6 frames a second, under any cap. A frame asked for at each of the sim's snapshots on
     // top of the buses' took Low graphics to 34–38 a second here, every one past the buses' a frame they had not asked for. On two
-    // CI runs the readout read 47 and 147 (#150's push run and #196's), past the 40 a second the buses and the clock could ask for
-    // together, so those had frames from elsewhere too: the counts below say how many were the buses'.
+    // CI runs the readout read 47 and 147 (#150's push run and #196's): its own sum, which divided the two frames drawn as time ran
+    // again by the few milliseconds between them (gpu.ts FpsMeter, the systems audit's twenty-first round). The counts below say
+    // how many frames were the buses'.
     await page.setViewportSize({ width: 200, height: 150 });
     await page.waitForTimeout(2_500); // a full window of frames at speed, at the small size
     const count = () =>
@@ -114,7 +115,9 @@ test.describe('the GPU ladder', () => {
     // to 17 a second here and 1.6 to 4 on CI's runners (#198's first runs), so there the count of frames is what this test holds.
     expect(asked, says).toBeGreaterThan(0);
     expect(drawn - asked, says).toBeLessThanOrEqual(2);
-    expect(Number(await map.getAttribute('data-fps')), says).toBeLessThanOrEqual(31);
+    // The cap's 30, and the 2 stray frames allowed above, a frame a second over the readout's 2 s window, which counts in halves,
+    // rounded: 31.5 shows as 32.
+    expect(Number(await map.getAttribute('data-fps')), says).toBeLessThanOrEqual(32);
   });
 
   test('with no WebGL2, a calm card asks for hardware acceleration, and Saves and Export still work', async ({ page }) => {

@@ -54,12 +54,20 @@ export function frameDelayMs(lastAskMs: number, nowMs: number, maxFps: number | 
   return Math.max(0, lastAskMs + 1_000 / maxFps - nowMs);
 }
 
-/** Frames a second and the slowest twentieth's frame time over a sliding window, for the `?fps` readout. */
+/**
+ * Frames a second and the slowest twentieth's frame time over a sliding window, for the `?fps` readout. The rate is the frames
+ * drawn in the window over its length, the window starting no earlier than the meter's first frame: over the time from the first
+ * frame kept to the last, the two frames drawn as time ran again after a pause, or after a stall longer than the window, a few
+ * milliseconds apart, read 33 to 294 a second where the buses drew 3 or 4 (the systems audit's twenty-first round), and CI's
+ * Low graphics test read 47 and 147 against a cap of 31.
+ */
 export class FpsMeter {
   private readonly times: number[] = [];
+  private first: number | null = null;
   constructor(private readonly windowMs = 2_000) {}
 
   frame(nowMs: number): void {
+    this.first ??= nowMs;
     this.times.push(nowMs);
     while (this.times.length > 0 && this.times[0]! < nowMs - this.windowMs) this.times.shift();
   }
@@ -69,7 +77,8 @@ export class FpsMeter {
     const kept = this.times.filter((t) => t >= nowMs - this.windowMs);
     if (kept.length < 2) return null;
     const gaps = kept.slice(1).map((t, k) => t - kept[k]!).sort((a, b) => a - b);
-    const span = kept.at(-1)! - kept[0]!;
-    return { fps: span > 0 ? ((kept.length - 1) * 1_000) / span : 0, p95Ms: gaps[Math.ceil(gaps.length * 0.95) - 1]! };
+    const start = Math.max(nowMs - this.windowMs, this.first!);
+    const drawn = kept.filter((t) => t > start).length;
+    return { fps: nowMs > start ? (drawn * 1_000) / (nowMs - start) : 0, p95Ms: gaps[Math.ceil(gaps.length * 0.95) - 1]! };
   }
 }

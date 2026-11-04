@@ -5,6 +5,8 @@ import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { EVENT_CHANCE_PER_DAY, EVENT_DAYS, EVENT_KINDS } from '../src/sim/config/events';
 import { pointInRing, toLngLat, type XY } from '../src/sim/core/geo';
 import { createRng } from '../src/sim/core/rng';
+import type { Speed } from '../src/sim/types';
+import { PLAY_PREFS_KEY } from '../src/platform/web/prefs';
 
 const registry = JSON.parse(readFileSync('cities/index.json', 'utf8')) as { cities: { id: string; sim: { file: string } | null; fixture?: { file: string } | null }[] };
 const entry = registry.cities[0]!;
@@ -115,6 +117,14 @@ export function chromeShare(page: Page): Promise<number> {
  * 5,400x; 2,700x was 1,800x until the tuning freeze), which also starts time running. The old
  * ladder's 1 and 3 are 600x and 5,400x; its 2, 1,800x, is now 2,700x.
  */
+/**
+ * Holds `speed` (a step of RUNNING_SPEEDS) as the speed Play resumes, kept in this browser before the page loads, as a player's
+ * last speed is (src/platform/web/prefs.ts): a paused game shows it on the speed chip without being played at it.
+ */
+export async function holdSpeed(page: Page, speed: Exclude<Speed, 0>): Promise<void> {
+  await page.addInitScript(([key, speed]) => localStorage.setItem(key, JSON.stringify({ speed })), [PLAY_PREFS_KEY, speed] as const);
+}
+
 export async function setSpeed(page: Page, label: '1×' | '60×' | '600×' | '2,700×' | '5,400×'): Promise<void> {
   await page.getByTestId('speed-menu').click();
   // An option's name is its speed then what it means ("600× 10 minutes a second"): match the speed whole.

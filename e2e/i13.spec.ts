@@ -9,7 +9,7 @@ import { DEBUG_STOPS } from '../src/sim/commands/debugLine';
 import { SAVE_FORMAT } from '../src/sim/save/save';
 import { AUTOSAVE_OFF_CHIP, UNBACKED_COPY } from '../src/ui/copy';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { build, chromeShare, city, fillStorage, onDepotLand, setFare, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce } from './shell';
+import { build, chromeShare, city, fillStorage, holdSpeed, onDepotLand, setFare, setSpeed, toScreen, withBusyQuarterClose, withDebugLine, zoomOutOnce } from './shell';
 
 const SIZES = [
   [1440, 900],
@@ -427,6 +427,9 @@ test.describe('the screen budget (I13)', () => {
     test(`at 1152×720: ≤6% at rest in the countdown late in a game, on one row, with ${last === 'contracts' ? 'three medals and 3 on offer' : '4/5 Close a day in profit'}${held ? ', and a save not set aside' : ''}`, async ({ page }) => {
       test.setTimeout(90_000);
       await page.setViewportSize({ width: 1152, height: 720 });
+      // 5,400× held from a last game, kept before the store fills, so the game stands paused at 02:00 under the widest speed: set
+      // in the speed menu, which plays the game, and paused after it, a slow runner let the clock run on past 05:00 (#200's run).
+      await holdSpeed(page, 5);
       if (held) await page.addInitScript(fillStorage, JSON.stringify({ format: SAVE_FORMAT - 1, data: {}, pad: 'p'.repeat(300_000) }));
       await page.goto('./');
       await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
@@ -445,8 +448,8 @@ test.describe('the screen budget (I13)', () => {
       await expect(page.getByTestId('countdown')).toHaveText('4 days to get above -$150k');
       const end = last === 'contracts' ? page.getByTestId('contracts-chip') : page.getByTestId('checklist');
       await expect(end).toHaveText(last === 'contracts' ? 'Contracts 3 on offer' : '4/5 Close a day in profit');
-      await setSpeed(page, '5,400×');
-      await page.getByRole('button', { name: 'Pause' }).click();
+      await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+      await expect(page.getByTestId('speed-menu')).toHaveText('5,400×');
       await setFare(page, 'Line 1', '$2.50');
       await expect(page.getByTestId('undo')).toHaveText('Undo: Line 1’s fare');
       // The clock and its period's name on the row, the year in its title and read, not shown (D13).

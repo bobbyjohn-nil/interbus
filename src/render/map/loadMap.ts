@@ -116,8 +116,9 @@ const TILT_MOVE = 'interbusTilt';
 const DENSITY_EVERY_MS = 1_000;
 
 /**
- * `rung` is the GPU ladder's (gpu.ts): Low graphics draws at one pixel a pixel and the buses at most 30 times a second. `theme` is
- * the light theme's token sets: the warm-neutral set, or V1's paper until the owner's Nov 8 pick (tokens.ts).
+ * `rung` is the GPU ladder's (gpu.ts): Low graphics draws at one pixel a pixel, the buses at most 30 times a second and the tint's
+ * steps at once. `theme` is the light theme's token sets: the warm-neutral set, or V1's paper until the owner's Nov 8 pick
+ * (tokens.ts).
  */
 export async function mountMap(container: HTMLElement, city: City, rung: Exclude<GraphicsRung, 'none'> = 'full', theme: LightTokens = WARM): Promise<MountedMap> {
   if (!city.tiles) throw new Error(`${city.name} has no tile file in this build`);
@@ -351,7 +352,10 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let shownKinds: DotKinds = { home: true, job: true };
   // The day and night tint (daylight.ts): every paint the light's steps change, the board's and the game's names and translucent
   // marks alike, worked out once. The style loads by day; a step is set when the sim's clock reaches it (setClock), with MapLibre's
-  // transition for its fade, or at once with less motion asked for, as the style loads, or as it comes back after a loss.
+  // transition for its fade, or at once with less motion asked for, in Low graphics, as the style loads, or as it comes back after
+  // a loss. MapLibre draws a fade a frame at a time, as fast as the screen takes them, so in Low graphics a fade took the map past
+  // its cap of 30 frames a second: to 50 in the headless shell as dusk fell at 200×150, and 38 in full Chrome (the systems audit's
+  // twenty-first round).
   const lightPaints = [
     ...daylightPaints(styleOf, theme.map),
     ...paintsAcross(Array.from({ length: NIGHT_STEP + 1 }, (_, step) => overlayLayers(theme.game, dimmed(theme.map, step), step))),
@@ -361,7 +365,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   let lightSets = 0;
   map.getContainer().dataset.daylight = String(light);
   const showLight = (step: number, fade: boolean) => {
-    const duration = fade && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? DAYLIGHT_FADE_MS : 0;
+    const duration = fade && rung !== 'low' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? DAYLIGHT_FADE_MS : 0;
     for (const { layer, property, values } of lightPaints) {
       if (!map.getLayer(layer)) continue;
       map.setPaintProperty(layer, `${property}-transition` as PaintName, { duration, delay: 0 });
@@ -605,7 +609,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics, and runs the clock on
       // between snapshots: a frame asked for on top at each snapshot, 10 a second, took Low graphics to 34–38 frames a second in a
       // window small enough to draw them, over its cap, and with no bus out it drew a frame a snapshot with nothing on the map
-      // changing (the fix's review). So a frame is asked for only as the buses start or stop, or as the clock is set while time stands.
+      // changing (the fix's review). So a frame is asked for only as the buses start or stop, or as the clock is set while time stands:
+      // the buses stop too as every bus parks, and start as a snapshot finds one out again (Fleet.running).
       const driving = fleet.running;
       fleet.setClock(second, rate, performance.now(), day);
       if (driving !== fleet.running || rate === 0) map.triggerRepaint();

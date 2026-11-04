@@ -156,7 +156,7 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
       const box = map.getContainer().dataset;
       if (count !== drawn) box.buses = String(count);
       drawn = count;
-      // Paused, frames are few: the container carries where each bus is drawn and counts the frames,
+      // Paused, or with every bus parked, frames are few: the container carries where each bus is drawn and counts the frames,
       // for the e2e tests to see that nothing moves when a line changes (the M4 spec, item 4).
       if (!fleet.running) {
         const at: string[] = [];
@@ -207,8 +207,9 @@ export function createVehicleLayer(fleet: BusSource, maxFps?: number): VehicleLa
         g.drawArraysInstanced(g.TRIANGLE_STRIP, 0, 4, count);
         g.bindVertexArray(null);
       }
-      // Time runs: draw the next frame too. Paused: nothing moves, so no frame is asked for (I14); the
-      // container counts the frames asked for, for the e2e tests.
+      // Time runs and a bus is drawn: draw the next frame too. Paused, or with every bus parked: nothing moves, so no frame is
+      // asked for (I14), and the sim's next snapshot asks for one as a bus comes out (loadMap.ts); the container counts the frames
+      // asked for, for the e2e tests.
       if (fleet.running && waiting === null) {
         map.getContainer().dataset.asked = String(++asked);
         const now = performance.now();
