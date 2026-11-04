@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LineView, LngLatPair } from '../../sim/types';
 import { BUS_FLOATS, Fleet } from './fleet';
+import { placesOf } from './sides';
 
 // The debug line laid straight east (sim/rules/position.test.ts), as the worker would send it.
 const LAT = 42.35;
@@ -136,6 +137,36 @@ describe('a line’s buses in service', () => {
     expect(fleet.inService(1)).toBe(true);
     fleet.setClock(12 * 60, 600, 0, 3);
     expect(fleet.inService(1)).toBe(false);
+  });
+
+  // The earlier versions of a settling line's route a bus still drives (Fleet.onEarlier), whose places loadMap.ts holds (standLines;
+  // the systems audit's twenty-first round), and that bus standing at its line's place on that route. Stood without it, the street
+  // re-centred under the bus, which stepped across onto the other line's ribbon. #202's review: the earlier test stood a plain
+  // line instead, so no bus on an earlier route was ever drawn. Shown failing (TS-04) with the earlier routes' sides left at 0.
+  it('names the earlier routes a settling line’s buses still drive, and stands such a bus at its line’s place there', () => {
+    const fleet = new Fleet();
+    const was = line();
+    const north = (p: LngLatPair): LngLatPair => [p[0], p[1] + 0.002];
+    // Every 20 minutes on the old street, cut to every 10 on a street to the north at 23:00 on day 2: the old route's last trip
+    // ends at 23:09, and the merged plan hands over at 23:20. Line 2 drives the old street.
+    const now = { ...was, route: was.route.map(north), stops: was.stops.map(north), pullOut: was.pullOut.map(north), pullIn: was.pullIn.map(north), plan: { ...was.plan, timing: { ...was.plan.timing, headways: { peak: 600, offpeak: 600, overnight: null }, buses: 3 } } };
+    const { route, stopAt, stopDistM, pullOut, pullIn } = was;
+    const settling = { ...now, settling: { frameDay: 2, earlier: [{ plan: was.plan, until: 23 * 3_600, sameModel: true, sameStart: true, route, stopAt, stopDistM, pullOut, pullIn }] } };
+    const two = { ...was, id: 2, name: 'Line 2', colour: '#2471a3' };
+    fleet.setLines([settling, two], null);
+    fleet.setClock(23 * 3_600 + 5 * 60, 600, 0, 2);
+    expect(fleet.onEarlier).toEqual([{ id: 1, version: 0 }]);
+    expect(fleet.onEarlierKey).toBe('1:0;');
+    // Held: Line 1's place on the old street beside Line 2, and its bus there on its own side of the middle.
+    fleet.setPlaces(placesOf([settling, two, { id: 1, route }]));
+    const { count, data } = fleet.frame(0);
+    const onOld = Array.from({ length: count }, (_, i) => data.subarray(BUS_FLOATS * i, BUS_FLOATS * (i + 1))).filter((b) => Math.round(b[3]! * 255) === 0xc0 && Math.abs(b[1]! - LAT) < 1e-9);
+    expect(onOld.length).toBeGreaterThan(0);
+    for (const b of onOld) expect(Math.abs(b[8]!)).toBe(0.5);
+    // Its last trip done, no bus drives it: let go, though the merged plan hands over only at 23:20.
+    fleet.setClock(23 * 3_600 + 12 * 60, 600, 0, 2);
+    expect(fleet.onEarlier).toEqual([]);
+    expect(fleet.onEarlierKey).toBe('');
   });
 });
 

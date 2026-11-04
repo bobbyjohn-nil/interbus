@@ -9,7 +9,7 @@ import { restsAt } from '../../sim/rules/periods';
 import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
-import { placesAlong, placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
+import { bridgesOf, placesAlong, placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -504,12 +504,17 @@ export function flagWord(stop: Pick<StopView, 'quiet' | 'loss'>): string | null 
 export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[], places: Places = placesOf(lines)): void {
   const features = [
     ...lines.flatMap((line) => {
-      // The route in runs, each at its place among the lines on that street (`side`), and the name along each run, on its ribbon.
-      const runs = runsOf(line.route, sidesAlong(places, line.id, line.route));
+      // The route in runs, each at its place among the lines on that street (`side`), cut where it turns back too, with the
+      // pieces that carry its ribbon across from each run to the next (bridgesOf); and the name along each run, on its ribbon.
+      const sides = sidesAlong(places, line.id, line.route);
+      const drawn = runsOf(line.route, sides, true);
+      const runs = runsOf(line.route, sides);
       return [
-        ...runs.map((run) => ({
+        // The bridges marked as such: a bridge stands between its line's places, over a neighbour's ribbon, so a click on it says
+        // which line the player pointed at, as a name does (loadMap.ts; #202's review).
+        ...[...drawn.map((run) => ({ run, bridge: false })), ...bridgesOf(line.route, drawn).map((run) => ({ run, bridge: true }))].map(({ run, bridge }) => ({
           type: 'Feature' as const,
-          properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last },
+          properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last, bridge },
           geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
         })),
         ...nameFeatures(line, runs),

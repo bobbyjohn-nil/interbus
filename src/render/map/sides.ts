@@ -173,19 +173,111 @@ export function linesHere(
   return [...by].sort((x, y) => x[1] - y[1]).map(([id]) => id);
 }
 
-/** A route cut where its side changes: each run's points (its ends shared with the runs either side), its side, and its first and last segments. */
-export function runsOf(
-  route: readonly LngLatPair[],
-  sides: Float32Array,
-): { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[] {
+/** A run of a route at one side: its points (its ends shared with the runs either side), its side, and its first and last segments. */
+export interface Run {
+  readonly points: readonly LngLatPair[];
+  readonly side: number;
+  readonly first: number;
+  readonly last: number;
+}
+
+/** The way from `a` to `b` on the ground, east and north, a unit long; null for no length. */
+function wayOf(a: LngLatPair, b: LngLatPair): readonly [number, number] | null {
+  const [dx, dy] = [(b[0] - a[0]) * Math.cos((a[1] * Math.PI) / 180), b[1] - a[1]];
+  const length = Math.hypot(dx, dy);
+  return length > 0 ? [dx / length, dy / length] : null;
+}
+
+/** Whether `route` turns back on itself at its point `i`: the segment into it and the one out of it meet at over 150°. */
+export function turnsBack(route: readonly LngLatPair[], i: number): boolean {
+  if (i < 1 || i + 1 >= route.length) return false;
+  const [into, out] = [wayOf(route[i - 1]!, route[i]!), wayOf(route[i]!, route[i + 1]!)];
+  return into !== null && out !== null && into[0] * out[0] + into[1] * out[1] < -Math.cos(Math.PI / 6);
+}
+
+/**
+ * A route cut where its side changes (each run drawn at its side by line-offset, overlays.ts), and, with `atTurnBacks`, where it
+ * turns back on itself off the street's middle: drawn as one run there, its two ways stood either side of the stop it turned at,
+ * five ribbons apart on a late game, and MapLibre drew no hairpin between them (the systems audit's twenty-first round).
+ */
+export function runsOf(route: readonly LngLatPair[], sides: Float32Array, atTurnBacks = false): Run[] {
   const runs: { points: LngLatPair[]; side: number; first: number; last: number }[] = [];
   for (let i = 1; i < route.length; i++) {
     const side = sides[i - 1] ?? 0;
     const run = runs[runs.length - 1];
-    if (run && run.side === side) {
+    if (run && run.side === side && !(atTurnBacks && side !== 0 && turnsBack(route, i - 1))) {
       run.points.push(route[i]!);
       run.last = i - 1;
     } else runs.push({ points: [route[i - 1]!, route[i]!], side, first: i - 1, last: i - 1 });
   }
   return runs;
+}
+
+/** How far a bridge reaches along a segment from its corner, in metres, at most half the segment. */
+export const BRIDGE_M = 4;
+
+/** The sides strictly between `from` and `to`, a ribbon apart from `from`: the steps a ribbon takes across, none a ribbon or less. */
+function stepsBetween(from: number, to: number): number[] {
+  const steps: number[] = [];
+  for (let c = from + Math.sign(to - from); Math.sign(to - c) === Math.sign(to - from) && c !== to; c += Math.sign(to - from)) steps.push(c);
+  return steps;
+}
+
+/**
+ * The pieces that carry a line's ribbon from one of its runs (runsOf) to the next, each at a side of its own, so it never breaks
+ * where its side changes. Each run is drawn by line-offset with round caps, which meet only where the two ends stand within a
+ * ribbon of each other: where a line's side changed by more, or at a corner, the ribbon broke, gaps of up to 14 px at zoom 16 on
+ * the busy scene, and where it turned back at a stop its two ways stood apart (the systems audit's twenty-first round). At a
+ * corner or on along the street, a piece turns the corner at the run's side before, as the run would have, then steps across
+ * at most a ribbon at a time to the side after, each piece BRIDGE_M along the segment after. Where the line turns back, steps
+ * across the street along the segment before, from its side one way to its side back: a bar at the stop it turns at.
+ */
+export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): Run[] {
+  const toward = (from: LngLatPair, to: LngLatPair): LngLatPair => {
+    const way = wayOf(from, to);
+    const length = way ? Math.hypot((to[0] - from[0]) * Math.cos((from[1] * Math.PI) / 180), to[1] - from[1]) * 111_195 : 0;
+    const t = length > 0 ? Math.min(0.5, BRIDGE_M / length) : 0;
+    return [from[0] + t * (to[0] - from[0]), from[1] + t * (to[1] - from[1])];
+  };
+  const bridges: Run[] = [];
+  for (let r = 1; r < runs.length; r++) {
+    const [was, now] = [runs[r - 1]!, runs[r]!];
+    const i = now.first;
+    const [into, at, out] = [route[i - 1]!, route[i]!, route[i + 1]!];
+    const span = { first: was.last, last: now.first };
+    if (turnsBack(route, i)) {
+      // Along the way in, the side back stands at its negative: across from the one to the other.
+      for (const side of stepsBetween(was.side, -now.side)) bridges.push({ points: [toward(at, into), at], side, ...span });
+    } else {
+      if (was.side !== 0) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
+      for (const side of stepsBetween(was.side, now.side)) bridges.push({ points: [at, toward(at, out)], side, ...span });
+    }
+  }
+  return bridges;
+}
+
+/**
+ * The gaps, in ribbons, along the chain a route's drawn pieces make across each point where one of its runs ends and the next
+ * starts, in the order bridgesOf lays them: from the run before's end to the first bridge's start, from each bridge's end to the
+ * next one's start, and from the last to the run after's start, each end at its piece's side square to the piece's way there. A
+ * step's BRIDGE_M along the way counts for nothing, as each piece lies over the next along those same metres (at zoom 18 they
+ * are 2.6 ribbons long); a piece's own corner is drawn whole by its round join, up to about 120 degrees (STATUS). Round caps meet
+ * where a gap is a ribbon or less. For the tests and `npm run bench sides`.
+ */
+export function ribbonGaps(route: readonly LngLatPair[], runs: readonly Run[], bridges: readonly Run[]): number[][] {
+  const right = (a: LngLatPair, b: LngLatPair, side: number): readonly [number, number] => {
+    const way = wayOf(a, b) ?? [0, 0];
+    return [way[1] * side, -way[0] * side];
+  };
+  return runs.slice(1).map((now, r) => {
+    const was = runs[r]!;
+    const at = route[now.first]!;
+    const chain: { start: readonly [number, number]; end: readonly [number, number] }[] = [{ start: [0, 0], end: right(route[was.last]!, at, was.side) }];
+    for (const b of bridges.filter((x) => x.first === was.last && x.last === now.first)) {
+      const n = b.points.length;
+      chain.push({ start: right(b.points[0]!, b.points[1]!, b.side), end: right(b.points[n - 2]!, b.points[n - 1]!, b.side) });
+    }
+    chain.push({ start: right(at, route[now.first + 1]!, now.side), end: [0, 0] });
+    return chain.slice(1).map((next, k) => Math.hypot(next.start[0] - chain[k]!.end[0], next.start[1] - chain[k]!.end[1]));
+  });
 }

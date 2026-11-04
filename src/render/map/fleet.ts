@@ -53,9 +53,16 @@ export class Fleet implements BusSource {
   private clock = { second: 0, rate: 0, atMs: 0, day: 0 };
   /** How many buses the last frame drew. */
   private drawn = 0;
+  /** The earlier versions of the lines' routes a bus drove at the last frame, as `id:version,version;` per line (onEarlier). */
+  private earlierKey = '';
+  private earlier: readonly { readonly id: number; readonly version: number }[] = [];
 
-  /** Rebuilds the plans when the lines change: never per frame. `places` stands the lines on their streets (sides.ts). */
-  setLines(lines: readonly LineView[], places: Places = placesOf(lines)): void {
+  /**
+   * Rebuilds the plans when the lines change: never per frame. `places` stands the lines on their streets (sides.ts), or null to
+   * leave them in the street's middle until setPlaces stands them, so the sides are not worked out twice (#202's review: 11.7 to
+   * 18.0 ms a change on the late game, at every change).
+   */
+  setLines(lines: readonly LineView[], places: Places | null = placesOf(lines)): void {
     this.lines = lines
       .filter((l) => l.stopAt.length >= 2 && l.plan.timing.buses > 0)
       .map((l) => {
@@ -68,7 +75,7 @@ export class Fleet implements BusSource {
           frameDay: l.settling?.frameDay ?? null,
           colour: rgb(l.colour),
           glyph: MODEL_GLYPHS[l.model],
-          sides: geos.map((g) => sidesAlong(places, l.id, g.geometry.route)),
+          sides: places ? geos.map((g) => sidesAlong(places, l.id, g.geometry.route)) : [],
         };
       });
     const most = this.lines.reduce((n, l) => Math.max(n, mostOut(l.plan)), 0);
@@ -76,14 +83,37 @@ export class Fleet implements BusSource {
     this.scratch = new Float64Array(3 * Math.max(1, most));
     this.where = new Float64Array(WHERE_FLOATS * Math.max(1, most));
     this.frameData = new Float64Array(BUS_FLOATS * Math.max(1, total));
-    this.drawn = this.clock.rate > 0 ? this.frame(this.clock.atMs).count : 0;
+    // Which bus is out, and on which version of its route, by the clock: for running, and for onEarlier.
+    this.drawn = this.frame(this.clock.atMs).count;
+  }
+
+  /**
+   * Stands the lines on their streets again (`places`, sides.ts), each version's sides along its own route: as a bus of a settling
+   * line leaves or takes its line's earlier route (onEarlier, loadMap.ts), and the lines it shared streets with stand back in place.
+   */
+  setPlaces(places: Places): void {
+    this.lines = this.lines.map((l) => ({ ...l, sides: l.geos.map((g) => sidesAlong(places, l.id, g.geometry.route)) }));
+  }
+
+  /**
+   * The earlier versions of the lines' routes some bus drove at the last frame, or the last snapshot: a settling line's route as it
+   * was before a change, while one of its buses still drives it (positionsInEffect), its index in the line's `settling.earlier`.
+   * `onEarlierKey` changes exactly as they do.
+   */
+  get onEarlier(): readonly { readonly id: number; readonly version: number }[] {
+    return this.earlier;
+  }
+
+  get onEarlierKey(): string {
+    return this.earlierKey;
   }
 
   /** The sim's clock at a snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
   setClock(second: number, rate: number, atMs: number, day = 0): void {
     this.clock = { second, rate, atMs, day };
-    // Whether a bus is out by this clock, for running; each frame between snapshots keeps it so.
-    if (rate > 0) this.frame(atMs);
+    // Which bus is out, and on which version of its route, by this clock: for running, and for onEarlier, paused too, as after a
+    // load. Each frame between snapshots keeps them so.
+    this.frame(atMs);
   }
 
   /**
@@ -120,8 +150,15 @@ export class Fleet implements BusSource {
   frame(nowMs: number): { count: number; data: Float64Array } {
     const absolute = this.absoluteAt(nowMs);
     let count = 0;
+    let key = '';
     for (const line of this.lines) {
       const n = positionsInEffect(line.plan, line.geos, secondOf(line, absolute), this.scratch, this.where);
+      // Its route's earlier versions some bus of it drives: only a line settling onto a change has any.
+      if (line.geos.length > 1) {
+        const versions = new Set<number>();
+        for (let i = 0; i < n; i++) if (this.where[WHERE_FLOATS * i]! < line.geos.length - 1) versions.add(this.where[WHERE_FLOATS * i]!);
+        if (versions.size) key += `${line.id}:${[...versions].sort((a, b) => a - b).join(',')};`;
+      }
       for (let i = 0; i < n; i++) {
         const at = BUS_FLOATS * count++;
         const d = this.frameData;
@@ -140,6 +177,16 @@ export class Fleet implements BusSource {
       }
     }
     this.drawn = count;
+    if (key !== this.earlierKey) {
+      this.earlierKey = key;
+      this.earlier = key
+        .split(';')
+        .filter(Boolean)
+        .flatMap((part) => {
+          const [id, versions] = part.split(':');
+          return versions!.split(',').map((v) => ({ id: Number(id), version: Number(v) }));
+        });
+    }
     return { count, data: this.frameData };
   }
 }

@@ -12,7 +12,7 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { groundAt, linesHere, placesOf, ribbonPx, type Places } from './sides';
+import { groundAt, linesHere, placesOf, ribbonPx, type Places, type RouteOf } from './sides';
 import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
@@ -386,8 +386,26 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // of the stops only they call at; set only when they change.
   let clockSecond: number | null = null;
   let linesNow: readonly LineView[] = [];
-  // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click.
+  // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click,
+  // and again as a bus of a settling line leaves or takes the route as it was (`stoodOn`, Fleet.onEarlierKey).
   let placesNow: Places = new Map();
+  let stoodOn = '';
+  // The places, with each earlier version of a settling line's route a bus of it still drives (Fleet.onEarlier): stood without it,
+  // the street re-centred under such a bus as the change came, which stepped it 3.5 px across onto another line's ribbon, where it
+  // rode until its trip ended (the systems audit's twenty-first round). Held by the buses on it, not by the clock: held until the
+  // merged plan handed over, the places outlived the old route's last bus by up to 4.9 game hours, an empty place beside the
+  // lines it shared streets with, and a load of a game saved as a line settled, its clock behind the last one, never held them
+  // (#202's review).
+  const standLines = () => {
+    const routes: RouteOf[] = [...linesNow];
+    for (const { id, version } of fleet.onEarlier) {
+      const route = linesNow.find((l) => l.id === id)?.settling?.earlier[version]?.route;
+      if (route) routes.push({ id, route });
+    }
+    stoodOn = fleet.onEarlierKey;
+    placesNow = placesOf(routes);
+    fleet.setPlaces(placesNow);
+  };
   /** The city event shown, and the line drawn or edited, each drawn again as the lines on their streets change (`places`). */
   let eventNow: EventView | null = null;
   let draftNow: { readonly draft: LineDraftView | null; readonly line: number | null } = { draft: null, line: null };
@@ -560,10 +578,11 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
     const hitIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
     // A name's words are wider than its ribbon and drawn over the ribbons, so a click on their outer half lay nearer a neighbour's
-    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). The name under the click itself, not within its 4 px,
-    // says which line the player pointed at.
-    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting'] }) : [];
-    const named = onName.filter((h) => h.properties?.kind === 'name').map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null);
+    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). A bridge, carrying a ribbon across to its line's new
+    // place, lies over a neighbour's ribbon too, and a click on it listed the neighbour first (#202's review). The name or bridge
+    // under the click itself, not within its 4 px, says which line the player pointed at.
+    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting', 'lines-route', 'lines-route-resting'] }) : [];
+    const named = onName.filter((h) => h.properties?.kind === 'name' || h.properties?.bridge === true).map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null);
     // On the ground, as line-offset lays the ribbons, in the world's pixels at the map's zoom: a tilted map's screen shortens a
     // street across its way, and a click on the middle of Line 2's ribbon on Tremont Street at pitch 60 lay nearer Line 5's on the
     // screen, 11 of 36 such clicks across the tilted cameras (#201's review).
@@ -608,11 +627,11 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       else pending.dotKinds = shown;
     },
     setLines: (lines, stops) => {
-      placesNow = placesOf(lines);
-      fleet.setLines(lines, placesNow);
-      map.triggerRepaint();
+      fleet.setLines(lines, null);
       linesNow = lines;
       stopsNow = stops;
+      standLines();
+      map.triggerRepaint();
       if (loaded) setLines(map, lines, stops, placesNow);
       else pending.lines = { lines, stops, places: placesNow };
       // The event's street and the draft stand at the lines' places too, so they are drawn again with them, or once the map is back.
@@ -636,6 +655,16 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       fleet.setClock(second, rate, performance.now(), day);
       if (driving !== fleet.running || rate === 0) map.triggerRepaint();
       clockSecond = second;
+      // A bus of a settling line left the route as it was, or took it: the lines stand again, with it or without it.
+      if (fleet.onEarlierKey !== stoodOn) {
+        standLines();
+        if (loaded) {
+          setLines(map, linesNow, stopsNow, placesNow);
+          if (eventNow) setEvent(map, eventNow, placesNow);
+          if (draftNow.draft) setDraft(map, draftNow.draft, placesNow, draftNow.line);
+        } else pending.lines = { lines: linesNow, stops: stopsNow, places: placesNow };
+        map.triggerRepaint();
+      }
       lightWanted = darkStep(second);
       if (loaded && lightWanted !== light) showLight(lightWanted, true);
       rest();

@@ -358,6 +358,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Editing a line's route draws the route along that line's own colour on the streets it already drives. Before, it ran along the street's middle, over another line's colour.
 - A click on a street several lines share lists first the line whose colour or name you clicked, flat or tilted, then the others by how close they run. Before, a line next to the one you clicked could come first.
 - A click by a corner lists only the lines on the street you clicked. Before, it could list lines on the street round the corner too.
+- A line's colour runs on unbroken where it moves across a street it shares with other lines: at a corner, where another line joins or leaves it, or where it turns back at a stop, it steps across to its new place. Before, it broke off there and began again up to a street's width away.
+- A bus still finishing a trip on its line's old route after you change the route keeps its place on the street. Before, it stepped across onto another line's colour until its trip ended.
 
 ### Removed
 
