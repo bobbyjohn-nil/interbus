@@ -350,6 +350,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A panel you dragged aside and closed with a key, as Enter on Create or Save route closes its card once the game answers, opens next where you dragged it even if you press Shift, Ctrl, Alt, AltGr, Caps Lock, Num Lock, Scroll Lock or Fn while it waits, or another key the moment it closes. Before, either could leave it opening where the press had brought it into view.
 - When the game closes the panel the keyboard is in, as Ctrl+Z does taking back the line Lines shows, the keyboard is handed on, and Space presses what it reaches, even if you press Escape or Shift at that moment, close one of the panel's lists with Escape, or press Ctrl+Z on the panel's ×. Before, the key could leave the keyboard on the page, or on Build with Space playing the game instead of opening the Build menu.
 - Dragging the panel you are working in by its heading leaves the keyboard where it was: Space presses the button it is on, as Enter does, and Enter on Create or Save route then takes the keyboard to Lines, as it does without the drag. Before, Space played the game there instead, and the keyboard fell to the page as the card closed. A press on another panel's heading still leaves Space to play and pause.
+- In Low graphics, the map darkens at dusk and lightens at dawn a step at a time, as it does with less motion asked for, instead of fading each step, which drew more frames than Low graphics allows.
+- While every bus is parked, overnight or before the day's first bus, the map no longer redraws itself 25 to 30 times a second with nothing on it moving.
+- The `?fps` readout no longer reads tens or hundreds of frames a second just after a pause or a hitch: it counts the frames drawn over the last two seconds.
 
 ### Removed
 

@@ -51,6 +51,8 @@ export class Fleet implements BusSource {
   private where = new Float64Array(0);
   private frameData = new Float64Array(0);
   private clock = { second: 0, rate: 0, atMs: 0, day: 0 };
+  /** How many buses the last frame drew. */
+  private drawn = 0;
 
   /** Rebuilds the plans when the lines change: never per frame. `places` stands the lines on their streets (sides.ts). */
   setLines(lines: readonly LineView[], places: Places = placesOf(lines)): void {
@@ -74,11 +76,14 @@ export class Fleet implements BusSource {
     this.scratch = new Float64Array(3 * Math.max(1, most));
     this.where = new Float64Array(WHERE_FLOATS * Math.max(1, most));
     this.frameData = new Float64Array(BUS_FLOATS * Math.max(1, total));
+    this.drawn = this.clock.rate > 0 ? this.frame(this.clock.atMs).count : 0;
   }
 
   /** The sim's clock at a snapshot: seconds of the day, game seconds per real second (0 paused), and the game day. */
   setClock(second: number, rate: number, atMs: number, day = 0): void {
     this.clock = { second, rate, atMs, day };
+    // Whether a bus is out by this clock, for running; each frame between snapshots keeps it so.
+    if (rate > 0) this.frame(atMs);
   }
 
   /**
@@ -90,8 +95,14 @@ export class Fleet implements BusSource {
     return line ? inServiceAt(line.plan, secondOf(line, this.clock.day * SECONDS_PER_DAY + this.clock.second)) : false;
   }
 
+  /**
+   * Whether the layer keeps asking for frames: time runs and a bus is drawn, by the last frame or the last snapshot's clock, or
+   * since the lines last changed. With every bus parked, overnight off or before the day's first bus, nothing on the map moves, so
+   * it asks for none: kept asking whenever a line existed, it drew 25–28 frames a second of nothing new in a small window (the
+   * systems audit's twenty-first round). A snapshot that finds a bus out starts it again (loadMap.ts setClock).
+   */
   get running(): boolean {
-    return this.clock.rate > 0 && this.lines.length > 0;
+    return this.clock.rate > 0 && this.drawn > 0;
   }
 
   /** The clock now in game seconds since the first day's midnight, run on from the last snapshot by at most a quarter-second of real time. */
@@ -128,6 +139,7 @@ export class Fleet implements BusSource {
         d[at + 8] = this.where[WHERE_FLOATS * i + 2] && side ? -side : side;
       }
     }
+    this.drawn = count;
     return { count, data: this.frameData };
   }
 }
