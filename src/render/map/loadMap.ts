@@ -12,7 +12,7 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { linesHere, placesOf, ribbonPx, type Places } from './sides';
+import { groundAt, linesHere, placesOf, ribbonPx, type Places } from './sides';
 import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
@@ -551,26 +551,33 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const hits = loaded ? map.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: [...FLAG_LAYERS, ...LINE_LAYERS, 'lines-name', ...RESTING_LAYERS] }) : [];
     const numberOf = (v: unknown) => (typeof v === 'number' && v >= 0 ? v : null);
     const stop = hits.find((h) => numberOf(h.properties?.stop) !== null);
-    // The lines hit, and every line beside them on the street clicked, which side by side may stand beyond the click's 4 px: each
-    // by how far its own ribbon lies from the click (sides.ts linesHere), then the running lines first, then the resting ones: a
-    // resting line's faded name lies over the running routes, and a click on it listed the resting line ahead (the systems audit's
-    // thirteenth round). The stop is still the topmost one under the click.
+    // The lines hit, and every line beside them on the street clicked, which side by side may stand beyond the click's 4 px: a line
+    // whose name the click hit first, then each by how far its own ribbon lies from the click (sides.ts linesHere), then the running
+    // lines first, then the resting ones: a resting line's faded name lies over the running routes, and a click on it listed the
+    // resting line ahead (the systems audit's thirteenth round). The stop is still the topmost one under the click.
     // A line the click hit with no route here comes last, the running lines' layers first, each as MapLibre lists them.
     const resting = (h: (typeof hits)[number]) => (RESTING_LAYERS as readonly string[]).includes(h.layer.id);
     const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
     const hitIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
-    const project = (p: LngLatPair): [number, number] => {
-      const at = map.project(p);
-      return [at.x, at.y];
-    };
+    // A name's words are wider than its ribbon and drawn over the ribbons, so a click on their outer half lay nearer a neighbour's
+    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). The name under the click itself, not within its 4 px,
+    // says which line the player pointed at.
+    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting'] }) : [];
+    const named = onName.filter((h) => h.properties?.kind === 'name').map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null);
+    // On the ground, as line-offset lays the ribbons, in the world's pixels at the map's zoom: a tilted map's screen shortens a
+    // street across its way, and a click on the middle of Line 2's ribbon on Tremont Street at pitch 60 lay nearer Line 5's on the
+    // screen, 11 of 36 such clicks across the tilted cameras (#201's review).
+    const ground = groundAt(map.getZoom());
     // Each hit with the run of its route the map drew there, if it was a route's run or its name's (overlays.ts setLines).
     const hitRuns = ordered.flatMap((h) => {
       const id = numberOf(h.properties?.id);
       return id === null ? [] : [{ id, first: numberOf(h.properties?.first) ?? undefined, last: numberOf(h.properties?.last) ?? undefined }];
     });
-    const near = linesHere(placesNow, linesNow, hitRuns, [e.point.x, e.point.y], project, ribbonPx(map.getZoom()));
-    const all = [...near, ...hitIds.filter((id) => !near.includes(id))];
-    const rests = new Set(restingNow);
+    const near = linesHere(placesNow, linesNow, hitRuns, ground([e.lngLat.lng, e.lngLat.lat]), ground, ribbonPx(map.getZoom()));
+    const all = [...new Set([...named, ...near, ...hitIds])];
+    // The resting lines, and any the click found on the resting layers alone, after the running ones, each group in that order.
+    const running = new Set(ordered.filter((h) => !resting(h)).map((h) => numberOf(h.properties?.id)));
+    const rests = new Set([...restingNow, ...ordered.filter(resting).map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null && !running.has(id))]);
     const lineIds = [...all.filter((id) => !rests.has(id)), ...all.filter((id) => rests.has(id))];
     click?.([e.lngLat.lng, e.lngLat.lat], { lineId: lineIds[0] ?? null, lineIds, stopId: numberOf(stop?.properties?.stop), double });
   });
@@ -608,8 +615,15 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       stopsNow = stops;
       if (loaded) setLines(map, lines, stops, placesNow);
       else pending.lines = { lines, stops, places: placesNow };
-      if (loaded && eventNow) setEvent(map, eventNow, placesNow);
-      if (loaded && draftNow.draft) setDraft(map, draftNow.draft, placesNow, draftNow.line);
+      // The event's street and the draft stand at the lines' places too, so they are drawn again with them, or once the map is back.
+      if (eventNow) {
+        if (loaded) setEvent(map, eventNow, placesNow);
+        else pending.event = eventNow;
+      }
+      if (draftNow.draft) {
+        if (loaded) setDraft(map, draftNow.draft, placesNow, draftNow.line);
+        else pending.draft = draftNow;
+      }
       rest();
     },
     setClock: (second, rate, day) => {

@@ -6,7 +6,7 @@ import { Map as MapLibreMap, setWorkerUrl, type GeoJSONSource, type LngLatLike }
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BUS_FLOATS, type BusSource } from '../../src/render/map/fleet';
-import { NAME_LAYOUT } from '../../src/render/map/overlays';
+import { NAME_LAYOUT, nameFeatures } from '../../src/render/map/overlays';
 import { RIBBON_PX } from '../../src/render/map/sides';
 import { createVehicleLayer } from '../../src/render/map/vehicles';
 
@@ -51,7 +51,8 @@ export interface RibbonCase {
   readonly side: number;
   /** Where on the map the street crosses, in fractions of its width and height. */
   readonly at: readonly [number, number];
-  readonly show: 'ribbon' | 'bus' | 'name';
+  /** The ribbon, the bus, the line's name along the street, or its names along two runs of it end to end: 30 m on the other side, then the rest. */
+  readonly show: 'ribbon' | 'bus' | 'name' | 'joined';
 }
 
 declare global {
@@ -81,10 +82,19 @@ window.ribbonCase = async ({ zoom, pitch, heading, side, at, show }) => {
     type: 'FeatureCollection',
     features: show === 'ribbon' ? [{ type: 'Feature', properties: { side }, geometry: { type: 'LineString', coordinates: [a, b] } }] : [],
   });
-  (map.getSource('names') as GeoJSONSource).setData({
-    type: 'FeatureCollection',
-    features: show === 'name' ? [{ type: 'Feature', properties: { side, name: 'Line 12' }, geometry: { type: 'LineString', coordinates: [a, b] } }] : [],
-  });
+  // The names as the game makes them (overlays.ts nameFeatures): along one run, or along two that meet, the first 30 m long.
+  const t = 30 / 600;
+  const joint: [number, number] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const runs =
+    show === 'name'
+      ? [{ points: [a, b], side, first: 0, last: 0 }]
+      : show === 'joined'
+        ? [
+            { points: [a, joint], side: -side, first: 0, last: 0 },
+            { points: [joint, b], side, first: 1, last: 1 },
+          ]
+        : [];
+  (map.getSource('names') as GeoJSONSource).setData({ type: 'FeatureCollection', features: nameFeatures({ id: 12, name: 'Line 12' }, runs) });
   count = show === 'bus' ? 1 : 0;
   // A Sparrow-sized glyph in red, so no part of it is the land's colour.
   data.set([p.lng, p.lat, heading, 1, 0, 0, 20, 8, side], 0);

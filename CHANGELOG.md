@@ -116,7 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - How far people commute now follows Boston's own census records rather than a generic guess, so trips are a little shorter on average and a line from Copley to Longwood carries about 3% fewer riders.
 - Small print is easier to read and small buttons easier to press: the Build menu's descriptions, Finance's chart labels, the route editor's stop numbers and an express line's tag are 12 px or more, and the route editor's Move up, Move down and Remove buttons are 24 px. A crowded chart names fewer of its days, and its money scale sits above the bars instead of on them.
 - When your computer is set to reduce motion, the compass turns at once instead of easing.
-- Each line’s name runs along its route on the map where it has room, along its colour, and a click on a name opens its line. Where lines share a street, each name that has room runs along its own line's colour, and a click there lists them all.
+- Each line’s name runs along its route on the map where it has room, along its colour, and a click on a name opens its line. Where lines share a street, each name that has room runs along its own line’s colour, and a click there lists them all.
 - On the demand map, jobs are drawn as rings and homes as filled dots, in its legend and on its button too, so the two differ in shape as well as colour.
 - A contract’s figure for today ends in “met now” or “not met now”, beside its colour.
 - The clock says which period it is, Peak, Off-peak or Overnight, after the time. The year moved to the date's tooltip to make room, and screen readers still read it.
@@ -356,7 +356,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On a street several lines share, each line's name runs along its own line's colour. Before, every name there ran along the street's middle, over the middle line's colour.
 - Roadworks' hatching shows on both sides of the lines on a street several lines share. Before, two lines' colours all but covered it, and three hid it.
 - Editing a line's route draws the route along that line's own colour on the streets it already drives. Before, it ran along the street's middle, over another line's colour.
-- A click on a street several lines share lists the line whose colour you clicked first, then the others by how close they run. Before, the order had nothing to do with where you clicked.
+- A click on a street several lines share lists first the line whose colour or name you clicked, flat or tilted, then the others by how close they run. Before, a line next to the one you clicked could come first.
 - A click by a corner lists only the lines on the street you clicked. Before, it could list lines on the street round the corner too.
 
 ### Removed

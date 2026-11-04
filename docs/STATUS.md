@@ -166,7 +166,9 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
     - Lines here listed the lines in the map's order, not the ribbon clicked first;
     - a click at a corner listed the lines of the street round it.
 
-    The next pull request fixes its other two minor ones: a bus still on its line's old route steps across, onto another line's ribbon; and a line's ribbon breaks where its place changes, at corners, at joins and where it turns back, gaps of up to 14 px at zoom 16. Its two computed only stay open (below).
+    Its review found 1 major issue, 3 minor ones and 4 nits, all fixed before the merge: MapLibre joins a line's names where its runs meet end to end, so each took the first run's place in its tile, 62% of the names' cells off their own run at zoom 14 (each name stops 5 m short of its run's ends now); a click on a name's words could list a neighbour first; on a tilted map Lines here measured the click on the screen, not the ground; and between whole zooms a name strayed from its ribbon by up to a zoom's growth of a ribbon a place (half that now).
+
+    The next pull request fixes its other two minor ones: a bus still on its line's old route steps across, onto another line's ribbon; and a line's ribbon breaks where its place changes, at corners, at joins and where it turns back, gaps of up to 14 px at zoom 16. Its last nit, two things computed only, stays open (below).
 
 Open from the audit:
 - [ ] **Shared streets, computed only** (round 21's first lane, no pixels measured): where a line's place reaches past a stop's 11 px circle at zoom 16, its bus dwells beside the stop, at 1, 1, 16 and 12 of the lines' stops on the pacing run's two companies, its 30-line late game and the busy scene; and two nearby streets each spread their lines from their own middle, so their bands overlap more, 31 pairs (449 m) at zoom 14 on the busy scene against 5 before #197, and 5 against 5 at zoom 16. Both go with the light style pass, as the buses' step at corners does (below).

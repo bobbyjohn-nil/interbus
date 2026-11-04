@@ -218,15 +218,19 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
 
 /** The lines' names' size, in CSS pixels: the ems their offset counts in. */
 const NAME_PX = 12;
-/** The furthest place from a street's middle a name follows its ribbon to, either way: past it, a name stands there. */
-const FURTHEST = 8;
+/** The furthest place from a street's middle a name follows its ribbon to, either way: past it, a name stands there. No street holds near so many. */
+const FURTHEST = 16;
 
 /**
  * A name's offset across its run of the route: its line's place on the street (`side`, sides.ts), in ribbon widths to the right of
- * the way the route runs, as line-offset lays the run's ribbon, at zoom 12 and 16 (RIBBON_PX); MapLibre keeps a line label's offset
- * on that side of the line as it turns the words to read upright. In the street's middle, the names sat over another line's
- * ribbon: on Tremont Street, Lines 2, 5 and 9 side by side, every name stood over Line 5's, and Line 2's 9.8 px from its own (the
- * systems audit's twenty-first round). Linear in the side, so each run's offset is its side times a ribbon exactly.
+ * the way the route runs, as line-offset lays the run's ribbon (RIBBON_PX); MapLibre keeps a line label's offset on that side of the
+ * line as it turns the words to read upright. In the street's middle, the names sat over another line's ribbon: on Tremont Street,
+ * Lines 2, 5 and 9 side by side, every name stood over Line 5's, and Line 2's 9.8 px from its own (the systems audit's twenty-first
+ * round). Linear in the side, so each run's offset is its side times a ribbon. The offset is a layout property, which MapLibre works
+ * out at each tile's whole zoom while the ribbon follows the map's own, so its stops stand half a zoom before the ribbon's: the name
+ * meets its ribbon at each half zoom and from 16 on, and strays at most half a zoom's growth of a ribbon a place between, 0.5 px a
+ * place, where at the ribbon's own stops it strayed twice that, 2.4 px for a line two and a half places out at zoom 14.95 (#201's
+ * review). Flat; tilted, MapLibre sizes a name by its distance and a ribbon by the map's zoom.
  */
 function nameOffset(): ExpressionSpecification {
   const across = (px: number): ExpressionSpecification => [
@@ -238,7 +242,39 @@ function nameOffset(): ExpressionSpecification {
     FURTHEST,
     ['literal', [0, (FURTHEST * px) / NAME_PX]],
   ];
-  return ['interpolate', ['linear'], ['zoom'], 12, across(RIBBON_PX[0]), 16, across(RIBBON_PX[1])];
+  return ['interpolate', ['linear'], ['zoom'], 11.5, across(RIBBON_PX[0]), 15.5, across(RIBBON_PX[1])];
+}
+
+/** How far a line's name stops short of each end of its run, in metres, at most a quarter of the run's end segment. */
+const NAME_SHORT_M = 5;
+
+/**
+ * A run's points drawn short of its ends (NAME_SHORT_M), for its name. MapLibre joins the lines of line labels that share an end
+ * and their words before it places them (symbol_bucket.ts mergeLines), and the joined line keeps the first one's properties, so a
+ * line's names, drawn run by run end to end, stood at whichever run came first in each tile: on the second company at zoom 14, 62%
+ * of the names' cells lay off their own run's place, 305 of 491 (#201's review). 10 m apart, the runs' ends fall in different
+ * cells of a tile down to zoom 11, the map's least, where a tile's cell is under 2 m, and each name keeps its own run.
+ */
+export function shortOfEnds(points: readonly LngLatPair[], metres = NAME_SHORT_M): LngLatPair[] {
+  const out = points.map((p): LngLatPair => [p[0], p[1]]);
+  if (points.length < 2) return out;
+  const inward = (from: LngLatPair, to: LngLatPair): LngLatPair => {
+    const length = Math.hypot((to[0] - from[0]) * Math.cos((from[1] * Math.PI) / 180), to[1] - from[1]) * 111_195;
+    const t = length > 0 ? Math.min(metres, length / 4) / length : 0;
+    return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+  };
+  out[0] = inward(points[0]!, points[1]!);
+  out[points.length - 1] = inward(points[points.length - 1]!, points[points.length - 2]!);
+  return out;
+}
+
+/** A line's names, one along each run of its route (runsOf), short of the run's ends (shortOfEnds), at its place there (nameOffset). */
+export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
+  return runs.map((run) => ({
+    type: 'Feature' as const,
+    properties: { kind: 'name', id: line.id, name: line.name, side: run.side, first: run.first, last: run.last },
+    geometry: { type: 'LineString' as const, coordinates: shortOfEnds(run.points).map((p) => [...p]) },
+  }));
 }
 
 /** The lines' names' layout: along each run of its route where it has room, on its line's ribbon (nameOffset). e2e/ribbons draws it too. */
@@ -476,11 +512,7 @@ export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: re
           properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last },
           geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
         })),
-        ...runs.map((run) => ({
-          type: 'Feature' as const,
-          properties: { kind: 'name', id: line.id, name: line.name, side: run.side, first: run.first, last: run.last },
-          geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
-        })),
+        ...nameFeatures(line, runs),
         ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
       ];
     }),

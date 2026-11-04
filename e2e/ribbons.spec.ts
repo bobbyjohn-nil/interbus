@@ -86,7 +86,7 @@ const NAMES: readonly (Pick<RibbonCase, 'zoom' | 'heading' | 'side'> & { readonl
   { name: 'zoom 16, heading 270, the words turned the other way up', zoom: 16, heading: 270, side: 1.5 },
   { name: 'zoom 16, heading 20, to the left', zoom: 16, heading: 20, side: -1 },
   { name: 'zoom 16, heading 200, to the left, the other way up', zoom: 16, heading: 200, side: -1 },
-  { name: 'zoom 14, heading 135, two places over', zoom: 14, heading: 135, side: 2 },
+  { name: 'zoom 14.5, heading 135, two places over', zoom: 14.5, heading: 135, side: 2 },
 ];
 
 test('a line’s name stands on its own ribbon, either way up', async ({ page }) => {
@@ -104,3 +104,22 @@ test('a line’s name stands on its own ribbon, either way up', async ({ page })
     expect.soft(Math.abs(onName - onRibbon), `${name}: the name ${onName.toFixed(2)} px across, its ribbon ${onRibbon.toFixed(2)}`).toBeLessThan(1.5);
   }
 });
+
+// MapLibre joins the lines of line labels that share an end and their words before it places them (symbol_bucket's mergeLines),
+// keeping the first one's properties, so a line's name along a run that met another of its runs end to end stood at the other's
+// place: drawn after a 30 m run on the other side, a long run's name stood 14 px off its ribbon at zoom 16 (#201's review). Each
+// name stops short of its run's ends now (overlays.ts shortOfEnds). Shown failing (TS-04) with the runs' own ends.
+for (const zoom of [16, 14.5, 12.5]) {
+  test(`a line’s name keeps its own run’s place where that run meets another of its runs, zoom ${zoom}`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto(server.resolvedUrls!.local[0]!);
+    await page.waitForFunction(() => window.ribbonsReady === true, null, { timeout: 60_000 });
+    const at = { zoom, pitch: 0, heading: 90, side: 1.5, at: [0.5, 0.5] as const };
+    const ribbon = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'ribbon' }), at);
+    const onRibbon = await across(page, ribbon.anchor, ribbon.dir, 160);
+    const words = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'joined' }), at);
+    const onName = await across(page, words.anchor, words.dir, 160);
+    expect(Math.abs(onName - onRibbon), `the name ${onName.toFixed(2)} px across, its run's ribbon ${onRibbon.toFixed(2)}`).toBeLessThan(1.5);
+  });
+}

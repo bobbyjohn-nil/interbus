@@ -14,6 +14,15 @@ import type { LngLatPair } from '../../sim/types';
 /** A route's ribbon at zoom 12 and at 16, in CSS pixels, and so a place's step, held beyond: overlays.ts draws lines with it. */
 export const RIBBON_PX = [3, 7] as const;
 
+/**
+ * Where a place lies on the ground, in the world's pixels at `zoom`, y to the south: Web Mercator over 512 px tiles, as MapLibre lays
+ * its world, and as line-offset lays a ribbon, a pixel at the map's zoom. The screen tilts it; the ground does not.
+ */
+export function groundAt(zoom: number): (p: readonly [number, number]) => [number, number] {
+  const world = 512 * 2 ** zoom;
+  return (p) => [((p[0] + 180) / 360) * world, ((1 - Math.log(Math.tan(Math.PI / 4 + (p[1] * Math.PI) / 360)) / Math.PI) / 2) * world];
+}
+
 /** The ribbon's width at `zoom`, as the route layer's paint has it. */
 export function ribbonPx(zoom: number): number {
   const t = Math.min(1, Math.max(0, (zoom - 12) / 4));
