@@ -5,6 +5,7 @@ import type { City } from '../../cities';
 import { DAYLIGHT_FADE_MS, dim, NIGHT_STEP } from './daylight';
 import { BUILDINGS_2D, BUILDINGS_3D } from './tilt';
 import { restingColour } from './overlays';
+import { groundAt, ribbonPx } from './sides';
 import { GAME_LIGHT, LIGHT, PAPER, V1_PAPER } from './tokens';
 
 const fake = vi.hoisted(() => {
@@ -81,9 +82,11 @@ const fake = vi.hoisted(() => {
       this.layers.push(layer.id);
       this.added.set(layer.id, layer);
     }
-    getSource() {
+    /** The data each source was set to last. */
+    readonly data = new Map<string, unknown>();
+    getSource(id: string) {
       this.loadedStyle();
-      return { setData: () => {} };
+      return { setData: (d: unknown) => void this.data.set(id, d) };
     }
     getLayer() {
       this.loadedStyle();
@@ -156,6 +159,13 @@ afterEach(() => void vi.unstubAllGlobals());
 async function mounted() {
   const mounted = await mountMap({} as HTMLElement, city, 'full');
   return { mounted, map: fake.maps.at(-1)! };
+}
+
+/** The click's place on the ground `px` world pixels at the map's zoom south of `at`, as a click a ribbon across the street lands. */
+function south(at: readonly [number, number], px: number, zoom = fake.maps.at(-1)!.getZoom()): { lng: number; lat: number } {
+  const [x, y] = groundAt(zoom)(at);
+  const world = 512 * 2 ** zoom;
+  return { lng: (x / world) * 360 - 180, lat: (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + px)) / world))) * 180) / Math.PI };
 }
 
 /** The cross-fade's swap, which waits a turn even with reduced motion. */
@@ -255,7 +265,7 @@ describe('the day and night tint', () => {
     map.fire('load');
     // MapLibre's order, topmost first: the resting Line 2's name, Line 1's running route, Line 2's resting route.
     map.queryRenderedFeatures = (() => [
-      { layer: { id: 'lines-name-resting' }, properties: { kind: 'route', id: 2 } },
+      { layer: { id: 'lines-name-resting' }, properties: { kind: 'name', id: 2 } },
       { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 1 } },
       { layer: { id: 'lines-route-resting' }, properties: { kind: 'route', id: 2 } },
     ]) as never;
@@ -279,18 +289,85 @@ describe('the day and night tint', () => {
       [-71.076, 42.35],
     ];
     board.setLines([line(1, street), line(2, street), line(3, street), line(4, [[-71.08, 42.352], [-71.078, 42.352]])] as never, [] as never);
-    // The click's 4 px reach Line 3's ribbon alone, halfway along the first block.
+    // The click's 4 px reach Line 3's ribbon alone, halfway along the first block, a ribbon south of the street's middle: Line 3
+    // first, then Line 2 and Line 1, each by how far its ribbon lies (sides.ts linesHere).
     map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3 } }]) as never;
     let hit: { lineId: number | null; lineIds: readonly number[] } | null = null;
     board.onClick((_, h) => void (hit = h));
-    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: { lng: -71.079, lat: 42.35 }, originalEvent: { detail: 1 } });
-    expect(hit!.lineIds[0]).toBe(3);
-    expect([...hit!.lineIds].sort()).toEqual([1, 2, 3]);
+    const middle = map.project([-71.079, 42.35]);
+    map.fire('click', { point: { x: middle.x, y: middle.y + ribbonPx(map.getZoom()) }, lngLat: south([-71.079, 42.35], ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
     // A hit on a run of a route takes that run's segments alone: here Line 3's second block, which it drives alone.
     board.setLines([line(1, street.slice(0, 2)), line(2, street.slice(0, 2)), line(3, street)] as never, [] as never);
     map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 1, last: 1 } }]) as never;
     map.fire('click', { point: map.project([-71.0795, 42.35]), lngLat: { lng: -71.0795, lat: 42.35 }, originalEvent: { detail: 1 } });
     expect(hit!.lineIds).toEqual([3]);
+  });
+
+  // #201's review: the click was measured on the screen, where a tilted map shortens a street across its way, while line-offset
+  // lays the ribbons on the ground, so a click on the middle of Line 2's ribbon on Tremont Street at pitch 60 lay nearer Line 5's,
+  // 11 of 36 such clicks across the tilted cameras. Measured on the ground now, where the map put the click. Shown failing (TS-04)
+  // with the click measured on the screen.
+  it('measures a click on the ground, as the ribbons lie, wherever a tilted screen puts it', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 2 } }]) as never;
+    let hit: { lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    // On the screen, squeezed across the street, the click lies on its middle; on the ground, on Line 3's ribbon, a ribbon south.
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
+  });
+
+  // #201's review: a name's words, 12 px tall, are wider than a ribbon and drawn over the ribbons, so a click on their outer half
+  // lay nearer a neighbour's ribbon, which came first, 3 of 8 clicks on placed names. The line whose name the click is on comes
+  // first now. Shown failing (TS-04) with the lines by their ribbons alone.
+  it('lists first the line whose name a click is on, where its words reach over a neighbour’s ribbon', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    // Line 2's name, in the street's middle, reaching over Line 3's ribbon, where the click is.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-name' }, properties: { kind: 'name', id: 2, first: 0, last: 0 } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 0, last: 0 } },
+    ]) as never;
+    let hit: { lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([2, 3, 1]);
+  });
+
+  // The roadworks' street is drawn as wide as the lines on it (overlays.ts setEvent), so it is drawn again as the lines on their
+  // streets change, and, with the map's graphics taken away meanwhile, once they are back: as the context was lost, the lines were
+  // kept for later and the event was not, so the restored map drew it as wide as before (#201's review). Shown failing (TS-04)
+  // without the event drawn again.
+  it('draws a city event’s street again as the lines on it change, and once the graphics are back', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    const event = { kind: 'roadworks', phase: 'pending', daysLeft: 2, at: [-71.079, 42.35], path: [[[-71.08, 42.35], [-71.078, 42.35]]] };
+    const places = () => ((map.data.get('events') as { features: { properties: { kind: string; places?: number } }[] }).features.find((f) => f.properties.kind === 'street')!.properties.places);
+    board.setLines([line(1)] as never, [] as never);
+    board.setEvent(event as never);
+    expect(places()).toBe(1);
+    board.setLines([line(1), line(2)] as never, [] as never);
+    expect(places()).toBe(2);
+    map.style = null;
+    map.styleLoaded = false;
+    map.fire('webglcontextlost');
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    map.style = {};
+    map.fire('webglcontextrestored');
+    map.styleLoaded = true;
+    map.fire('style.load');
+    await swapped();
+    expect(places()).toBe(3);
   });
 
   // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics. A frame asked for on top at each

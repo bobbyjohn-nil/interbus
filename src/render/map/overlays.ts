@@ -4,12 +4,12 @@
 // draw no rings: the Contracts panel lists every offer (D25). GeoJSON sources set only when their data
 // changes, never per frame (RN-04); they draw above the board mask. The numbers come from the sim
 // worker; the renderer computes none (AR-04), only the shapes that show them.
-import type { ExpressionSpecification, FilterSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+import type { ExpressionSpecification, FilterSpecification, GeoJSONSource, LayerSpecification, Map as MapLibreMap, SymbolLayerSpecification } from 'maplibre-gl';
 import { restsAt } from '../../sim/rules/periods';
 import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
-import { placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
+import { placesAlong, placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -30,6 +30,9 @@ export const EVENT_LAYERS = ['event-pending', 'event-on', 'event-label'] as cons
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
 
+/** A run's offset from the street's middle: its `side` (sides.ts) in ribbon widths, to the right of the way it runs. */
+const sideOffset: ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 12, ['*', ['get', 'side'], RIBBON_PX[0]], 16, ['*', ['get', 'side'], RIBBON_PX[1]]];
+
 /**
  * The game's layers, `step` steps toward night (daylight.ts): its translucent marks grow more opaque as the map dims (louder), and
  * its words in its own inks keep their own halo (wordHalo); the lines' names, in the labels' inks, dim with the map's labels. A
@@ -38,7 +41,10 @@ const empty = { type: 'FeatureCollection' as const, features: [] };
 export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>, step = 0, ground = t.restingGround): void {
   for (const id of [DEPOT_LAND, DOTS, LINES, DEPOTS, DRAFT, EVENTS]) map.addSource(id, { type: 'geojson', data: empty });
   // A city event's street (the M4 spec, item 2), under the lines and wider than them so it shows on
-  // either side of a route: hatched while pending, solid while on, in the warning colour.
+  // either side of a route: hatched while pending, solid while on, in the warning colour. Wider than every line on the street,
+  // side by side (sides.ts), by 2 px a side at zoom 12 and 4 at 16 (`places`, setEvent): 15 px wide at zoom 16, it showed none
+  // beside three lines' 21 px of ribbons, and half a pixel a side beside two (the systems audit's twenty-first round).
+  const band = (z: 0 | 1): ExpressionSpecification => ['*', RIBBON_PX[z], ['max', 1, ['coalesce', ['get', 'places'], 1]]];
   for (const on of [false, true]) {
     map.addLayer({
       id: on ? 'event-on' : 'event-pending',
@@ -46,7 +52,12 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
       source: EVENTS,
       filter: ['all', ['==', ['get', 'kind'], 'street'], ['==', ['get', 'on'], on]],
       layout: { 'line-cap': 'butt', 'line-join': 'round' },
-      paint: { 'line-color': t.stopFlag, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 7, 16, 15], 'line-opacity': louder(on ? 0.7 : 0.6, step), ...(on ? {} : { 'line-dasharray': [0.6, 0.6] }) },
+      paint: {
+        'line-color': t.stopFlag,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 12, ['+', 4, band(0)], 16, ['+', 8, band(1)]],
+        'line-opacity': louder(on ? 0.7 : 0.6, step),
+        ...(on ? {} : { 'line-dasharray': [0.6, 0.6] }),
+      },
     });
   }
   map.addLayer({
@@ -95,7 +106,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     paint: {
       'line-color': ['get', 'colour'],
       'line-width': ['interpolate', ['linear'], ['zoom'], 12, RIBBON_PX[0], 16, RIBBON_PX[1]],
-      'line-offset': ['interpolate', ['linear'], ['zoom'], 12, ['*', ['get', 'side'], RIBBON_PX[0]], 16, ['*', ['get', 'side'], RIBBON_PX[1]]],
+      'line-offset': sideOffset,
     },
   };
   const stops: LayerSpecification = {
@@ -116,14 +127,14 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
   addRunning(map, route);
   // Each line's name along its route where it has room, in the labels' ink, beside its colour (PLAN §8: shape plus colour):
   // under simulated colour blindness the eight line colours fall as close as 2.0 apart in OKLab (×100), and two pairs are
-  // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street one name shows (7 of the late game's
-  // 18 in its opening view), and a click there lists them all. Under the running lines' stops and the flags, which it never
-  // covers; over the resting lines' stops, which lie under the running routes.
+  // within 7.1 for everyone (src/sim/config/lines.test.ts). Where lines share a street the names that have room show, each on
+  // its own line's ribbon (nameOffset), and a click there lists them all. Under the running lines' stops and the flags, which it
+  // never covers; over the resting lines' stops, which lie under the running routes.
   addResting(map, ground, {
     id: 'lines-name',
     type: 'symbol',
     source: LINES,
-    layout: { 'symbol-placement': 'line', 'symbol-spacing': 320, 'text-field': ['get', 'name'], 'text-font': [FONT_SEMIBOLD], 'text-size': 12, 'text-padding': 4 },
+    layout: NAME_LAYOUT,
     paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
   });
   addRunning(map, stops);
@@ -172,13 +183,14 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
   });
   // The draft: each stop's walk ring in the residents' colour, the route dashed, the stops hollow and numbered.
   map.addLayer({ id: 'draft-rings', type: 'fill', source: DRAFT, filter: ['==', ['get', 'kind'], 'ring'], paint: { 'fill-color': t.homeDot, 'fill-opacity': louder(0.08, step), 'fill-outline-color': t.homeDot } });
+  // The route being edited at its line's places on the streets it drives already (setDraft), as its ribbon lies there.
   map.addLayer({
     id: 'draft-route',
     type: 'line',
     source: DRAFT,
     filter: ['==', ['get', 'kind'], 'route'],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': t.draft, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 2, 16, 5], 'line-dasharray': [2, 1.5] },
+    paint: { 'line-color': t.draft, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 2, 16, 5], 'line-dasharray': [2, 1.5], 'line-offset': sideOffset },
   });
   map.addLayer({
     id: 'draft-stops',
@@ -203,6 +215,78 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     paint: { 'text-color': t.draft, 'text-halo-color': t.wordHalo, 'text-halo-width': 1.5 },
   });
 }
+
+/** The lines' names' size, in CSS pixels: the ems their offset counts in. */
+const NAME_PX = 12;
+/** The furthest place from a street's middle a name follows its ribbon to, either way: past it, a name stands there. No street holds near so many. */
+const FURTHEST = 16;
+
+/**
+ * A name's offset across its run of the route: its line's place on the street (`side`, sides.ts), in ribbon widths to the right of
+ * the way the route runs, as line-offset lays the run's ribbon (RIBBON_PX); MapLibre keeps a line label's offset on that side of the
+ * line as it turns the words to read upright. In the street's middle, the names sat over another line's ribbon: on Tremont Street,
+ * Lines 2, 5 and 9 side by side, every name stood over Line 5's, and Line 2's 9.8 px from its own (the systems audit's twenty-first
+ * round). Linear in the side, so each run's offset is its side times a ribbon. The offset is a layout property, which MapLibre works
+ * out at each tile's whole zoom while the ribbon follows the map's own, so its stops stand half a zoom before the ribbon's: the name
+ * meets its ribbon at each half zoom and from 16 on, and strays at most half a zoom's growth of a ribbon a place between, 0.5 px a
+ * place, where at the ribbon's own stops it strayed twice that, 2.4 px for a line two and a half places out at zoom 14.95 (#201's
+ * review). Flat; tilted, MapLibre sizes a name by its distance and a ribbon by the map's zoom.
+ */
+function nameOffset(): ExpressionSpecification {
+  const across = (px: number): ExpressionSpecification => [
+    'interpolate',
+    ['linear'],
+    ['number', ['get', 'side'], 0],
+    -FURTHEST,
+    ['literal', [0, (-FURTHEST * px) / NAME_PX]],
+    FURTHEST,
+    ['literal', [0, (FURTHEST * px) / NAME_PX]],
+  ];
+  return ['interpolate', ['linear'], ['zoom'], 11.5, across(RIBBON_PX[0]), 15.5, across(RIBBON_PX[1])];
+}
+
+/** How far a line's name stops short of each end of its run, in metres, at most a quarter of the run's end segment. */
+const NAME_SHORT_M = 5;
+
+/**
+ * A run's points drawn short of its ends (NAME_SHORT_M), for its name. MapLibre joins the lines of line labels that share an end
+ * and their words before it places them (symbol_bucket.ts mergeLines), and the joined line keeps the first one's properties, so a
+ * line's names, drawn run by run end to end, stood at whichever run came first in each tile: on the second company at zoom 14, 62%
+ * of the names' cells lay off their own run's place, 305 of 491 (#201's review). 10 m apart, the runs' ends fall in different
+ * cells of a tile down to zoom 11, the map's least, where a tile's cell is under 2 m, and each name keeps its own run.
+ */
+export function shortOfEnds(points: readonly LngLatPair[], metres = NAME_SHORT_M): LngLatPair[] {
+  const out = points.map((p): LngLatPair => [p[0], p[1]]);
+  if (points.length < 2) return out;
+  const inward = (from: LngLatPair, to: LngLatPair): LngLatPair => {
+    const length = Math.hypot((to[0] - from[0]) * Math.cos((from[1] * Math.PI) / 180), to[1] - from[1]) * 111_195;
+    const t = length > 0 ? Math.min(metres, length / 4) / length : 0;
+    return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+  };
+  out[0] = inward(points[0]!, points[1]!);
+  out[points.length - 1] = inward(points[points.length - 1]!, points[points.length - 2]!);
+  return out;
+}
+
+/** A line's names, one along each run of its route (runsOf), short of the run's ends (shortOfEnds), at its place there (nameOffset). */
+export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
+  return runs.map((run) => ({
+    type: 'Feature' as const,
+    properties: { kind: 'name', id: line.id, name: line.name, side: run.side, first: run.first, last: run.last },
+    geometry: { type: 'LineString' as const, coordinates: shortOfEnds(run.points).map((p) => [...p]) },
+  }));
+}
+
+/** The lines' names' layout: along each run of its route where it has room, on its line's ribbon (nameOffset). e2e/ribbons draws it too. */
+export const NAME_LAYOUT: NonNullable<SymbolLayerSpecification['layout']> = {
+  'symbol-placement': 'line',
+  'symbol-spacing': 320,
+  'text-field': ['get', 'name'],
+  'text-font': [FONT_SEMIBOLD],
+  'text-size': NAME_PX,
+  'text-padding': 4,
+  'text-offset': nameOffset(),
+};
 
 /** The overlays' layers as addOverlays adds them `step` steps toward night, for the light's paints (daylight.ts). */
 export function overlayLayers(t: GameTokens, base: Pick<MapTokens, 'label' | 'labelHalo'>, step = 0, ground = t.restingGround): LayerSpecification[] {
@@ -349,11 +433,18 @@ function ring(at: LngLatPair, metres: number): number[][] {
   });
 }
 
-export function setDraft(map: MapLibreMap, draft: LineDraftView | null): void {
+/**
+ * The line being drawn or edited: each stop's walk ring, its route and its stops. A route edited for line `line` runs at that line's
+ * places (`places`, sides.ts) on the streets it drives already, where its ribbon lies: in the street's middle, Line 2's draft on
+ * Tremont Street lay over Line 5's ribbon, 7 px from its own (the systems audit's twenty-first round). Elsewhere, and for a new
+ * line, in the middle.
+ */
+export function setDraft(map: MapLibreMap, draft: LineDraftView | null, places: Places = new Map(), line: number | null = null): void {
+  const sides = draft && line !== null ? sidesAlong(places, line, draft.route) : new Float32Array(Math.max(0, (draft?.route.length ?? 1) - 1));
   const features = draft
     ? [
         ...draft.stops.map((s) => ({ type: 'Feature' as const, properties: { kind: 'ring' }, geometry: { type: 'Polygon' as const, coordinates: [ring(s.at, draft.walkM)] } })),
-        ...(draft.route.length > 1 ? [{ type: 'Feature' as const, properties: { kind: 'route' }, geometry: { type: 'LineString' as const, coordinates: draft.route.map((p) => [...p]) } }] : []),
+        ...runsOf(draft.route, sides).map((run) => ({ type: 'Feature' as const, properties: { kind: 'route', side: run.side }, geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) } })),
         ...draft.stops.map((s, k) => ({ type: 'Feature' as const, properties: { kind: 'stop', joins: s.joins !== null, n: k + 1 }, geometry: { type: 'Point' as const, coordinates: [...s.at] } })),
       ]
     : [];
@@ -369,10 +460,17 @@ export function eventLabel(e: Pick<EventView, 'kind' | 'phase' | 'daysLeft'>): s
   return e.daysLeft <= 1 ? `${name} · last day` : `${name} · ${e.daysLeft} days left`;
 }
 
-export function setEvent(map: MapLibreMap, event: EventView | null): void {
+/** A city event's street and its words; `places` stands the lines on the streets (sides.ts), its street drawn wider than them. */
+export function setEvent(map: MapLibreMap, event: EventView | null, places: Places = new Map()): void {
   const features = event
     ? [
-        ...event.path.map((line) => ({ type: 'Feature' as const, properties: { kind: 'street', on: event.phase === 'on' }, geometry: { type: 'LineString' as const, coordinates: line.map((p) => [...p]) } })),
+        ...event.path.flatMap((line) =>
+          runsOf(line, placesAlong(places, line)).map((run) => ({
+            type: 'Feature' as const,
+            properties: { kind: 'street', on: event.phase === 'on', places: run.side },
+            geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
+          })),
+        ),
         { type: 'Feature' as const, properties: { kind: 'label', text: eventLabel(event) }, geometry: { type: 'Point' as const, coordinates: [...event.at] } },
       ]
     : [];
@@ -405,16 +503,19 @@ export function flagWord(stop: Pick<StopView, 'quiet' | 'loss'>): string | null 
 /** The lines' routes, stops and names, and the stops no line calls at; `places` stands the lines on their streets (sides.ts). */
 export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: readonly StopView[], places: Places = placesOf(lines)): void {
   const features = [
-    ...lines.flatMap((line) => [
-      // The route in runs, each at its place among the lines on that street (`side`), and the name along the whole of it.
-      ...runsOf(line.route, sidesAlong(places, line.id, line.route)).map((run) => ({
-        type: 'Feature' as const,
-        properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last },
-        geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
-      })),
-      { type: 'Feature' as const, properties: { kind: 'name', id: line.id, name: line.name }, geometry: { type: 'LineString' as const, coordinates: line.route.map((p) => [...p]) } },
-      ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
-    ]),
+    ...lines.flatMap((line) => {
+      // The route in runs, each at its place among the lines on that street (`side`), and the name along each run, on its ribbon.
+      const runs = runsOf(line.route, sidesAlong(places, line.id, line.route));
+      return [
+        ...runs.map((run) => ({
+          type: 'Feature' as const,
+          properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last },
+          geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
+        })),
+        ...nameFeatures(line, runs),
+        ...line.stops.map((p, q) => ({ type: 'Feature' as const, properties: { kind: 'stop', colour: line.colour, id: line.id, stop: line.stopIds[q] ?? -1 }, geometry: { type: 'Point' as const, coordinates: [...p] } })),
+      ];
+    }),
     ...stops.flatMap((s) => (s.lineIds.length ? [] : [{ type: 'Feature' as const, properties: { kind: 'lone', stop: s.id }, geometry: { type: 'Point' as const, coordinates: [...s.at] } }])),
     ...stops.flatMap((s) => {
       const word = flagWord(s);

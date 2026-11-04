@@ -92,7 +92,7 @@ export function App() {
   // The stops of the line card a stop's card was opened from, none for a press on the map: the focus goes back to them as
   // the stop comes down, or to Build.
   const [stopRow, setStopRow] = useState<Element | null>(null);
-  // The lines a click found on the same streets, the topmost first (LinesHere).
+  // The lines a click found on the same streets, the nearest the click first (LinesHere).
   const [hereIds, setHereIds] = useState<readonly number[]>([]);
   // When Home last opened, or null once the game is under way (the M5 spec, item 3): it is the first
   // screen, Saves' Back to Home returns to it, and a slot or a file loaded from it goes into that game.
@@ -796,6 +796,7 @@ export function App() {
         tiltGesture={tool === "none"}
         event={sim.snapshot?.event ?? null}
         draft={!stopped && ((tool === "line" && clicks.length) || (tool === "route" && routing)) ? sim.draft : null}
+        draftLine={tool === "route" && routing ? routing.lineId : null}
         // A game that stopped working has no clock that runs: its map stands still, asking for no frame (I14), though
         // the last snapshot came while time ran (the systems audit's fourth round).
         clock={
