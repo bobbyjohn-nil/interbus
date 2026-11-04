@@ -108,10 +108,6 @@ export interface MapHit {
 /** The pointer is reported at most this often. */
 const POINTER_EVERY_MS = 100;
 
-const SECONDS_PER_DAY = 86_400;
-/** No places at all: the fleet's sides wait for the lines to be stood (standLines). */
-const NO_PLACES: Places = new Map();
-
 /** Q and E turn the board over this long. */
 const TURN_MS = 200;
 
@@ -389,26 +385,24 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
   // The lines resting now (restingLines: overnight off, from their last bus's return after 00:00 until 05:00), faded with the flags
   // of the stops only they call at; set only when they change.
   let clockSecond: number | null = null;
-  /** The clock in game seconds since the first day's midnight, as the sim last set it. */
-  let clockAt = 0;
   let linesNow: readonly LineView[] = [];
   // Where each line stands on the streets it shares (sides.ts), worked out once a change, for the routes, the buses and a click,
-  // and again as a settling line's earlier route hands over (`standsUntil`, the soonest of them).
+  // and again as a bus of a settling line leaves or takes the route as it was (`stoodOn`, Fleet.onEarlierKey).
   let placesNow: Places = new Map();
-  let standsUntil = Infinity;
-  // The places, with the earlier routes of each line still settling onto a change: until its merged plan hands over, some of its
-  // buses drive the route as it was, and kept their line's place there. Stood without them, the street re-centred under such a bus
-  // as the change came, which stepped it 3.5 px across onto another line's ribbon, where it rode until the handover (the systems
-  // audit's twenty-first round).
+  let stoodOn = '';
+  // The places, with each earlier version of a settling line's route a bus of it still drives (Fleet.onEarlier): stood without it,
+  // the street re-centred under such a bus as the change came, which stepped it 3.5 px across onto another line's ribbon, where it
+  // rode until its trip ended (the systems audit's twenty-first round). Held by the buses on it, not by the clock: held until the
+  // merged plan handed over, the places outlived the old route's last bus by up to 4.9 game hours, an empty place beside the
+  // lines it shared streets with, and a load of a game saved as a line settled, its clock behind the last one, never held them
+  // (#202's review).
   const standLines = () => {
     const routes: RouteOf[] = [...linesNow];
-    standsUntil = Infinity;
-    for (const l of linesNow) {
-      const until = fleet.handoverOf(l.id);
-      if (until === null || until <= clockAt) continue;
-      for (const e of l.settling?.earlier ?? []) routes.push({ id: l.id, route: e.route });
-      standsUntil = Math.min(standsUntil, until);
+    for (const { id, version } of fleet.onEarlier) {
+      const route = linesNow.find((l) => l.id === id)?.settling?.earlier[version]?.route;
+      if (route) routes.push({ id, route });
     }
+    stoodOn = fleet.onEarlierKey;
     placesNow = placesOf(routes);
     fleet.setPlaces(placesNow);
   };
@@ -584,10 +578,11 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
     const hitIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
     // A name's words are wider than its ribbon and drawn over the ribbons, so a click on their outer half lay nearer a neighbour's
-    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). The name under the click itself, not within its 4 px,
-    // says which line the player pointed at.
-    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting'] }) : [];
-    const named = onName.filter((h) => h.properties?.kind === 'name').map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null);
+    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). A bridge, carrying a ribbon across to its line's new
+    // place, lies over a neighbour's ribbon too, and a click on it listed the neighbour first (#202's review). The name or bridge
+    // under the click itself, not within its 4 px, says which line the player pointed at.
+    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting', 'lines-route', 'lines-route-resting'] }) : [];
+    const named = onName.filter((h) => h.properties?.kind === 'name' || h.properties?.bridge === true).map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null);
     // On the ground, as line-offset lays the ribbons, in the world's pixels at the map's zoom: a tilted map's screen shortens a
     // street across its way, and a click on the middle of Line 2's ribbon on Tremont Street at pitch 60 lay nearer Line 5's on the
     // screen, 11 of 36 such clicks across the tilted cameras (#201's review).
@@ -632,7 +627,7 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       else pending.dotKinds = shown;
     },
     setLines: (lines, stops) => {
-      fleet.setLines(lines, NO_PLACES);
+      fleet.setLines(lines, null);
       linesNow = lines;
       stopsNow = stops;
       standLines();
@@ -660,9 +655,8 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
       fleet.setClock(second, rate, performance.now(), day);
       if (driving !== fleet.running || rate === 0) map.triggerRepaint();
       clockSecond = second;
-      clockAt = day * SECONDS_PER_DAY + second;
-      // A settling line's earlier route handed over: the lines stand without it.
-      if (clockAt >= standsUntil) {
+      // A bus of a settling line left the route as it was, or took it: the lines stand again, with it or without it.
+      if (fleet.onEarlierKey !== stoodOn) {
         standLines();
         if (loaded) {
           setLines(map, linesNow, stopsNow, placesNow);

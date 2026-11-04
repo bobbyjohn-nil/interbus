@@ -342,6 +342,26 @@ describe('the day and night tint', () => {
     expect(hit!.lineIds).toEqual([2, 3, 1]);
   });
 
+  // #202's review: a bridge carries its line's ribbon across to its new place, over a neighbour's ribbon, so a click in the middle of
+  // Line 5's step over Line 3's ribbon listed Line 3 first. Like a name, a bridge under the click says which line the player pointed
+  // at. Shown failing (TS-04) with the bridges left to the ribbons.
+  it('lists first the line whose bridge a click is on, where it steps across a neighbour’s ribbon', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    // Line 1's bridge, crossing Line 3's ribbon, where the click is.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 1, first: 0, last: 0, bridge: true } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 0, last: 0, bridge: false } },
+    ]) as never;
+    let hit: { lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([1, 3, 2]);
+  });
+
   // The roadworks' street is drawn as wide as the lines on it (overlays.ts setEvent), so it is drawn again as the lines on their
   // streets change, and, with the map's graphics taken away meanwhile, once they are back: as the context was lost, the lines were
   // kept for later and the event was not, so the restored map drew it as wide as before (#201's review). Shown failing (TS-04)
@@ -370,11 +390,14 @@ describe('the day and night tint', () => {
     expect(places()).toBe(3);
   });
 
-  // A line settling onto a change of route still runs buses on the route as it was until its merged plan hands over: stood without
-  // that route, the street re-centred under such a bus as the change came, which stepped it 3.5 px across onto another line's
-  // ribbon until the handover (the systems audit's twenty-first round). The other line keeps its place beside the old route until
-  // the handover, then stands alone. Shown failing (TS-04) with the places stood from the lines' own routes alone.
-  it('keeps a settling line’s earlier route among the places until it hands over', async () => {
+  // A line settling onto a change of route still runs buses on the route as it was: stood without that route, the street re-centred
+  // under such a bus as the change came, which stepped it 3.5 px across onto another line's ribbon until its trip ended (the systems
+  // audit's twenty-first round). The other line keeps its place beside the old route while a bus drives it, and stands alone once
+  // none does, before the merged plan hands over at 23:20: held until the handover, the places outlived the old route's last bus
+  // by up to 4.9 game hours (#202's review). A game loaded with its clock behind the last one, as a slot saved as a line settled is,
+  // holds them too, where stood by the clock it never did (#202's review). Shown failing (TS-04) with the places stood from the
+  // lines' own routes alone, and with them held by the clock.
+  it('keeps a settling line’s earlier route among the places while a bus of it drives that route, in a game loaded too', async () => {
     const { mounted: board, map } = await mounted();
     map.styleLoaded = true;
     map.fire('load');
@@ -391,13 +414,18 @@ describe('the day and night tint', () => {
     const one = { ...base, id: 1, ...geometry(b), plan: every(600, 3), settling: { frameDay: 2, earlier: [{ plan: every(1_200, 2), until: 23 * 3_600, sameModel: true, sameStart: true, ...was }] } };
     const two = { ...base, id: 2, ...geometry(a), plan: every(1_200, 2), settling: null };
     const sideOf = (id: number) => (map.data.get('lines') as { features: { properties: Record<string, unknown> }[] }).features.find((f) => f.properties.kind === 'route' && f.properties.id === id)!.properties.side;
-    board.setClock(23 * 3_600 + 10 * 60, 600, 2);
+    board.setClock(23 * 3_600 + 60, 600, 2);
     board.setLines([one, two] as never, [] as never);
     expect(Math.abs(sideOf(2) as number)).toBe(0.5);
-    board.setClock(23 * 3_600 + 15 * 60, 600, 2);
-    expect(Math.abs(sideOf(2) as number)).toBe(0.5);
-    board.setClock(23 * 3_600 + 25 * 60, 600, 2);
+    // The old route's last trip done by 23:02, well before the handover.
+    board.setClock(23 * 3_600 + 5 * 60, 600, 2);
     expect(sideOf(2)).toBe(0);
+    // A load: the lines come under the last game's clock, far on, then the loaded game's own, paused at 23:01 on day 2.
+    board.setClock(12 * 3_600, 600, 10);
+    board.setLines([one, two] as never, [] as never);
+    expect(sideOf(2)).toBe(0);
+    board.setClock(23 * 3_600 + 60, 0, 2);
+    expect(Math.abs(sideOf(2) as number)).toBe(0.5);
   });
 
   // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics. A frame asked for on top at each

@@ -259,9 +259,10 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
 /**
  * The gaps, in ribbons, along the chain a route's drawn pieces make across each point where one of its runs ends and the next
  * starts, in the order bridgesOf lays them: from the run before's end to the first bridge's start, from each bridge's end to the
- * next one's start, and from the last to the run after's start, each end at its piece's side square to the piece's way there,
- * BRIDGE_M from the point counting for nothing beside a ribbon at the zooms that show them; a piece's own corner is drawn whole
- * by its round join. Round caps meet where a gap is a ribbon or less. For the tests and `npm run bench sides`.
+ * next one's start, and from the last to the run after's start, each end at its piece's side square to the piece's way there. A
+ * step's BRIDGE_M along the way counts for nothing, as each piece lies over the next along those same metres (at zoom 18 they
+ * are 2.6 ribbons long); a piece's own corner is drawn whole by its round join, up to about 120 degrees (STATUS). Round caps meet
+ * where a gap is a ribbon or less. For the tests and `npm run bench sides`.
  */
 export function ribbonGaps(route: readonly LngLatPair[], runs: readonly Run[], bridges: readonly Run[]): number[][] {
   const right = (a: LngLatPair, b: LngLatPair, side: number): readonly [number, number] => {

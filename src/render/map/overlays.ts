@@ -510,9 +510,11 @@ export function setLines(map: MapLibreMap, lines: readonly LineView[], stops: re
       const drawn = runsOf(line.route, sides, true);
       const runs = runsOf(line.route, sides);
       return [
-        ...[...drawn, ...bridgesOf(line.route, drawn)].map((run) => ({
+        // The bridges marked as such: a bridge stands between its line's places, over a neighbour's ribbon, so a click on it says
+        // which line the player pointed at, as a name does (loadMap.ts; #202's review).
+        ...[...drawn.map((run) => ({ run, bridge: false })), ...bridgesOf(line.route, drawn).map((run) => ({ run, bridge: true }))].map(({ run, bridge }) => ({
           type: 'Feature' as const,
-          properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last },
+          properties: { kind: 'route', colour: line.colour, id: line.id, side: run.side, first: run.first, last: run.last, bridge },
           geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
         })),
         ...nameFeatures(line, runs),

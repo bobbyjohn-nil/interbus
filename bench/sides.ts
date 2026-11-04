@@ -1,11 +1,11 @@
 // The street places' bench (render/map/sides.ts): how long the map takes, once a change to the network, to stand each line in
 // its place on the streets it shares and each line's route on its side, as `loadMap` works them out for the routes, the buses
 // and a click. On Inner Boston, the lines as the worker posts them (host.ts lineViews): the pacing run's card-building
-// companies at the bus ceiling (bench/fixtures, as `npm run bench recompute` times them) and a late game of 30 lines along the
-// corridors (scene.ts lateScene). `npm run bench sides`; never part of the PR checks.
+// companies at the bus ceiling (bench/fixtures, as `npm run bench recompute` times them), a late game of 30 lines along the
+// corridors (scene.ts lateScene) and the busy scene (busyScene). `npm run bench sides`; never part of the PR checks.
 import { readFileSync } from 'node:fs';
 import { bridgesOf, placesOf, ribbonGaps, runsOf, sidesAlong, turnsBack } from '../src/render/map/sides';
-import { lateScene } from '../src/sim/scene';
+import { busyScene, lateScene } from '../src/sim/scene';
 import { fromSaveData } from '../src/sim/save/save';
 import type { SaveData } from '../src/sim/save/schema';
 import { createWorld, recompute, type World } from '../src/sim/world';
@@ -27,6 +27,10 @@ if (!city) {
   const late = lateScene(city, { id: 'boston', revision: 'inner-boston', hash: '-' }, CORRIDORS, 30);
   recompute(late);
   worlds.push({ name: 'a late game along the corridors', world: late });
+  // The busy scene, as `npm run bench scene` writes it: its turn-backs include one of 169 degrees (#202's review).
+  const busy = busyScene(city, { id: 'boston', revision: 'inner-boston', hash: '-' }, CORRIDORS, 200).world;
+  recompute(busy);
+  worlds.push({ name: 'the busy scene, 200 buses at 08:00', world: busy });
 
   const at = (xs: readonly number[], q: number) => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(q * xs.length))]!;
   for (const { name, world } of worlds) {
