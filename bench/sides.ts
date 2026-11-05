@@ -54,18 +54,24 @@ if (!city) {
     // Where each line's ribbon goes from one run to the next: the widest gap between round caps, in ribbons, with the bridges and
     // without (bridgesOf; a ribbon is 7 px at zoom 16), and the points where a line turns back off the street's middle.
     const p = placesOf(lines);
-    let [cuts, turns, broken, brokenBefore, widest, widestBefore] = [0, 0, 0, 0, 0, 0];
+    // And the corner pieces (bridgesOf's three-point pieces), laid only where the round caps would not carry the ribbon on without
+    // one, against every point on along a street or round a corner where the side before stands off the middle, where each was
+    // laid before the systems audit's twenty-second round.
+    let [cuts, turns, broken, brokenBefore, widest, widestBefore, corners, offMiddle] = [0, 0, 0, 0, 0, 0, 0, 0];
     for (const l of lines) {
       const s = sidesAlong(p, l.id, l.route);
       const runs = runsOf(l.route, s, true);
       cuts += runs.length - 1;
       for (const run of runs.slice(1)) if (turnsBack(l.route, run.first)) turns++;
-      const [after, before] = [ribbonGaps(l.route, runs, bridgesOf(l.route, runs)), ribbonGaps(l.route, runs, [])];
+      offMiddle += runs.slice(1).filter((now, r) => !turnsBack(l.route, now.first) && runs[r]!.side !== 0).length;
+      const bridges = bridgesOf(l.route, runs);
+      corners += bridges.filter((b) => b.points.length === 3).length;
+      const [after, before] = [ribbonGaps(l.route, runs, bridges), ribbonGaps(l.route, runs, [])];
       for (const g of after) if (Math.max(...g) > 1 + 1e-9) broken++;
       for (const g of before) if (Math.max(...g) > 1 + 1e-9) brokenBefore++;
       widest = Math.max(widest, ...after.flat());
       widestBefore = Math.max(widestBefore, ...before.flat());
     }
-    console.log(`  ${cuts} points where a ribbon goes from one run to the next, ${turns} of them turn-backs: ${brokenBefore} broke there without bridges, the widest gap ${(Math.max(0, widestBefore - 1) * 7).toFixed(1)} px at zoom 16; with them ${broken}, the widest link ${widest.toFixed(2)} ribbons`);
+    console.log(`  ${cuts} points where a ribbon goes from one run to the next, ${turns} of them turn-backs: ${brokenBefore} broke there without bridges, the widest gap ${(Math.max(0, widestBefore - 1) * 7).toFixed(1)} px at zoom 16; with them ${broken}, the widest link ${widest.toFixed(2)} ribbons; a corner piece at ${corners} of the ${offMiddle} on along or round a corner from a side off the middle`);
   }
 }

@@ -362,6 +362,35 @@ describe('the day and night tint', () => {
     expect(hit!.lineIds).toEqual([1, 3, 2]);
   });
 
+  // The systems audit's twenty-second round: MapLibre finds a name anywhere in its box and its padding, 8 px either way, past its
+  // words over a neighbour's ribbon, and a bridge passes under the lines drawn after it, yet the name or bridge under a click came
+  // first: a click on Line 5's ribbon beside Line 2's name, or on Line 23's ribbon over Line 6's bridge, listed Line 2 or Line 6
+  // first. A name counts within its words' reach of its own ribbon, and a bridge where it is the route drawn on top. Shown failing
+  // (TS-04) with every name and bridge MapLibre found at the click first.
+  it('lists the ribbon a click is on first, past a name’s words and over a bridge drawn under it', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    let hit: { lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    // Line 2's name in the street's middle, as MapLibre finds it, and the click 7 px south, past its words' 6 px, on Line 3's ribbon.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-name' }, properties: { kind: 'name', id: 2, first: 0, last: 0 } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 0, last: 0, bridge: false } },
+    ]) as never;
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], 7), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
+    // Line 1's bridge, drawn under Line 3's ribbon, where the click is: topmost first, Line 3's ribbon.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 0, last: 0, bridge: false } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 1, first: 0, last: 0, bridge: true } },
+    ]) as never;
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
+  });
+
   // The roadworks' street is drawn as wide as the lines on it (overlays.ts setEvent), so it is drawn again as the lines on their
   // streets change, and, with the map's graphics taken away meanwhile, once they are back: as the context was lost, the lines were
   // kept for later and the event was not, so the restored map drew it as wide as before (#201's review). Shown failing (TS-04)
@@ -426,6 +455,41 @@ describe('the day and night tint', () => {
     expect(sideOf(2)).toBe(0);
     board.setClock(23 * 3_600 + 60, 0, 2);
     expect(Math.abs(sideOf(2) as number)).toBe(0.5);
+  });
+
+  // The systems audit's twenty-second round: as a settling line's last bus left the route as it was with the graphics away, the lines
+  // stood again and were kept for the map's return, but the event's street was not, so the restored map drew the roadworks two
+  // places wide where one line was left, 7.5 px a side where 4. Shown failing (TS-04) with the lines alone kept.
+  it('draws a city event’s street again once the graphics are back, after a settling line let its old route go meanwhile', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const on = (m: number): [number, number] => [-71.1 + m / 82_220, 42.35];
+    const north = (m: number): [number, number] => [-71.1 + m / 82_220, 42.352];
+    const geometry = (at: (m: number) => [number, number]) => {
+      const route = [at(0), at(1_339), at(2_425), at(3_535)];
+      return { route, stops: route, stopAt: [0, 1, 2, 3], stopDistM: [0, 1_339, 2_425, 3_535], pullOut: [at(0), at(0)], pullIn: [at(0), at(0)] };
+    };
+    const every = (s: number, buses: number) => ({ timing: { cycle: 1_539, headways: { peak: s, offpeak: s, overnight: null }, buses }, oneWayS: 529.5, pullOutS: 0, pullInS: 0 });
+    const base = { name: 'Line', colour: '#c0392b', stopIds: [1, 2, 3, 4], headways: { peak: 600, offpeak: 600, overnight: null }, model: 'sparrow' };
+    // Line 1 moved from the street Line 2 drives to one to the north at 23:00 on day 2, its old route's last trip done by 23:02.
+    const one = { ...base, id: 1, ...geometry(north), plan: every(600, 3), settling: { frameDay: 2, earlier: [{ plan: every(1_200, 2), until: 23 * 3_600, sameModel: true, sameStart: true, ...geometry(on) }] } };
+    const two = { ...base, id: 2, ...geometry(on), plan: every(1_200, 2), settling: null };
+    const places = () => ((map.data.get('events') as { features: { properties: { kind: string; places?: number } }[] }).features.find((f) => f.properties.kind === 'street')!.properties.places);
+    board.setClock(23 * 3_600 + 60, 600, 2);
+    board.setLines([one, two] as never, [] as never);
+    board.setEvent({ kind: 'roadworks', phase: 'pending', daysLeft: 2, at: on(600), path: [[on(0), on(1_339)]] } as never);
+    expect(places()).toBe(2);
+    map.style = null;
+    map.styleLoaded = false;
+    map.fire('webglcontextlost');
+    board.setClock(23 * 3_600 + 5 * 60, 600, 2);
+    map.style = {};
+    map.fire('webglcontextrestored');
+    map.styleLoaded = true;
+    map.fire('style.load');
+    await swapped();
+    expect(places()).toBe(1);
   });
 
   // While time runs the vehicle layer asks for its own frames, at most 30 a second in Low graphics. A frame asked for on top at each

@@ -245,43 +245,38 @@ function nameOffset(): ExpressionSpecification {
   return ['interpolate', ['linear'], ['zoom'], 11.5, across(RIBBON_PX[0]), 15.5, across(RIBBON_PX[1])];
 }
 
-/** How far a line's name stops short of each end of its run, in metres, at most a quarter of the run's end segment. */
-const NAME_SHORT_M = 5;
-
 /**
- * A run's points drawn short of its ends (NAME_SHORT_M), for its name. MapLibre joins the lines of line labels that share an end
- * and their words before it places them (symbol_bucket.ts mergeLines), and the joined line keeps the first one's properties, so a
- * line's names, drawn run by run end to end, stood at whichever run came first in each tile: on the second company at zoom 14, 62%
- * of the names' cells lay off their own run's place, 305 of 491 (#201's review). 10 m apart, the runs' ends fall in different
- * cells of a tile down to zoom 11, the map's least, where a tile's cell is under 2 m, and each name keeps its own run.
+ * A line's names, one along each run of its route (runsOf), at its place there (nameOffset), each in words of its own (`label`): the
+ * line's name, then as many spaces as the run's count along the route, which MapLibre trims as it lays out the words
+ * (tagged_string.ts trim), so every run's name reads the same. MapLibre joins the lines of line labels that share their words and an
+ * end before it places them (merge_lines.ts, keyed by the words and the point), and the joined line keeps the first one's
+ * properties: run by run end to end, a line's names stood at whichever run came first in each tile, 62% of the names' cells off
+ * their own run's place on the second company at zoom 14 (#201's review). Stopped 5 m short of their ends, a run that turned back
+ * along the street it came in on still met the next at one point, which stood Line 2's name 14 px off its ribbon at Haymarket, and
+ * where a tile's edge cuts a street a line drives both ways, its two runs there meet at the edge, which no shortening reaches (the
+ * systems audit's twenty-second round). In words of their own, no two runs' names join.
  */
-export function shortOfEnds(points: readonly LngLatPair[], metres = NAME_SHORT_M): LngLatPair[] {
-  const out = points.map((p): LngLatPair => [p[0], p[1]]);
-  if (points.length < 2) return out;
-  const inward = (from: LngLatPair, to: LngLatPair): LngLatPair => {
-    const length = Math.hypot((to[0] - from[0]) * Math.cos((from[1] * Math.PI) / 180), to[1] - from[1]) * 111_195;
-    const t = length > 0 ? Math.min(metres, length / 4) / length : 0;
-    return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
-  };
-  out[0] = inward(points[0]!, points[1]!);
-  out[points.length - 1] = inward(points[points.length - 1]!, points[points.length - 2]!);
-  return out;
-}
-
-/** A line's names, one along each run of its route (runsOf), short of the run's ends (shortOfEnds), at its place there (nameOffset). */
 export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
-  return runs.map((run) => ({
+  return runs.map((run, k) => ({
     type: 'Feature' as const,
-    properties: { kind: 'name', id: line.id, name: line.name, side: run.side, first: run.first, last: run.last },
-    geometry: { type: 'LineString' as const, coordinates: shortOfEnds(run.points).map((p) => [...p]) },
+    properties: { kind: 'name', id: line.id, name: line.name, label: `${line.name}${' '.repeat(k)}`, side: run.side, first: run.first, last: run.last },
+    geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
   }));
 }
+
+/**
+ * How far a line's name reaches either side of its ribbon's middle, in CSS pixels: its 12 px words and their 2 px halo, 5 to 6 px
+ * either way at every zoom, flat (e2e/ribbons.spec.ts measures it). MapLibre finds a name anywhere in its box and its padding
+ * (`text-padding`), 8 px either way, past its words over a neighbour's ribbon, where a click on that ribbon listed the name's line
+ * first in 35 of 36 such clicks (the systems audit's twenty-second round): within this reach, a click is on the name (loadMap.ts).
+ */
+export const NAME_REACH_PX = 6;
 
 /** The lines' names' layout: along each run of its route where it has room, on its line's ribbon (nameOffset). e2e/ribbons draws it too. */
 export const NAME_LAYOUT: NonNullable<SymbolLayerSpecification['layout']> = {
   'symbol-placement': 'line',
   'symbol-spacing': 320,
-  'text-field': ['get', 'name'],
+  'text-field': ['get', 'label'],
   'text-font': [FONT_SEMIBOLD],
   'text-size': NAME_PX,
   'text-padding': 4,

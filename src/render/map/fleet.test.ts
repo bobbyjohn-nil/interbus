@@ -168,5 +168,27 @@ describe('a line’s buses in service', () => {
     expect(fleet.onEarlier).toEqual([]);
     expect(fleet.onEarlierKey).toBe('');
   });
+
+  // The systems audit's twenty-second round: a bus home from its last trip on the route as it was held that route's place among the
+  // lines until it was home, an empty place beside the lines on its streets for 130 to 310 game seconds after changes made from 23:15
+  // to 23:45, as the night's last trips drive home. On its depot drive it drives no route. Shown failing (TS-04) with a bus on its
+  // depot drive counted.
+  it('lets an earlier route go as its last trip ends, while that bus drives home', () => {
+    const fleet = new Fleet();
+    const was = line();
+    const north = (p: LngLatPair): LngLatPair => [p[0], p[1] + 0.002];
+    const now = { ...was, route: was.route.map(north), stops: was.stops.map(north), pullOut: was.pullOut.map(north), pullIn: was.pullIn.map(north) };
+    const { route, stopAt, stopDistM, pullOut, pullIn } = was;
+    // Moved to a street to the north at 23:50 on day 2: the old route's last trip, the 23:40's, is back at its first stop at 00:01:39,
+    // and its bus home at 00:05:07.
+    fleet.setLines([{ ...now, settling: { frameDay: 2, earlier: [{ plan: was.plan, until: 23 * 3_600 + 50 * 60, sameModel: true, sameStart: true, route, stopAt, stopDistM, pullOut, pullIn }] } }], null);
+    fleet.setClock(23 * 3_600 + 59 * 60, 600, 0, 2);
+    expect(fleet.onEarlierKey).toBe('1:0;');
+    // At 00:03 it drives home: drawn, but on no route.
+    fleet.setClock(3 * 60, 600, 0, 3);
+    expect(fleet.frame(0).count).toBe(1);
+    expect(fleet.onEarlier).toEqual([]);
+    expect(fleet.onEarlierKey).toBe('');
+  });
 });
 

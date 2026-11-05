@@ -218,6 +218,26 @@ describe('a ribbon carried from run to run', () => {
     expect(worst(route, [1.5, 1.5])).toBeLessThanOrEqual(1 + 1e-9);
   });
 
+  // The systems audit's twenty-second round: on along a street, a line moving half a place over took a corner piece at its side
+  // before, which lay half a ribbon over the run after for BRIDGE_M, 9 to 10 px wide for 4.6 m at zoom 18 where the ribbon is 7 px.
+  // Their round caps carry it on there. A whole place over, or a step, still turns at the side before, alongside the next piece, as
+  // caps a ribbon apart only touch. Shown failing (TS-04) with a corner piece wherever the side before is off the middle.
+  it('lays no corner piece where the line moves half a place over along the street, and one where it moves a whole place', () => {
+    // On along the street, and on round a bend of 5 degrees on the ground.
+    const bend = (degrees: number): LngLatPair[] => [P(0, 0), P(1, 0), P(1 + Math.cos((degrees * Math.PI) / 180), Math.sin((degrees * Math.PI) / 180) * Math.cos((42.35 * Math.PI) / 180))];
+    for (const route of [bend(0), bend(5)]) {
+      for (const halfway of [[0.5, 0], [1.5, 1], [-0.5, 0], [1, 0.5], [-1.5, -2], [3, 2.5]]) {
+        expect(bridgesOf(route, runsOf(route, new Float32Array(halfway), true))).toEqual([]);
+        expect(worst(route, halfway)).toBeLessThan(0.75);
+      }
+    }
+    const pieces = (sides: number[]) => bridgesOf(bend(0), runsOf(bend(0), new Float32Array(sides), true)).map((b) => [b.side, b.points.length]);
+    // A whole place over: the corner piece at the side before. Two: the corner piece, then a step.
+    expect(pieces([1, 0])).toEqual([[1, 3]]);
+    expect(pieces([2, 0])).toEqual([[2, 3], [1, 2]]);
+    for (const sides of [[1, 0], [2, 0], [-1.5, 1.5]]) expect(worst(bend(0), sides)).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
   it('adds nothing where the runs already meet: a line alone, and a side change of a ribbon or less along the street', () => {
     expect(bridgesOf([P(0, 0), P(1, 0), P(2, 0)], runsOf([P(0, 0), P(1, 0), P(2, 0)], new Float32Array([0, 0]), true))).toEqual([]);
     const route = [P(0, 0), P(1, 0), P(2, 0)];

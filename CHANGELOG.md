@@ -360,6 +360,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A click by a corner lists only the lines on the street you clicked. Before, it could list lines on the street round the corner too.
 - A line's colour runs on unbroken where it moves across a street it shares with other lines: at a corner, where another line joins or leaves it, or where it turns back at a stop, it steps across to its new place. Before, it broke off there and began again up to a street's width away.
 - A bus still finishing a trip on its line's old route after you change the route keeps its place on the street. Before, it stepped across onto another line's colour until its trip ended.
+- A line's name stays on its own colour where its route turns back along a street, or drives a street both ways. Before, there it could stand on the other side of the street, off any line, or show nowhere near the stop it turns at.
+- A click on a line's colour just beside another line's name, or where another line's colour steps across under it, lists the line you clicked first. Before, the line whose name was beside the click, or whose colour lay under it, came first.
+- Roadworks are drawn as wide as the lines on their street once the map's graphics come back after the browser took them away. Before, they could stay a line wider until the lines next changed.
+- A line's colour keeps its width where it moves half a place over along a street. Before, it bulged half as wide again there for a few metres.
+- A changed line's old route gives up its place among the lines as its last bus there finishes its trip. Before, it kept the place empty beside the other lines on its streets until that bus was back at its depot, for up to five game minutes after a late-evening change.
 
 ### Removed
 

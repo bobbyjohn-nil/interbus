@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExpression, latest } from '@maplibre/maplibre-gl-style-spec';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { addOverlays, setDotKinds, setDraft, setEvent, setLines, shortOfEnds } from './overlays';
+import { addOverlays, setDotKinds, setDraft, setEvent, setLines } from './overlays';
 import { placesOf } from './sides';
 import { ringExpressions } from './pick';
 import type { EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
@@ -62,7 +62,7 @@ describe('the game layers', () => {
     const names = specs.get('lines-name')!;
     expect(names.type).toBe('symbol');
     expect(names.filter).toEqual(['all', ['==', ['get', 'kind'], 'name'], ['!', ['in', ['get', 'id'], ['literal', []]]]]);
-    expect(names.layout).toMatchObject({ 'symbol-placement': 'line', 'text-field': ['get', 'name'] });
+    expect(names.layout).toMatchObject({ 'symbol-placement': 'line', 'text-field': ['get', 'label'] });
     expect(names.layout!['text-size']).toBeGreaterThanOrEqual(12);
     expect(names.paint).toMatchObject({ 'text-color': LIGHT.label, 'text-halo-color': LIGHT.labelHalo });
     // Over the routes and under the stops and their flags, which it never covers (the review of shape beside colour).
@@ -81,9 +81,8 @@ describe('the game layers', () => {
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);
     const features = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] }).features;
     const name = features.find((f) => f.properties.kind === 'name')!;
-    expect(name.properties).toMatchObject({ name: 'Line 2', id: 2, side: 0 });
-    // Short of the run's ends by 5 m, so MapLibre never joins it to the next run's name (shortOfEnds).
-    expect(name.geometry.coordinates).toEqual(shortOfEnds(line.route));
+    expect(name.properties).toMatchObject({ name: 'Line 2', label: 'Line 2', id: 2, side: 0 });
+    expect(name.geometry.coordinates).toEqual(line.route);
     expect(features.find((f) => f.properties.kind === 'route')!.properties).toMatchObject({ colour: '#2471a3', id: 2, side: 0 });
   });
 
@@ -118,29 +117,32 @@ describe('the game layers', () => {
     expect(offset(16, 12)[1]).toBeCloseTo((12 * 7) / 12, 9);
   });
 
-  // #201's review: MapLibre joins the lines of line labels that share an end and their words before it places them (symbol_bucket's
-  // mergeLines), keeping the first one's properties, so a line's names, run by run end to end, stood at whichever run came first in
-  // a tile: 62% of the names' cells off their own run's place on the second company at zoom 14. Each name stops 5 m short of its
-  // run's ends now, a quarter of its end segment at most, so no two share an end. Shown failing (TS-04) with the runs' own ends.
-  it('stop each run’s name short of its ends, so no two of a line’s names share an end for MapLibre to join', () => {
+  // #201's review: MapLibre joins the lines of line labels that share their words and an end before it places them (merge_lines.ts,
+  // keyed by the words and the point), keeping the first one's properties, so a line's names, run by run end to end, stood at
+  // whichever run came first in a tile: 62% of the names' cells off their own run's place on the second company at zoom 14. Stopped
+  // short of their ends, a run that turned back along the street it came in on still met the next at one point, and Line 2's name
+  // stood 14 px off its ribbon at Haymarket; and a tile's edge across a street a line drives both ways is an end both its runs there
+  // share (the systems audit's twenty-second round). Each run's name has words of its own now, the line's name and as many spaces
+  // as the run's count, which MapLibre trims as it lays them out. Shown failing (TS-04) with the line's name alone, as before.
+  it('give each run’s name words of its own, the line’s name as it reads, so MapLibre joins no two of a line’s names', () => {
     const { map, data } = fakeMap();
     addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
     const P = (x: number): LngLatPair => [-71.08 + 0.002 * x, 42.35];
-    // Line 1 alone on the first block, beside Line 2 on the next two: three runs of its route, by its place there.
+    // Line 1 alone on the first block, beside Line 2 on the next two, then back west half a block alone: three runs of its route, by
+    // its place there, the second and third meeting where it turns back.
     const lines = [
-      { id: 1, name: 'Line 1', colour: '#2471a3', route: [P(0), P(1), P(2), P(3)], stops: [], stopIds: [] },
-      { id: 2, name: 'Line 2', colour: '#1e8449', route: [P(1), P(2)], stops: [], stopIds: [] },
+      { id: 1, name: 'Line 1', colour: '#2471a3', route: [P(0), P(1), P(2), P(3), P(2.5)], stops: [], stopIds: [] },
+      { id: 2, name: 'Line 2', colour: '#1e8449', route: [P(1), P(2), P(3)], stops: [], stopIds: [] },
     ] as unknown as LineView[];
     setLines(map as unknown as MapLibreMap, lines, [] as StopView[]);
-    const names = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: LngLatPair[] } }[] }).features.filter((f) => f.properties.kind === 'name' && f.properties.id === 1);
-    expect(names.map((f) => Math.abs(f.properties.side as number))).toEqual([0, 0.5, 0]);
-    const metres = (a: LngLatPair, b: LngLatPair) => Math.hypot((a[0] - b[0]) * Math.cos((a[1] * Math.PI) / 180), a[1] - b[1]) * 111_195;
-    for (let k = 1; k < names.length; k++) {
-      const [end, start] = [names[k - 1]!.geometry.coordinates.at(-1)!, names[k]!.geometry.coordinates[0]!];
-      expect(metres(end, start)).toBeCloseTo(10, 6);
-    }
-    // A run's end segment shorter than 20 m gives up a quarter of itself instead.
-    expect(metres(shortOfEnds([P(0), [P(0)[0] + 0.0001, 42.35]])[0]!, P(0))).toBeCloseTo(metres(P(0), [P(0)[0] + 0.0001, 42.35]) / 4, 6);
+    const names = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: LngLatPair[] } }[] }).features.filter((f) => f.properties.kind === 'name');
+    const ofLine1 = names.filter((f) => f.properties.id === 1);
+    expect(ofLine1.map((f) => f.properties.side)).toEqual([0, -0.5, 0]);
+    // Each along its whole run, ends and all, and each in words of its own that read as the line's name once trimmed.
+    expect(ofLine1.map((f) => f.geometry.coordinates)).toEqual([[P(0), P(1)], [P(1), P(2), P(3)], [P(3), P(2.5)]]);
+    const labels = names.map((f) => f.properties.label as string);
+    expect(new Set(labels).size).toBe(names.length);
+    for (const f of names) expect((f.properties.label as string).trim()).toBe(f.properties.name);
   });
 
   // Roadworks' hatching, 15 px wide at zoom 16, showed none beside three lines' 21 px of ribbons on a street they share, and half
