@@ -782,6 +782,16 @@ export function Panels({
                 e.stopPropagation();
                 return;
               }
+              // Brought in as the pointer drags it, the panel goes back under the pointer at its next move: a Tab showed Buy
+              // and run in Lines held past the window's edge, a move of 1 px took it off the window again, and Enter bought the
+              // change as its press brought the panel back in, $380,000, unseen as it went, 3 runs of 3 (the review of the
+              // systems audit's twenty-sixth round). The press shows the control, as one under a panel only raises it, and the
+              // next works it in sight.
+              if (brought && e.currentTarget.classList.contains("dragging")) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
               if (brought && was) pressedFrom.current = { id, was };
             }}
             onKeyDownCapture={(e) => {

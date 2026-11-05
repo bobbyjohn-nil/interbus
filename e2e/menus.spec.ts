@@ -8,6 +8,7 @@
 // on past its open menu, Place a stop never focused. The systems audit's fourth round: Escape closing
 // a menu the mouse opened leaves Space to time, arrows or not (shown failing below).
 import { expect, test, type Locator, type Page } from './base';
+import { REFUSAL_COPY } from '../src/ui/copy';
 import { foundCompany } from './found';
 import { city } from './shell';
 
@@ -141,6 +142,35 @@ test.describe('the menus', () => {
     expect(await finance.evaluate((b, [x, y]) => b.contains(document.elementFromPoint(x!, y!)), [at.x, at.y])).toBe(true);
     await page.mouse.click(at.x, at.y);
     await expect(page.getByTestId('finance')).toBeVisible();
+  });
+
+  // The review of the twenty-sixth round: kept clear of the credit, the dock drew over a notice's last words below about 880 px
+  // wide, the longest refusal's from 882 px and "Depots stand on industrial land" 27% hidden at 760 px, and below 611 px it ran
+  // off the window's left edge, Build at -32 to 32 px at 576 px. A notice wraps beside the dock, and the dock keeps 12 px from the
+  // window's left edge. Shown failing (TS-04) with a notice 280 px across at most, over the dock at 823 px, and with no hold on
+  // the dock's left, at x -35 at 576 px.
+  test('keeps a notice beside the dock on a narrow window, and the dock on the window', async ({ page }) => {
+    await page.setViewportSize({ width: 922, height: 576 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const [dock, notice] = [page.getByTestId('dock'), page.getByTestId('notice')];
+    // Undo's refusal, nothing done yet to take back, in the longest refusal's words.
+    const longest = (REFUSAL_COPY.overnight_more_often_than_offpeak as () => string)();
+    for (const [width, height] of [
+      [922, 576],
+      [823, 451],
+      [768, 480],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await page.keyboard.press('Control+z');
+      await expect(notice).toBeVisible();
+      await notice.evaluate((el, words) => void (el.textContent = words), longest);
+      const [n, d] = [(await notice.boundingBox())!, (await dock.boundingBox())!];
+      expect(n.x + n.width, `the notice left of the dock at ${width} px`).toBeLessThanOrEqual(d.x);
+    }
+    await page.setViewportSize({ width: 576, height: 360 });
+    expect((await dock.boundingBox())!.x, 'the dock on the window').toBeGreaterThanOrEqual(12);
   });
 
   test('one press on the compass with a menu open closes the menu and works the compass', async ({ page }) => {

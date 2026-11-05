@@ -284,6 +284,20 @@ test.describe('movable panels', () => {
     const b = (await buy.boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(1152);
+    // The pointer's next move takes the panel back past the edge, Buy and run with it, still focused, and Enter bought the change
+    // as its press brought the panel in, unseen as it went (the review of the round). Its press only brings the panel in, and the
+    // next buys in sight. Shown failing (TS-04) with the press let through: the change bought at the first Enter.
+    await page.mouse.move(x - 1101, y + 40);
+    await expect.poll(async () => (await buy.boundingBox())!.x).toBeLessThan(0);
+    const cash = () => page.getByTestId('sim-panel').getAttribute('data-cash');
+    const was = await cash();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    expect(await cash(), 'nothing bought unseen').toBe(was);
+    expect((await buy.boundingBox())!.x, 'Buy and run brought in').toBeGreaterThanOrEqual(0);
+    await expect(buy).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(cash).not.toBe(was);
     await page.mouse.up();
   });
 
