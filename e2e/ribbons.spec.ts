@@ -56,11 +56,22 @@ async function inkAcross(page: Page, anchor: readonly [number, number], dir: rea
   );
 }
 
-/** Where on the map, in CSS px, each pixel of drawn ink lies, a twentieth of ink or more, within `reach` px of `anchor` along the street and 80 across. */
+/**
+ * Where on the map, in CSS px, each pixel of drawn ink lies, a twentieth of ink or more, within `reach` px of `anchor` along the
+ * street and 80 across: read from a picture of that box alone, which at twice the pixels a whole map's picture takes long to read.
+ */
 async function inkedPixels(page: Page, anchor: readonly [number, number], dir: readonly [number, number], reach: number): Promise<[number, number][]> {
-  const png = (await page.locator('#map').screenshot()).toString('base64');
+  const length = Math.hypot(dir[0], dir[1]);
+  const [ux, uy] = [dir[0] / length, dir[1] / length];
+  const corners = [-1, 1].flatMap((a) => [-1, 1].map((c) => [anchor[0] + a * reach * ux - c * 80 * uy, anchor[1] + a * reach * uy + c * 80 * ux] as const));
+  const { width, height } = page.viewportSize()!;
+  const [x0, x1] = [Math.max(0, Math.floor(Math.min(...corners.map((p) => p[0])))), Math.min(width, Math.ceil(Math.max(...corners.map((p) => p[0]))))];
+  const [y0, y1] = [Math.max(0, Math.floor(Math.min(...corners.map((p) => p[1])))), Math.min(height, Math.ceil(Math.max(...corners.map((p) => p[1]))))];
+  const clip = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+  // The map fills the page from its corner, so the page's pixels are the map's.
+  const png = (await page.screenshot({ clip })).toString('base64');
   return page.evaluate(
-    async ([data, anchor, dir, reach]) => {
+    async ([data, anchor, dir, reach, clip]) => {
       const img = new Image();
       img.src = `data:image/png;base64,${data}`;
       await img.decode();
@@ -72,19 +83,19 @@ async function inkedPixels(page: Page, anchor: readonly [number, number], dir: r
       const length = Math.hypot(dir[0], dir[1]);
       const [ux, uy] = [dir[0] / length, dir[1] / length];
       const inked: [number, number][] = [];
-      const dpr = width / document.getElementById('map')!.getBoundingClientRect().width;
+      const dpr = width / clip.width;
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
           const i = 4 * (y * width + x);
           const ink = Math.max(Math.abs(px[i]! - land[0]!), Math.abs(px[i + 1]! - land[1]!), Math.abs(px[i + 2]! - land[2]!)) / 255;
-          const [cx, cy] = [(x + 0.5) / dpr, (y + 0.5) / dpr];
+          const [cx, cy] = [clip.x + (x + 0.5) / dpr, clip.y + (y + 0.5) / dpr];
           const [dx, dy] = [cx - anchor[0], cy - anchor[1]];
           if (ink >= 0.05 && Math.abs(dx * ux + dy * uy) <= reach && Math.abs(-dx * uy + dy * ux) <= 80) inked.push([cx, cy]);
         }
       }
       return inked;
     },
-    [png, anchor, dir, reach] as const,
+    [png, anchor, dir, reach, clip] as const,
   );
 }
 
@@ -218,9 +229,11 @@ test('a line’s name reaches NAME_REACH_PX either side of its ribbon’s middle
 // pitch 60, 47 of 260 pixels of names' letters near the view's top lay past NAME_REACH_PX of their ribbon's middle, nearer another
 // line's, and a click on them listed that line first; at the foot up to 4 rows beside a name counted as the name (the systems
 // audit's twenty-third round; #203's review). On the ground, a tilted name stands where nameOnGround puts its middle, and its words
-// and halo reach no further than its reach, and not 2.5 px short of it. Each street runs across the screen, so the camera's
-// distance holds along it, drawn at twice the pixels, as a name near a tilted view's top is 3 px tall. Shown failing (TS-04) with
-// nameOnGround flat.
+// and halo reach no further than its reach, and not 3 px short of it. Each street runs across the screen, so the camera's distance
+// holds along it, drawn at twice the pixels, as a name near a tilted view's top is 3 px tall, a pixel down the screen there 8 px
+// on the ground, which is why it stops 3 px short at most and not less. A name three places out at the top stands where the glyphs'
+// scale would put it 3.6 px off (the review: in the middle, or two places out, the tests told the two apart by too little). Shown
+// failing (TS-04) with nameOnGround flat.
 test.describe(() => {
   test.use({ deviceScaleFactor: 2 });
   test('a tilted line’s name stands and reaches on the ground where nameOnGround lays it, toward the view’s top and its foot', async ({ page }) => {
@@ -234,6 +247,8 @@ test.describe(() => {
       { zoom: 16, pitch: 60, heading: 270, side: 1.5, at: [0.5, 0.15] as const },
       { zoom: 17, pitch: 50, heading: 90, side: -1.5, at: [0.5, 0.1] as const },
       { zoom: 16, pitch: 60, heading: 90, side: -1, at: [0.5, 0.92] as const },
+      { zoom: 16, pitch: 60, heading: 90, side: 3, at: [0.5, 0.06] as const },
+      { zoom: 16, pitch: 60, heading: 270, side: -2, at: [0.5, 0.1] as const },
     ]) {
       const words = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'name' }), c);
       const { k } = (await page.evaluate((p) => window.groundOf!(p), [words.anchor]))[0]!;
@@ -245,7 +260,7 @@ test.describe(() => {
       expect.soft(across.length, message).toBeGreaterThan(200);
       expect.soft(Math.abs((down - up) / 2), message).toBeLessThanOrEqual(1.5);
       expect.soft(Math.max(up, down), message).toBeLessThanOrEqual(laid.reach + 1);
-      expect.soft((up + down) / 2, message).toBeGreaterThanOrEqual(laid.reach - 2.5);
+      expect.soft((up + down) / 2, message).toBeGreaterThanOrEqual(laid.reach - 3);
     }
   });
 });

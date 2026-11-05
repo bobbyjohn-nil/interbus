@@ -239,6 +239,14 @@ describe('a ribbon carried from run to run', () => {
     for (const sides of [[1, 0], [2, 0], [-1.5, 1.5]]) expect(worst(bend(0), sides)).toBeLessThanOrEqual(1 + 1e-9);
   });
 
+  // The twenty-third round's review: a segment of no length between two runs stood a corner piece in the street's middle, a 4 m
+  // stub where MapLibre draws nothing for the run of no length. It has no way to stand a piece square to, and gets none. Shown
+  // failing (TS-04) with a segment of no length measured as any other.
+  it('lays no corner piece at a segment of no length', () => {
+    const route = [P(0, 0), P(1, 0), P(1, 0), P(1, 1)];
+    expect(bridgesOf(route, runsOf(route, new Float32Array([1, 0, 1]), true))).toEqual([]);
+  });
+
   it('adds nothing where the runs already meet: a line alone, and a side change of half a place along the street', () => {
     expect(bridgesOf([P(0, 0), P(1, 0), P(2, 0)], runsOf([P(0, 0), P(1, 0), P(2, 0)], new Float32Array([0, 0]), true))).toEqual([]);
     const route = [P(0, 0), P(1, 0), P(2, 0)];
@@ -249,8 +257,8 @@ describe('a ribbon carried from run to run', () => {
   // The systems audit's twenty-third round: from the street's middle no corner piece was laid, so a line leaving the middle a whole
   // place over met the next piece at a point, their two round caps a ribbon apart, and the ribbon was 0.9 to 1.7 px across there at
   // zoom 16 to 18, at 8 of the 278 links of the four networks `npm run bench sides` lays. And each end is measured to the other
-  // piece's ribbon now, not its cap (capsApart): where the line turns toward the side it moves to, the next piece starts over the run
-  // before's ribbon, or the run before ends over the next one's, and a corner piece there only widened the corner to two ribbons for
+  // piece's ribbon now, not its cap (capsApart): where the line turns toward the side of the street it stands on, the next piece
+  // starts over the run before's ribbon, or the run before ends over the next one's, and a corner piece there only widened the corner to two ribbons for
   // BRIDGE_M. Shown failing (TS-04) with no corner piece from the middle, the ribbon 2.4 px across on along the street at zoom 16,
   // and with the ends measured cap to cap, the corner 14.4 px across at zoom 18.
   it('keeps a ribbon whole where it leaves the street’s middle, and widens no corner where its pieces overlap already', () => {

@@ -298,15 +298,18 @@ const CAPS_CARRY = 0.75;
 /**
  * How far apart, in ribbons, a run's end at `at`, coming in from `into` at side `from`, and the next piece's start, going on to `out`
  * at side `to`, stand from each other's ribbon: the nearer of each one's middle to the other's middle line, a half-line from its own
- * end, square to its own way and a ribbon a unit. Where the line turns toward the side it moves to, the next piece starts over the run
- * before's ribbon, or the run before ends over the next piece's, so the two overlap whole however far apart their caps stand. Measured
+ * end, square to its own way and a ribbon a unit. Where the line turns toward the side of the street it stands on, before the corner
+ * or after it, the next piece starts over the run before's ribbon, or the run before ends over the next piece's, so the two overlap
+ * whole however far apart their caps stand. Measured
  * cap to cap, a corner piece went there too and only widened the corner to two ribbons for BRIDGE_M, 14.1 px across where 8.8
  * without it at zoom 18 on the first company's Line 7, at 20 of the four networks' 278 links (the twenty-third round).
  */
 function capsApart(into: LngLatPair, at: LngLatPair, out: LngLatPair, from: number, to: number): number {
+  const [back, on] = [wayOf(into, at), wayOf(at, out)];
+  // A segment of no length has no way to stand a piece square to, and MapLibre draws nothing for a run of one: no corner piece,
+  // where one stood a 4 m stub in the street's middle (the twenty-third round's review; no route on the four networks has one).
+  if (!back || !on) return 0;
   const [end, start] = [rightOf(into, at, from), rightOf(at, out, to)];
-  const none = [0, 0] as const;
-  const [back, on] = [wayOf(into, at) ?? none, wayOf(at, out) ?? none];
   const toLine = (p: readonly [number, number], o: readonly [number, number], d: readonly [number, number]) => {
     const t = Math.max(0, (p[0] - o[0]) * d[0] + (p[1] - o[1]) * d[1]);
     return Math.hypot(p[0] - o[0] - t * d[0], p[1] - o[1] - t * d[1]);

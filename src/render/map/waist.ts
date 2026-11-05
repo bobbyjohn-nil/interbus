@@ -4,7 +4,9 @@
 // back along it, to the run after, WAY px on: a straight ribbon's is its own width, and two round caps a ribbon apart, which only
 // touch, give a pixel or so. Its breadth is the widest disc within two ribbons of the point: round a ribbon's own corner it is 1.2
 // ribbons, and two pieces side by side a ribbon apart make up to two. As the systems audit's twenty-third round's first lane measured
-// them. For the tests and `npm run bench sides`; the game never draws from it.
+// them. It strokes each piece as laid, where MapLibre's tiles first simplify a line to 0.375 px (geojson-vt), which below about
+// zoom 13 drops a corner piece's BRIDGE_M: there it is not what MapLibre draws (the round's review), and the tests and the bench
+// read it at zoom 16 to 18. For the tests and `npm run bench sides`; the game never draws from it.
 import { groundAt, ribbonPx, type Run } from './sides';
 import type { LngLatPair } from '../../sim/types';
 

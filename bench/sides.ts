@@ -53,7 +53,9 @@ if (!city) {
     const ms = (xs: number[]) => `${at(xs, 0.5).toFixed(2)} ms at p50 and ${at(xs, 0.95).toFixed(2)} at p95`;
     console.log(`${name}, ${lines.length} lines of ${points} points, ${shared} segments shared: the places ${ms(places)}; every line's sides ${ms(sides)}`);
     // Where each line's ribbon goes from one run to the next: the widest gap between round caps, in ribbons, with the bridges and
-    // without (bridgesOf; a ribbon is 7 px at zoom 16), and the points where a line turns back off the street's middle.
+    // without (bridgesOf; a ribbon is 7 px at zoom 16), and the points where a line turns back off the street's middle. Where round
+    // caps alone meet, each is measured to the other piece's ribbon (capsApart) since the twenty-third round, which counts fewer
+    // broken without bridges at corners where the pieces overlap: 11, 7, 22 and 17 where cap to cap counted 17, 10, 36 and 24.
     const p = placesOf(lines);
     // And the corner pieces (bridgesOf's three-point pieces), laid only where the round caps would not carry the ribbon on without
     // one (capsApart), against every point on along a street or round a corner; and there, the ribbon's narrowest width, its waist,
@@ -80,6 +82,6 @@ if (!city) {
     }
     console.log(`  ${cuts} points where a ribbon goes from one run to the next, ${turns} of them turn-backs: ${brokenBefore} broke there without bridges, the widest gap ${(Math.max(0, widestBefore - 1) * 7).toFixed(1)} px at zoom 16; with them ${broken}, the widest link ${widest.toFixed(2)} ribbons; a corner piece at ${corners} of the ${cuts - turns} on along or round a corner`);
     const narrowest = ([16, 17, 18] as const).map((z) => Math.min(...waists[z]).toFixed(1)).join(', ');
-    console.log(`  there the ribbon at least ${narrowest} px across at zoom 16, 17 and 18 (7 px a ribbon), ${waists[16].filter((w, k) => Math.min(w, waists[17][k]!, waists[18][k]!) < 3).length} of them under 3 px; the longest route ${longest} points, so a name's words carry up to ${longest - 2} spaces (overlays.ts nameFeatures)`);
+    console.log(`  there the ribbon at least ${narrowest} px across at zoom 16, 17 and 18 (7 px a ribbon), ${waists[16].filter((w, k) => Math.min(w, waists[17][k]!, waists[18][k]!) < 3).length} of them under 3 px; the longest route ${longest} points, so a name's words carry up to ${(longest - 1).toString(2).length} white spaces past the name (overlays.ts wordsOf)`);
   }
 }

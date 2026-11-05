@@ -246,14 +246,14 @@ function nameOffset(): ExpressionSpecification {
 }
 
 /**
- * A line's names, one along each run of its route (runsOf), at its place there (nameOffset), each in words of its own (`label`): the
- * line's name, then as many spaces as the segment of the route its run starts at (`first`), which MapLibre trims as it lays out the
- * words (tagged_string.ts trim), so every run's name reads the same. MapLibre knows a label from one layout to the next by its
- * words (symbol_layout.ts, the shaping's key), and fades in a label it does not know: by the run's count along the route, a run cut
- * in two or joined to the next earlier on the line, as another line joined or left a street, a line closed or a settling line let
- * its old route go, gave each run after it new words, so their names went out and came back, 5 of 14 cells of names out for 2 or 3
- * frames as Line 10 closed on the second company (the systems audit's twenty-third round). A run's start stays as the line's route
- * does, and is a run's own. MapLibre joins the lines of line labels that share their words and an
+ * A line's names, one along each run of its route (runsOf), at its place there (nameOffset), each in words of its own (`label`,
+ * wordsOf): the line's name, then the segment of the route its run starts at (`first`) in white space, which MapLibre trims as it
+ * lays out the words (tagged_string.ts trim), so every run's name reads the same. MapLibre knows a label from one layout to the next
+ * by its words (symbol_layout.ts, the shaping's key), and fades in a label it does not know: by the run's count along the route, a
+ * run cut in two or joined to the next earlier on the line, as another line joined or left a street, a line closed or a settling
+ * line let its old route go, gave each run after it new words, so their names went out and came back, 5 of 14 cells of names out
+ * for 2 or 3 frames as Line 10 closed on the second company (the systems audit's twenty-third round). A run's start stays as the
+ * line's route does, and is a run's own. MapLibre joins the lines of line labels that share their words and an
  * end before it places them (merge_lines.ts, keyed by the words and the point), and the joined line keeps the first one's
  * properties: run by run end to end, a line's names stood at whichever run came first in each tile, 62% of the names' cells off
  * their own run's place on the second company at zoom 14 (#201's review). Stopped 5 m short of their ends, a run that turned back
@@ -271,9 +271,21 @@ function nameOffset(): ExpressionSpecification {
 export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
   return runs.map((run) => ({
     type: 'Feature' as const,
-    properties: { kind: 'name', id: line.id, name: line.name, label: `${line.name}${' '.repeat(run.first)}`, side: run.side, first: run.first, last: run.last },
+    properties: { kind: 'name', id: line.id, name: line.name, label: wordsOf(line.name, run.first), side: run.side, first: run.first, last: run.last },
     geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
   }));
+}
+
+/**
+ * A run's own words: its line's name, then `first` + 1 in binary, a no-break space for each 1 and a space for each 0, which MapLibre
+ * trims, as it trims all white space. MapLibre looks for a place to break a line label's words before it trims them, at every
+ * space, each against all the spaces before it (tagged_string.ts determineLineBreaks): as many spaces as `first`, up to 595 on the
+ * four networks of `npm run bench sides`, made a change to the lines 11 to 90 ms slower to show at zoom 12 to 14, where these take
+ * 10 characters at most, and a no-break space is no place to break (the twenty-third round's review). Each is the first range of
+ * glyphs, which the names load already.
+ */
+export function wordsOf(name: string, first: number): string {
+  return name + (first + 1).toString(2).replace(/1/g, '\u00a0').replace(/0/g, ' ');
 }
 
 /**

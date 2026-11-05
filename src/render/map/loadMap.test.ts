@@ -421,9 +421,30 @@ describe('the day and night tint', () => {
     tilted(2);
     click(7.5);
     expect(hit!.lineIds).toEqual([2, 3, 1]);
+    // But not 8.5 px south: the halo stays 2 px as the words grow, where grown with them it reached 9.
+    click(8.5);
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
     // Toward the foot, 0.6: they reach 5.2 px, and a click 5.5 px south, on Line 3's ribbon, is past them.
     tilted(0.6);
     click(5.5);
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
+    // A name off the street's middle stands nearer it toward the foot, 0.75 of its offset at 0.6, and further out toward the top,
+    // 4/3 at 2 (the review: a name in the middle tested no offset). Line 1's name, a ribbon north, over Line 2's ribbon at the
+    // foot: a click 1.3 px south is 5.05 px from its middle, on its words, where 0.8 of the offset put it 5.3 px off and none 6.3.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-name' }, properties: { kind: 'name', id: 1, first: 0, last: 0 } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 2, first: 0, last: 0, bridge: false } },
+    ]) as never;
+    click(1.3);
+    expect(hit!.lineIds).toEqual([1, 2, 3]);
+    // Line 3's name, a ribbon south, over Line 2's ribbon at the top: a click 1 px north is 7.67 px from its middle, on its words,
+    // where 1.5 of the offset put it 8.5 px off.
+    tilted(2);
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-name' }, properties: { kind: 'name', id: 3, first: 0, last: 0 } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 2, first: 0, last: 0, bridge: false } },
+    ]) as never;
+    click(-1);
     expect(hit!.lineIds).toEqual([3, 2, 1]);
   });
 
