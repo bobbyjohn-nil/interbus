@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExpression, latest } from '@maplibre/maplibre-gl-style-spec';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { addOverlays, setDotKinds, setDraft, setEvent, setLines } from './overlays';
+import { addOverlays, setDotKinds, setDraft, setEvent, setLines, wordsOf } from './overlays';
 import { placesOf } from './sides';
 import { ringExpressions } from './pick';
 import type { EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
@@ -81,7 +81,7 @@ describe('the game layers', () => {
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);
     const features = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] }).features;
     const name = features.find((f) => f.properties.kind === 'name')!;
-    expect(name.properties).toMatchObject({ name: 'Line 2', label: 'Line 2', id: 2, side: 0 });
+    expect(name.properties).toMatchObject({ name: 'Line 2', label: wordsOf('Line 2', 0), id: 2, side: 0 });
     expect(name.geometry.coordinates).toEqual(line.route);
     expect(features.find((f) => f.properties.kind === 'route')!.properties).toMatchObject({ colour: '#2471a3', id: 2, side: 0 });
   });
@@ -143,6 +143,48 @@ describe('the game layers', () => {
     const labels = names.map((f) => f.properties.label as string);
     expect(new Set(labels).size).toBe(names.length);
     for (const f of names) expect((f.properties.label as string).trim()).toBe(f.properties.name);
+  });
+
+  // MapLibre knows a label from one layout to the next by its words, and fades in one it does not know. By the run's count along
+  // the route, a run cut in two or joined to the next earlier on the line, as another line joined or left a street, a line closed
+  // or a settling line let its old route go, gave each run after it new words, and their names went out and came back: 5 of 14
+  // cells of names out for 2 or 3 frames as Line 10 closed on the second company (the systems audit's twenty-third round). Shown
+  // failing (TS-04) with the run's count.
+  it('keep each run’s words where another line cuts or joins a run of the line before it', () => {
+    const { map, data } = fakeMap();
+    addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+    const P = (x: number): LngLatPair => [-71.08 + 0.002 * x, 42.35];
+    const line = (id: number, route: LngLatPair[]) => ({ id, name: `Line ${id}`, colour: '#2471a3', route, stops: [], stopIds: [] });
+    // Line 1 alone on two blocks, then beside Line 2 on two more; then Line 3 comes onto the first block too, cutting Line 1's first run.
+    const labels = (lines: ReturnType<typeof line>[]) => {
+      const from = data.length;
+      setLines(map as unknown as MapLibreMap, lines as unknown as LineView[], [] as StopView[]);
+      const names = (data[from] as { features: { properties: Record<string, unknown> }[] }).features.filter((f) => f.properties.kind === 'name' && f.properties.id === 1);
+      return new Map(names.map((f) => [f.properties.first as number, f.properties.label as string]));
+    };
+    const [line1, line2] = [line(1, [P(0), P(1), P(2), P(3), P(4)]), line(2, [P(2), P(3), P(4)])];
+    const before = labels([line1, line2]);
+    const cut = labels([line1, line2, line(3, [P(0), P(1)])]);
+    expect([...before.keys()]).toEqual([0, 2]);
+    expect([...cut.keys()]).toEqual([0, 1, 2]);
+    expect(cut.get(2)).toBe(before.get(2));
+    expect(new Set(cut.values()).size).toBe(3);
+    // And back: Line 3 gone, the run beside Line 2 keeps its words.
+    expect(labels([line1, line2]).get(2)).toBe(before.get(2));
+  });
+
+  // The twenty-third round's review: MapLibre looks for a place to break a line label's words at every space before it trims them,
+  // each against all the spaces before it, so as many spaces as the run's start, up to 595 on the bench's four networks, made a
+  // change to the lines 11 to 90 ms slower to show at zoom 12 to 14. A run's start is written in binary now, in white space MapLibre
+  // trims. Shown failing (TS-04) with as many spaces as the run's start.
+  it('keep each run’s words short, each its own, and read as the line’s name', () => {
+    const all = Array.from({ length: 1_024 }, (_, first) => wordsOf('Line 12', first));
+    expect(new Set(all).size).toBe(all.length);
+    for (const words of all) {
+      expect(words.length - 'Line 12'.length).toBeLessThanOrEqual(11);
+      expect(words.trim()).toBe('Line 12');
+      expect([...words.slice('Line 12'.length)].every((c) => c === ' ' || c === '\u00a0')).toBe(true);
+    }
   });
 
   // Roadworks' hatching, 15 px wide at zoom 16, showed none beside three lines' 21 px of ribbons on a street they share, and half

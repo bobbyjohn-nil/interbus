@@ -275,8 +275,7 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
     } else {
       const steps = stepsBetween(was.side, now.side);
       // The corner, only where the run before and the next piece, a step or the run after, would not overlap enough without it.
-      const [end, start] = [rightOf(into, at, was.side), rightOf(at, out, steps[0] ?? now.side)];
-      if (was.side !== 0 && Math.hypot(start[0] - end[0], start[1] - end[1]) > CAPS_CARRY) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
+      if (capsApart(into, at, out, was.side, steps[0] ?? now.side) > CAPS_CARRY) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
       for (const side of steps) bridges.push({ points: [at, toward(at, out)], side, ...span });
     }
   }
@@ -284,15 +283,39 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
 }
 
 /**
- * How far apart, in ribbons, a run's end and the next piece's start may stand, each square to its own way, for their round caps to
- * carry the ribbon on with no corner piece: within it, the two overlap across two thirds of a ribbon at least, and along a street
- * by half a ribbon at a change of half a place. The corner piece there only widened the ribbon by half a ribbon for BRIDGE_M on
- * along the street, 9 to 10 px for 4.6 m at zoom 18 where it is 7 px, at 16 to 40 points on each of the four networks `npm run
- * bench sides` lays (the systems audit's twenty-second round). A ribbon apart, the caps only touch, so where a step or a change of
- * a whole place stands so, as along a street, the ribbon still turns at the side before, alongside the next piece for BRIDGE_M; round
- * a corner a change of a whole place can stand nearer, as -0.5 to 0.5 at a right angle does, 0.71 apart, and the caps carry it.
+ * How far apart, in ribbons, a run's end and the next piece's start may stand (capsApart) for their round caps to carry the ribbon on
+ * with no corner piece: within it, the two overlap across two thirds of a ribbon at least, and along a street by half a ribbon at a
+ * change of half a place. The corner piece there only widened the ribbon by half a ribbon for BRIDGE_M on along the street, 9 to 10
+ * px for 4.6 m at zoom 18 where it is 7 px, at 16 to 40 points on each of the four networks `npm run bench sides` lays (the systems
+ * audit's twenty-second round). A ribbon apart, the caps only touch, so where a step or a change of a whole place stands so, as along
+ * a street, the ribbon still turns at the side before, alongside the next piece for BRIDGE_M; round a corner a change of a whole
+ * place can stand nearer, as -0.5 to 0.5 at a right angle does, 0.71 apart, and the caps carry it. From the street's middle too:
+ * there no corner piece was laid, so a line leaving the middle a whole place over met the next piece at a point, the ribbon 0.9 to
+ * 1.7 px across there at zoom 16 to 18, at 8 of the four networks' 278 links that do not turn back (the twenty-third round).
  */
 const CAPS_CARRY = 0.75;
+
+/**
+ * How far apart, in ribbons, a run's end at `at`, coming in from `into` at side `from`, and the next piece's start, going on to `out`
+ * at side `to`, stand from each other's ribbon: the nearer of each one's middle to the other's middle line, a half-line from its own
+ * end, square to its own way and a ribbon a unit. Where the line turns toward the side of the street it stands on, before the corner
+ * or after it, the next piece starts over the run before's ribbon, or the run before ends over the next piece's, so the two overlap
+ * whole however far apart their caps stand. Measured
+ * cap to cap, a corner piece went there too and only widened the corner to two ribbons for BRIDGE_M, 14.1 px across where 8.8
+ * without it at zoom 18 on the first company's Line 7, at 20 of the four networks' 278 links (the twenty-third round).
+ */
+function capsApart(into: LngLatPair, at: LngLatPair, out: LngLatPair, from: number, to: number): number {
+  const [back, on] = [wayOf(into, at), wayOf(at, out)];
+  // A segment of no length has no way to stand a piece square to, and MapLibre draws nothing for a run of one: no corner piece,
+  // where one stood a 4 m stub in the street's middle (the twenty-third round's review; no route on the four networks has one).
+  if (!back || !on) return 0;
+  const [end, start] = [rightOf(into, at, from), rightOf(at, out, to)];
+  const toLine = (p: readonly [number, number], o: readonly [number, number], d: readonly [number, number]) => {
+    const t = Math.max(0, (p[0] - o[0]) * d[0] + (p[1] - o[1]) * d[1]);
+    return Math.hypot(p[0] - o[0] - t * d[0], p[1] - o[1] - t * d[1]);
+  };
+  return Math.min(toLine(start, end, [-back[0], -back[1]]), toLine(end, start, on));
+}
 
 /** A point `side` ribbons to the right of the way from `a` to `b`, from the way's start, on the ground (east and north), a ribbon a unit. */
 function rightOf(a: LngLatPair, b: LngLatPair, side: number): readonly [number, number] {
@@ -305,20 +328,27 @@ function rightOf(a: LngLatPair, b: LngLatPair, side: number): readonly [number, 
  * starts, in the order bridgesOf lays them: from the run before's end to the first bridge's start, from each bridge's end to the
  * next one's start, and from the last to the run after's start, each end at its piece's side square to the piece's way there. A
  * step's BRIDGE_M along the way counts for nothing, as each piece lies over the next along those same metres (at zoom 18 they
- * are 2.6 ribbons long); a piece's own corner is drawn whole by its round join, up to about 120 degrees (STATUS). Round caps meet
- * where a gap is a ribbon or less. For the tests and `npm run bench sides`.
+ * are 2.6 ribbons long); a piece's own corner is drawn whole by its round join, up to about 120 degrees (STATUS). Where the run
+ * before meets the next piece by their round caps alone, with no corner piece, their gap is how far each stands from the other's
+ * ribbon (capsApart). Round caps meet where a gap is a ribbon or less, and only touch at a ribbon: alongside each other for BRIDGE_M
+ * that is a step, and caps alone that touch pinch the ribbon to a point, so those stand within CAPS_CARRY (`waist.ts` measures the
+ * ribbon's width there). For the tests and `npm run bench sides`.
  */
 export function ribbonGaps(route: readonly LngLatPair[], runs: readonly Run[], bridges: readonly Run[]): number[][] {
   const right = rightOf;
   return runs.slice(1).map((now, r) => {
     const was = runs[r]!;
     const at = route[now.first]!;
+    const own = bridges.filter((x) => x.first === was.last && x.last === now.first);
     const chain: { start: readonly [number, number]; end: readonly [number, number] }[] = [{ start: [0, 0], end: right(route[was.last]!, at, was.side) }];
-    for (const b of bridges.filter((x) => x.first === was.last && x.last === now.first)) {
+    for (const b of own) {
       const n = b.points.length;
       chain.push({ start: right(b.points[0]!, b.points[1]!, b.side), end: right(b.points[n - 2]!, b.points[n - 1]!, b.side) });
     }
     chain.push({ start: right(at, route[now.first + 1]!, now.side), end: [0, 0] });
-    return chain.slice(1).map((next, k) => Math.hypot(next.start[0] - chain[k]!.end[0], next.start[1] - chain[k]!.end[1]));
+    const gaps = chain.slice(1).map((next, k) => Math.hypot(next.start[0] - chain[k]!.end[0], next.start[1] - chain[k]!.end[1]));
+    // With no corner piece, the run before meets the next piece, which starts at the point on the way on, by their caps alone.
+    if (!turnsBack(route, now.first) && !own.some((b) => b.points.length === 3)) gaps[0] = capsApart(route[was.last]!, at, route[now.first + 1]!, was.side, own[0]?.side ?? now.side);
+    return gaps;
   });
 }

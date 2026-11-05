@@ -135,7 +135,7 @@ export function addOverlays(map: MapLibreMap, t: GameTokens, base: Pick<MapToken
     type: 'symbol',
     source: LINES,
     layout: NAME_LAYOUT,
-    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': 2 },
+    paint: { 'text-color': base.label, 'text-halo-color': base.labelHalo, 'text-halo-width': NAME_HALO_PX },
   });
   addRunning(map, stops);
   // A stop placed on its own (D25): ringed in the draft's ink, as a line not yet running is, until a line calls there.
@@ -246,9 +246,14 @@ function nameOffset(): ExpressionSpecification {
 }
 
 /**
- * A line's names, one along each run of its route (runsOf), at its place there (nameOffset), each in words of its own (`label`): the
- * line's name, then as many spaces as the run's count along the route, which MapLibre trims as it lays out the words
- * (tagged_string.ts trim), so every run's name reads the same. MapLibre joins the lines of line labels that share their words and an
+ * A line's names, one along each run of its route (runsOf), at its place there (nameOffset), each in words of its own (`label`,
+ * wordsOf): the line's name, then the segment of the route its run starts at (`first`) in white space, which MapLibre trims as it
+ * lays out the words (tagged_string.ts trim), so every run's name reads the same. MapLibre knows a label from one layout to the next
+ * by its words (symbol_layout.ts, the shaping's key), and fades in a label it does not know: by the run's count along the route, a
+ * run cut in two or joined to the next earlier on the line, as another line joined or left a street, a line closed or a settling
+ * line let its old route go, gave each run after it new words, so their names went out and came back, 5 of 14 cells of names out
+ * for 2 or 3 frames as Line 10 closed on the second company (the systems audit's twenty-third round). A run's start stays as the
+ * line's route does, and is a run's own. MapLibre joins the lines of line labels that share their words and an
  * end before it places them (merge_lines.ts, keyed by the words and the point), and the joined line keeps the first one's
  * properties: run by run end to end, a line's names stood at whichever run came first in each tile, 62% of the names' cells off
  * their own run's place on the second company at zoom 14 (#201's review). Stopped 5 m short of their ends, a run that turned back
@@ -258,14 +263,29 @@ function nameOffset(): ExpressionSpecification {
  * words half their spacing apart (symbol_layout.ts anchorIsTooClose, keyed by the words too), so a line's names on short runs side
  * by side now each show where each has room: a 600 m street in six runs of 100 m names its line six times at zoom 16, 91 to 136 px
  * apart, where it named it three times, and the four networks of `npm run bench sides` show up to 18% more names (#203's review).
- * The two cannot be had apart, and a name too many is the line's own, where a joined name stood off any ribbon.
+ * Counted along the routes on screen, up to a third more: 12 to 32% more names per 1,000 px of route at zoom 14 to 16 on the two
+ * companies, and −6 to 25% on the 30-line game and the busy scene, a line's names as near as 42 to 70 px either side of a corner
+ * or a stop, where #201's stood 133 px apart at least (the twenty-third round). The two cannot be had apart, and a name too many is
+ * the line's own, where a joined name stood off any ribbon.
  */
 export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
-  return runs.map((run, k) => ({
+  return runs.map((run) => ({
     type: 'Feature' as const,
-    properties: { kind: 'name', id: line.id, name: line.name, label: `${line.name}${' '.repeat(k)}`, side: run.side, first: run.first, last: run.last },
+    properties: { kind: 'name', id: line.id, name: line.name, label: wordsOf(line.name, run.first), side: run.side, first: run.first, last: run.last },
     geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
   }));
+}
+
+/**
+ * A run's own words: its line's name, then `first` + 1 in binary, a no-break space for each 1 and a space for each 0, which MapLibre
+ * trims, as it trims all white space. MapLibre looks for a place to break a line label's words before it trims them, at every
+ * space, each against all the spaces before it (tagged_string.ts determineLineBreaks): as many spaces as `first`, up to 595 on the
+ * four networks of `npm run bench sides`, made a change to the lines 11 to 90 ms slower to show at zoom 12 to 14, where these take
+ * 10 characters at most, and a no-break space is no place to break (the twenty-third round's review). Each is the first range of
+ * glyphs, which the names load already.
+ */
+export function wordsOf(name: string, first: number): string {
+  return name + (first + 1).toString(2).replace(/1/g, '\u00a0').replace(/0/g, ' ');
 }
 
 /**
@@ -274,12 +294,28 @@ export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly
  * (`text-padding`), 8 px either way and more, past its words over a neighbour's ribbon, where a click on that ribbon listed the
  * name's line first in 35 of 36 such clicks (the systems audit's twenty-second round): within this reach, a click is on the name
  * (loadMap.ts). Measured from the ribbon's middle, where the name stands within half a pixel a place (nameOffset), so a name three
- * or more places out, between whole zooms, reaches about 7 px on its outer side, whose last row goes by the ribbons; and tilted,
- * MapLibre sizes a name by its distance and the ribbons by the map's zoom, so at the foot of a view tilted 60° a name's words
- * stand off its ribbon's middle by up to 7 px one way and 2 the other, and up to 4 rows beside them count as the name (#203's
- * review).
+ * or more places out, between whole zooms, reaches about 7 px on its outer side, whose last row goes by the ribbons (#203's
+ * review). Flat; tilted, a click measures it as MapLibre lays the name there (nameOnGround).
  */
 export const NAME_REACH_PX = 6;
+
+/** The halo round a line's name's words, in px (lines-name's text-halo-width): MapLibre draws it as wide on the ground at any tilt. */
+export const NAME_HALO_PX = 2;
+
+/**
+ * How MapLibre lays a line's name on a tilted map, at a point where a screen pixel across spans `k` of the world's pixels at the
+ * map's zoom (1 flat and at the view's middle, more toward a tilted view's top, less toward its foot): `reach`, how far its words and
+ * halo reach either side of its middle on the ground, in px, its words 0.5 + 0.5 k times as large as flat, as the symbol shader
+ * sizes a label laid on the map (symbol_sdf.vertex.glsl, perspective_ratio), and its halo as wide as flat, which the fragment shader
+ * keeps so (symbol_sdf.fragment.glsl, the halo's width over the font's scale); and `offset`, how many times as far from its route as
+ * flat its middle stands, as its words are laid along the line (projection.ts, the font size over 0.5 + 0.5 / k). The ribbons,
+ * line-offset's, stay as wide on the ground. At pitch 60, 47 of 260 pixels of names' letters near the view's top lay past 6 px of
+ * their ribbon's middle and nearer another line's, where a click on them listed that line first; at the foot, up to 4 rows beside a
+ * name's words counted as the name (#203's review; the systems audit's twenty-third round). The ribbons spec measures it.
+ */
+export function nameOnGround(k: number): { readonly reach: number; readonly offset: number } {
+  return { reach: NAME_HALO_PX + (NAME_REACH_PX - NAME_HALO_PX) * Math.min(4, 0.5 + 0.5 * k), offset: 1 / (0.5 + 0.5 / k) };
+}
 
 /** The lines' names' layout: along each run of its route where it has room, on its line's ribbon (nameOffset). e2e/ribbons draws it too. */
 export const NAME_LAYOUT: NonNullable<SymbolLayerSpecification['layout']> = {
