@@ -263,6 +263,13 @@ test.describe('the game’s dropdown', () => {
     await expect(page.getByRole('listbox', { name: 'Fare for Line 1' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(fare).toBeFocused();
+    // ArrowDown, which the fare's button takes to open its list, raises Finance too, the list beside the fare in view.
+    await underLines(false);
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox', { name: 'Fare for Line 1' })).toBeFocused();
+    await expect.poll(over).toBe('finance');
+    await page.keyboard.press('Escape');
+    await expect(fare).toBeFocused();
     // A Tab away and back raises it too, so Space opens the list in view.
     await underLines(false);
     await page.keyboard.press('Shift+Tab');

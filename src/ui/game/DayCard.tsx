@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { HandBack } from '../focusBack';
 import { focusLost } from '../focusLost';
+import { standsFor } from '../heldFocus';
 import { isOperating, type RowKind } from '../../sim/rules/money';
 import { askText, dateText, eventNewsText, medalNewsText, quarterText, rowName, usd } from '../format';
 import { useScrollStop } from '../scrollStop';
@@ -36,8 +37,8 @@ interface Place {
  * to but the panel, or the control pressed (the systems audit's seventeenth round).
  */
 function placeOf(at: HTMLElement): Place {
-  const list = at.closest('[role="listbox"][id]');
-  const place = (list && document.querySelector<HTMLElement>(`[aria-controls="${list.id}"]`)) || at;
+  const stands = standsFor(at);
+  const place = stands instanceof HTMLElement ? stands : at;
   return { at: place, in: place.closest('[data-movable]')?.getAttribute('data-movable') ?? null };
 }
 
