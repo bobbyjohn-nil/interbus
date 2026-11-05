@@ -381,6 +381,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A list opened from the keyboard while you drag its panel moves with the panel, and closes if the drag takes its button off the window, the panel staying under the pointer. Before, it stayed where it opened, away from its button, and Enter there still set it.
 - A line's names on streets it shares stay as they are when you put a stop in or take one off elsewhere on the line, or run it on from an end. Before, the names of its runs that had not moved faded out and in again.
 - Where a line leaves the middle of a street it shares for the place beside it, its colour no longer bulges to two and a half lines wide for a few metres as it steps across.
+- In a window under about 1,020 px wide, such as a 1152×720 one at Chrome's 125% zoom, the dock moves left, clear of the map's credits and the build number in the bottom right corner, so a click anywhere on Finance opens it. Before, the credits lay over the right of Finance's button: a click on its name did nothing, or opened OpenStreetMap's copyright page.
 
 ### Removed
 

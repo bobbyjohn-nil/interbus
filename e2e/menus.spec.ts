@@ -118,6 +118,31 @@ test.describe('the menus', () => {
     expect(await onTop(heading), 'the heading under a press').toBe(true);
   });
 
+  // The systems audit's twenty-sixth round: the map's credit and the build chip in the bottom right corner draw over the dock, and
+  // at Chrome's 125% of 1152×720, 922×576, they lay over the right of Finance's button, 41% of its name, where a press did nothing,
+  // or opened OpenStreetMap's copyright page. The dock keeps clear of them. Shown failing (TS-04) with the dock centred: the corner
+  // over Finance's name.
+  test('keeps the dock clear of the map’s credit on a narrow window, and Finance under a press on its name', async ({ page }) => {
+    await page.setViewportSize({ width: 922, height: 576 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const finance = page.getByTestId('dock').getByRole('button', { name: 'Finance', exact: true });
+    const [dock, corner] = [(await page.getByTestId('dock').boundingBox())!, (await page.locator('.corner').boundingBox())!];
+    expect(dock.x + dock.width, 'the dock left of the corner').toBeLessThanOrEqual(corner.x);
+    // The middle of its name, the words under its icon, where a player aims.
+    const at = await finance.evaluate((b) => {
+      const words = [...b.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())!;
+      const range = document.createRange();
+      range.selectNodeContents(words);
+      const r = range.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    expect(await finance.evaluate((b, [x, y]) => b.contains(document.elementFromPoint(x!, y!)), [at.x, at.y])).toBe(true);
+    await page.mouse.click(at.x, at.y);
+    await expect(page.getByTestId('finance')).toBeVisible();
+  });
+
   test('one press on the compass with a menu open closes the menu and works the compass', async ({ page }) => {
     await page.goto('./?gpu=full'); // the compass works on the full rung; CI's browser draws in software (gpu.ts)
     const map = page.getByTestId('map');

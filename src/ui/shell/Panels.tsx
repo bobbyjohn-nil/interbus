@@ -755,12 +755,15 @@ export function Panels({
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
             onFocus={(e) => {
-              // But for a focus that comes as a pointer drags the panel, which puts it back under the pointer at its next move: a
-              // list's button given the focus back as a drag took it off the window brought Finance 82 px in from under the pointer,
-              // where it stood while the pointer held still, 4 runs of 4 (the systems audit's twenty-fifth round). A key still
-              // brings it in as the drag holds still: let the drag hold off every key, ArrowDown on a fare off the window opened its
-              // list 234 px from it, where Enter set the fare (the round's review).
-              if (!e.currentTarget.classList.contains("dragging")) reveal(e.currentTarget, e.target, id);
+              // But for the focus a list gives back to its button as a pointer drags the panel, which puts it back under the
+              // pointer at its next move: as a drag took the button off the window, the list closed and its focus brought Finance
+              // 82 px in from under the pointer, where it stood while the pointer held still, 4 runs of 4 (the systems audit's
+              // twenty-fifth round). A key still brings it in as the drag holds still: let the drag hold off every key, ArrowDown
+              // on a fare off the window opened its list 234 px from it, where Enter set the fare (the round's review). So does a
+              // Tab, whose focus this is: held off for every focus, 3 Tabs reached Buy and run off the window, unseen, and Enter
+              // bought it as its press brought the panel in, $380,000, 2 runs of 2 (the twenty-sixth round).
+              const given = e.relatedTarget instanceof Element && e.relatedTarget.closest(".dropdown-list") !== null;
+              if (!(given && e.currentTarget.classList.contains("dragging"))) reveal(e.currentTarget, e.target, id);
               if (e.target instanceof Element && e.target.matches(":focus-visible") && lifts(coverOf(e.currentTarget, e.target))) raise(id);
             }}
             onClickCapture={(e) => {
