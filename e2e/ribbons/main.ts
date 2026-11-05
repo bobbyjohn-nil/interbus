@@ -51,8 +51,13 @@ export interface RibbonCase {
   readonly side: number;
   /** Where on the map the street crosses, in fractions of its width and height. */
   readonly at: readonly [number, number];
-  /** The ribbon, the bus, the line's name along the street, or its names along two runs of it end to end: 30 m on the other side, then the rest. */
-  readonly show: 'ribbon' | 'bus' | 'name' | 'joined';
+  /**
+   * The ribbon, the bus, the line's name along the street, or its names along two runs of it: end to end, 30 m on the other side,
+   * then the rest (`joined`); 30 m back to the street's start on the other side, then the whole street on (`turned`); or back along
+   * the street from its end to 100 m short of its start, at 1.5 less than `side` along its own way, then the whole street on: at
+   * `side` 3, the two places stand 4.5 ribbons apart, so both runs' names have room (`both`).
+   */
+  readonly show: 'ribbon' | 'bus' | 'name' | 'joined' | 'turned' | 'both';
 }
 
 declare global {
@@ -82,18 +87,28 @@ window.ribbonCase = async ({ zoom, pitch, heading, side, at, show }) => {
     type: 'FeatureCollection',
     features: show === 'ribbon' ? [{ type: 'Feature', properties: { side }, geometry: { type: 'LineString', coordinates: [a, b] } }] : [],
   });
-  // The names as the game makes them (overlays.ts nameFeatures): along one run, or along two that meet, the first 30 m long.
-  const t = 30 / 600;
-  const joint: [number, number] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  // The names as the game makes them (overlays.ts nameFeatures): along one run, or along two that meet, the first 30 m long, or
+  // along two on the street both ways.
+  const along = (m: number): [number, number] => [a[0] + ((b[0] - a[0]) * m) / 600, a[1] + ((b[1] - a[1]) * m) / 600];
   const runs =
     show === 'name'
       ? [{ points: [a, b], side, first: 0, last: 0 }]
       : show === 'joined'
         ? [
-            { points: [a, joint], side: -side, first: 0, last: 0 },
-            { points: [joint, b], side, first: 1, last: 1 },
+            { points: [a, along(30)], side: -side, first: 0, last: 0 },
+            { points: [along(30), b], side, first: 1, last: 1 },
           ]
-        : [];
+        : show === 'turned'
+          ? [
+              { points: [along(30), a], side: -side, first: 0, last: 0 },
+              { points: [a, b], side, first: 1, last: 1 },
+            ]
+          : show === 'both'
+            ? [
+                { points: [b, along(100)], side: side - 1.5, first: 0, last: 0 },
+                { points: [a, b], side, first: 1, last: 1 },
+              ]
+            : [];
   (map.getSource('names') as GeoJSONSource).setData({ type: 'FeatureCollection', features: nameFeatures({ id: 12, name: 'Line 12' }, runs) });
   count = show === 'bus' ? 1 : 0;
   // A Sparrow-sized glyph in red, so no part of it is the land's colour.

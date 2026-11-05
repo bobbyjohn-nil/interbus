@@ -12,8 +12,8 @@ import { paddedBounds, type City } from '../../cities';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
-import { groundAt, linesHere, placesOf, ribbonPx, type Places, type RouteOf } from './sides';
-import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
+import { groundAt, linesHere, placesOf, ribbonDistance, ribbonPx, type Places, type RouteOf } from './sides';
+import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, NAME_REACH_PX, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
 import {
@@ -577,22 +577,35 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     const resting = (h: (typeof hits)[number]) => (RESTING_LAYERS as readonly string[]).includes(h.layer.id);
     const ordered = [...hits.filter((h) => !resting(h)), ...hits.filter(resting)];
     const hitIds = [...new Set(ordered.map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null))];
-    // A name's words are wider than its ribbon and drawn over the ribbons, so a click on their outer half lay nearer a neighbour's
-    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). A bridge, carrying a ribbon across to its line's new
-    // place, lies over a neighbour's ribbon too, and a click on it listed the neighbour first (#202's review). The name or bridge
-    // under the click itself, not within its 4 px, says which line the player pointed at.
-    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting', 'lines-route', 'lines-route-resting'] }) : [];
-    const named = onName.filter((h) => h.properties?.kind === 'name' || h.properties?.bridge === true).map((h) => numberOf(h.properties?.id)).filter((id): id is number => id !== null);
     // On the ground, as line-offset lays the ribbons, in the world's pixels at the map's zoom: a tilted map's screen shortens a
     // street across its way, and a click on the middle of Line 2's ribbon on Tremont Street at pitch 60 lay nearer Line 5's on the
     // screen, 11 of 36 such clicks across the tilted cameras (#201's review).
     const ground = groundAt(map.getZoom());
-    // Each hit with the run of its route the map drew there, if it was a route's run or its name's (overlays.ts setLines).
-    const hitRuns = ordered.flatMap((h) => {
+    const at = ground([e.lngLat.lng, e.lngLat.lat]);
+    // A hit with the run of its route the map drew there, if it was a route's run or its name's (overlays.ts setLines).
+    const runOf = (h: (typeof hits)[number]) => {
       const id = numberOf(h.properties?.id);
-      return id === null ? [] : [{ id, first: numberOf(h.properties?.first) ?? undefined, last: numberOf(h.properties?.last) ?? undefined }];
-    });
-    const near = linesHere(placesNow, linesNow, hitRuns, ground([e.lngLat.lng, e.lngLat.lat]), ground, ribbonPx(map.getZoom()));
+      return id === null ? null : { id, first: numberOf(h.properties?.first) ?? undefined, last: numberOf(h.properties?.last) ?? undefined };
+    };
+    // A name's words are wider than its ribbon and drawn over the ribbons, so a click on their outer half lay nearer a neighbour's
+    // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). A bridge, carrying a ribbon across to its line's new
+    // place, lies over a neighbour's ribbon too, and a click on it listed the neighbour first (#202's review). The name or bridge
+    // under the click itself, not within its 4 px, says which line the player pointed at: a name where the click is on its words,
+    // within their reach of its own ribbon (NAME_REACH_PX), as MapLibre finds one in its padded box, 8 px either way, past its
+    // words over a neighbour's ribbon; a bridge where it is the route drawn on top, as MapLibre lists what it drew there topmost
+    // first and a bridge passes under the lines drawn after it. A click on Line 5's ribbon beside Line 2's name, or on Line 23's
+    // ribbon over Line 6's bridge, listed Line 2 or Line 6 first (the systems audit's twenty-second round).
+    const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting', 'lines-route', 'lines-route-resting'] }) : [];
+    const onWords = (h: (typeof hits)[number]) => {
+      const run = runOf(h);
+      return run !== null && ribbonDistance(placesNow, linesNow, run, at, ground, ribbonPx(map.getZoom())) <= NAME_REACH_PX;
+    };
+    const top = onName.find((h) => h.properties?.kind === 'route');
+    const named = [...onName.filter((h) => h.properties?.kind === 'name' && onWords(h)), ...(top?.properties?.bridge === true ? [top] : [])]
+      .map((h) => numberOf(h.properties?.id))
+      .filter((id): id is number => id !== null);
+    const hitRuns = ordered.flatMap((h) => runOf(h) ?? []);
+    const near = linesHere(placesNow, linesNow, hitRuns, at, ground, ribbonPx(map.getZoom()));
     const all = [...new Set([...named, ...near, ...hitIds])];
     // The resting lines, and any the click found on the resting layers alone, after the running ones, each group in that order.
     const running = new Set(ordered.filter((h) => !resting(h)).map((h) => numberOf(h.properties?.id)));
@@ -662,7 +675,13 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
           setLines(map, linesNow, stopsNow, placesNow);
           if (eventNow) setEvent(map, eventNow, placesNow);
           if (draftNow.draft) setDraft(map, draftNow.draft, placesNow, draftNow.line);
-        } else pending.lines = { lines: linesNow, stops: stopsNow, places: placesNow };
+        } else {
+          // With the graphics away, the event's street and the draft too, as setLines keeps them: kept the lines alone, the restored
+          // map drew the roadworks two places wide where one line was left (the systems audit's twenty-second round).
+          pending.lines = { lines: linesNow, stops: stopsNow, places: placesNow };
+          if (eventNow) pending.event = eventNow;
+          if (draftNow.draft) pending.draft = draftNow;
+        }
         map.triggerRepaint();
       }
       lightWanted = darkStep(second);

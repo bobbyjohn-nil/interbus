@@ -6,6 +6,7 @@
 import { resolve } from 'node:path';
 import { createServer, type ViteDevServer } from 'vite';
 import { expect, test, type Page } from './base';
+import { NAME_REACH_PX } from '../src/render/map/overlays';
 import type { RibbonCase } from './ribbons/main';
 
 let server: ViteDevServer;
@@ -16,8 +17,12 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => server?.close());
 
-/** The drawn ink's mean offset across the street, in CSS px to the right of its way on the screen, within `reach` px of `anchor` along it. */
-async function across(page: Page, anchor: readonly [number, number], dir: readonly [number, number], reach = 30): Promise<number> {
+/**
+ * The drawn ink across the street, within `reach` px of `anchor` along it, in 1 px bins by its offset to the right of the street's way
+ * on the screen, in CSS px: each bin's ink of a tenth or more, that ink times its offset, and its most ink at any one pixel, each
+ * pixel's ink 0 to 1 from the land's colour.
+ */
+async function inkAcross(page: Page, anchor: readonly [number, number], dir: readonly [number, number], reach: number): Promise<[number, { ink: number; moment: number; most: number }][]> {
   const png = (await page.locator('#map').screenshot()).toString('base64');
   return page.evaluate(
     async ([data, anchor, dir, reach]) => {
@@ -31,23 +36,34 @@ async function across(page: Page, anchor: readonly [number, number], dir: readon
       const land = [0xeb, 0xe7, 0xdf];
       const length = Math.hypot(dir[0], dir[1]);
       const [ux, uy] = [dir[0] / length, dir[1] / length];
-      let [weights, sum] = [0, 0];
+      const bins = new Map<number, { ink: number; moment: number; most: number }>();
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
           const i = 4 * (y * width + x);
           const ink = Math.max(Math.abs(px[i]! - land[0]!), Math.abs(px[i + 1]! - land[1]!), Math.abs(px[i + 2]! - land[2]!)) / 255;
-          if (ink < 0.1) continue;
           const [dx, dy] = [x + 0.5 - anchor[0], y + 0.5 - anchor[1]];
           const [along, right] = [dx * ux + dy * uy, -dx * uy + dy * ux];
-          if (Math.abs(along) > reach || Math.abs(right) > 80) continue;
-          weights += ink;
-          sum += ink * right;
+          if (ink === 0 || Math.abs(along) > reach || Math.abs(right) > 80) continue;
+          // Its ink and moment of a tenth or more only, as the faint edge of a mark's antialiasing would pull a mean.
+          const [bin, strong] = [bins.get(Math.round(right)) ?? { ink: 0, moment: 0, most: 0 }, ink >= 0.1];
+          bins.set(Math.round(right), { ink: bin.ink + (strong ? ink : 0), moment: bin.moment + (strong ? ink * right : 0), most: Math.max(bin.most, ink) });
         }
       }
-      return weights > 0 ? sum / weights : Number.NaN;
+      return [...bins].sort((x, y) => x[0] - y[0]);
     },
     [png, anchor, dir, reach] as const,
   );
+}
+
+/** The drawn ink's mean offset across the street, in CSS px to the right of its way on the screen, within `reach` px of `anchor` along it and, given `from`, from that offset on. */
+async function across(page: Page, anchor: readonly [number, number], dir: readonly [number, number], reach = 30, from = -80): Promise<number> {
+  let [weights, sum] = [0, 0];
+  for (const [bin, { ink, moment }] of await inkAcross(page, anchor, dir, reach)) {
+    if (bin < from) continue;
+    weights += ink;
+    sum += moment;
+  }
+  return weights > 0 ? sum / weights : Number.NaN;
 }
 
 // The I12 cameras, with a street across the map's middle, near its top and near its foot, at several headings.
@@ -105,21 +121,61 @@ test('a line’s name stands on its own ribbon, either way up', async ({ page })
   }
 });
 
-// MapLibre joins the lines of line labels that share an end and their words before it places them (symbol_bucket's mergeLines),
-// keeping the first one's properties, so a line's name along a run that met another of its runs end to end stood at the other's
-// place: drawn after a 30 m run on the other side, a long run's name stood 14 px off its ribbon at zoom 16 (#201's review). Each
-// name stops short of its run's ends now (overlays.ts shortOfEnds). Shown failing (TS-04) with the runs' own ends.
-for (const zoom of [16, 14.5, 12.5]) {
-  test(`a line’s name keeps its own run’s place where that run meets another of its runs, zoom ${zoom}`, async ({ page }) => {
+// MapLibre joins the lines of line labels that share their words and an end before it places them (merge_lines.ts, keyed by the
+// words and the point), keeping the first one's properties, so a line's name along a run that met another of its runs end to end
+// stood at the other's place: drawn after a 30 m run on the other side, a long run's name stood 14 px off its ribbon at zoom 16
+// (#201's review). Stopped 5 m short of their ends, a run that turned back along the street it came in on still met the next at
+// one point, and a tile's edge across a street a line drives both ways is an end its two runs there share, which no shortening
+// reaches (the systems audit's twenty-second round). Each run's name has words of its own now (overlays.ts nameFeatures). Shown
+// failing (TS-04) with the line's name alone: with the runs' own ends, `joined` and `turned`, and stopped short of them, `turned`
+// and `both`.
+const MEETS = [
+  ...[16, 14.5, 12.5].flatMap((zoom) => (['joined', 'turned'] as const).map((show) => ({ show, zoom, side: 1.5, from: -80 }))),
+  // Both ways along the street, which crosses the edges of the tile under the screen's middle: the run on, 3 ribbons right of the
+  // way, measured on its side of the street's middle, where the run back's names stand 1.5 left of it.
+  { show: 'both' as const, zoom: 16, side: 3, from: 0 },
+];
+for (const { show, zoom, side, from } of MEETS) {
+  test(`a line’s name keeps its own run’s place where that run meets another of its runs, ${show}, zoom ${zoom}`, async ({ page }) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto(server.resolvedUrls!.local[0]!);
     await page.waitForFunction(() => window.ribbonsReady === true, null, { timeout: 60_000 });
-    const at = { zoom, pitch: 0, heading: 90, side: 1.5, at: [0.5, 0.5] as const };
+    const at = { zoom, pitch: 0, heading: 90, side, at: [0.5, 0.5] as const };
     const ribbon = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'ribbon' }), at);
-    const onRibbon = await across(page, ribbon.anchor, ribbon.dir, 160);
-    const words = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'joined' }), at);
-    const onName = await across(page, words.anchor, words.dir, 160);
+    const onRibbon = await across(page, ribbon.anchor, ribbon.dir, 160, from);
+    const words = await page.evaluate(([c, show]) => window.ribbonCase!({ ...c, show }), [at, show] as const);
+    const onName = await across(page, words.anchor, words.dir, 160, from);
     expect(Math.abs(onName - onRibbon), `the name ${onName.toFixed(2)} px across, its run's ribbon ${onRibbon.toFixed(2)}`).toBeLessThan(1.5);
   });
 }
+
+// A click on a line's name counts within NAME_REACH_PX of its ribbon's middle (loadMap.ts), as far as its words and their halo
+// reach: MapLibre finds a name anywhere in its padded box, 8 px either way, and a click there on a neighbour's ribbon listed the
+// name's line first (the systems audit's twenty-second round). The words and their 2 px halo reach 5 to 6 px either way.
+test('a line’s name reaches NAME_REACH_PX either side of its ribbon’s middle, and no further', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto(server.resolvedUrls!.local[0]!);
+  await page.waitForFunction(() => window.ribbonsReady === true, null, { timeout: 60_000 });
+  for (const c of [
+    { zoom: 16, heading: 90, side: 1.5 },
+    { zoom: 16, heading: 200, side: -1 },
+    { zoom: 13, heading: 20, side: 2 },
+    { zoom: 17, heading: 270, side: 0.5 },
+  ]) {
+    const at = { ...c, pitch: 0, at: [0.5, 0.5] as const };
+    const ribbon = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'ribbon' }), at);
+    const middle = await across(page, ribbon.anchor, ribbon.dir, 160);
+    const words = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'name' }), at);
+    // Drawn: a twentieth of ink or more at a pixel, the white halo's edge two fifths drawn over the land (wholly drawn, an eighth).
+    const drawn = (await inkAcross(page, words.anchor, words.dir, 160)).filter(([, b]) => b.most >= 0.05).map(([bin]) => bin - middle);
+    // Its reach either way, half its breadth, and its furthest: below zoom 16 a name strays from its ribbon by up to half a pixel a
+    // place (overlays.ts nameOffset), 4 px one way and 6 the other at zoom 13 two places out.
+    const [up, down] = [-Math.min(...drawn), Math.max(...drawn)];
+    const message = `${JSON.stringify(c)}: the name ${up.toFixed(1)} px up and ${down.toFixed(1)} px down from its ribbon's middle`;
+    expect.soft((up + down) / 2, message).toBeLessThanOrEqual(NAME_REACH_PX);
+    expect.soft((up + down) / 2, message).toBeGreaterThanOrEqual(NAME_REACH_PX - 1.5);
+    expect.soft(Math.max(up, down), message).toBeLessThanOrEqual(NAME_REACH_PX + (c.zoom < 16 ? 0.5 * Math.abs(c.side) : 0));
+  }
+});

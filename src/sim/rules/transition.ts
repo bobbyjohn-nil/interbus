@@ -93,7 +93,7 @@ export function settledOnto(earlier: readonly Earlier[]): number {
  * Each step of the folds lately taken, by its parent step's id and its own key, and the merged plans of
  * the steps used last (`fold`), at most so many of each, the least recently used let go first. A fold
  * keeps two plans, and a command folds a changed line twice (world.ts recomputeInService's frame before
- * and after), so 256 plans keep about 64 settling lines' at once, past Inner Boston's 29-line busy scene;
+ * and after), so 256 plans keep about 64 settling lines' at once, past Inner Boston's 31-line busy scene;
  * beyond it each fold starts again from the first version, as every fold did before (the review of the
  * sixth round: 64 plans held 16 lines).
  */

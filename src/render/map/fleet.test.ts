@@ -143,18 +143,26 @@ describe('a line’s buses in service', () => {
   // the systems audit's twenty-first round), and that bus standing at its line's place on that route. Stood without it, the street
   // re-centred under the bus, which stepped across onto the other line's ribbon. #202's review: the earlier test stood a plain
   // line instead, so no bus on an earlier route was ever drawn. Shown failing (TS-04) with the earlier routes' sides left at 0.
+  // #203's review: a bus back at its first stop from its last trip on the route as it was, waiting there for its next departure on
+  // the route as it is, stood on the old route and held its place among the lines as long as it waited, 1,095 game seconds after a
+  // change at 12:00 on this line every 20 minutes. It waits on the route of the trip it waits for now (position.ts place), as a bus
+  // carries on to another version of the route only where its first stop stayed (transition.ts merge), so it stands where it did.
+  // Shown failing (TS-04) with a waiting bus on its last trip's route.
   it('names the earlier routes a settling line’s buses still drive, and stands such a bus at its line’s place there', () => {
     const fleet = new Fleet();
     const was = line();
-    const north = (p: LngLatPair): LngLatPair => [p[0], p[1] + 0.002];
-    // Every 20 minutes on the old street, cut to every 10 on a street to the north at 23:00 on day 2: the old route's last trip
-    // ends at 23:09, and the merged plan hands over at 23:20. Line 2 drives the old street.
-    const now = { ...was, route: was.route.map(north), stops: was.stops.map(north), pullOut: was.pullOut.map(north), pullIn: was.pullIn.map(north), plan: { ...was.plan, timing: { ...was.plan.timing, headways: { peak: 600, offpeak: 600, overnight: null }, buses: 3 } } };
+    // The first stop kept, the rest of the route on a street to the north, as the line's buses carry on only with the first stop
+    // kept (world.ts sameStart).
+    const north = (ps: readonly LngLatPair[]): LngLatPair[] => ps.map((p, k) => (k === 0 ? p : [p[0], p[1] + 0.002]));
+    // Every 20 minutes on the old street, cut to every 10 on the new at 23:00 on day 2: the old route's last trip, the 22:40's, is
+    // back at its first stop at 23:01:39, and waits there for the 23:10 on the new route; the merged plan hands over at 23:20. Line
+    // 2 drives the old street.
+    const now = { ...was, route: north(was.route), stops: north(was.stops), plan: { ...was.plan, timing: { ...was.plan.timing, headways: { peak: 600, offpeak: 600, overnight: null }, buses: 3 } } };
     const { route, stopAt, stopDistM, pullOut, pullIn } = was;
     const settling = { ...now, settling: { frameDay: 2, earlier: [{ plan: was.plan, until: 23 * 3_600, sameModel: true, sameStart: true, route, stopAt, stopDistM, pullOut, pullIn }] } };
     const two = { ...was, id: 2, name: 'Line 2', colour: '#2471a3' };
     fleet.setLines([settling, two], null);
-    fleet.setClock(23 * 3_600 + 5 * 60, 600, 0, 2);
+    fleet.setClock(23 * 3_600 + 60, 600, 0, 2);
     expect(fleet.onEarlier).toEqual([{ id: 1, version: 0 }]);
     expect(fleet.onEarlierKey).toBe('1:0;');
     // Held: Line 1's place on the old street beside Line 2, and its bus there on its own side of the middle.
@@ -163,8 +171,36 @@ describe('a line’s buses in service', () => {
     const onOld = Array.from({ length: count }, (_, i) => data.subarray(BUS_FLOATS * i, BUS_FLOATS * (i + 1))).filter((b) => Math.round(b[3]! * 255) === 0xc0 && Math.abs(b[1]! - LAT) < 1e-9);
     expect(onOld.length).toBeGreaterThan(0);
     for (const b of onOld) expect(Math.abs(b[8]!)).toBe(0.5);
-    // Its last trip done, no bus drives it: let go, though the merged plan hands over only at 23:20.
+    // Its last trip done, no bus drives it: let go as that bus waits at the first stop, where it stands as it did, though the
+    // merged plan hands over only at 23:20.
+    fleet.setClock(23 * 3_600 + 5 * 60, 600, 0, 2);
+    expect(fleet.onEarlier).toEqual([]);
+    expect(fleet.onEarlierKey).toBe('');
+    const waiting = fleet.frame(0);
+    const at = Array.from({ length: waiting.count }, (_, i) => [waiting.data[BUS_FLOATS * i]!, waiting.data[BUS_FLOATS * i + 1]!]);
+    expect(at.some(([lon, lat]) => Math.abs(lon! - route[0]![0]) < 1e-9 && Math.abs(lat! - route[0]![1]) < 1e-9)).toBe(true);
     fleet.setClock(23 * 3_600 + 12 * 60, 600, 0, 2);
+    expect(fleet.onEarlierKey).toBe('');
+  });
+
+  // The systems audit's twenty-second round: a bus home from its last trip on the route as it was held that route's place among the
+  // lines until it was home, an empty place beside the lines on its streets for 130 to 310 game seconds after changes made from 23:15
+  // to 23:45, as the night's last trips drive home. On its depot drive it drives no route. Shown failing (TS-04) with a bus on its
+  // depot drive counted.
+  it('lets an earlier route go as its last trip ends, while that bus drives home', () => {
+    const fleet = new Fleet();
+    const was = line();
+    const north = (p: LngLatPair): LngLatPair => [p[0], p[1] + 0.002];
+    const now = { ...was, route: was.route.map(north), stops: was.stops.map(north), pullOut: was.pullOut.map(north), pullIn: was.pullIn.map(north) };
+    const { route, stopAt, stopDistM, pullOut, pullIn } = was;
+    // Moved to a street to the north at 23:50 on day 2, its first stop too, so its buses go home after their trips there: the old
+    // route's last trip, the 23:40's, is back at its first stop at 00:01:39, and its bus home at 00:05:07.
+    fleet.setLines([{ ...now, settling: { frameDay: 2, earlier: [{ plan: was.plan, until: 23 * 3_600 + 50 * 60, sameModel: true, sameStart: false, route, stopAt, stopDistM, pullOut, pullIn }] } }], null);
+    fleet.setClock(23 * 3_600 + 59 * 60, 600, 0, 2);
+    expect(fleet.onEarlierKey).toBe('1:0;');
+    // At 00:03 it drives home: drawn, but on no route.
+    fleet.setClock(3 * 60, 600, 0, 3);
+    expect(fleet.frame(0).count).toBe(1);
     expect(fleet.onEarlier).toEqual([]);
     expect(fleet.onEarlierKey).toBe('');
   });

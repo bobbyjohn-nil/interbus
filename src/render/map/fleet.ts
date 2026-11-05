@@ -153,10 +153,13 @@ export class Fleet implements BusSource {
     let key = '';
     for (const line of this.lines) {
       const n = positionsInEffect(line.plan, line.geos, secondOf(line, absolute), this.scratch, this.where);
-      // Its route's earlier versions some bus of it drives: only a line settling onto a change has any.
+      // Its route's earlier versions some bus of it drives: only a line settling onto a change has any. A bus on its drive to or
+      // from its depot (segment -1) drives none: home from its last trip on an earlier route, it held that route's place among the
+      // lines until it was home, an empty place beside the lines on its streets for 130 to 310 game seconds after changes made from
+      // 23:15 to 23:45 (the systems audit's twenty-second round).
       if (line.geos.length > 1) {
         const versions = new Set<number>();
-        for (let i = 0; i < n; i++) if (this.where[WHERE_FLOATS * i]! < line.geos.length - 1) versions.add(this.where[WHERE_FLOATS * i]!);
+        for (let i = 0; i < n; i++) if (this.where[WHERE_FLOATS * i]! < line.geos.length - 1 && this.where[WHERE_FLOATS * i + 1]! >= 0) versions.add(this.where[WHERE_FLOATS * i]!);
         if (versions.size) key += `${line.id}:${[...versions].sort((a, b) => a - b).join(',')};`;
       }
       for (let i = 0; i < n; i++) {

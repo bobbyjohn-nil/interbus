@@ -149,28 +149,51 @@ export function linesHere(
   project: (p: LngLatPair) => readonly [number, number],
   ribbon: number,
 ): number[] {
-  // Where each line stands on a segment: its place from the street's middle, in pixels, to the right of the segment's own way.
-  const pxOf = (here: readonly unknown[], k: number) => (k - (here.length - 1) / 2) * ribbon;
   const hitAt = new Map<number, number>();
-  let nearest = { key: '', a: [0, 0] as readonly [number, number], b: [0, 0] as readonly [number, number], d: Infinity };
+  let nearest: Nearest = { key: '', a: [0, 0], b: [0, 0], d: Infinity };
   for (const { id, first, last } of hits) {
-    const route = lines.find((l) => l.id === id)?.route ?? [];
-    eachSegment(route, (i, key, along) => {
-      if ((first !== undefined && i < first) || (last !== undefined && i > last)) return;
-      const here = places.get(key) ?? [];
-      const k = here.findIndex((e) => e.id === id && e.along === along);
-      // The segment as its own way runs, its lesser end first, which the places stand from.
-      const [a, b] = along ? [project(route[i]!), project(route[i + 1]!)] : [project(route[i + 1]!), project(route[i]!)];
-      const d = toRibbon(at, a, b, k < 0 ? 0 : pxOf(here, k));
-      if (d < (hitAt.get(id) ?? Infinity)) hitAt.set(id, d);
-      if (d < nearest.d) nearest = { key, a, b, d };
-    });
+    const n = nearestSegment(places, lines.find((l) => l.id === id)?.route ?? [], { id, first, last }, at, project, ribbon);
+    if (n.d < (hitAt.get(id) ?? Infinity)) hitAt.set(id, n.d);
+    if (n.d < nearest.d) nearest = n;
   }
   const by = new Map<number, number>();
   const here = places.get(nearest.key) ?? [];
-  here.forEach((e, k) => by.set(e.id, Math.min(by.get(e.id) ?? Infinity, toRibbon(at, nearest.a, nearest.b, pxOf(here, k)))));
+  here.forEach((e, k) => by.set(e.id, Math.min(by.get(e.id) ?? Infinity, toRibbon(at, nearest.a, nearest.b, pxOf(here, k, ribbon)))));
   for (const [id, d] of hitAt) if (!by.has(id)) by.set(id, d);
   return [...by].sort((x, y) => x[1] - y[1]).map(([id]) => id);
+}
+
+/** How far a click (`at`) lies from the middle of line `hit.id`'s ribbon on the run the map hit (all its route, unset), in pixels as `project` lays its places, `ribbon` pixels a place; Infinity for a line not there. */
+export function ribbonDistance(places: Places, lines: readonly RouteOf[], hit: Hit, at: readonly [number, number], project: (p: LngLatPair) => readonly [number, number], ribbon: number): number {
+  return Math.sqrt(nearestSegment(places, lines.find((l) => l.id === hit.id)?.route ?? [], hit, at, project, ribbon).d);
+}
+
+/** Where a line stands on a segment: its place `k` of `here` from the street's middle, in pixels, to the right of the segment's own way. */
+function pxOf(here: readonly unknown[], k: number, ribbon: number): number {
+  return (k - (here.length - 1) / 2) * ribbon;
+}
+
+/** A segment of a route on screen: its places' key, its ends as its own way runs, and the squared distance from a click to a ribbon on it. */
+interface Nearest {
+  readonly key: string;
+  readonly a: readonly [number, number];
+  readonly b: readonly [number, number];
+  readonly d: number;
+}
+
+/** The segment of `route`, line `hit.id`'s, among the hit run's segments (all, unset), whose ribbon of that line lies nearest the click. */
+function nearestSegment(places: Places, route: readonly LngLatPair[], { id, first, last }: Hit, at: readonly [number, number], project: (p: LngLatPair) => readonly [number, number], ribbon: number): Nearest {
+  let nearest: Nearest = { key: '', a: [0, 0], b: [0, 0], d: Infinity };
+  eachSegment(route, (i, key, along) => {
+    if ((first !== undefined && i < first) || (last !== undefined && i > last)) return;
+    const here = places.get(key) ?? [];
+    const k = here.findIndex((e) => e.id === id && e.along === along);
+    // The segment as its own way runs, its lesser end first, which the places stand from.
+    const [a, b] = along ? [project(route[i]!), project(route[i + 1]!)] : [project(route[i + 1]!), project(route[i]!)];
+    const d = toRibbon(at, a, b, k < 0 ? 0 : pxOf(here, k, ribbon));
+    if (d < nearest.d) nearest = { key, a, b, d };
+  });
+  return nearest;
 }
 
 /** A run of a route at one side: its points (its ends shared with the runs either side), its side, and its first and last segments. */
@@ -228,8 +251,9 @@ function stepsBetween(from: number, to: number): number[] {
  * where its side changes. Each run is drawn by line-offset with round caps, which meet only where the two ends stand within a
  * ribbon of each other: where a line's side changed by more, or at a corner, the ribbon broke, gaps of up to 14 px at zoom 16 on
  * the busy scene, and where it turned back at a stop its two ways stood apart (the systems audit's twenty-first round). At a
- * corner or on along the street, a piece turns the corner at the run's side before, as the run would have, then steps across
- * at most a ribbon at a time to the side after, each piece BRIDGE_M along the segment after. Where the line turns back, steps
+ * corner or on along the street, a piece turns the corner at the run's side before, as the run would have, where the round caps
+ * would not carry the ribbon on without it (CAPS_CARRY), then steps across at most a ribbon at a time to the side after, each
+ * piece BRIDGE_M along the segment after. Where the line turns back, steps
  * across the street along the segment before, from its side one way to its side back: a bar at the stop it turns at.
  */
 export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): Run[] {
@@ -249,11 +273,31 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
       // Along the way in, the side back stands at its negative: across from the one to the other.
       for (const side of stepsBetween(was.side, -now.side)) bridges.push({ points: [toward(at, into), at], side, ...span });
     } else {
-      if (was.side !== 0) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
-      for (const side of stepsBetween(was.side, now.side)) bridges.push({ points: [at, toward(at, out)], side, ...span });
+      const steps = stepsBetween(was.side, now.side);
+      // The corner, only where the run before and the next piece, a step or the run after, would not overlap enough without it.
+      const [end, start] = [rightOf(into, at, was.side), rightOf(at, out, steps[0] ?? now.side)];
+      if (was.side !== 0 && Math.hypot(start[0] - end[0], start[1] - end[1]) > CAPS_CARRY) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
+      for (const side of steps) bridges.push({ points: [at, toward(at, out)], side, ...span });
     }
   }
   return bridges;
+}
+
+/**
+ * How far apart, in ribbons, a run's end and the next piece's start may stand, each square to its own way, for their round caps to
+ * carry the ribbon on with no corner piece: within it, the two overlap across two thirds of a ribbon at least, and along a street
+ * by half a ribbon at a change of half a place. The corner piece there only widened the ribbon by half a ribbon for BRIDGE_M on
+ * along the street, 9 to 10 px for 4.6 m at zoom 18 where it is 7 px, at 16 to 40 points on each of the four networks `npm run
+ * bench sides` lays (the systems audit's twenty-second round). A ribbon apart, the caps only touch, so where a step or a change of
+ * a whole place stands so, as along a street, the ribbon still turns at the side before, alongside the next piece for BRIDGE_M; round
+ * a corner a change of a whole place can stand nearer, as -0.5 to 0.5 at a right angle does, 0.71 apart, and the caps carry it.
+ */
+const CAPS_CARRY = 0.75;
+
+/** A point `side` ribbons to the right of the way from `a` to `b`, from the way's start, on the ground (east and north), a ribbon a unit. */
+function rightOf(a: LngLatPair, b: LngLatPair, side: number): readonly [number, number] {
+  const way = wayOf(a, b) ?? [0, 0];
+  return [way[1] * side, -way[0] * side];
 }
 
 /**
@@ -265,10 +309,7 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
  * where a gap is a ribbon or less. For the tests and `npm run bench sides`.
  */
 export function ribbonGaps(route: readonly LngLatPair[], runs: readonly Run[], bridges: readonly Run[]): number[][] {
-  const right = (a: LngLatPair, b: LngLatPair, side: number): readonly [number, number] => {
-    const way = wayOf(a, b) ?? [0, 0];
-    return [way[1] * side, -way[0] * side];
-  };
+  const right = rightOf;
   return runs.slice(1).map((now, r) => {
     const was = runs[r]!;
     const at = route[now.first]!;
