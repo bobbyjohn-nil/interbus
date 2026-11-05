@@ -249,7 +249,7 @@ function stepsBetween(from: number, to: number): number[] {
 /**
  * The steps a ribbon takes across from the street's middle to `to`: half a place first, then a place at a time, none at `to`. A
  * whole place first from the middle needed a corner piece there, which stood beside that step and the run after it for BRIDGE_M,
- * the ribbon two and a half ribbons wide, 17.9 px across at zoom 18 where a ribbon is 7 (the 30-line late game's Line 24, the
+ * the ribbon two and a half ribbons wide, 17.5 px across at zoom 18 where a ribbon is 7 (the 30-line late game's Line 24, the
  * systems audit's twenty-fourth round); half a place on, the run before's cap carries the ribbon onto the first step, as it does
  * along a street at a change of half a place (CAPS_CARRY).
  */

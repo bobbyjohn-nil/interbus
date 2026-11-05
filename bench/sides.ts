@@ -4,6 +4,7 @@
 // companies at the bus ceiling (bench/fixtures, as `npm run bench recompute` times them), a late game of 30 lines along the
 // corridors (scene.ts lateScene) and the busy scene (busyScene). `npm run bench sides`; never part of the PR checks.
 import { readFileSync } from 'node:fs';
+import { nameFeatures } from '../src/render/map/overlays';
 import { bridgesOf, placesOf, ribbonGaps, runsOf, sidesAlong, turnsBack } from '../src/render/map/sides';
 import { linkShape } from '../src/render/map/waist';
 import { busyScene, lateScene } from '../src/sim/scene';
@@ -37,7 +38,10 @@ if (!city) {
   for (const { name, world } of worlds) {
     const lines = lineViews(world);
     const points = lines.reduce((n, l) => n + l.route.length, 0);
-    const [places, sides]: [number[], number[]] = [[], []];
+    const [places, sides, names]: [number[], number[], number[]] = [[], [], []];
+    // Every line's names too, along its runs (overlays.ts nameFeatures), as setLines lays them each time the lines change.
+    const placed = placesOf(lines);
+    const runs = lines.map((l) => runsOf(l.route, sidesAlong(placed, l.id, l.route)));
     // Five runs to warm up, then RUNS timed.
     for (let r = 0; r < RUNS + 5; r++) {
       const t0 = performance.now();
@@ -45,13 +49,16 @@ if (!city) {
       const t1 = performance.now();
       for (const l of lines) sidesAlong(p, l.id, l.route);
       const t2 = performance.now();
+      lines.forEach((l, k) => nameFeatures(l, runs[k]!));
+      const t3 = performance.now();
       if (r < 5) continue;
       places.push(t1 - t0);
       sides.push(t2 - t1);
+      names.push(t3 - t2);
     }
-    const shared = [...placesOf(lines).values()].filter((h) => h.length > 1).length;
+    const shared = [...placed.values()].filter((h) => h.length > 1).length;
     const ms = (xs: number[]) => `${at(xs, 0.5).toFixed(2)} ms at p50 and ${at(xs, 0.95).toFixed(2)} at p95`;
-    console.log(`${name}, ${lines.length} lines of ${points} points, ${shared} segments shared: the places ${ms(places)}; every line's sides ${ms(sides)}`);
+    console.log(`${name}, ${lines.length} lines of ${points} points, ${shared} segments shared: the places ${ms(places)}; every line's sides ${ms(sides)}; every line's names ${ms(names)}`);
     // Where each line's ribbon goes from one run to the next: the widest gap between round caps, in ribbons, with the bridges and
     // without (bridgesOf; a ribbon is 7 px at zoom 16), and the points where a line turns back off the street's middle. Where round
     // caps alone meet, each is measured to the other piece's ribbon (capsApart) since the twenty-third round, which counts fewer

@@ -9,7 +9,7 @@ import { restsAt } from '../../sim/rules/periods';
 import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
-import { bridgesOf, placesAlong, placesOf, RIBBON_PX, runsOf, segmentOf, sidesAlong, type Places } from './sides';
+import { bridgesOf, placesAlong, placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -273,10 +273,10 @@ function nameOffset(): ExpressionSpecification {
  * the line's own, where a joined name stood off any ribbon.
  */
 export function nameFeatures(line: Pick<LineView, 'id' | 'name' | 'route'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
-  const starts = startsOf(line.route);
+  const starts = startsAt(line.route, runs.map((run) => run.first));
   const taken = new Set<number>();
-  return runs.map((run) => {
-    let code = hashOf(starts[run.first] ?? `${run.first}`) % WORDS;
+  return runs.map((run, k) => {
+    let code = codeOf(starts[k]!);
     while (taken.has(code)) code = (code + 1) % WORDS;
     taken.add(code);
     return {
@@ -291,22 +291,30 @@ export function nameFeatures(line: Pick<LineView, 'id' | 'name' | 'route'>, runs
 const WORDS = 1 << 20;
 
 /**
- * Where a run starting at each segment of `route` starts, as no change elsewhere on the line moves it: the first segment from there
- * with a length (segmentOf's key and way), and how many times the route drove that way of it before.
+ * Where each run of `route` that starts at a segment of `firsts` starts, as no change elsewhere on the line moves it: the first
+ * segment from there with a length, its ends and its way as segmentOf has them, and how many times the route drove that way of it
+ * before. Only the runs' own segments are keyed, each end in segmentOf's whole numbers: keyed segment by segment along the whole
+ * route, every line's names took 3.0 to 5.9 ms at p50 on the four networks of `npm run bench sides`, where they take 0.6 to 1.2
+ * and #205's took 0.2 to 0.3 (#208's review).
  */
-export function startsOf(route: readonly LngLatPair[]): string[] {
-  const seen = new Map<string, number>();
-  const starts: string[] = new Array(Math.max(0, route.length - 1));
-  for (let i = 0; i + 1 < route.length; i++) {
-    const s = segmentOf(route[i]!, route[i + 1]!);
-    if (!s) continue;
-    const way = `${s.key} ${s.along}`;
-    const before = seen.get(way) ?? 0;
-    seen.set(way, before + 1);
-    starts[i] = `${way} ${before}`;
-  }
-  for (let i = starts.length - 2; i >= 0; i--) starts[i] ??= starts[i + 1]!;
-  return starts;
+export function startsAt(route: readonly LngLatPair[], firsts: readonly number[]): string[] {
+  const xs = route.map((p) => Math.round(p[0] * 1e7));
+  const ys = route.map((p) => Math.round(p[1] * 1e7));
+  const same = (i: number, k: number) => xs[i] === xs[k] && ys[i] === ys[k];
+  return firsts.map((first) => {
+    let i = first;
+    while (i + 1 < route.length && same(i, i + 1)) i++;
+    if (i + 1 >= route.length) return `${first}`;
+    let before = 0;
+    for (let k = 0; k < i; k++) if (same(k, i) && same(k + 1, i + 1)) before++;
+    const [a, b] = [`${xs[i]},${ys[i]}`, `${xs[i + 1]},${ys[i + 1]}`];
+    return `${a < b ? `${a} ${b} true` : `${b} ${a} false`} ${before}`;
+  });
+}
+
+/** A run's own words' number, under WORDS, from where it starts (startsAt), before a line's runs that share one move on. */
+export function codeOf(start: string): number {
+  return hashOf(start) % WORDS;
 }
 
 /** A string's 32-bit FNV-1a hash. */

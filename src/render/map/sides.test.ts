@@ -272,7 +272,7 @@ describe('a ribbon carried from run to run', () => {
     // A place or more over from the middle, on along the street or round the corner away from its side: half a place first, no
     // corner piece, and the ribbon at least 6.4 px across at zoom 16, where a corner piece and a step left 4.8, and its own width
     // from zoom 17. At zoom 18 no wider than two ribbons for a change of up to a place and a half, where the corner piece in the
-    // middle beside the step a place on made it 2.5 ribbons, 17.6 px (the twenty-fourth round: 17.9 px at the 30-line late game's
+    // middle beside the step a place on made it 2.5 ribbons, 17.6 px (the twenty-fourth round: 17.5 px at the 30-line late game's
     // Line 24), and for two places as wide as its two steps side by side, 2.5 ribbons, where it was 2.8. Shown failing (TS-04)
     // with a whole place first and the corner piece in the middle.
     for (const [route, sides] of [[on, [0, 1]], [on, [0, -1]], [on, [0, 2]], [on, [0, 1.5]], [left, [0, 1]], [left, [0, 2]], [left, [0, 1.5]], [right, [0, -1.5]], [right, [0, -2]]] as const) {
