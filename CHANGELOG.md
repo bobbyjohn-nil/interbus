@@ -370,6 +370,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line's names stay put where another line joins or leaves its street, closes, or lets its old route go. Before, the names further along the line went out for a moment and came back.
 - Zoomed in to the streets, a line's colour keeps its width where it moves a whole place over from the middle of a street. Before, it narrowed there to a point. Where a line turns toward the side of the street it stands on, its corner is no longer drawn twice as wide.
 - On a tilted map, a click on a line's name lists that line first however near the top of the view it stands, and a click just beside a name near the foot of the view lists the line you clicked; a click where one line's colour is drawn over another's lists the line drawn on top first. Before, the line beside the name, or the line underneath, could come first.
+- Under the day's card or the lender's card, the arrow keys, Home and End no longer open a list or turn a tab you cannot see, as Enter and Space press nothing there. Before, ArrowDown on a fare under the day's card opened its list beside a button you could not see, and Enter then set the fare; ArrowRight turned Lines to another line.
+- A key's press on a button scrolled out of Saves, Contracts, a stop's card, Lines here, the route editor or the new line's card scrolls it back into view first, as it does in Lines and Finance. Before, Enter there could go back to Home or export the game unseen, or press nothing at all while the panel stayed scrolled.
+- In Finance's Lines, a key's press on a line's name hidden under the column headings scrolls the name out from under them first. Before, it opened or closed the line's money unseen.
 
 ### Removed
 

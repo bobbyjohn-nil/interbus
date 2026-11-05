@@ -1,6 +1,7 @@
 // A key never presses a control something else lies over, where no one can see what it presses (Panels.tsx coverOf): under
 // another panel its panel comes up, so the press shows the control and the next works it (dropdown.spec.ts); under a card no
-// raise lifts, the day's or the lender's, the press waits. Its control is shown in its panel's body first, as Tab shows it.
+// raise lifts, the day's or the lender's, the press waits, and so do the keys a control takes for itself. Its control is shown
+// in its panel's body, or its panel's own box, first, as Tab shows it, clear of sticky headings.
 import { expect, test, type Locator, type Page } from './base';
 import { LINE_COLOURS } from '../src/sim/config/lines';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
@@ -145,5 +146,199 @@ test.describe('a key on a control something lies over', () => {
     await expect(page.getByRole('listbox', { name: `Fare for Line ${N}` })).toBeFocused();
     expect(await over(fare)).toBe('finance');
     await page.keyboard.press('Escape');
+  });
+  // The systems audit's twenty-third round: a key's press waited under the day's card, but the keys a control takes for itself
+  // did not: with the debug line and a second, Finance on its Lines dragged 200 px left, Lines and Saves open by the mouse and
+  // the day's card over Finance's fare, ArrowDown or ArrowUp on the fare opened its list beside a button no one could see, and
+  // Enter there set Line 1's fare from $2.25 to $2.50, 3 runs of 3; and ArrowRight or End on Lines' tab for Line 1, under the card
+  // too, turned Lines to Line 2 (the fix's review). Under a cover no raise lifts, a control's own keys wait now, as a key's press
+  // does: a list's button's ArrowDown and ArrowUp, and a tab's arrows, Home and End. Shown failing (TS-04) with only the press
+  // held, and with a list's button's keys alone held.
+  test('takes no arrow, Home or End for a control under the day’s card', async ({ page }) => {
+    test.setTimeout(150_000);
+    await game(page, (d) => {
+      d.clock.elapsed = 86_400 + 18 * 3_600 + 58 * 60;
+      const [first] = d.lines as Record<string, unknown>[];
+      d.lines = [first, { ...first, id: 2, name: 'Line 2', colour: LINE_COLOURS[1], stopIds: [1, 2] }];
+      d.nextIds = { ...d.nextIds, line: 3 };
+    });
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByTestId('saves-chip').click();
+    await expect(page.getByTestId('saves')).toBeVisible();
+    await drag(page, 'finance', -200, 0);
+    await tabOnto(page, page.getByTestId('saves-chip'));
+    await page.keyboard.press('2');
+    const card = page.getByTestId('day-card');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    const fare = finance.getByRole('button', { name: 'Fare for Line 1' });
+    const was = (await fare.textContent()) ?? '';
+    await tabOnto(page, fare);
+    await expect.poll(() => over(fare)).toBe('day-card');
+    for (const key of ['ArrowDown', 'ArrowUp']) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(300);
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(fare).toBeFocused();
+    }
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    await expect(fare).toHaveText(was);
+    const lines = page.getByTestId('inspector');
+    const tab = lines.getByRole('tab', { selected: true });
+    await expect(tab).toContainText('Line 1');
+    await tabOnto(page, tab);
+    await expect.poll(() => over(tab)).toBe('day-card');
+    for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(300);
+      await expect(lines.getByRole('tab', { selected: true })).toContainText('Line 1');
+      await expect(tab).toBeFocused();
+    }
+    await expect(card).toBeVisible();
+  });
+
+  // The systems audit's twenty-third round: a key's press showed its control in its panel's body (`.panel-body`), but Saves,
+  // Contracts, a stop's card, Lines here, the route editor and the new line's card scroll whole: with Saves dragged as low as it
+  // goes at 1152×720 and scrolled back to its top, Enter on slot 2's Save here, under the map's credit, was held for good, and on
+  // Back to Home, clipped below Saves' foot, it went Home unseen, 3 runs of 3. Shown in its panel's own box too now, the press
+  // shows the control, and works it there. Shown failing (TS-04) with the press shown in a panel's body alone.
+  test('shows a control scrolled out of a panel that scrolls whole, and works it', async ({ page }) => {
+    test.setTimeout(150_000);
+    await game(page);
+    await page.getByTestId('saves-chip').click();
+    const saves = page.getByTestId('saves');
+    await expect(saves).toBeVisible();
+    await drag(page, 'saves', 0, 720);
+    const slot = saves.getByTestId('slot-2');
+    const save = slot.getByRole('button', { name: 'Save here' });
+    await tabOnto(page, save);
+    await saves.evaluate((e) => void (e.scrollTop = 0));
+    await expect(save).toBeFocused();
+    // Over the button's middle, on the window: the map's credit, whose links carry no test id.
+    const under = await save.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
+      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return 'off the window';
+      const hit = document.elementFromPoint(x, y);
+      return !hit ? 'nothing' : e.contains(hit) ? 'itself' : (hit.closest('[data-movable]')?.getAttribute('data-movable') ?? hit.tagName.toLowerCase());
+    });
+    expect(['itself', 'saves', 'off the window', 'nothing']).not.toContain(under);
+    await page.keyboard.press('Enter');
+    await expect(slot).toHaveAttribute('data-empty', 'no');
+    expect(await saves.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
+  });
+
+  // The systems audit's twenty-third round: a key's press showed its control within its panel body's box, where Finance's Lines
+  // keeps its column headings over the rows as they scroll: with 14 lines and the body scrolled so a line's name lay under the
+  // headings, Enter or Space there opened or closed its money unseen, 3 runs of 3. Shown clear of the body's scroll padding now,
+  // which keeps the rows from under the headings, the press shows the name, and works it there. Shown failing (TS-04) with the
+  // padding left out.
+  test('shows a control under its own panel’s sticky headings, and works it', async ({ page }) => {
+    test.setTimeout(150_000);
+    const N = 14;
+    await game(page, (d) => {
+      const [first] = d.lines as Record<string, unknown>[];
+      d.lines = [first, ...Array.from({ length: N - 1 }, (_, k) => ({ ...first, id: k + 2, name: `Line ${k + 2}`, colour: LINE_COLOURS[(k + 1) % LINE_COLOURS.length], stopIds: [1, 2] }))];
+      d.nextIds = { ...d.nextIds, line: N + 1 };
+    });
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    const body = finance.getByTestId('finance-body');
+    // The first line whose name a scroll of the body can bring under the headings' middle.
+    const row = await body.evaluate((b) => {
+      const th = b.querySelector('thead th')!.getBoundingClientRect();
+      for (const button of b.querySelectorAll('tbody button.line-name')) {
+        const r = button.getBoundingClientRect();
+        const need = b.scrollTop + r.top + r.height / 2 - (th.top + th.height / 2);
+        if (need > 0 && need <= b.scrollHeight - b.clientHeight) return Number(button.closest('tr')!.getAttribute('data-line'));
+      }
+      return 0;
+    });
+    expect(row).toBeGreaterThan(0);
+    const name = finance.getByTestId(`line-money-${row}`).locator('button.line-name');
+    await tabOnto(page, name);
+    // The body scrolled, as the wheel scrolls it with the keyboard left on the name, until the name's middle lies under the headings.
+    await name.evaluate((e) => {
+      const scroller = e.closest('.panel-body') as HTMLElement;
+      const th = e.closest('table')!.querySelector('thead th')!;
+      for (let k = 0; k < 3; k++) {
+        const [r, t] = [e.getBoundingClientRect(), th.getBoundingClientRect()];
+        scroller.scrollTop += r.top + r.height / 2 - (t.top + t.height / 2);
+      }
+    });
+    await expect(name).toBeFocused();
+    const shows = () =>
+      name.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!hit && e.contains(hit);
+      });
+    expect(await shows()).toBe(false);
+    const open = await name.getAttribute('aria-expanded');
+    await page.keyboard.press('Enter');
+    await expect(name).toHaveAttribute('aria-expanded', open === 'true' ? 'false' : 'true');
+    expect(await shows()).toBe(true);
+  });
+
+  // The review of the twenty-third round's keyboard fixes: held for every control, and measured where it lay, the arrows, Home and
+  // End found the map, the chips or the dock over a control scrolled out of its panel, with no card on the window: with 30 lines
+  // at 1152×720 and Finance's Lines scrolled back to its top, as a wheel scrolls it with the keyboard left on Line 14's fare,
+  // ArrowDown opened no list, and with the keyboard on Line 1's name, ArrowDown stopped scrolling the body once the name had left
+  // Finance, at 120 to 139 px of 500, and End and Home did nothing. A control's own keys are held only for a control that takes
+  // them now, measured once it shows in its panel, and any other control's scroll its panel. Shown failing (TS-04) with every
+  // control's held as it lay, with a control's own held as it lay, and with every control's held once shown.
+  test('works a control’s own keys scrolled out of its panel, and scrolls the panel by any other’s', async ({ page }) => {
+    test.setTimeout(150_000);
+    const N = 30;
+    await game(page, (d) => {
+      const [first] = d.lines as Record<string, unknown>[];
+      d.lines = [first, ...Array.from({ length: N - 1 }, (_, k) => ({ ...first, id: k + 2, name: `Line ${k + 2}`, colour: LINE_COLOURS[(k + 1) % LINE_COLOURS.length], stopIds: [1, 2] }))];
+      d.nextIds = { ...d.nextIds, line: N + 1 };
+    });
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    const body = finance.getByTestId('finance-body');
+    /** What shows over the middle of `el`: itself, its own panel, or something outside its panel on the window. */
+    const lies = (el: Locator) =>
+      el.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
+        const hit = x >= 0 && y >= 0 && x < innerWidth && y < innerHeight ? document.elementFromPoint(x, y) : null;
+        return !hit ? 'off the window' : e.contains(hit) ? 'itself' : e.closest('[data-movable]')!.contains(hit) ? 'its panel' : 'outside';
+      });
+    const fare = finance.getByRole('button', { name: 'Fare for Line 14', exact: true });
+    await tabOnto(page, fare);
+    await body.evaluate((b) => void (b.scrollTop = 0));
+    await expect(fare).toBeFocused();
+    expect(await lies(fare)).toBe('outside');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox')).toHaveCount(1);
+    expect(await lies(fare)).toBe('itself');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await expect(fare).toBeFocused();
+    // Line 1's name, the body scrolled until the name's middle lies 20 px above Finance, over the chips. On CI's Chrome 153, Home
+    // there left the body 19 px from its top (run 41995659188), where Chrome 141 takes it to 0, so the test asks only that each
+    // key scrolls the body on past where it was.
+    const name = finance.getByTestId('line-money-1').locator('button.line-name');
+    await tabOnto(page, name);
+    const from = await name.evaluate((e) => {
+      const scroller = e.closest('.panel-body') as HTMLElement;
+      const r = e.getBoundingClientRect();
+      scroller.scrollTop += r.top + r.height / 2 - (e.closest('[data-movable]')!.getBoundingClientRect().top - 20);
+      return scroller.scrollTop;
+    });
+    await expect(name).toBeFocused();
+    expect(await lies(name)).toBe('outside');
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(() => body.evaluate((b) => b.scrollTop)).toBeGreaterThan(from);
+    await page.keyboard.press('Home');
+    await expect.poll(() => body.evaluate((b) => b.scrollTop)).toBeLessThan(from);
+    await expect(name).toBeFocused();
   });
 });

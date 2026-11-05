@@ -3,7 +3,7 @@ import { focusLost } from "../focusLost";
 import { MODIFIERS } from "../focusSource";
 import { giveFocus } from "../giveFocus";
 import { standsFor } from "../heldFocus";
-import { showInBody, SHOWN } from "../showWhole";
+import { showInBody, showInPanel, SHOWN } from "../showWhole";
 import { inOpenList } from "../../render/map/tilt";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
@@ -27,6 +27,12 @@ interface Rect {
 
 /** The gap between panels, and between a panel and the window's edge, in pixels. */
 const GAP = 12;
+/** The keys a panel's controls take for themselves: a tab ArrowLeft, ArrowRight, Home and End (tablist.ts), a list's button
+ * ArrowDown and ArrowUp (Dropdown). Any other control's arrows, Home and End scroll its panel. */
+const TAKES: readonly (readonly [selector: string, keys: readonly string[]])[] = [
+  ['[role="tab"]', ["ArrowLeft", "ArrowRight", "Home", "End"]],
+  ['[aria-haspopup="listbox"]', ["ArrowDown", "ArrowUp"]],
+];
 /** The top of the first row of panels: under the chips. */
 const TOP = 56;
 /** The room left at the window's bottom for the dock and the map's credit (app.css's 100vh - 128px is TOP and this; the day card's 100% - 156px counts it too). */
@@ -749,6 +755,23 @@ export function Panels({
                 return;
               }
               if (brought && was) pressedFrom.current = { id, was };
+            }}
+            onKeyDownCapture={(e) => {
+              // The keys a control takes for itself (TAKES) work it before the box hears them: under the day's card, ArrowDown
+              // opened Finance's fare list beside a button no one could see, and Enter there set the fare; ArrowRight turned Lines
+              // to another line (the systems audit's twenty-third round). Under a cover no raise lifts they wait, as a key's press
+              // does, measured once the control shows in its panel as the press's is, but with no SHOWN, as a tab's keys bring no
+              // panel in (onKeyDown). Held for every control and measured where it lay, the keys found the map, the chips or the
+              // dock over a control scrolled out of its panel: a fare's ArrowDown opened nothing, and a line's name's ArrowDown
+              // stopped scrolling Finance's Lines once the name left it (the fix's review).
+              const target = e.target;
+              if (!(target instanceof Element) || !e.currentTarget.contains(target) || !TAKES.some(([selector, keys]) => keys.includes(e.key) && target.matches(selector))) return;
+              showInPanel(target);
+              const cover = coverOf(e.currentTarget, target);
+              if (cover && !lifts(cover)) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
             }}
             onKeyDown={(e) => {
               // But for a tab's keys, which move the focus to the tab they reach, and the focus brings it in: one that reaches no
