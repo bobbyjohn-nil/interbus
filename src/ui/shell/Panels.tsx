@@ -610,7 +610,11 @@ export function Panels({
   // (React's focus and keys still bubble here), so it moves no panel.
   // `whole`, what the panel's own code asks to show (showInBody's SHOWN), as Close line's ask as it opens with the keyboard on
   // Close line.
+  // Not while a pointer drags the panel, which puts it back under the pointer at its next move: a list's button given the focus
+  // back as a drag took it off the window brought Finance 82 px in from under the pointer, where it stood while the pointer held
+  // still, 4 runs of 4 (the systems audit's twenty-fifth round). The next key, once the drag ends, brings it in.
   const reveal = (box: HTMLDivElement, target: EventTarget | null, id: string, whole?: Element) => {
+    if (box.classList.contains("dragging")) return false;
     if (!(target instanceof Element) || !box.contains(target) || !target.matches(":focus-visible")) return false;
     const b = box.getBoundingClientRect();
     const at = showing({ x: b.left, y: b.top }, (whole ?? target.closest(".change") ?? target).getBoundingClientRect(), window.innerWidth);

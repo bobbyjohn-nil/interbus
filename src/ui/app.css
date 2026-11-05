@@ -198,6 +198,15 @@ html.zoomed {
   right: 137px;
 }
 
+/* While the keyboard is on a chip, the chips draw over the panels, as the panel the keyboard is in raises over another (Panels.tsx
+   raise): late in a game the row runs onto a second line, 46-74 px down, which a panel in its free place lies over, so the
+   keyboard's ring stood on a chip no one could see, and with its press held (TopBar.tsx), Enter on the Contracts chip under
+   Finance opened nothing, 2 runs of 2 at 922×576 (the systems audit's twenty-fifth round). Under the day's card, above it all, a
+   press still waits. */
+.top-bar:has(:focus-visible) {
+  z-index: calc(var(--layer-panels) + 1);
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
