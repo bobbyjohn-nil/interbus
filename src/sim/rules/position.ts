@@ -158,11 +158,20 @@ function place(r: Reading, second: number, out: Float64Array, where?: Float64Arr
       } else on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false);
       continue;
     }
-    // The trip under way: the last departure at or before now; before its first, it waits at the first stop.
+    // The trip under way: the last departure at or before now; before its first, it waits at the first stop. A bus waits there
+    // on the route of the departure it waits for, as a bus carries on to a trip on another version of the route only where its
+    // first stop stayed (transition.ts merge), so it stands where it did: waiting on its last trip's route, a bus home from its
+    // last trip on a settling line's route as it was held that route's place among the lines as long as it waited, 1,095 game
+    // seconds after a change at 12:00 on a line every 20 minutes (#203's review).
     let trip: number | undefined;
-    for (const t of s.trips) if (t <= second) trip = t;
+    let next: number | undefined;
+    for (const t of s.trips) {
+      if (t <= second) trip = t;
+      else if (next === undefined) next = t;
+    }
+    const waiting = (g: PreparedGeometry) => (next === undefined ? g : r.tripGeometry(next));
     if (trip === undefined) {
-      const g = r.pullOutGeometry(s);
+      const g = waiting(r.pullOutGeometry(s));
       on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false);
       continue;
     }
@@ -171,7 +180,10 @@ function place(r: Reading, second: number, out: Float64Array, where?: Float64Arr
     const { cycle, oneWayS } = r.timesOf(trip);
     const half = cycle / 2;
     const u = second - trip;
-    if (u >= half + oneWayS) on(k, g, placeAt(g.route, firstStopOf(g), false, out, at), false); // waiting at the first stop
+    if (u >= half + oneWayS) {
+      const w = waiting(g); // waiting at the first stop
+      on(k, w, placeAt(w.route, firstStopOf(w), false, out, at), false);
+    }
     else if (u < oneWayS) on(k, g, placeAt(g.route, routeMetresAt(g, oneWayS, u), false, out, at), false);
     else if (u < half) on(k, g, placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS), true, out, at), true); // layover at the far end
     else on(k, g, placeAt(g.route, routeMetresAt(g, oneWayS, oneWayS - (u - half)), true, out, at), true);

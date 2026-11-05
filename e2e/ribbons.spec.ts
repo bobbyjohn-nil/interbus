@@ -170,11 +170,12 @@ test('a line’s name reaches NAME_REACH_PX either side of its ribbon’s middle
     const words = await page.evaluate((c) => window.ribbonCase!({ ...c, show: 'name' }), at);
     // Drawn: a twentieth of ink or more at a pixel, the white halo's edge two fifths drawn over the land (wholly drawn, an eighth).
     const drawn = (await inkAcross(page, words.anchor, words.dir, 160)).filter(([, b]) => b.most >= 0.05).map(([bin]) => bin - middle);
-    // Its reach either way, half its breadth: between whole zooms a name strays from its ribbon by up to half a pixel a place
-    // (overlays.ts nameOffset), 4 px one way and 6 the other at zoom 13 two places out.
+    // Its reach either way, half its breadth, and its furthest: below zoom 16 a name strays from its ribbon by up to half a pixel a
+    // place (overlays.ts nameOffset), 4 px one way and 6 the other at zoom 13 two places out.
     const [up, down] = [-Math.min(...drawn), Math.max(...drawn)];
     const message = `${JSON.stringify(c)}: the name ${up.toFixed(1)} px up and ${down.toFixed(1)} px down from its ribbon's middle`;
     expect.soft((up + down) / 2, message).toBeLessThanOrEqual(NAME_REACH_PX);
     expect.soft((up + down) / 2, message).toBeGreaterThanOrEqual(NAME_REACH_PX - 1.5);
+    expect.soft(Math.max(up, down), message).toBeLessThanOrEqual(NAME_REACH_PX + (c.zoom < 16 ? 0.5 * Math.abs(c.side) : 0));
   }
 });

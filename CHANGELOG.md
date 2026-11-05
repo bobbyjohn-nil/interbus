@@ -364,7 +364,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A click on a line's colour just beside another line's name, or where another line's colour steps across under it, lists the line you clicked first. Before, the line whose name was beside the click, or whose colour lay under it, came first.
 - Roadworks are drawn as wide as the lines on their street once the map's graphics come back after the browser took them away. Before, they could stay a line wider until the lines next changed.
 - A line's colour keeps its width where it moves half a place over along a street. Before, it bulged half as wide again there for a few metres.
-- A changed line's old route gives up its place among the lines as its last bus there finishes its trip. Before, it kept the place empty beside the other lines on its streets until that bus was back at its depot, for up to five game minutes after a late-evening change.
+- A changed line's old route gives up its place among the lines as its last bus there finishes its trip. Before, it kept the place empty beside the other lines on its streets while that bus waited at its first stop for its next trip, up to 18 game minutes on a line every 20 minutes, or drove back to its depot after a late-evening change.
 
 ### Removed
 

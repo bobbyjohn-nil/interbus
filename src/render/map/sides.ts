@@ -288,8 +288,9 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
  * carry the ribbon on with no corner piece: within it, the two overlap across two thirds of a ribbon at least, and along a street
  * by half a ribbon at a change of half a place. The corner piece there only widened the ribbon by half a ribbon for BRIDGE_M on
  * along the street, 9 to 10 px for 4.6 m at zoom 18 where it is 7 px, at 16 to 40 points on each of the four networks `npm run
- * bench sides` lays (the systems audit's twenty-second round). A ribbon apart, the caps only touch, so a step or a change of a
- * whole place still turns at the side before, alongside the next piece for BRIDGE_M.
+ * bench sides` lays (the systems audit's twenty-second round). A ribbon apart, the caps only touch, so where a step or a change of
+ * a whole place stands so, as along a street, the ribbon still turns at the side before, alongside the next piece for BRIDGE_M; round
+ * a corner a change of a whole place can stand nearer, as -0.5 to 0.5 at a right angle does, 0.71 apart, and the caps carry it.
  */
 const CAPS_CARRY = 0.75;
 

@@ -254,7 +254,11 @@ function nameOffset(): ExpressionSpecification {
  * their own run's place on the second company at zoom 14 (#201's review). Stopped 5 m short of their ends, a run that turned back
  * along the street it came in on still met the next at one point, which stood Line 2's name 14 px off its ribbon at Haymarket, and
  * where a tile's edge cuts a street a line drives both ways, its two runs there meet at the edge, which no shortening reaches (the
- * systems audit's twenty-second round). In words of their own, no two runs' names join.
+ * systems audit's twenty-second round). In words of their own, no two runs' names join. MapLibre keeps line labels with the same
+ * words half their spacing apart (symbol_layout.ts anchorIsTooClose, keyed by the words too), so a line's names on short runs side
+ * by side now each show where each has room: a 600 m street in six runs of 100 m names its line six times at zoom 16, 91 to 136 px
+ * apart, where it named it three times, and the four networks of `npm run bench sides` show up to 18% more names (#203's review).
+ * The two cannot be had apart, and a name too many is the line's own, where a joined name stood off any ribbon.
  */
 export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
   return runs.map((run, k) => ({
@@ -267,8 +271,13 @@ export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly
 /**
  * How far a line's name reaches either side of its ribbon's middle, in CSS pixels: its 12 px words and their 2 px halo, 5 to 6 px
  * either way at every zoom, flat (e2e/ribbons.spec.ts measures it). MapLibre finds a name anywhere in its box and its padding
- * (`text-padding`), 8 px either way, past its words over a neighbour's ribbon, where a click on that ribbon listed the name's line
- * first in 35 of 36 such clicks (the systems audit's twenty-second round): within this reach, a click is on the name (loadMap.ts).
+ * (`text-padding`), 8 px either way and more, past its words over a neighbour's ribbon, where a click on that ribbon listed the
+ * name's line first in 35 of 36 such clicks (the systems audit's twenty-second round): within this reach, a click is on the name
+ * (loadMap.ts). Measured from the ribbon's middle, where the name stands within half a pixel a place (nameOffset), so a name three
+ * or more places out, between whole zooms, reaches about 7 px on its outer side, whose last row goes by the ribbons; and tilted,
+ * MapLibre sizes a name by its distance and the ribbons by the map's zoom, so at the foot of a view tilted 60° a name's words
+ * stand off its ribbon's middle by up to 7 px one way and 2 the other, and up to 4 rows beside them count as the name (#203's
+ * review).
  */
 export const NAME_REACH_PX = 6;
 
