@@ -22,7 +22,9 @@
 // own dispatch, React putting its waiting effects through before the Escape's own update, and Build got the mouse's source
 // again, 3 runs of 3 with a real key (the round's review). A press on the heading of the panel the keyboard is in drags it,
 // keeping the focus on its control (Panels), so it keeps the focus's source too: read as the pointer's, Enter on the control
-// then opened Lines without the focus, which fell to the page, 30 runs of 30 (the round).
+// then opened Lines without the focus, which fell to the page, 30 runs of 30 (the round). So does a press on that panel's
+// scrollbar, which only scrolls it: read as the pointer's, Space played the game with the ring still on a line's name (the
+// twenty-fourth round).
 import { CONTROLS } from './onePress';
 
 /**
@@ -38,7 +40,7 @@ const DISPATCHED = 0;
 export interface FocusSource {
   /** A pointer press or a key, as the window hears it, with its phase (`eventPhase`, read again as the focus arrives). */
   input(event: { readonly type: string; readonly key?: string; readonly target?: unknown; readonly eventPhase?: number }): void;
-  /** The last pointer press dragged the panel the focus is in by its heading, which leaves the focus where it was and as it came. */
+  /** The last pointer press dragged the panel the focus is in by its heading, or by its scrollbar, which leaves the focus where it was and as it came. */
   dragged(): void;
   /** The window itself lost the focus, `active` holding it. */
   left(active: unknown): void;

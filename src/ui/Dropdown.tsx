@@ -130,8 +130,8 @@ export function Dropdown<T extends string | number>({
     shownOnce.current = true;
   }, [at, chosen, active]);
 
-  // Placed again beside its button once a scroll or a change of size (both below) has moved the button, or closed once the
-  // button has left the view it sits in, the focus back on the button where it is.
+  // Placed again beside its button once a scroll, a change of size or a drag of its panel (all below) has moved the button, or
+  // closed once the button has left the view it sits in, or the window, the focus back on the button where it is.
   const follow = useCallback(() => {
     const b = button.current?.getBoundingClientRect();
     const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
@@ -139,8 +139,11 @@ export function Dropdown<T extends string | number>({
     // its list stayed open there with the button hidden, and a pick set a fare out of sight (the systems audit's sixteenth
     // round). Its cells stick, not the row of them; headings that scroll away lie above the view, or above the button's row.
     const head = button.current?.closest('table')?.querySelector('thead th')?.getBoundingClientRect();
-    const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity);
-    if (b && b.bottom > top && b.top < (view?.bottom ?? window.innerHeight)) {
+    const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity, 0);
+    // A panel dragged on past the window's edge, which keeps 48 px of it on the window, took the button off it, and the list,
+    // kept on the window, stood 233 px from it, where Enter set the fare (the review of the twenty-fourth round).
+    const [left, right, bottom] = [Math.max(view?.left ?? 0, 0), Math.min(view?.right ?? Infinity, window.innerWidth), Math.min(view?.bottom ?? Infinity, window.innerHeight)];
+    if (b && b.bottom > top && b.top < bottom && b.right > left && b.left < right) {
       // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
       flushSync(() => {
         setAt(null);

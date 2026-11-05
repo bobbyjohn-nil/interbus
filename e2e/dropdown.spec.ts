@@ -376,9 +376,26 @@ test.describe('the game’s dropdown', () => {
     await expect(list).toBeFocused();
     await page.mouse.move(x - 300, y + 160, { steps: 8 });
     const [l, b] = [(await list.boundingBox())!, (await fare.boundingBox())!];
-    await page.mouse.up();
     expect(Math.abs(l.x - b.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(l.y - (b.y + b.height + 4))).toBeLessThanOrEqual(1);
+    // Dragged on past the window's right edge, the panel took the button off the window, and the list, kept on it, stood 233 px
+    // from its button, where Enter set the fare (the review of the twenty-fourth round). It closes as it does once a scroll takes
+    // the button out of its view, the focus back on the button; the next key brings the panel in and opens the list beside it.
+    // Shown failing (TS-04) with only the button's view counted.
+    await page.mouse.move(x + 900, y + 160, { steps: 12 });
+    expect((await fare.boundingBox())!.x).toBeGreaterThan(W);
+    await expect(list).toHaveCount(0);
+    await expect(fare).toBeFocused();
+    await page.mouse.up();
+    await page.keyboard.press('ArrowDown');
+    await expect(list).toBeFocused();
+    // Brought in to the window's right edge, the button stands over its list, which is wider and kept 8 px inside the window.
+    const [l2, b2] = [(await list.boundingBox())!, (await fare.boundingBox())!];
+    expect(b2.x + b2.width).toBeLessThanOrEqual(W);
+    expect(l2.x).toBeLessThanOrEqual(b2.x);
+    expect(l2.x + l2.width).toBeGreaterThanOrEqual(b2.x + b2.width);
+    expect(l2.x + l2.width).toBeLessThanOrEqual(W);
+    expect(Math.abs(l2.y - (b2.y + b2.height + 4))).toBeLessThanOrEqual(1);
   });
 
   // The speed list, open as the day ran on, stayed where it had opened as the date's period name, "Off-peak" become "Peak",

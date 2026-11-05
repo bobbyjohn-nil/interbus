@@ -4,6 +4,7 @@ import { MODIFIERS } from "../focusSource";
 import { giveFocus } from "../giveFocus";
 import { standsFor } from "../heldFocus";
 import { MOVED, showInBody, showInPanel, SHOWN } from "../showWhole";
+import { coverOf } from "../cover";
 import { inOpenList } from "../../render/map/tilt";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
@@ -122,11 +123,21 @@ function put(box: HTMLElement, at: { x: number; y: number }): void {
   box.style.setProperty("--room", `${roomBelow(at.y, window.innerHeight)}px`);
 }
 
-/** Whether a press at (`x`, `y`) on `el` lands on its own scrollbar, which scrolls it and presses nothing. */
-function onScrollbar(el: Element, x: number, y: number): boolean {
-  if (!(el instanceof HTMLElement)) return false;
-  const r = el.getBoundingClientRect();
-  return (el.scrollHeight > el.clientHeight && x >= r.left + el.clientLeft + el.clientWidth) || (el.scrollWidth > el.clientWidth && y >= r.top + el.clientTop + el.clientHeight);
+/** How far in from its box's edge a scrollbar drawn over the content reaches, as macOS draws them unless a mouse is plugged in. */
+const OVER_CONTENT = 16;
+
+/** A scrolling element's sizes, as the DOM gives them. */
+type Scroller = Pick<HTMLElement, "clientLeft" | "clientTop" | "clientWidth" | "clientHeight" | "scrollWidth" | "scrollHeight">;
+
+/**
+ * Whether a press at (`x`, `y`) on an element at `r`, sized `el`, lands on its own scrollbar, which scrolls it and presses
+ * nothing: the strip a scrollbar takes beside the content, or, for one drawn over it and so taking none of its width, its last
+ * OVER_CONTENT px, where the review of the twenty-fourth round found the strip 0 px wide.
+ */
+export function onScrollbar(r: Pick<DOMRect, "left" | "top" | "right" | "bottom">, el: Scroller, x: number, y: number): boolean {
+  const across = el.scrollHeight > el.clientHeight && x >= Math.min(r.left + el.clientLeft + el.clientWidth, r.right - OVER_CONTENT);
+  const down = el.scrollWidth > el.clientWidth && y >= Math.min(r.top + el.clientTop + el.clientHeight, r.bottom - OVER_CONTENT);
+  return across || down;
 }
 
 /** A box's place and size on the window. */
@@ -608,22 +619,12 @@ export function Panels({
     if (dragged.current.has(id)) dragged.current.set(id, at);
     return true;
   };
-  // What lies over the middle of `target`, a control in `box`, where a key pressed what no one could see; null where the control
-  // shows there itself. Tabbed to a change's Buy and run, then Finance dragged over it, or raised over it by a press on its
-  // heading, Enter bought the change for $190,000 unseen, 30 runs of 30, and so did Space after a Tab away and back (the systems
-  // audit's twenty-second round; #199's review held only Space straight after the press); and under the day's card, which stood
-  // over three panels at 1152×720, Enter bought it for $380,000 (the fix's review). The keyboard's control raises its panel over
-  // another panel there (`raise`): as the focus comes to it, as a key a control takes goes to it, and at a key's press, which
-  // only raises it, so the press shows what the key is on and the next one works it. A cover no raise lifts, the day's card or
-  // the lender's (`clear`, above every panel), leaves the press unpressed while it covers the control: pressed, Saves' Delete
-  // under the lender's card goes unseen. Measured once the control shows in its panel's body (showInBody, as Tab shows it):
-  // scrolled out past its panel's foot, a fare's middle lay over another panel, which no raise uncovered (the fix's review).
-  const coverOf = (box: HTMLDivElement, target: EventTarget | null): Element | null => {
-    if (!(target instanceof Element) || !box.contains(target)) return null;
-    const r = target.getBoundingClientRect();
-    const at = document.elementFromPoint?.(r.left + r.width / 2, r.top + r.height / 2);
-    return at && !box.contains(at) ? at : null;
-  };
+  // Over a control the keyboard is on (coverOf), its panel raises over another panel (`raise`): as the focus comes to it, as a
+  // key a control takes goes to it, and at a key's press, which only raises it, so the press shows what the key is on and the
+  // next one works it. A cover no raise lifts, the day's card or the lender's (`clear`, above every panel), leaves the press
+  // unpressed while it covers the control: pressed, Saves' Delete under the lender's card goes unseen. Measured once the control
+  // shows in its panel's body (showInBody, as Tab shows it): scrolled out past its panel's foot, a fare's middle lay over another
+  // panel, which no raise uncovered (the twenty-second round's review).
   /** Whether raising a panel lifts it over `cover`: another panel, but for a `clear` one, drawn above them all. */
   const lifts = (cover: Element | null) => {
     const other = cover?.closest("[data-movable]")?.getAttribute("data-movable");
@@ -647,7 +648,7 @@ export function Panels({
     // A press on a scrollbar in the panel the focus is in only scrolls it, so it leaves the focus as it came, as a drag by the
     // heading does: Finance's body dragged by its scrollbar with the keyboard on a line's name, its ring still drawn, gave Space
     // to the game as a pointer's press does, and Space played it (the systems audit's twenty-fourth round).
-    if (event.button === 0 && onScrollbar(target, event.clientX, event.clientY) && event.currentTarget.contains(document.activeElement)) draggedBy();
+    if (event.button === 0 && target instanceof HTMLElement && onScrollbar(target.getBoundingClientRect(), target, event.clientX, event.clientY) && event.currentTarget.contains(document.activeElement)) draggedBy();
     // One pointer drags a panel, the first to press it: a second finger on a heading started a drag of its own, and the first
     // drag heard its moves too, so two fingers there moved the panel by the second's and kept it there as dragged (the systems
     // audit's twentieth round). A second pointer on the panel ends the drag where the first left it, as Chrome cuts one short,

@@ -160,8 +160,9 @@ test.describe('movable panels', () => {
     expect(await onTop(lines.getByRole('heading', { name: 'Line 1' })), 'its heading under a press').toBe(true);
     await dragBy(page, lines, 'Line 1', 0, -300);
     expect((await lines.boundingBox())!.y).toBe(low.y - 300);
-    // Dragged on up past the chips, it stops under them, which draw under the panels: over them, Lines hid the Undo chip and
-    // Play from the keyboard, whose Enter undid a fare unseen (the systems audit's twenty-fourth round).
+    // Dragged on up past the chips, it stops under their first line, which draws under the panels: over it, Lines hid the Undo
+    // chip and Play from the keyboard, whose Enter undid a fare unseen (the systems audit's twenty-fourth round). A second line
+    // late in a game still lies under it, where a key presses nothing (covered.spec.ts).
     await dragBy(page, lines, 'Line 1', 0, -700);
     expect((await lines.boundingBox())!.y).toBe(56);
     await page.keyboard.press('Escape');

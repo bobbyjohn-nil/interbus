@@ -5,11 +5,11 @@
 import { expect, test, type Locator, type Page } from './base';
 import { LINE_COLOURS } from '../src/sim/config/lines';
 import { foundCompany, leaveHome, STARTING_CENTS } from './found';
-import { city, setSpeed, withDebugLine, type SaveData } from './shell';
+import { city, holdSpeed, setFare, setSpeed, withDebugLine, type SaveData } from './shell';
 
-/** The debug line's game at 1152×720, edited by `edit`, past Home, with nothing open. */
-async function game(page: Page, edit?: (data: SaveData) => void) {
-  await page.setViewportSize({ width: 1152, height: 720 });
+/** The debug line's game at `size`, 1152×720 unless it says, edited by `edit`, past Home, with nothing open. */
+async function game(page: Page, edit?: (data: SaveData) => void, size = { width: 1152, height: 720 }) {
+  await page.setViewportSize(size);
   await page.goto('./');
   await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
   await leaveHome(page);
@@ -340,5 +340,43 @@ test.describe('a key on a control something lies over', () => {
     await page.keyboard.press('Home');
     await expect.poll(() => body.evaluate((b) => b.scrollTop)).toBeLessThan(from);
     await expect(name).toBeFocused();
+  });
+
+  // The review of the twenty-fourth round's keyboard fixes: the chips draw under the panels, and late in a game, at 5,400×, three
+  // medals held and the countdown up, they wrap to a second line at Chrome's 125% of 1152×720, 922×576, the Undo chip 46-74 px
+  // down. Lines dragged up and left as far as it goes, its top at 56 px, lay over the chip's middle, and Enter there undid Line
+  // 1's fare unseen. Shown failing (TS-04) with no hold on the chips.
+  test('presses no chip a panel lies over', async ({ page }) => {
+    test.setTimeout(150_000);
+    await holdSpeed(page, 5);
+    await game(
+      page,
+      (d) => {
+        d.clock.elapsed = 288 * 86_400 - 3 * 3_600;
+        d.ledger.push({ day: 2, kind: 'buses', amountCents: -100_000_000, lineId: null }, { day: 2, kind: 'contract', amountCents: 6_000_000, lineId: null });
+        d.closesBelowFloor = 1;
+        d.medals = { bronze: 1, silver: 1, gold: 1 };
+        d.tripsCarried = 400_000;
+      },
+      { width: 922, height: 576 },
+    );
+    await expect(page.getByTestId('countdown')).toBeVisible();
+    await setFare(page, 'Line 1', '$2.50');
+    const undo = page.getByTestId('undo');
+    await expect(undo).toHaveText('Undo: Line 1’s fare');
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.locator('[data-movable="lines"]');
+    await drag(page, 'lines', 4 - (await lines.boundingBox())!.x, -400);
+    expect((await lines.boundingBox())!.y).toBe(56);
+    expect(await over(undo)).toBe('lines');
+    await tabOnto(page, undo);
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(500);
+    await expect(undo).toHaveText('Undo: Line 1’s fare');
+    await expect(page.getByRole('button', { name: 'Fare for Line 1' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    await expect(page.getByRole('button', { name: 'Fare for Line 1' })).toContainText('$2.50');
   });
 });
