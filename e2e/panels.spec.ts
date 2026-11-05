@@ -247,6 +247,60 @@ test.describe('movable panels', () => {
     expect(a.x + a.width).toBeLessThanOrEqual(1152);
   });
 
+  // The twenty-sixth round: as the pointer drags a panel, only a key brought it in (the twenty-fifth round's review), so with Lines
+  // held past the window's left edge, 3 Tabs reached its change card's Buy and run off the window, unseen, and Enter bought the
+  // change as its press brought the panel in, $380,000, 2 runs of 2. A Tab brings the panel in to show the control it reaches, as
+  // at rest; only the focus a list gives back to its button leaves the panel under the pointer (dropdown.spec.ts). Shown failing
+  // (TS-04) with every focus held off as the pointer drags: Buy and run off the window as it takes the focus.
+  test('a Tab in a panel the pointer holds past the window’s edge brings the panel in to show the control it reaches', async ({ page }) => {
+    await page.setViewportSize({ width: 1152, height: 720 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    const peak = lines.getByTestId('headway-peak');
+    await peak.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(peak).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Home');
+    for (let k = 0; k < 16 && !/^Every 5 min$/.test((await page.locator('.dropdown-option.active .dropdown-label').textContent()) ?? ''); k++) await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    const buy = lines.getByTestId('headway-change').getByRole('button', { name: 'Buy and run' });
+    await expect(buy).toBeVisible();
+    await expect(peak).toBeFocused();
+    const h = (await page.locator('[data-movable="lines"] h2').first().boundingBox())!;
+    const [x, y] = [h.x + 10, h.y + h.height / 2];
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - 1100, y + 40, { steps: 10 });
+    const held = (await page.locator('[data-movable="lines"]').boundingBox())!;
+    expect(held.x + held.width).toBe(48);
+    for (let k = 0; k < 12 && !(await buy.evaluate((b) => b === document.activeElement)); k++) await page.keyboard.press('Tab');
+    await expect(buy).toBeFocused();
+    const b = (await buy.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(1152);
+    // The pointer's next move takes the panel back past the edge, Buy and run with it, still focused, and Enter bought the change
+    // as its press brought the panel in, unseen as it went (the review of the round). Its press only brings the panel in, and the
+    // next buys in sight. Shown failing (TS-04) with the press let through: the change bought at the first Enter.
+    await page.mouse.move(x - 1101, y + 40);
+    await expect.poll(async () => (await buy.boundingBox())!.x).toBeLessThan(0);
+    const cash = () => page.getByTestId('sim-panel').getAttribute('data-cash');
+    const was = await cash();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    expect(await cash(), 'nothing bought unseen').toBe(was);
+    expect((await buy.boundingBox())!.x, 'Buy and run brought in').toBeGreaterThanOrEqual(0);
+    await expect(buy).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(cash).not.toBe(was);
+    await page.mouse.up();
+  });
+
   test('keep panels in reach when the window narrows: a dragged one’s heading, open or opened again, and one in a free place whole', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto('./');

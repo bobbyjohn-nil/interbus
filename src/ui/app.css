@@ -196,6 +196,21 @@ html.zoomed {
 
 .top-bar > * {
   pointer-events: auto;
+  /* Each its own layer, for its margin under its content (below). */
+  position: relative;
+  z-index: 0;
+}
+
+/* The 6 px gaps between the chips, and between their two lines late in a game, are the chips': passed to the map, a press there,
+   just past a chip, built a stop under the row with Place a stop out, $4,000, and a double-click or the wheel zoomed the map
+   (the systems audit's twenty-sixth round). Half a gap round each chip, under its content, so a press on Play or the speed's
+   button is still theirs. It runs round the row's outer edges too, so a press within 3 px past the last chip, or below a line,
+   is the chip's, and beyond that the map's or a panel's. */
+.top-bar > *::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
 }
 
 /* While the Saves chip says "Autosave off" (App.tsx), 33 px wider than "Saves" (105 px, from 72), the row keeps as much
@@ -532,7 +547,12 @@ button.chip.checklist,
 .dock {
   position: absolute;
   z-index: var(--layer-menus);
-  left: 50%;
+  /* Centred, but kept clear of the map's credit and the build chip in the bottom right corner, which draw over it, 397 px of
+     them: on a window narrower than about 1,000 px, as Chrome's 125% of 1152×720, the corner lay over the right of Finance,
+     where a press on its name did nothing, or opened OpenStreetMap's copyright page (the systems audit's twenty-sixth round).
+     510 px is the corner, its 6 px from the edge, a 6 px gap and half the dock's 202 px. And 12 px or more from the left
+     edge, 113 px to its middle: below 611 px wide, as Chrome's 200% of 1152×720, Build ran off the window (the round's review). */
+  left: max(113px, min(50%, calc(100% - 510px)));
   bottom: 12px;
   transform: translateX(-50%);
   display: flex;
@@ -712,7 +732,12 @@ button.chip.checklist,
   position: absolute;
   left: 12px;
   bottom: 12px;
-  max-width: 280px;
+  /* Beside the dock, which draws over it: kept clear of the credit on a window under 1,020 px wide (.dock), the dock lay over a
+     notice's last words, "Depots stand on industrial land" 27% hidden at 760 px, and the longest from 882 px down (the review
+     of the systems audit's twenty-sixth round). It wraps to end 3 px short of the dock there: 650 px is the dock's left edge,
+     611 px from the window's right, a 3 px gap, the notice's 12 px from the left edge and its 24 px of padding. Below 770 px
+     wide it stays 120 px across. */
+  max-width: max(120px, min(280px, calc(100% - 650px)));
   padding: 6px 12px;
   border-radius: 8px;
   background: var(--ui-paper);

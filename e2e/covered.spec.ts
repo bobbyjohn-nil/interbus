@@ -446,6 +446,53 @@ test.describe('a key on a control something lies over', () => {
     await expect(page.getByTestId('finance')).toHaveCount(0);
   });
 
+  // The twenty-sixth round: with only the chips taking a press (above), the 6 px gaps between them, and between their two lines,
+  // passed presses to the map under the row: with Place a stop out, a click between the Cash and Riders/day chips built a stop
+  // under the row, $4,000, and a double-click there zoomed the map a whole step. Each chip takes the half of a gap beside it now,
+  // under its content, so Play and the speed's button keep their presses. Shown failing (TS-04) with no chip taking its gaps, the
+  // map zoomed, and with the chips' margins over their content, Play's middle the speed chip's.
+  test('takes a press in the gaps between its chips, and leaves Play and the speed theirs', async ({ page }) => {
+    test.setTimeout(150_000);
+    await lateGame(page);
+    /** Every whole pixel across each gap between two chips on a line, at the line's middle, and down each gap between a chip that
+     * starts a line and the chip above it: whether the row has it there. */
+    const gaps = () =>
+      page.getByTestId('sim-panel').evaluate((bar) => {
+        const boxes = [...bar.children].map((c) => c.getBoundingClientRect());
+        const points: { x: number; y: number }[] = [];
+        for (let k = 1; k < boxes.length; k++) {
+          const [a, b] = [boxes[k - 1]!, boxes[k]!];
+          if (b.left > a.right) {
+            const y = (Math.max(a.top, b.top) + Math.min(a.bottom, b.bottom)) / 2;
+            for (let x = Math.ceil(a.right); x <= Math.floor(b.left); x++) points.push({ x, y });
+          } else {
+            const x = b.left + 8;
+            const above = boxes.slice(0, k).find((c) => c.left <= x && x <= c.right && c.bottom <= b.top)!;
+            for (let y = Math.ceil(above.bottom); y <= Math.floor(b.top); y++) points.push({ x, y });
+          }
+        }
+        return points.map((p) => ({ ...p, row: document.elementFromPoint(p.x, p.y)?.closest('.top-bar') !== null }));
+      });
+    const all = await gaps();
+    const map = page.getByTestId('map');
+    const view = await map.getAttribute('data-view');
+    const first = all[0]!;
+    await page.mouse.dblclick(first.x, first.y);
+    await page.waitForTimeout(800);
+    expect(await map.getAttribute('data-view'), 'the map as it was').toBe(view);
+    expect(all.length).toBeGreaterThan(20);
+    expect(all.filter((p) => !p.row)).toEqual([]);
+    // The second line's gaps: the row runs onto it here.
+    expect(new Set(all.map((p) => Math.round(p.y))).size).toBeGreaterThan(2);
+    for (const id of ['play', 'speed-menu']) {
+      const button = page.getByTestId(id);
+      expect(await button.evaluate((b) => {
+        const r = b.getBoundingClientRect();
+        return b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+      }), `${id} takes its press`).toBe(true);
+    }
+  });
+
   // The review of the twenty-fifth round: the day's card stands beside the panels, and with Finance dragged to the right at 922×576
   // it stood over the Contracts chip's middle, above the chips even as they come up, where a key on the chip waits. Shown failing
   // (TS-04) with no hold on the chips: Contracts opened under the card.
