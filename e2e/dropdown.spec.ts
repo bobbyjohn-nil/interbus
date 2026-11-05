@@ -213,6 +213,74 @@ test.describe('the game’s dropdown', () => {
     await expect(page.getByRole('listbox')).toHaveCount(0);
   });
 
+  // The systems audit's twenty-second round: a key pressed a control another panel lay over, where no one could see it: Tabbed to
+  // a change's Buy and run, then Finance dragged over it or raised over it by a press on its heading, Enter bought the change
+  // for $190,000 unseen, 30 runs of 30, and so did Space after a Tab away and back. The keyboard's control raises its panel: at a
+  // key's press, which only raises it, so the next press works what the key is on, and as the focus comes to it. Shown failing
+  // (TS-04) with no raise: Lines still lay over the fare after Enter.
+  test('raises the panel of the control the keyboard is on over another panel lying over it, before a key presses it', async ({ page }) => {
+    await page.setViewportSize({ width: W, height: H });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance').getByTestId('finance-lines').click();
+    const fare = page.getByRole('button', { name: 'Fare for Line 1' });
+    await page.getByTestId('dock').getByRole('button', { name: 'Lines', exact: true }).click();
+    const lines = page.getByTestId('inspector');
+    await expect(lines).toBeVisible();
+    /** The panel drawn over the fare's middle, which is what shows there. */
+    const over = () => fare.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('[data-movable]')?.getAttribute('data-movable') ?? null;
+    });
+    /** Lines raised over the fare by a press on its heading, the keyboard left on the fare; dragged there first, its heading just above Finance's. */
+    const underLines = async (dragged: boolean) => {
+      const h = (await lines.locator('h2').first().boundingBox())!;
+      await page.mouse.move(h.x + 10, h.y + h.height / 2);
+      await page.mouse.down();
+      if (dragged) {
+        const [f, top] = [(await fare.boundingBox())!, (await page.locator('[data-movable="finance"]').boundingBox())!.y];
+        await page.mouse.move(f.x + f.width / 2 - 40, top - 12, { steps: 8 });
+      }
+      await page.mouse.up();
+      await expect(fare).toBeFocused();
+      expect(await over()).toBe('lines');
+    };
+    await fare.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(fare).toBeFocused();
+    expect(await over()).toBe('finance');
+    // Enter raises Finance and opens nothing; the next Enter opens the fare's list, its button in view.
+    await underLines(true);
+    await page.keyboard.press('Enter');
+    await expect.poll(over).toBe('finance');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await expect(fare).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox', { name: 'Fare for Line 1' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(fare).toBeFocused();
+    // ArrowDown, which the fare's button takes to open its list, raises Finance too, the list beside the fare in view.
+    await underLines(false);
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox', { name: 'Fare for Line 1' })).toBeFocused();
+    await expect.poll(over).toBe('finance');
+    await page.keyboard.press('Escape');
+    await expect(fare).toBeFocused();
+    // A Tab away and back raises it too, so Space opens the list in view.
+    await underLines(false);
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(fare).toBeFocused();
+    await expect.poll(over).toBe('finance');
+    await page.keyboard.press(' ');
+    await expect(page.getByRole('listbox', { name: 'Fare for Line 1' })).toBeFocused();
+    await page.keyboard.press('Escape');
+  });
+
   test('leaves a panel dragged past the window’s edge where it is for Space, which plays on a fare the mouse pressed', async ({ page }) => {
     const { at } = await fareDraggedOff(page, 'by the mouse');
     const was = await at();

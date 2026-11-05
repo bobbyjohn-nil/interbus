@@ -236,6 +236,62 @@ test.describe('the keyboard’s control taken from under it, and a press after a
     }
   });
 
+  // The systems audit's twenty-second round: the keyboard in an open list, which is drawn in the page's main landmark outside its
+  // button's panel, was in no panel and held for no hand-on, so as Ctrl+Z's answer took the list away, with its line taken back
+  // or its fare's row gone, the focus fell to the page, where Space played, 30 runs of 30, where the same moment with the list
+  // closed handed on. A focus in an open list is its button's now (heldFocus.ts standsFor). Shown failing (TS-04) with the list's
+  // focus its own.
+  test('the keyboard in an open list Ctrl+Z’s answer takes away goes where its button’s would: Lines gone, to Build', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(holdAnswers);
+    await game(page, (d) => void (d.lines = []));
+    await bought(page);
+    const panel = page.getByTestId('inspector');
+    await tabOnto(page, panel.getByTestId('headway-peak'));
+    await hold(page);
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox')).toBeFocused();
+    await release(page);
+    await expect(panel).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByTestId('build')).toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(page.getByTestId('build-menu')).toBeVisible();
+    await expect(page.getByTestId('sim-panel')).toHaveAttribute('data-speed', '0');
+  });
+
+  test('the keyboard in an open list Ctrl+Z’s answer takes away goes where its button’s would: to the line left, and the next fare', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(holdAnswers);
+    await game(page);
+    // Lines on Line 2, its headway list open as Ctrl+Z takes back Line 2: Lines on Line 1, its Buses list has the keyboard.
+    await bought(page);
+    const panel = page.getByTestId('inspector');
+    await tabOnto(page, panel.getByTestId('headway-peak'));
+    await hold(page);
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox')).toBeFocused();
+    await release(page);
+    await expect(panel.getByTestId('line-card')).toHaveAttribute('data-line', '1', { timeout: 10_000 });
+    await expect(panel.getByTestId('line-model')).toBeFocused();
+    // Finance's fare list of the line Ctrl+Z takes back, open: the fare list of the line left has the keyboard.
+    await bought(page);
+    const id = await panel.getByTestId('line-card').getAttribute('data-line');
+    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByTestId('dock').getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    await tabOnto(page, finance.getByRole('button', { name: `Fare for Line ${id}` }));
+    await hold(page);
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox', { name: `Fare for Line ${id}` })).toBeFocused();
+    await release(page);
+    await expect(finance.getByRole('button', { name: `Fare for Line ${id}` })).toHaveCount(0, { timeout: 10_000 });
+    await expect(finance.getByRole('button', { name: 'Fare for Line 1' })).toBeFocused();
+  });
+
   // A real Escape in that gap, heard on the page, the control the keyboard was on gone with Lines: React put the game's waiting
   // hand-on through in the Escape's own dispatch, ahead of the Escape's own update, so Build took its source as the mouse had left
   // it and Space played, 3 runs of 3 (the review of the twenty-first round), where the test above's Escape, sent by the page

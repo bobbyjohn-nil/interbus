@@ -365,6 +365,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Roadworks are drawn as wide as the lines on their street once the map's graphics come back after the browser took them away. Before, they could stay a line wider until the lines next changed.
 - A line's colour keeps its width where it moves half a place over along a street. Before, it bulged half as wide again there for a few metres.
 - A changed line's old route gives up its place among the lines as its last bus there finishes its trip. Before, it kept the place empty beside the other lines on its streets while that bus waited at its first stop for its next trip, up to 18 game minutes on a line every 20 minutes, or drove back to its depot after a late-evening change.
+- A key never presses a button you cannot see. Where another panel lies over the button the keyboard is on, Enter brings the button's panel up, so you see what the key is on, and the next press works it; Tab onto such a button brings its panel up too. Under the day's card or the lender's card a key presses nothing there, and a button scrolled out of its panel is scrolled back into view as the key presses it. Before, Enter could buy a change you could not see.
+- With one of a panel's lists open, a Ctrl+Z that takes the list away moves the keyboard on as it does with the list closed: to Build as Lines closes, to the line left in Lines, or to the fare in its place in Finance. Before, the keyboard was lost, and Space played or paused the game.
 
 ### Removed
 
