@@ -107,6 +107,8 @@ const fake = vi.hoisted(() => {
     queryRenderedFeatures = () => [];
     /** A place on screen: x east and y south, 100,000 px a degree, from Copley. */
     project = ([lng, lat]: readonly [number, number]) => ({ x: (lng + 71.08) * 1e5, y: (42.35 - lat) * 1e5 });
+    /** A place on the ground under the screen as a flat map at the camera's zoom has it: a screen pixel a world pixel, from Copley. */
+    unproject = ([x, y]: readonly [number, number]) => ({ lng: -71.08 + (x * 360) / (512 * 2 ** this.camera.zoom), lat: 42.35 - (y * 360) / (512 * 2 ** this.camera.zoom) });
     getCanvasContainer = () => this.box;
     getCanvas = () => this.box;
     getContainer = () => ({ dataset: {} });
@@ -314,7 +316,8 @@ describe('the day and night tint', () => {
     map.fire('load');
     const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
     board.setLines([line(1), line(2), line(3)] as never, [] as never);
-    map.queryRenderedFeatures = (() => [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 2 } }]) as never;
+    // MapLibre finds Line 2's ribbon within the click's 4 px, and no route at the click's own point, so the ground alone orders them.
+    map.queryRenderedFeatures = ((at: unknown[]) => (Array.isArray(at[0]) ? [{ layer: { id: 'lines-route' }, properties: { kind: 'route', id: 2 } }] : [])) as never;
     let hit: { lineIds: readonly number[] } | null = null;
     board.onClick((_, h) => void (hit = h));
     // On the screen, squeezed across the street, the click lies on its middle; on the ground, on Line 3's ribbon, a ribbon south.
@@ -389,6 +392,60 @@ describe('the day and night tint', () => {
     ]) as never;
     map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
     expect(hit!.lineIds).toEqual([3, 2, 1]);
+  });
+
+  // The systems audit's twenty-third round: tilted, MapLibre lays a name larger on the ground toward the view's top and smaller
+  // toward its foot (overlays.ts nameOnGround), so at pitch 60 a click on the letters of Line 5's name 10.6 px from its ribbon's
+  // middle, near the view's top, listed Line 8 first, and at the foot up to 4 rows beside a name's words counted as the name.
+  // A name's words reach as far as MapLibre lays them where the click is now. Shown failing (TS-04) with a name's flat reach.
+  it('counts a click on a name’s words as far as MapLibre lays them on a tilted map, toward the view’s top and its foot', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    let hit: { lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    // Line 2's name in the street's middle, as MapLibre finds it, over Line 3's ribbon, 5 px a ribbon at zoom 14.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-name' }, properties: { kind: 'name', id: 2, first: 0, last: 0 } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 0, last: 0, bridge: false } },
+    ]) as never;
+    // A screen pixel across spans `k` of the world's pixels where the click is.
+    const tilted = (k: number) => {
+      const world = 512 * 2 ** map.getZoom();
+      map.unproject = ([x, y]: readonly [number, number]) => ({ lng: -71.08 + (k * x * 360) / world, lat: 42.35 - (k * y * 360) / world });
+    };
+    const click = (px: number) => map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], px), originalEvent: { detail: 1 } });
+    // Toward the top, two world pixels a screen pixel: the words and halo reach 8 px, and a click 7.5 px south is on them.
+    tilted(2);
+    click(7.5);
+    expect(hit!.lineIds).toEqual([2, 3, 1]);
+    // Toward the foot, 0.6: they reach 5.2 px, and a click 5.5 px south, on Line 3's ribbon, is past them.
+    tilted(0.6);
+    click(5.5);
+    expect(hit!.lineIds).toEqual([3, 2, 1]);
+  });
+
+  // The systems audit's twenty-third round: only a bridge counted where it was the route drawn on top, so a click on Line 3's ribbon
+  // where it lies over Line 1's run's end listed Line 1 first, its middle nearer the click, 4 of 12 such clicks on the second
+  // company. The route drawn on top at the click comes first now, a run as a bridge does. Shown failing (TS-04) with only a bridge
+  // drawn on top counted.
+  it('lists first the line whose ribbon is drawn on top at a click, where another line’s lies under it nearer', async () => {
+    const { mounted: board, map } = await mounted();
+    map.styleLoaded = true;
+    map.fire('load');
+    const line = (id: number) => ({ id, name: `Line ${id}`, colour: '#c0392b', stops: [], stopIds: [], route: [[-71.08, 42.35], [-71.078, 42.35]], headways: { peak: 900, offpeak: 1_200, overnight: null }, stopAt: [], stopDistM: [] });
+    board.setLines([line(1), line(2), line(3)] as never, [] as never);
+    let hit: { lineIds: readonly number[] } | null = null;
+    board.onClick((_, h) => void (hit = h));
+    // Line 3's run drawn over Line 1's at the click, a ribbon north of the street's middle, on Line 1's place.
+    map.queryRenderedFeatures = (() => [
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 3, first: 0, last: 0, bridge: false } },
+      { layer: { id: 'lines-route' }, properties: { kind: 'route', id: 1, first: 0, last: 0, bridge: false } },
+    ]) as never;
+    map.fire('click', { point: map.project([-71.079, 42.35]), lngLat: south([-71.079, 42.35], -ribbonPx(map.getZoom())), originalEvent: { detail: 1 } });
+    expect(hit!.lineIds).toEqual([3, 1, 2]);
   });
 
   // The roadworks' street is drawn as wide as the lines on it (overlays.ts setEvent), so it is drawn again as the lines on their

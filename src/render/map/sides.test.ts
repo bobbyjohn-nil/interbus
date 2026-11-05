@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LngLatPair } from '../../sim/types';
 import { bridgesOf, linesHere, placesAlong, placesOf, ribbonGaps, ribbonPx, runsOf, segmentOf, sidesAlong, turnsBack } from './sides';
+import { linkShape } from './waist';
 
 // A street grid near Copley: x east, y north, a block 0.002° apart.
 const P = (x: number, y: number): LngLatPair => [-71.08 + 0.002 * x, 42.35 + 0.002 * y];
@@ -238,10 +239,45 @@ describe('a ribbon carried from run to run', () => {
     for (const sides of [[1, 0], [2, 0], [-1.5, 1.5]]) expect(worst(bend(0), sides)).toBeLessThanOrEqual(1 + 1e-9);
   });
 
-  it('adds nothing where the runs already meet: a line alone, and a side change of a ribbon or less along the street', () => {
+  it('adds nothing where the runs already meet: a line alone, and a side change of half a place along the street', () => {
     expect(bridgesOf([P(0, 0), P(1, 0), P(2, 0)], runsOf([P(0, 0), P(1, 0), P(2, 0)], new Float32Array([0, 0]), true))).toEqual([]);
     const route = [P(0, 0), P(1, 0), P(2, 0)];
-    const runs = runsOf(route, new Float32Array([0, 1]), true);
+    const runs = runsOf(route, new Float32Array([0, 0.5]), true);
     expect(bridgesOf(route, runs)).toEqual([]);
+  });
+
+  // The systems audit's twenty-third round: from the street's middle no corner piece was laid, so a line leaving the middle a whole
+  // place over met the next piece at a point, their two round caps a ribbon apart, and the ribbon was 0.9 to 1.7 px across there at
+  // zoom 16 to 18, at 8 of the 278 links of the four networks `npm run bench sides` lays. And each end is measured to the other
+  // piece's ribbon now, not its cap (capsApart): where the line turns toward the side it moves to, the next piece starts over the run
+  // before's ribbon, or the run before ends over the next one's, and a corner piece there only widened the corner to two ribbons for
+  // BRIDGE_M. Shown failing (TS-04) with no corner piece from the middle, the ribbon 2.4 px across on along the street at zoom 16,
+  // and with the ends measured cap to cap, the corner 14.4 px across at zoom 18.
+  it('keeps a ribbon whole where it leaves the street’s middle, and widens no corner where its pieces overlap already', () => {
+    // East, then on east, left to the north or right to the south; a ribbon is 7 px at zoom 16 and on.
+    const [on, left, right] = [[P(0, 0), P(1, 0), P(2, 0)], [P(0, 0), P(1, 0), P(1, 1)], [P(0, 0), P(1, 0), P(1, -1)]];
+    const shape = (route: LngLatPair[], sides: number[], zoom: number) => {
+      const runs = runsOf(route, new Float32Array(sides), true);
+      const bridges = bridgesOf(route, runs);
+      return { ...linkShape(route, runs, bridges, 1, zoom), pieces: bridges.map((b) => [b.side, b.points.length]) };
+    };
+    // A place or more over from the middle, on along the street or round the corner away from its side: a corner piece in the
+    // middle, then any steps, and the ribbon at least half its width all through, 4.8 px at zoom 16 where it steps twice round the
+    // corner, as a step does there (BRIDGE_M is 4.5 px), and its own width from zoom 17.
+    for (const [route, sides] of [[on, [0, 1]], [on, [0, -1]], [on, [0, 2]], [on, [0, 1.5]], [left, [0, 1]], [left, [0, 2]], [left, [0, 1.5]]] as const) {
+      for (const zoom of [16, 18]) {
+        const s = shape(route, [...sides], zoom);
+        expect(s.waist, `${sides} at zoom ${zoom}: the ribbon ${s.waist.toFixed(1)} px across`).toBeGreaterThan(0.5 * ribbonPx(zoom));
+        expect(s.pieces[0], `${sides}`).toEqual([0, 3]);
+      }
+    }
+    // Round the corner toward its side, from the middle a place over or back to it: no corner piece, the ribbon whole, and the
+    // corner as wide as a ribbon's own corner, 9.1 px, where a corner piece made it 14.4 px at zoom 18.
+    for (const [route, sides] of [[right, [0, 1]], [right, [1, 0]], [left, [0, -1]], [left, [-1, 0]]] as const) {
+      const s = shape(route, [...sides], 18);
+      expect(s.breadth, `${sides}: the corner ${s.breadth.toFixed(1)} px across`).toBeLessThan(1.5 * ribbonPx(18));
+      expect(s.waist, `${sides}`).toBeGreaterThan(0.9 * ribbonPx(18));
+      expect(s.pieces, `${sides}`).toEqual([]);
+    }
   });
 });

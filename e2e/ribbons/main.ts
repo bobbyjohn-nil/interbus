@@ -6,8 +6,8 @@ import { Map as MapLibreMap, setWorkerUrl, type GeoJSONSource, type LngLatLike }
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BUS_FLOATS, type BusSource } from '../../src/render/map/fleet';
-import { NAME_LAYOUT, nameFeatures } from '../../src/render/map/overlays';
-import { RIBBON_PX } from '../../src/render/map/sides';
+import { NAME_HALO_PX, NAME_LAYOUT, nameFeatures } from '../../src/render/map/overlays';
+import { groundAt, RIBBON_PX } from '../../src/render/map/sides';
 import { createVehicleLayer } from '../../src/render/map/vehicles';
 
 const CENTRE: [number, number] = [-71.085, 42.35];
@@ -31,7 +31,7 @@ const map = new MapLibreMap({
           'line-offset': ['interpolate', ['linear'], ['zoom'], 12, ['*', ['get', 'side'], RIBBON_PX[0]], 16, ['*', ['get', 'side'], RIBBON_PX[1]]],
         },
       },
-      { id: 'name', type: 'symbol', source: 'names', layout: NAME_LAYOUT, paint: { 'text-color': '#2b2622', 'text-halo-color': '#ffffff', 'text-halo-width': 2 } },
+      { id: 'name', type: 'symbol', source: 'names', layout: NAME_LAYOUT, paint: { 'text-color': '#2b2622', 'text-halo-color': '#ffffff', 'text-halo-width': NAME_HALO_PX } },
     ],
   },
   center: CENTRE,
@@ -64,6 +64,7 @@ declare global {
   interface Window {
     ribbonsReady?: boolean;
     ribbonCase?: (c: RibbonCase) => Promise<{ anchor: [number, number]; dir: [number, number] }>;
+    groundOf?: (points: readonly (readonly [number, number])[]) => { across: number; k: number }[];
   }
 }
 
@@ -71,6 +72,27 @@ map.on('load', () => {
   map.addLayer(createVehicleLayer(source));
   window.ribbonsReady = true;
 });
+
+let street: readonly [[number, number], [number, number]] = [CENTRE, CENTRE];
+
+/**
+ * Where each point on the screen lies on the ground, in the world's pixels at the map's zoom to the right of the last case's street
+ * (`across`), and how many of those pixels a screen pixel across spans there (`k`), as loadMap.ts's click measures it.
+ */
+window.groundOf = (points) => {
+  const ground = groundAt(map.getZoom());
+  const on = (x: number, y: number) => {
+    const p = map.unproject([x, y]);
+    return ground([p.lng, p.lat]);
+  };
+  const [a, b] = [ground(street[0]), ground(street[1])];
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const [ux, uy] = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
+  return points.map(([x, y]) => {
+    const [p, l, r] = [on(x, y), on(x - 0.5, y), on(x + 0.5, y)];
+    return { across: (p[0] - a[0]) * -uy + (p[1] - a[1]) * ux, k: Math.hypot(r[0] - l[0], r[1] - l[1]) };
+  });
+};
 
 /** Draws the ribbon, the bus or the name alone at the camera asked, on a straight street through `at`, and says where the street crosses on screen. */
 window.ribbonCase = async ({ zoom, pitch, heading, side, at, show }) => {
@@ -83,6 +105,7 @@ window.ribbonCase = async ({ zoom, pitch, heading, side, at, show }) => {
   const [dx, dy] = [(Math.sin((heading * Math.PI) / 180) * m) / k, Math.cos((heading * Math.PI) / 180) * m];
   const a: [number, number] = [p.lng - dx, p.lat - dy];
   const b: [number, number] = [p.lng + dx, p.lat + dy];
+  street = [a, b];
   (map.getSource('lines') as GeoJSONSource).setData({
     type: 'FeatureCollection',
     features: show === 'ribbon' ? [{ type: 'Feature', properties: { side }, geometry: { type: 'LineString', coordinates: [a, b] } }] : [],

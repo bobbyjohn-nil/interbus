@@ -13,7 +13,7 @@ import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, S
 import { Fleet } from './fleet';
 import { darkStep, DAYLIGHT_FADE_MS, daylightPaints, dim, dimmed, NIGHT_STEP, paintsAcross } from './daylight';
 import { groundAt, linesHere, placesOf, ribbonDistance, ribbonPx, type Places, type RouteOf } from './sides';
-import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, NAME_REACH_PX, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
+import { addOverlays, DOT_LAYER, DOT_LAYERS, DOTS, FLAG_LAYERS, LINE_LAYERS, nameOnGround, overlayLayers, RESTING_LAYERS, restingLines, restingStops, setDepotLand, setDepots, setDotKinds, setDots, setDraft, setEvent, setLines, setResting, setRestingGround, setTint, type DotKinds, type PaintName } from './overlays';
 import { dotRadiusPx, pickDot, PICK_SLOP_PX, type DotKind } from './pick';
 import { buildStyle } from './style';
 import {
@@ -589,19 +589,23 @@ export async function mountMap(container: HTMLElement, city: City, rung: Exclude
     };
     // A name's words are wider than its ribbon and drawn over the ribbons, so a click on their outer half lay nearer a neighbour's
     // ribbon, which came first: 3 of 8 clicks on placed names (#201's review). A bridge, carrying a ribbon across to its line's new
-    // place, lies over a neighbour's ribbon too, and a click on it listed the neighbour first (#202's review). The name or bridge
+    // place, lies over a neighbour's ribbon too, and a click on it listed the neighbour first (#202's review). The name or route
     // under the click itself, not within its 4 px, says which line the player pointed at: a name where the click is on its words,
     // within their reach of its own ribbon (NAME_REACH_PX), as MapLibre finds one in its padded box, 8 px either way, past its
-    // words over a neighbour's ribbon; a bridge where it is the route drawn on top, as MapLibre lists what it drew there topmost
-    // first and a bridge passes under the lines drawn after it. A click on Line 5's ribbon beside Line 2's name, or on Line 23's
-    // ribbon over Line 6's bridge, listed Line 2 or Line 6 first (the systems audit's twenty-second round).
+    // words over a neighbour's ribbon; then the route drawn on top, a bridge or a run, as MapLibre lists what it drew there topmost
+    // first and a piece passes under the lines drawn after it. A click on Line 5's ribbon beside Line 2's name, or on Line 23's
+    // ribbon over Line 6's bridge, listed Line 2 or Line 6 first (the systems audit's twenty-second round), and on Line 3's ribbon
+    // over Line 1's run's end, Line 1 (the twenty-third). Tilted, a name's words reach further toward the view's top and less far
+    // toward its foot, their middle with them (nameOnGround), by how many of the world's pixels a screen pixel across spans here.
     const onName = loaded ? map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lines-name', 'lines-name-resting', 'lines-route', 'lines-route-resting'] }) : [];
+    const [left, right] = [map.unproject([e.point.x - 0.5, e.point.y]), map.unproject([e.point.x + 0.5, e.point.y])].map((p) => ground([p.lng, p.lat]));
+    const laid = nameOnGround(Math.hypot(right![0] - left![0], right![1] - left![1]));
     const onWords = (h: (typeof hits)[number]) => {
       const run = runOf(h);
-      return run !== null && ribbonDistance(placesNow, linesNow, run, at, ground, ribbonPx(map.getZoom())) <= NAME_REACH_PX;
+      return run !== null && ribbonDistance(placesNow, linesNow, run, at, ground, ribbonPx(map.getZoom()) * laid.offset) <= laid.reach;
     };
     const top = onName.find((h) => h.properties?.kind === 'route');
-    const named = [...onName.filter((h) => h.properties?.kind === 'name' && onWords(h)), ...(top?.properties?.bridge === true ? [top] : [])]
+    const named = [...onName.filter((h) => h.properties?.kind === 'name' && onWords(h)), ...(top ? [top] : [])]
       .map((h) => numberOf(h.properties?.id))
       .filter((id): id is number => id !== null);
     const hitRuns = ordered.flatMap((h) => runOf(h) ?? []);
