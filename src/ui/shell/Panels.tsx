@@ -27,6 +27,8 @@ interface Rect {
 
 /** The gap between panels, and between a panel and the window's edge, in pixels. */
 const GAP = 12;
+/** The keys a panel's controls take for themselves: a list's button ArrowDown and ArrowUp, a tablist the arrows, Home and End. */
+const CONTROL_KEYS: readonly string[] = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"];
 /** The top of the first row of panels: under the chips. */
 const TOP = 56;
 /** The room left at the window's bottom for the dock and the map's credit (app.css's 100vh - 128px is TOP and this; the day card's 100% - 156px counts it too). */
@@ -749,6 +751,18 @@ export function Panels({
                 return;
               }
               if (brought && was) pressedFrom.current = { id, was };
+            }}
+            onKeyDownCapture={(e) => {
+              // The keys a control takes for itself, a list's button ArrowDown and ArrowUp to open its list and a tablist the
+              // arrows, Home and End (tablist.ts), work it before the box hears them: under the day's card, ArrowDown opened
+              // Finance's fare list beside a button no one could see, and Enter there set the fare; ArrowRight turned Lines to
+              // another line (the systems audit's twenty-third round). Under a cover no raise lifts, they wait, as a key's press does.
+              if (!CONTROL_KEYS.includes(e.key)) return;
+              const cover = coverOf(e.currentTarget, e.target);
+              if (cover && !lifts(cover)) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
             }}
             onKeyDown={(e) => {
               // But for a tab's keys, which move the focus to the tab they reach, and the focus brings it in: one that reaches no
