@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { focusLost } from './focusLost';
+import { MODIFIERS } from './focusSource';
 import { giveFocus } from './giveFocus';
 
 type Target = () => HTMLElement | null | undefined;
@@ -15,7 +16,9 @@ export type HandBack = (from: HTMLElement, to: Target) => void;
  * round). If the focus moved anywhere else first, it is left where the player put it, and a press that left the focus
  * elsewhere, as a mouse's can, hands nothing on. The player's next key or press lets it go too: a button that stays after its
  * press (a stop's tier, short of its top step) left it waiting, so an Escape, a Close or an undo minutes later handed the
- * focus to Build, and Space opened the Build menu (the review of the stop card's keys).
+ * focus to Build, and Space opened the Build menu (the review of the stop card's keys). A modifier pressed alone is no such key,
+ * as for a pressed panel's place (Panels' pressedFrom): Shift as the sim answered Take it let the hand-back go, and the focus
+ * fell to the page, where Space played (the systems audit's twenty-fourth round).
  */
 export function useFocusBack(): HandBack {
   const pending = useRef<{ from: HTMLElement; to: Target } | null>(null);
@@ -30,7 +33,8 @@ export function useFocusBack(): HandBack {
     const held = document.activeElement === from ? { from, to } : null;
     pending.current = held;
     if (!held) return;
-    const drop = () => {
+    const drop = (event: Event) => {
+      if (event instanceof KeyboardEvent && MODIFIERS.includes(event.key)) return;
       if (pending.current === held) pending.current = null;
       window.removeEventListener('keydown', drop, true);
       window.removeEventListener('pointerdown', drop, true);

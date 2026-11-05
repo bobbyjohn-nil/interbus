@@ -122,11 +122,13 @@ describe('a dragged panel’s place', () => {
     // Dragged only a little low, it stays where it was let go, whole and taller.
     expect(inReach({ x: 400, y: 300 }, 320, w, h)).toEqual({ x: 400, y: 300 });
     expect(300 + roomBelow(300, h)).toBe(h - 72);
-    // Above the window's top it stops at the top; sideways 48 px stay on screen, as before.
-    expect(inReach({ x: -1000, y: -50 }, 320, w, h)).toEqual({ x: 48 - 320, y: 0 });
+    // Above the chips it stops under them, as a free panel does, so it covers none (the twenty-fourth round: dragged up to the
+    // window's top, Lines lay over the Undo chip, which Enter pressed unseen); sideways 48 px stay on screen, as before.
+    expect(inReach({ x: -1000, y: -50 }, 320, w, h)).toEqual({ x: 48 - 320, y: 56 });
+    expect(inReach({ x: 400, y: 20 }, 320, w, h).y).toBe(56);
     expect(inReach({ x: 2000, y: 100 }, 320, w, h)).toEqual({ x: w - 48, y: 100 });
-    // A window too short for 160 px of it above the dock keeps the panel's top, its heading, on screen.
-    expect(inReach({ x: 400, y: 300 }, 320, w, 200).y).toBe(0);
+    // A window too short for 160 px of it above the dock keeps the panel's top, its heading, on screen, under the chips.
+    expect(inReach({ x: 400, y: 300 }, 320, w, 200).y).toBe(56);
   });
 
   it('comes in as far as shows a control the keyboard reaches past the window’s edge, and stays put for one on screen', () => {

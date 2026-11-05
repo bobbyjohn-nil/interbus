@@ -3,7 +3,7 @@ import { focusLost } from "../focusLost";
 import { MODIFIERS } from "../focusSource";
 import { giveFocus } from "../giveFocus";
 import { standsFor } from "../heldFocus";
-import { showInBody, showInPanel, SHOWN } from "../showWhole";
+import { MOVED, showInBody, showInPanel, SHOWN } from "../showWhole";
 import { inOpenList } from "../../render/map/tilt";
 
 /** A panel on the layer: its id, and what it draws (a `.panel` element). */
@@ -58,10 +58,13 @@ export const roomBelow = (y: number, height: number) => Math.max(MIN_ROOM, heigh
  * MIN_ROOM or more above the dock, which draws over the panels (app.css's layers): a drag's rule, and a dragged panel's when
  * the window changes size. As short as roomBelow makes it there, the panel ends above the dock and the map's credit, whole,
  * its heading (its first row) in reach (the systems audit's third round: with its top at 600 px of 720 it ran 40 px off the window).
+ * Its top stays under the chips (TOP), as a free panel's does (keptWhole): the chips draw under the panels, and dragged up over
+ * them, Lines hid the Undo chip, Play and the speed list's button from the keyboard, whose Enter there undid a fare unseen and
+ * played the game (the systems audit's twenty-fourth round).
  */
 export const inReach = (at: { x: number; y: number }, w: number, width: number, height: number) => ({
   x: Math.round(Math.min(width - KEEP, Math.max(KEEP - w, at.x))),
-  y: Math.round(Math.max(0, Math.min(height - BOTTOM - MIN_ROOM, at.y))),
+  y: Math.round(Math.max(TOP, Math.min(height - BOTTOM - MIN_ROOM, at.y))),
 });
 
 /**
@@ -117,6 +120,13 @@ export function freePlace(w: number, h: number, taken: readonly Rect[], width: n
 function put(box: HTMLElement, at: { x: number; y: number }): void {
   Object.assign(box.style, { left: `${at.x}px`, top: `${at.y}px` });
   box.style.setProperty("--room", `${roomBelow(at.y, window.innerHeight)}px`);
+}
+
+/** Whether a press at (`x`, `y`) on `el` lands on its own scrollbar, which scrolls it and presses nothing. */
+function onScrollbar(el: Element, x: number, y: number): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  const r = el.getBoundingClientRect();
+  return (el.scrollHeight > el.clientHeight && x >= r.left + el.clientLeft + el.clientWidth) || (el.scrollWidth > el.clientWidth && y >= r.top + el.clientTop + el.clientHeight);
 }
 
 /** A box's place and size on the window. */
@@ -232,7 +242,7 @@ export function Panels({
   focus?: PanelFront | null;
   /** Whether that panel takes the focus: when the keyboard opened it (App's focusSource). */
   takesFocus?: () => boolean;
-  /** Told that the last pointer press drags a panel by its heading, which leaves the focus where it was and as it came (App's focusSource). */
+  /** Told that the last pointer press drags a panel by its heading, or scrolls one by its scrollbar, which leaves the focus where it was and as it came (App's focusSource). */
   dragged?: () => void;
   /**
    * Set to where the focus goes back to as a panel closed with the player in it (handBackTo on the openers kept), for what
@@ -634,6 +644,10 @@ export function Panels({
   }, []);
   const drag = (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
     const target = event.target as Element;
+    // A press on a scrollbar in the panel the focus is in only scrolls it, so it leaves the focus as it came, as a drag by the
+    // heading does: Finance's body dragged by its scrollbar with the keyboard on a line's name, its ring still drawn, gave Space
+    // to the game as a pointer's press does, and Space played it (the systems audit's twenty-fourth round).
+    if (event.button === 0 && onScrollbar(target, event.clientX, event.clientY) && event.currentTarget.contains(document.activeElement)) draggedBy();
     // One pointer drags a panel, the first to press it: a second finger on a heading started a drag of its own, and the first
     // drag heard its moves too, so two fingers there moved the panel by the second's and kept it there as dragged (the systems
     // audit's twentieth round). A second pointer on the panel ends the drag where the first left it, as Chrome cuts one short,
@@ -663,6 +677,7 @@ export function Panels({
       if ((e.buttons & 1) === 0) return end(e);
       moved = true;
       put(box, place(e.clientX, e.clientY));
+      box.dispatchEvent(new Event(MOVED));
     };
     const others = (e: PointerEvent) => {
       if (e.pointerId === pointer) return;

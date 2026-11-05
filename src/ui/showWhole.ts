@@ -17,6 +17,9 @@ export function showWhole(scroller: HTMLElement, from: Element, to: Element = fr
 /** The event showInBody sends from what it shows, for a panel past the window's edge to come in as far as shows it (Panels). */
 export const SHOWN = 'interbus:shown';
 
+/** The event a panel's box sends as a drag moves it (Panels), for a list open beside a button in it to go with it (Dropdown). */
+export const MOVED = 'interbus:moved';
+
 /**
  * Shows `el` whole in the panel body it sits in (`.panel-body`, under the panel's heading and Close), or in its panel's own box
  * where the panel scrolls whole (`.panel`: Saves, Contracts, a stop's card, Lines here, the route editor and the new line's

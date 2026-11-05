@@ -117,6 +117,28 @@ test.describe('the keyboard’s way to a stop, and the focus after a stop’s, a
     await expect(taken).toBeFocused();
   });
 
+  // The systems audit's twenty-fourth round: the player's next key lets a waiting hand-on go, and a modifier pressed alone was one:
+  // Shift, Control or Caps Lock as the sim answered Take it, Take it went with its offer, the focus fell to the page, and Space
+  // there played the game, 3 runs of 3 each. A modifier alone keeps the hand-on, as it keeps a pressed panel's place. Shown
+  // failing (TS-04) with every key letting it go.
+  test('Take it hands the focus to the contract it took through a modifier pressed alone as the sim answers', async ({ page }) => {
+    await page.addInitScript(holdAnswers);
+    await lines(page);
+    await page.getByTestId('checklist').click();
+    const contracts = page.getByTestId('contracts');
+    const offer = contracts.getByTestId('contract').filter({ has: page.getByRole('button', { name: 'Take it' }) }).first();
+    const id = await offer.getAttribute('data-contract');
+    const take = offer.getByRole('button', { name: 'Take it' });
+    await take.focus();
+    await page.evaluate(() => void ((window as unknown as { held: unknown[] }).held = []));
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Shift');
+    await page.evaluate(() => (window as unknown as { release: () => void }).release());
+    const taken = contracts.locator(`[data-contract="${id}"]`);
+    await expect(taken).toHaveAttribute('data-held', 'yes');
+    await expect(taken).toBeFocused();
+  });
+
   /** The busy quarter's close ten minutes off (shell.ts), `edit` on it, paused, with Contracts open from the keyboard on its first offer's Take it. */
   async function onTakeIt(page: Page, edit?: (data: SaveData) => void) {
     await page.goto('./');
