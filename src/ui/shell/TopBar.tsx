@@ -60,10 +60,10 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const chip = over || !checklist;
   // A key never presses a chip something lies over, where no one sees what it presses (coverOf): late in a game the row wraps to a
   // second line at 922×576 and 1093×614, 46-74 px, so Lines dragged up as far as it goes, its top at 56 px, lay over the Undo chip,
-  // and Enter there undid Line 1's fare unseen (the review of the twenty-fourth round). The chips draw over the panels while the
-  // keyboard is on one (app.css), as a panel the keyboard is in raises over another, so the press works the chip in sight; under
-  // what still lies over them, the day's card, it waits, as under a card no raise lifts in a panel (Panels). Only the first line
-  // holds a control that takes keys of its own, the speed list's button, and no panel reaches it.
+  // and Enter there undid Line 1's fare unseen (the review of the twenty-fourth round). The chips draw over the panels while one
+  // has the focus (app.css), as a panel the keyboard is in raises over another, so the press works the chip in sight; under what
+  // still lies over them, the day's card beside panels at 922×576, it waits, as under a card no raise lifts in a panel (Panels).
+  // Only the first line holds a control that takes keys of its own, the speed list's button, and no panel reaches it.
   return (
     <header
       className="top-bar"

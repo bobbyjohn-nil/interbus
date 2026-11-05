@@ -219,8 +219,10 @@ Each round's lanes, fixes and measurements are in its pull requests and DECISION
 
 - [x] **Round 25** (2026-11-05; DECISIONS, Measured): two lanes at c144f73, on round 24's fixes.
   - The second played #207's keyboard fixes and found 1 minor issue and 1 nit, both new in #207's review commit, which this pull request fixes:
-    - late in a game, a panel in its free place lay over a chip on the chips' second line, the keyboard's ring on a chip no one could see, and the press #207 held there did nothing: Enter on the Contracts chip under Finance opened nothing (the chips come up over the panels while the keyboard is on one now);
-    - as a drag took a list's button off the window, the focus given back to the button brought the panel 82 px in from under the pointer (no panel the pointer drags is brought in now).
+    - late in a game, a panel in its free place lay over a chip on the chips' second line, the keyboard's ring on a chip no one could see, and the press #207 held there did nothing: Enter on the Contracts chip under Finance opened nothing (the chips come up over the panels while one has the focus now);
+    - as a drag took a list's button off the window, the focus given back to the button brought the panel 82 px in from under the pointer (the focus coming back brings no dragged panel in now).
+
+    Its review found 3 minor issues and 2 nits, all handled before the merge: the drag's guard also held off a key, so ArrowDown on a fare off the window opened its list 234 px from it (only the focus is held off now, and the release tells the list); a chip the mouse had left the focus on came up and was pressed by one key, unseen (the chips come up whenever one has the focus); the raised row's empty box took presses meant for the panels, and at rest the map's (only the chips take presses); and the hold under the day's card had no test, which it has now.
   - The first played #208's lines on shared streets and found nothing wrong in #208, whose words held through every change Save route makes and whose half steps held on the real networks, and 1 minor issue older than it, from #203's per-run words, written down below: closing a line makes other lines' names fade out and in on ribbons that never moved.
 
 Open from the audit:
