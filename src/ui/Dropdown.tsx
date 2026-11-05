@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { closeOnPressAway } from './pressAway';
+import { MOVED } from './showWhole';
 
 export interface DropdownOption<T> {
   readonly value: T;
@@ -14,6 +15,17 @@ export interface DropdownOption<T> {
 const EDGE = 8;
 /** The list as first drawn, unseen, so its height can be read before it is placed. */
 const UNPLACED: CSSProperties = { position: 'fixed', left: 0, top: 0, bottom: 'auto', visibility: 'hidden' };
+
+/**
+ * How far down a list from `left` to `right` across may run: to the window's foot, or where it meets the map's credit and the
+ * build chip across (Corner.tsx), which draw over every list (app.css), to their top: at Chrome's 125%, 1093×614, a fare's list
+ * ran under "Protomaps", the option the keyboard was on 13 px of its 31 showing, and Enter set it (the systems audit's
+ * twenty-fourth round).
+ */
+function footFor(left: number, right: number): number {
+  const corner = document.querySelector('.corner')?.getBoundingClientRect();
+  return corner && corner.height > 0 && left < corner.right && right > corner.left ? corner.top : window.innerHeight;
+}
 
 /** Scrolls `list` as little as shows its option `i` whole. */
 function reveal(list: HTMLUListElement | null, i: number): void {
@@ -94,7 +106,7 @@ export function Dropdown<T extends string | number>({
     const h = list.current.offsetHeight;
     // Its padding, which max-height leaves out.
     const pad = h - parseFloat(getComputedStyle(list.current).height);
-    const room = { below: window.innerHeight - r.bottom - 4 - EDGE, above: r.top - 4 - EDGE };
+    const room = { below: footFor(left, left + list.current.offsetWidth) - r.bottom - 4 - EDGE, above: r.top - 4 - EDGE };
     const other = placement === 'below' ? 'above' : 'below';
     const side = h > room[placement] && room[other] > room[placement] ? other : placement;
     setAt({
@@ -118,8 +130,8 @@ export function Dropdown<T extends string | number>({
     shownOnce.current = true;
   }, [at, chosen, active]);
 
-  // Placed again beside its button once a scroll or a change of size (both below) has moved the button, or closed once the
-  // button has left the view it sits in, the focus back on the button where it is.
+  // Placed again beside its button once a scroll, a change of size or a drag of its panel (all below) has moved the button, or
+  // closed once the button has left the view it sits in, or the window, the focus back on the button where it is.
   const follow = useCallback(() => {
     const b = button.current?.getBoundingClientRect();
     const view = button.current?.closest('.panel-body, .panel')?.getBoundingClientRect();
@@ -127,8 +139,11 @@ export function Dropdown<T extends string | number>({
     // its list stayed open there with the button hidden, and a pick set a fare out of sight (the systems audit's sixteenth
     // round). Its cells stick, not the row of them; headings that scroll away lie above the view, or above the button's row.
     const head = button.current?.closest('table')?.querySelector('thead th')?.getBoundingClientRect();
-    const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity);
-    if (b && b.bottom > top && b.top < (view?.bottom ?? window.innerHeight)) {
+    const top = Math.max(view?.top ?? 0, head?.bottom ?? -Infinity, 0);
+    // A panel dragged on past the window's edge, which keeps 48 px of it on the window, took the button off it, and the list,
+    // kept on the window, stood 233 px from it, where Enter set the fare (the review of the twenty-fourth round).
+    const [left, right, bottom] = [Math.max(view?.left ?? 0, 0), Math.min(view?.right ?? Infinity, window.innerWidth), Math.min(view?.bottom ?? Infinity, window.innerHeight)];
+    if (b && b.bottom > top && b.top < bottom && b.right > left && b.left < right) {
       // Placed again before the frame is drawn: rendered later, the list trailed its button by a frame, 19 px at a wheel's step.
       flushSync(() => {
         setAt(null);
@@ -160,14 +175,22 @@ export function Dropdown<T extends string | number>({
       if (event.target instanceof Node && list.current?.contains(event.target)) return;
       follow();
     };
+    // A drag of the panel its button sits in moves the button with no scroll (Panels' MOVED): opened by its key as the drag
+    // went, the list stayed where it opened, 300 px from its button and holding the focus, and Enter set the fare (the systems
+    // audit's twenty-fourth round). It goes with its button, as on a scroll.
+    const moved = (event: Event) => {
+      if (event.target instanceof Node && button.current && event.target.contains(button.current)) follow();
+    };
     window.addEventListener('pointerdown', away);
     window.addEventListener('resize', resized);
     window.addEventListener('scroll', scrolled, true);
+    window.addEventListener(MOVED, moved, true);
     list.current?.focus();
     return () => {
       window.removeEventListener('pointerdown', away);
       window.removeEventListener('resize', resized);
       window.removeEventListener('scroll', scrolled, true);
+      window.removeEventListener(MOVED, moved, true);
     };
   }, [open, at, follow]);
 

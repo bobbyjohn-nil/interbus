@@ -5,6 +5,7 @@
 // audit's (D26) fix: End left the highlighted $5.00 hidden in the list, and under a button low in the
 // window the fare list ran past the window's bottom, its last fares out of reach.
 import { expect, test, type Locator, type Page } from './base';
+import { LINE_COLOURS } from '../src/sim/config/lines';
 import { FARES_CENTS } from '../src/sim/rules/fare';
 import { usd } from '../src/ui/format';
 import { foundCompany } from './found';
@@ -235,14 +236,19 @@ test.describe('the game’s dropdown', () => {
       const r = el.getBoundingClientRect();
       return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('[data-movable]')?.getAttribute('data-movable') ?? null;
     });
-    /** Lines raised over the fare by a press on its heading, the keyboard left on the fare; dragged there first, its heading just above Finance's. */
+    /**
+     * Lines raised over the fare by a press on its heading, the keyboard left on the fare; dragged there first, beside Finance, as
+     * high as a panel goes and its left edge 30 px left of Finance's, its heading's first pixels pressed there, outside Finance, as
+     * Finance lies on top. Its heading went just above Finance's, over the chips, until a panel's top stayed under them (the
+     * systems audit's twenty-fourth round).
+     */
     const underLines = async (dragged: boolean) => {
       const h = (await lines.locator('h2').first().boundingBox())!;
-      await page.mouse.move(h.x + 10, h.y + h.height / 2);
+      await page.mouse.move(h.x + 4, h.y + h.height / 2);
       await page.mouse.down();
       if (dragged) {
-        const [f, top] = [(await fare.boundingBox())!, (await page.locator('[data-movable="finance"]').boundingBox())!.y];
-        await page.mouse.move(f.x + f.width / 2 - 40, top - 12, { steps: 8 });
+        const [l, f] = [(await page.locator('[data-movable="lines"]').boundingBox())!, (await page.locator('[data-movable="finance"]').boundingBox())!];
+        await page.mouse.move(h.x + 4 + (f.x - 30 - l.x), h.y + h.height / 2 + (f.y - l.y), { steps: 8 });
       }
       await page.mouse.up();
       await expect(fare).toBeFocused();
@@ -309,6 +315,87 @@ test.describe('the game’s dropdown', () => {
     const l = (await list.boundingBox())!;
     expect(l.x).toBeGreaterThanOrEqual(8);
     expect(l.x + l.width).toBeLessThanOrEqual(W - 8);
+  });
+
+  // The systems audit's twenty-fourth round: at Chrome's 125%, 1093×614, a fare's list opened below its button in Finance ran to 8 px
+  // above the window's foot, under the map's credit and the build chip, which draw over every list: the option the keyboard was
+  // on stood with 13 px of its 31 showing, its middle under "Protomaps", for 16 of 21 steps down, and Enter set it, 3 runs of 3.
+  // Where it meets them across, a list ends above them now. Shown failing (TS-04) with the list run to the window's foot.
+  test('ends a list above the map’s credit where the two meet', async ({ page }) => {
+    await page.setViewportSize({ width: 1093, height: 614 });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    const N = 14;
+    await withDebugLine(page, (d) => {
+      const [first] = d.lines as Record<string, unknown>[];
+      d.lines = [first, ...Array.from({ length: N - 1 }, (_, k) => ({ ...first, id: k + 2, name: `Line ${k + 2}`, colour: LINE_COLOURS[(k + 1) % LINE_COLOURS.length], stopIds: [1, 2] }))];
+      d.nextIds = { ...d.nextIds, line: N + 1 };
+    });
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const fare = page.getByRole('button', { name: 'Fare for Line 8', exact: true });
+    // Its foot 45% of the way down the window, as the wheel scrolls Finance's body: more room below it than above, and too little
+    // for the whole list.
+    await fare.evaluate((e) => {
+      const body = e.closest('.panel-body') as HTMLElement;
+      body.scrollTop += e.getBoundingClientRect().bottom - 0.45 * innerHeight;
+    });
+    await fare.focus();
+    await page.keyboard.press('ArrowDown');
+    const list = page.getByRole('listbox', { name: 'Fare for Line 8' });
+    await expect(list).toBeVisible();
+    const [l, c, f] = [(await list.boundingBox())!, (await page.locator('.corner').boundingBox())!, (await fare.boundingBox())!];
+    // Below its fare, and across from the corner.
+    expect(l.y).toBeGreaterThan(f.y);
+    expect(l.x < c.x + c.width && l.x + l.width > c.x).toBe(true);
+    expect(l.y + l.height).toBeLessThanOrEqual(c.y);
+  });
+
+  // The systems audit's twenty-fourth round: a list goes with its button as a scroll moves it, but a drag of its panel moved the
+  // button with no scroll: with the mouse dragging Finance by its heading and the keyboard on Line 1's fare, ArrowDown opened the
+  // fare's list, and the drag on left it 300 px from its button, holding the focus, where Enter set the fare, 3 runs of 3. It goes
+  // with its button now. Shown failing (TS-04) with no list told of the drag.
+  test('keeps a list beside its button as its panel is dragged', async ({ page }) => {
+    await page.setViewportSize({ width: W, height: H });
+    await page.goto('./');
+    await expect(page.getByTestId('map')).toHaveAttribute('data-status', 'ready', { timeout: 30_000 });
+    await foundCompany(page);
+    await withDebugLine(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await page.getByTestId('finance-lines').click();
+    const fare = page.getByRole('button', { name: 'Fare for Line 1' });
+    await fare.focus();
+    const h = (await page.locator('[data-movable="finance"] h2').first().boundingBox())!;
+    const [x, y] = [h.x + 10, h.y + h.height / 2];
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 40, { steps: 4 });
+    await page.keyboard.press('ArrowDown');
+    const list = page.getByRole('listbox', { name: 'Fare for Line 1' });
+    await expect(list).toBeFocused();
+    await page.mouse.move(x - 300, y + 160, { steps: 8 });
+    const [l, b] = [(await list.boundingBox())!, (await fare.boundingBox())!];
+    expect(Math.abs(l.x - b.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(l.y - (b.y + b.height + 4))).toBeLessThanOrEqual(1);
+    // Dragged on past the window's right edge, the panel took the button off the window, and the list, kept on it, stood 233 px
+    // from its button, where Enter set the fare (the review of the twenty-fourth round). It closes as it does once a scroll takes
+    // the button out of its view, the focus back on the button; the next key brings the panel in and opens the list beside it.
+    // Shown failing (TS-04) with only the button's view counted.
+    await page.mouse.move(x + 900, y + 160, { steps: 12 });
+    expect((await fare.boundingBox())!.x).toBeGreaterThan(W);
+    await expect(list).toHaveCount(0);
+    await expect(fare).toBeFocused();
+    await page.mouse.up();
+    await page.keyboard.press('ArrowDown');
+    await expect(list).toBeFocused();
+    // Brought in to the window's right edge, the button stands over its list, which is wider and kept 8 px inside the window.
+    const [l2, b2] = [(await list.boundingBox())!, (await fare.boundingBox())!];
+    expect(b2.x + b2.width).toBeLessThanOrEqual(W);
+    expect(l2.x).toBeLessThanOrEqual(b2.x);
+    expect(l2.x + l2.width).toBeGreaterThanOrEqual(b2.x + b2.width);
+    expect(l2.x + l2.width).toBeLessThanOrEqual(W);
+    expect(Math.abs(l2.y - (b2.y + b2.height + 4))).toBeLessThanOrEqual(1);
   });
 
   // The speed list, open as the day ran on, stayed where it had opened as the date's period name, "Off-peak" become "Peak",

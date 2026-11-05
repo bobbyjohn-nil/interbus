@@ -7,11 +7,41 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = join(ROOT, 'public/cities');
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+
+/**
+ * The file at `url`. GitHub's own failure, an HTTP 5xx or a dropped connection, is tried again, `tries` times in all and
+ * `delayMs` apart, as the deploy's asset retention tries its manifest: a 504 on Inner Boston's sim file failed #206's deploy
+ * on its one try (Deploy preview run 41999545377). Any other answer, a 404 among them, is the file's own and fails at once.
+ */
+export async function download(url, { tries = 3, delayMs = 3000, log = console.log, get = fetch } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    let why;
+    let res = null;
+    try {
+      res = await get(url);
+    } catch (error) {
+      why = error.message;
+    }
+    if (res?.ok) {
+      try {
+        return Buffer.from(await res.arrayBuffer());
+      } catch (error) {
+        why = error.message;
+      }
+    } else if (res) {
+      if (res.status < 500) throw new Error(`cities: HTTP ${res.status} for ${url}`);
+      why = `HTTP ${res.status}`;
+    }
+    if (attempt >= tries) throw new Error(`cities: ${why} for ${url} (try ${attempt} of ${tries})`);
+    log(`cities: ${why} for ${url} (try ${attempt} of ${tries}), trying again`);
+    await new Promise((done) => setTimeout(done, delayMs));
+  }
+}
 
 /** Downloads one named file unless an identical copy is already there; refuses any mismatch. */
 async function fetchFile(entry) {
@@ -20,9 +50,7 @@ async function fetchFile(entry) {
     console.log(`cities: ${entry.file} up to date`);
     return;
   }
-  const res = await fetch(entry.url);
-  if (!res.ok) throw new Error(`cities: HTTP ${res.status} for ${entry.url}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  const buf = await download(entry.url);
   if (buf.length !== entry.bytes || sha256(buf) !== entry.sha256) {
     throw new Error(`cities: ${entry.file} does not match cities/index.json (got ${buf.length} B, sha256 ${sha256(buf)})`);
   }
@@ -49,7 +77,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message ?? error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(error.message ?? error);
+    process.exit(1);
+  });
+}

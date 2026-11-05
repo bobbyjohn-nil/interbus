@@ -373,6 +373,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Under the day's card or the lender's card, the arrow keys, Home and End no longer open a list or turn a tab you cannot see, as Enter and Space press nothing there. Before, ArrowDown on a fare under the day's card opened its list beside a button you could not see, and Enter then set the fare; ArrowRight turned Lines to another line.
 - A key's press on a button scrolled out of Saves, Contracts, a stop's card, Lines here, the route editor or the new line's card scrolls it back into view first, as it does in Lines and Finance. Before, Enter there could go back to Home or export the game unseen, or press nothing at all while the panel stayed scrolled.
 - In Finance's Lines, a key's press on a line's name hidden under the column headings scrolls the name out from under them first. Before, it opened or closed the line's money unseen.
+- A panel dragged up stops under the chips at the top of the window, so it never hides the clock, Play or the speed. Late in a game in a small window, where the chips run onto a second line, a key on a chip a panel hides presses nothing. Before, Lines dragged over the Undo chip left it in reach of the keyboard, and Enter there undid your last change unseen.
+- A modifier key (Shift, Ctrl or Caps Lock) pressed on its own just as a button you pressed goes, such as Take it, no longer loses the keyboard's place: it moves on as it would have. Before, the keyboard's place was lost, and Space then played the game.
+- A list that opens down toward the bottom right corner ends above the map's credits there. Before, at Chrome's 125% zoom, its last options could sit under the credits, the one the keyboard was on half hidden.
+- Dragging the scrollbar of the panel the keyboard is in no longer takes the keyboard's place from the control it is on: Space presses that control, as Enter does. Before, Space played or paused the game instead.
+- A list opened from the keyboard while you drag its panel moves with the panel, and closes if the drag takes its button off the window. Before, it stayed where it opened, away from its button, and Enter there still set it.
 
 ### Removed
 

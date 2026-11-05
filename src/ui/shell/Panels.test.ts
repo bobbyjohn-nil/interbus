@@ -15,7 +15,7 @@
 // fourth round, where Tab scrolled the whole page instead): shown failing (TS-04) on abb5f2f, which has no
 // such rule.
 import { describe, expect, it } from 'vitest';
-import { freePlace, handBackTo, inReach, keptWhole, roomBelow, showing, type Opener } from './Panels';
+import { freePlace, handBackTo, inReach, keptWhole, onScrollbar, roomBelow, showing, type Opener } from './Panels';
 
 const [W, H] = [1366, 768];
 
@@ -122,11 +122,13 @@ describe('a dragged panel’s place', () => {
     // Dragged only a little low, it stays where it was let go, whole and taller.
     expect(inReach({ x: 400, y: 300 }, 320, w, h)).toEqual({ x: 400, y: 300 });
     expect(300 + roomBelow(300, h)).toBe(h - 72);
-    // Above the window's top it stops at the top; sideways 48 px stay on screen, as before.
-    expect(inReach({ x: -1000, y: -50 }, 320, w, h)).toEqual({ x: 48 - 320, y: 0 });
+    // Above the chips it stops under them, as a free panel does, so it covers none (the twenty-fourth round: dragged up to the
+    // window's top, Lines lay over the Undo chip, which Enter pressed unseen); sideways 48 px stay on screen, as before.
+    expect(inReach({ x: -1000, y: -50 }, 320, w, h)).toEqual({ x: 48 - 320, y: 56 });
+    expect(inReach({ x: 400, y: 20 }, 320, w, h).y).toBe(56);
     expect(inReach({ x: 2000, y: 100 }, 320, w, h)).toEqual({ x: w - 48, y: 100 });
-    // A window too short for 160 px of it above the dock keeps the panel's top, its heading, on screen.
-    expect(inReach({ x: 400, y: 300 }, 320, w, 200).y).toBe(0);
+    // A window too short for 160 px of it above the dock keeps the panel's top, its heading, on screen, under the chips.
+    expect(inReach({ x: 400, y: 300 }, 320, w, 200).y).toBe(56);
   });
 
   it('comes in as far as shows a control the keyboard reaches past the window’s edge, and stays put for one on screen', () => {
@@ -146,6 +148,33 @@ describe('a dragged panel’s place', () => {
 // went, the checklist's last step went as Take it completed it, and Lines after the editor's Cancel took the focus from the
 // editor. Shown failing (TS-04) with no step to the panel that held a gone opener, and with no successor; e2e/keyboard.spec.ts
 // plays each on the build before.
+describe('a press on a panel’s scrollbar', () => {
+  // Finance's body, 300 px by 400 at (100, 60), with 1,200 px to scroll down.
+  const r = { left: 100, top: 60, right: 400, bottom: 460 };
+  const sized = (bar: number) => ({ clientLeft: 0, clientTop: 0, clientWidth: 300 - bar, clientHeight: 400, scrollWidth: 300 - bar, scrollHeight: 1_200 });
+
+  it('lands on a scrollbar beside the content, and not on the content', () => {
+    expect(onScrollbar(r, sized(15), 390, 200)).toBe(true);
+    expect(onScrollbar(r, sized(15), 385, 200)).toBe(true);
+    expect(onScrollbar(r, sized(15), 380, 200)).toBe(false);
+  });
+
+  // The review of the twenty-fourth round: a scrollbar drawn over the content, as macOS draws them, takes none of its width, so
+  // the strip measured beside it was 0 px wide and a press on its thumb gave Space to the game. Shown failing (TS-04) with the
+  // strip only beside the content.
+  it('lands on a scrollbar drawn over the content, in its last 16 px', () => {
+    expect(onScrollbar(r, sized(0), 395, 200)).toBe(true);
+    expect(onScrollbar(r, sized(0), 385, 200)).toBe(true);
+    expect(onScrollbar(r, sized(0), 383, 200)).toBe(false);
+    expect(onScrollbar(r, { ...sized(0), scrollWidth: 900 }, 200, 455)).toBe(true);
+  });
+
+  it('lands on no scrollbar where the element has nothing to scroll that way', () => {
+    expect(onScrollbar(r, { ...sized(0), scrollHeight: 400 }, 395, 200)).toBe(false);
+    expect(onScrollbar(r, sized(0), 200, 455)).toBe(false);
+  });
+});
+
 describe('where the focus goes back to as a panel closes', () => {
   const button = (name: string, usable = true) => ({ name, usable }) as unknown as Element;
   const usable = (el: Element) => (el as unknown as { usable: boolean }).usable;

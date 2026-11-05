@@ -7,6 +7,7 @@ import { calendarOfDay } from '../../sim/rules/calendar';
 import { periodAt } from '../../sim/rules/periods';
 import { RUNNING_SPEEDS } from '../../sim/rules/speed';
 import { undoText } from '../copy';
+import { coverOf } from '../cover';
 import { Dropdown } from '../Dropdown';
 import { focusLost } from '../focusLost';
 import { about, clockText, dateText, MEDAL_NAMES, PERIOD_NAMES, shownMinute, SPEED_HINTS, speedText, usd, usdK } from '../format';
@@ -57,8 +58,27 @@ export function TopBar({ sim, playSpeed, onContracts }: { sim: Sim; playSpeed: E
   const undo = s.undo ? undoText(s.undo) : null;
   // The Contracts chip, once the checklist is done or the run has ended; before, the checklist's last step in its place.
   const chip = over || !checklist;
+  // A key never presses a chip something lies over, where no one sees what it presses (coverOf). The chips draw under the
+  // panels, and late in a game the row wraps to a second line at 922×576 and 1093×614, 46-74 px, so Lines dragged up as far as it
+  // goes, its top at 56 px, lay over the Undo chip, and Enter there undid Line 1's fare unseen (the review of the twenty-fourth
+  // round). No raise brings a chip over a panel, so the press waits, as under a card no raise lifts in a panel (Panels). Only the
+  // first line holds a control that takes keys of its own, the speed list's button, and no panel reaches it.
   return (
-    <header className="top-bar" aria-label="Company" data-testid="sim-panel" data-chrome="rest" data-cash={s.cashCents} data-elapsed={s.elapsed} data-speed={s.speed} data-costs={s.costsPerDayCents}>
+    <header
+      className="top-bar"
+      aria-label="Company"
+      data-testid="sim-panel"
+      data-chrome="rest"
+      data-cash={s.cashCents}
+      data-elapsed={s.elapsed}
+      data-speed={s.speed}
+      data-costs={s.costsPerDayCents}
+      onClickCapture={(e) => {
+        if (e.detail !== 0 || !coverOf(e.currentTarget, e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       {/* The clock names D7's period, so the time of day never rests on the map's tint (D13), the period of the minute it shows,
           so the two never disagree as the clock shows whole hours. The year went to the title to make room: late in a game, with
           three medals and "3 on offer", the chip row wrapped to two rows (10.09% of 1152×720 on Inner Boston's numbers, against

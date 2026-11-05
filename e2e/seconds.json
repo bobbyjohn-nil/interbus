@@ -1,5 +1,5 @@
 {
-  "measured": "Each spec file’s tests’ seconds, summed as one worker ran them, on CI: the mean of #195’s two runs at 2642bce, its push run 41474238297 and pull request run 41474375884 (2026-11-02), from each part’s e2e seconds line (scripts/e2e-seconds.mjs), which summed each test’s duration then, leaving its file’s beforeAll hooks out (swap.spec.ts’s builds, about 15 s). Both of a part’s workers stay busy to its end, as Playwright’s count-based sevenths left them less often, so these sum to 64.3 minutes, against 55.4 on main 5ae4f48’s run 41456604313. ribbons.spec.ts from #205’s two runs at 27eb1e8, its push run 41977871889 and pull request run 41977977822, 48.9 and 49.2 s, once #205 had added a tilted name’s test to its ten. covered.spec.ts, unmeasured before, from #206’s two runs at 505824b, its push run 41987522907 and pull request run 41987557896, 82.8 and 78.8 s, once #206 had added three tests to #204’s three.",
+  "measured": "Each spec file’s tests’ seconds, summed as one worker ran them, on CI: the mean of #195’s two runs at 2642bce, its push run 41474238297 and pull request run 41474375884 (2026-11-02), from each part’s e2e seconds line (scripts/e2e-seconds.mjs), which summed each test’s duration then, leaving its file’s beforeAll hooks out (swap.spec.ts’s builds, about 15 s). Both of a part’s workers stay busy to its end, as Playwright’s count-based sevenths left them less often, so these sum to 64.3 minutes, against 55.4 on main 5ae4f48’s run 41456604313. ribbons.spec.ts from #205’s two runs at 27eb1e8, its push run 41977871889 and pull request run 41977977822, 48.9 and 49.2 s, once #205 had added a tilted name’s test to its ten. covered.spec.ts, unmeasured before, from #206’s two runs at 505824b, its push run 41987522907 and pull request run 41987557896, 82.8 and 78.8 s, once #206 had added three tests to #204’s three. scrollbar.spec.ts, new, from #207’s two runs at 525a949, its push run 42013987116 and pull request run 42014082665, 8.3 and 8.0 s.",
   "seconds": {
     "boot.spec.ts": 32.1,
     "build.spec.ts": 18.3,
@@ -44,6 +44,7 @@
     "save.spec.ts": 4.8,
     "saves.spec.ts": 89.8,
     "scene.spec.ts": 12.8,
+    "scrollbar.spec.ts": 8.2,
     "session.spec.ts": 28.7,
     "sim.spec.ts": 24.9,
     "smoke.spec.ts": 8.1,
