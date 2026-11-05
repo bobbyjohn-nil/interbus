@@ -378,6 +378,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A list that opens down toward the bottom right corner ends above the map's credits there. Before, at Chrome's 125% zoom, its last options could sit under the credits, the one the keyboard was on half hidden.
 - Dragging the scrollbar of the panel the keyboard is in no longer takes the keyboard's place from the control it is on: Space presses that control, as Enter does. Before, Space played or paused the game instead.
 - A list opened from the keyboard while you drag its panel moves with the panel, and closes if the drag takes its button off the window. Before, it stayed where it opened, away from its button, and Enter there still set it.
+- A line's names on streets it shares stay as they are when you take a stop off the line elsewhere. Before, the names of its runs past that stop faded out and in again, though those runs had not moved.
+- Where a line leaves the middle of a street it shares, its colour no longer bulges to two and a half lines wide for a few metres as it steps across to its place.
 
 ### Removed
 

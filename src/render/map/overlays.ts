@@ -9,7 +9,7 @@ import { restsAt } from '../../sim/rules/periods';
 import { louder } from './daylight';
 import type { DepotView, Dots, EventView, LineDraftView, LineView, LngLatPair, StopView } from '../../sim/types';
 import { dotRadiusExpression, ringExpressions, type DotKind } from './pick';
-import { bridgesOf, placesAlong, placesOf, RIBBON_PX, runsOf, sidesAlong, type Places } from './sides';
+import { bridgesOf, placesAlong, placesOf, RIBBON_PX, runsOf, segmentOf, sidesAlong, type Places } from './sides';
 import { FONT_SEMIBOLD } from './style';
 import type { GameTokens, MapTokens } from './tokens';
 
@@ -247,13 +247,17 @@ function nameOffset(): ExpressionSpecification {
 
 /**
  * A line's names, one along each run of its route (runsOf), at its place there (nameOffset), each in words of its own (`label`,
- * wordsOf): the line's name, then the segment of the route its run starts at (`first`) in white space, which MapLibre trims as it
- * lays out the words (tagged_string.ts trim), so every run's name reads the same. MapLibre knows a label from one layout to the next
- * by its words (symbol_layout.ts, the shaping's key), and fades in a label it does not know: by the run's count along the route, a
- * run cut in two or joined to the next earlier on the line, as another line joined or left a street, a line closed or a settling
- * line let its old route go, gave each run after it new words, so their names went out and came back, 5 of 14 cells of names out
- * for 2 or 3 frames as Line 10 closed on the second company (the systems audit's twenty-third round). A run's start stays as the
- * line's route does, and is a run's own. MapLibre joins the lines of line labels that share their words and an
+ * wordsOf): the line's name, then where its run starts (startsOf) in white space, which MapLibre trims as it lays out the words
+ * (tagged_string.ts trim), so every run's name reads the same. MapLibre knows a label from one layout to the next by its words
+ * (symbol_layout.ts, the shaping's key), and fades in a label it does not know: by the run's count along the route, a run cut in
+ * two or joined to the next earlier on the line, as another line joined or left a street, a line closed or a settling line let its
+ * old route go, gave each run after it new words, so their names went out and came back, 5 of 14 cells of names out for 2 or 3
+ * frames as Line 10 closed on the second company (the systems audit's twenty-third round); and by the segment of the route the run
+ * starts at, a stop taken off the line, which takes points out of its route, gave every run after it new words too, 6 runs and 6.2
+ * km of route that had not moved for Line 8's Stop 21 on the second company (the twenty-fourth round). A run's start, its first
+ * segment and how many times the route drove that way of it before, stays as long as the run does, and is the run's own. Should two
+ * of a line's runs' starts come to the same words, the later along the route takes the next words free. MapLibre joins the lines
+ * of line labels that share their words and an
  * end before it places them (merge_lines.ts, keyed by the words and the point), and the joined line keeps the first one's
  * properties: run by run end to end, a line's names stood at whichever run came first in each tile, 62% of the names' cells off
  * their own run's place on the second company at zoom 14 (#201's review). Stopped 5 m short of their ends, a run that turned back
@@ -268,24 +272,60 @@ function nameOffset(): ExpressionSpecification {
  * or a stop, where #201's stood 133 px apart at least (the twenty-third round). The two cannot be had apart, and a name too many is
  * the line's own, where a joined name stood off any ribbon.
  */
-export function nameFeatures(line: Pick<LineView, 'id' | 'name'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
-  return runs.map((run) => ({
-    type: 'Feature' as const,
-    properties: { kind: 'name', id: line.id, name: line.name, label: wordsOf(line.name, run.first), side: run.side, first: run.first, last: run.last },
-    geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
-  }));
+export function nameFeatures(line: Pick<LineView, 'id' | 'name' | 'route'>, runs: readonly { readonly points: readonly LngLatPair[]; readonly side: number; readonly first: number; readonly last: number }[]) {
+  const starts = startsOf(line.route);
+  const taken = new Set<number>();
+  return runs.map((run) => {
+    let code = hashOf(starts[run.first] ?? `${run.first}`) % WORDS;
+    while (taken.has(code)) code = (code + 1) % WORDS;
+    taken.add(code);
+    return {
+      type: 'Feature' as const,
+      properties: { kind: 'name', id: line.id, name: line.name, label: wordsOf(line.name, code), side: run.side, first: run.first, last: run.last },
+      geometry: { type: 'LineString' as const, coordinates: run.points.map((p) => [...p]) },
+    };
+  });
+}
+
+/** How many words a run's start may come to: 2^20, so two of a line's hundred runs share them about once in two hundred lines. */
+const WORDS = 1 << 20;
+
+/**
+ * Where a run starting at each segment of `route` starts, as no change elsewhere on the line moves it: the first segment from there
+ * with a length (segmentOf's key and way), and how many times the route drove that way of it before.
+ */
+export function startsOf(route: readonly LngLatPair[]): string[] {
+  const seen = new Map<string, number>();
+  const starts: string[] = new Array(Math.max(0, route.length - 1));
+  for (let i = 0; i + 1 < route.length; i++) {
+    const s = segmentOf(route[i]!, route[i + 1]!);
+    if (!s) continue;
+    const way = `${s.key} ${s.along}`;
+    const before = seen.get(way) ?? 0;
+    seen.set(way, before + 1);
+    starts[i] = `${way} ${before}`;
+  }
+  for (let i = starts.length - 2; i >= 0; i--) starts[i] ??= starts[i + 1]!;
+  return starts;
+}
+
+/** A string's 32-bit FNV-1a hash. */
+function hashOf(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return h >>> 0;
 }
 
 /**
- * A run's own words: its line's name, then `first` + 1 in binary, a no-break space for each 1 and a space for each 0, which MapLibre
- * trims, as it trims all white space. MapLibre looks for a place to break a line label's words before it trims them, at every
- * space, each against all the spaces before it (tagged_string.ts determineLineBreaks): as many spaces as `first`, up to 595 on the
- * four networks of `npm run bench sides`, made a change to the lines 11 to 90 ms slower to show at zoom 12 to 14, where these take
- * 10 characters at most, and a no-break space is no place to break (the twenty-third round's review). Each is the first range of
- * glyphs, which the names load already.
+ * A run's own words: its line's name, then `code` (under WORDS) in binary after a 1, a no-break space for each 1 and a space for
+ * each 0, which MapLibre trims, as it trims all white space. MapLibre looks for a place to break a line label's words before it
+ * trims them, at every space, each against all the spaces before it (tagged_string.ts determineLineBreaks): as many spaces as the
+ * run's start along the route, up to 595 on the four networks of `npm run bench sides`, made a change to the lines 11 to 90 ms
+ * slower to show at zoom 12 to 14, where these take 21 characters, 20 spaces at most, and a no-break space is no place to break
+ * (the twenty-third round's review). Each is the first range of glyphs, which the names load already.
  */
-export function wordsOf(name: string, first: number): string {
-  return name + (first + 1).toString(2).replace(/1/g, '\u00a0').replace(/0/g, ' ');
+export function wordsOf(name: string, code: number): string {
+  return name + (code + WORDS).toString(2).replace(/1/g, '\u00a0').replace(/0/g, ' ');
 }
 
 /**

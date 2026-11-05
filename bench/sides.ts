@@ -62,6 +62,10 @@ if (!city) {
     // at zoom 16, 17 and 18 (waist.ts), under 3 px where two caps only touch (the systems audit's twenty-third round).
     let [cuts, turns, broken, brokenBefore, widest, widestBefore, corners, longest] = [0, 0, 0, 0, 0, 0, 0, 0];
     const waists = { 16: [] as number[], 17: [] as number[], 18: [] as number[] };
+    // And its breadth at zoom 18, the widest disc within two ribbons of the point, counted over two ribbons where it passes 14.5 px
+    // (two ribbons, 14 px, read off cells of 0.2 px): a corner piece beside a step stood two and a half ribbons wide for BRIDGE_M,
+    // 17.5 px where the 30-line game's Line 24 left the street's middle (the systems audit's twenty-fourth round).
+    const breadths: number[] = [];
     for (const l of lines) {
       const s = sidesAlong(p, l.id, l.route);
       const runs = runsOf(l.route, s, true);
@@ -72,7 +76,11 @@ if (!city) {
       corners += bridges.filter((b) => b.points.length === 3).length;
       for (let r = 1; r < runs.length; r++) {
         if (turnsBack(l.route, runs[r]!.first)) continue;
-        for (const zoom of [16, 17, 18] as const) waists[zoom].push(linkShape(l.route, runs, bridges, r, zoom).waist);
+        for (const zoom of [16, 17, 18] as const) {
+          const shape = linkShape(l.route, runs, bridges, r, zoom);
+          waists[zoom].push(shape.waist);
+          if (zoom === 18) breadths.push(shape.breadth);
+        }
       }
       const [after, before] = [ribbonGaps(l.route, runs, bridges), ribbonGaps(l.route, runs, [])];
       for (const g of after) if (Math.max(...g) > 1 + 1e-9) broken++;
@@ -82,6 +90,6 @@ if (!city) {
     }
     console.log(`  ${cuts} points where a ribbon goes from one run to the next, ${turns} of them turn-backs: ${brokenBefore} broke there without bridges, the widest gap ${(Math.max(0, widestBefore - 1) * 7).toFixed(1)} px at zoom 16; with them ${broken}, the widest link ${widest.toFixed(2)} ribbons; a corner piece at ${corners} of the ${cuts - turns} on along or round a corner`);
     const narrowest = ([16, 17, 18] as const).map((z) => Math.min(...waists[z]).toFixed(1)).join(', ');
-    console.log(`  there the ribbon at least ${narrowest} px across at zoom 16, 17 and 18 (7 px a ribbon), ${waists[16].filter((w, k) => Math.min(w, waists[17][k]!, waists[18][k]!) < 3).length} of them under 3 px; the longest route ${longest} points, so a name's words carry up to ${(longest - 1).toString(2).length} white spaces past the name (overlays.ts wordsOf)`);
+    console.log(`  there the ribbon at least ${narrowest} px across at zoom 16, 17 and 18 (7 px a ribbon), ${waists[16].filter((w, k) => Math.min(w, waists[17][k]!, waists[18][k]!) < 3).length} of them under 3 px; at zoom 18 ${breadths.filter((b) => b > 14.5).length} wider than two ribbons, the widest ${Math.max(...breadths).toFixed(1)} px; the longest route ${longest} points`);
   }
 }

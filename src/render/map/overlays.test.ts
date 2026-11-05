@@ -81,7 +81,8 @@ describe('the game layers', () => {
     setLines(map as unknown as MapLibreMap, [line], [] as StopView[]);
     const features = (data[0] as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] }).features;
     const name = features.find((f) => f.properties.kind === 'name')!;
-    expect(name.properties).toMatchObject({ name: 'Line 2', label: wordsOf('Line 2', 0), id: 2, side: 0 });
+    expect(name.properties).toMatchObject({ name: 'Line 2', id: 2, side: 0 });
+    expect((name.properties.label as string).trim()).toBe('Line 2');
     expect(name.geometry.coordinates).toEqual(line.route);
     expect(features.find((f) => f.properties.kind === 'route')!.properties).toMatchObject({ colour: '#2471a3', id: 2, side: 0 });
   });
@@ -173,15 +174,41 @@ describe('the game layers', () => {
     expect(labels([line1, line2]).get(2)).toBe(before.get(2));
   });
 
+  // The twenty-fourth round: a run's words carried the segment of the route it starts at, and a stop taken off the line takes
+  // points out of its route, so every run after it took new words though it lay where it lay, and their names went out and came
+  // back: 6 runs and 6.2 km of route for Line 8's Stop 21 on the second company. A run's words stand by where it starts, its first
+  // segment and how many times the route drove that way of it before. Shown failing (TS-04) with the segment the run starts at.
+  it('keep the words of a line’s later runs as a stop taken off before them takes points out of its route', () => {
+    const { map, data } = fakeMap();
+    addOverlays(map as unknown as MapLibreMap, GAME_LIGHT, LIGHT);
+    const P = (x: number): LngLatPair => [-71.08 + 0.002 * x, 42.35];
+    const line = (id: number, route: LngLatPair[]) => ({ id, name: `Line ${id}`, colour: '#2471a3', route, stops: [], stopIds: [] });
+    // Line 1 alone on three blocks, through a stop's point at P(1), then beside Line 2 on two more; then the stop taken off.
+    const labels = (lines: ReturnType<typeof line>[]) => {
+      const from = data.length;
+      setLines(map as unknown as MapLibreMap, lines as unknown as LineView[], [] as StopView[]);
+      const names = (data[from] as { features: { properties: Record<string, unknown>; geometry: { coordinates: LngLatPair[] } }[] }).features.filter((f) => f.properties.kind === 'name' && f.properties.id === 1);
+      return new Map(names.map((f) => [f.geometry.coordinates[0]!.join(), { first: f.properties.first as number, label: f.properties.label as string }]));
+    };
+    const line2 = line(2, [P(3), P(4), P(5)]);
+    const before = labels([line(1, [P(0), P(1), P(2), P(3), P(4), P(5)]), line2]);
+    const after = labels([line(1, [P(0), P(2), P(3), P(4), P(5)]), line2]);
+    const beside = P(3).join();
+    expect([before.get(beside)!.first, after.get(beside)!.first]).toEqual([3, 2]);
+    expect(after.get(beside)!.label).toBe(before.get(beside)!.label);
+    // And no two of a line's runs share their words.
+    expect(new Set([...after.values()].map((r) => r.label)).size).toBe(after.size);
+  });
+
   // The twenty-third round's review: MapLibre looks for a place to break a line label's words at every space before it trims them,
   // each against all the spaces before it, so as many spaces as the run's start, up to 595 on the bench's four networks, made a
   // change to the lines 11 to 90 ms slower to show at zoom 12 to 14. A run's start is written in binary now, in white space MapLibre
   // trims. Shown failing (TS-04) with as many spaces as the run's start.
   it('keep each run’s words short, each its own, and read as the line’s name', () => {
-    const all = Array.from({ length: 1_024 }, (_, first) => wordsOf('Line 12', first));
+    const all = [...Array.from({ length: 1_024 }, (_, code) => wordsOf('Line 12', code)), wordsOf('Line 12', (1 << 20) - 1)];
     expect(new Set(all).size).toBe(all.length);
     for (const words of all) {
-      expect(words.length - 'Line 12'.length).toBeLessThanOrEqual(11);
+      expect(words.length - 'Line 12'.length).toBeLessThanOrEqual(21);
       expect(words.trim()).toBe('Line 12');
       expect([...words.slice('Line 12'.length)].every((c) => c === ' ' || c === '\u00a0')).toBe(true);
     }

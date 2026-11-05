@@ -247,13 +247,27 @@ function stepsBetween(from: number, to: number): number[] {
 }
 
 /**
+ * The steps a ribbon takes across from the street's middle to `to`: half a place first, then a place at a time, none at `to`. A
+ * whole place first from the middle needed a corner piece there, which stood beside that step and the run after it for BRIDGE_M,
+ * the ribbon two and a half ribbons wide, 17.9 px across at zoom 18 where a ribbon is 7 (the 30-line late game's Line 24, the
+ * systems audit's twenty-fourth round); half a place on, the run before's cap carries the ribbon onto the first step, as it does
+ * along a street at a change of half a place (CAPS_CARRY).
+ */
+function stepsFromMiddle(to: number): number[] {
+  const steps: number[] = [];
+  for (let c = 0.5 * Math.sign(to); Math.abs(c) < Math.abs(to); c += Math.sign(to)) steps.push(c);
+  return steps;
+}
+
+/**
  * The pieces that carry a line's ribbon from one of its runs (runsOf) to the next, each at a side of its own, so it never breaks
  * where its side changes. Each run is drawn by line-offset with round caps, which meet only where the two ends stand within a
  * ribbon of each other: where a line's side changed by more, or at a corner, the ribbon broke, gaps of up to 14 px at zoom 16 on
  * the busy scene, and where it turned back at a stop its two ways stood apart (the systems audit's twenty-first round). At a
  * corner or on along the street, a piece turns the corner at the run's side before, as the run would have, where the round caps
- * would not carry the ribbon on without it (CAPS_CARRY), then steps across at most a ribbon at a time to the side after, each
- * piece BRIDGE_M along the segment after. Where the line turns back, steps
+ * would not carry the ribbon on without it (CAPS_CARRY), then steps across at most a ribbon at a time to the side after, each piece
+ * BRIDGE_M along the segment after; from the street's middle, where a corner piece would be laid, half a place first instead
+ * (stepsFromMiddle). Where the line turns back, steps
  * across the street along the segment before, from its side one way to its side back: a bar at the stop it turns at.
  */
 export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): Run[] {
@@ -273,9 +287,15 @@ export function bridgesOf(route: readonly LngLatPair[], runs: readonly Run[]): R
       // Along the way in, the side back stands at its negative: across from the one to the other.
       for (const side of stepsBetween(was.side, -now.side)) bridges.push({ points: [toward(at, into), at], side, ...span });
     } else {
-      const steps = stepsBetween(was.side, now.side);
+      let steps = stepsBetween(was.side, now.side);
       // The corner, only where the run before and the next piece, a step or the run after, would not overlap enough without it.
-      if (capsApart(into, at, out, was.side, steps[0] ?? now.side) > CAPS_CARRY) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
+      let corner = capsApart(into, at, out, was.side, steps[0] ?? now.side) > CAPS_CARRY;
+      // From the street's middle, half a place first instead, whose caps carry the ribbon on (stepsFromMiddle).
+      if (corner && was.side === 0) {
+        steps = stepsFromMiddle(now.side);
+        corner = capsApart(into, at, out, 0, steps[0] ?? now.side) > CAPS_CARRY;
+      }
+      if (corner) bridges.push({ points: [toward(at, into), at, toward(at, out)], side: was.side, ...span });
       for (const side of steps) bridges.push({ points: [at, toward(at, out)], side, ...span });
     }
   }
