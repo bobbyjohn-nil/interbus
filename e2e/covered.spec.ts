@@ -342,12 +342,9 @@ test.describe('a key on a control something lies over', () => {
     await expect(name).toBeFocused();
   });
 
-  // The review of the twenty-fourth round's keyboard fixes: the chips draw under the panels, and late in a game, at 5,400×, three
-  // medals held and the countdown up, they wrap to a second line at Chrome's 125% of 1152×720, 922×576, the Undo chip 46-74 px
-  // down. Lines dragged up and left as far as it goes, its top at 56 px, lay over the chip's middle, and Enter there undid Line
-  // 1's fare unseen. Shown failing (TS-04) with no hold on the chips.
-  test('presses no chip a panel lies over', async ({ page }) => {
-    test.setTimeout(150_000);
+  /** The late game whose chips run onto a second line, 46-74 px down, at Chrome's 125% of 1152×720, 922×576: at 5,400×, three
+   * medals held, the countdown up and Line 1's fare raised to $2.50, its undo on the second line beside the Contracts chip. */
+  async function lateGame(page: Page) {
     await holdSpeed(page, 5);
     await game(
       page,
@@ -362,21 +359,108 @@ test.describe('a key on a control something lies over', () => {
     );
     await expect(page.getByTestId('countdown')).toBeVisible();
     await setFare(page, 'Line 1', '$2.50');
+    await expect(page.getByTestId('undo')).toHaveText('Undo: Line 1’s fare');
+  }
+
+  // The review of the twenty-fourth round's keyboard fixes: the chips draw under the panels, and in that late game Lines, dragged up
+  // and left as far as it goes, its top at 56 px, lay over the Undo chip's middle, where Enter undid Line 1's fare unseen. Held
+  // instead, Enter did nothing (the twenty-fifth round). The chips come up over the panels while the keyboard is on one, so the key
+  // works the chip in sight. Shown failing (TS-04) with the chips kept under the panels: the chip under Lines, the fare not undone.
+  test('brings a chip up over the panel dragged onto it as the keyboard comes to it, and presses it in sight', async ({ page }) => {
+    test.setTimeout(150_000);
+    await lateGame(page);
     const undo = page.getByTestId('undo');
-    await expect(undo).toHaveText('Undo: Line 1’s fare');
     await page.getByRole('button', { name: 'Lines', exact: true }).click();
     const lines = page.locator('[data-movable="lines"]');
     await drag(page, 'lines', 4 - (await lines.boundingBox())!.x, -400);
     expect((await lines.boundingBox())!.y).toBe(56);
     expect(await over(undo)).toBe('lines');
     await tabOnto(page, undo);
+    expect(await over(undo)).toBe('undo');
     await page.keyboard.press('Enter');
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(500);
-    await expect(undo).toHaveText('Undo: Line 1’s fare');
-    await expect(page.getByRole('button', { name: 'Fare for Line 1' })).toHaveCount(0);
+    await expect(undo).toHaveCount(0);
     await page.getByRole('button', { name: 'Finance', exact: true }).click();
     await page.getByTestId('finance-lines').click();
-    await expect(page.getByRole('button', { name: 'Fare for Line 1' })).toContainText('$2.50');
+    await expect(page.getByRole('button', { name: 'Fare for Line 1' })).toContainText('$2.25');
+  });
+
+  // The twenty-fifth round: in that late game, Lines then Finance opened from the dock, Finance's free place, 178 to 618 px across
+  // from 56 px down, lay over the Contracts chip's middle, where the keyboard's ring showed the chip's top 10 px and Enter, held,
+  // opened nothing, 2 runs of 2. Shown failing (TS-04) with the chips kept under the panels: the chip under Finance, no Contracts.
+  test('brings a chip up over a panel in its free place as the keyboard comes to it, and presses it in sight', async ({ page }) => {
+    test.setTimeout(150_000);
+    await lateGame(page);
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const chip = page.getByTestId('contracts-chip');
+    expect(await over(chip)).toBe('finance');
+    await tabOnto(page, chip);
+    expect(await over(chip)).toBe('contracts-chip');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('contracts')).toBeVisible();
+  });
+
+  // The review of the twenty-fifth round: a chip comes up over the panels as it has the focus, however it came to it. Raised only
+  // with the keyboard's ring, the Undo chip the mouse had pressed and let go off stayed under Lines dragged onto it, and the key
+  // that rang it raised it and pressed it at once, so Enter undid Line 1's fare unseen, 4 runs of 4. Shown failing (TS-04) with the
+  // chips raised only with the keyboard's ring: the chip under Lines as Enter comes.
+  test('keeps a chip the mouse left the focus on up over a panel dragged onto it', async ({ page }) => {
+    test.setTimeout(150_000);
+    await lateGame(page);
+    const undo = page.getByTestId('undo');
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    const u = (await undo.boundingBox())!;
+    await page.mouse.move(u.x + u.width / 2, u.y + u.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(u.x + u.width / 2, u.y + 300, { steps: 4 });
+    await page.mouse.up();
+    await expect(undo).toBeFocused();
+    await expect(undo).toHaveText('Undo: Line 1’s fare');
+    const lines = page.locator('[data-movable="lines"]');
+    await drag(page, 'lines', 4 - (await lines.boundingBox())!.x, -400);
+    await expect(undo).toBeFocused();
+    expect(await over(undo)).toBe('undo');
+    await page.keyboard.press('Enter');
+    await expect(undo).toHaveCount(0);
+  });
+
+  // The review of the twenty-fifth round: run onto a second line, the chips' row has a box 806 px across at 922×576, and raised over
+  // the panels it took their presses past its chips: a click on Finance's × where the row runs over it left Finance open, 4 of 4,
+  // and a drag by its heading there moved nothing; at rest it took the map's. Only the chips take a press now. Shown failing (TS-04)
+  // with the row's box taking presses: Finance still open.
+  test('takes no press in the chips’ row past its chips', async ({ page }) => {
+    test.setTimeout(150_000);
+    await lateGame(page);
+    // At rest, past the last chip of the second line, the map's.
+    const row = (await page.getByTestId('sim-panel').boundingBox())!;
+    const onRow = (x: number, y: number) => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.top-bar') !== null, [x, y] as const);
+    expect(await onRow(row.x + row.width - 10, row.y + row.height - 6)).toBe(false);
+    await page.getByRole('button', { name: 'Lines', exact: true }).click();
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await tabOnto(page, page.getByTestId('contracts-chip'));
+    const close = (await page.getByTestId('finance').getByRole('button', { name: 'Close', exact: true }).boundingBox())!;
+    const at = { x: close.x + close.width / 2, y: close.y + 3 };
+    expect(at.x).toBeLessThan(row.x + row.width);
+    expect(at.y).toBeLessThan(row.y + row.height);
+    await page.mouse.click(at.x, at.y);
+    await expect(page.getByTestId('finance')).toHaveCount(0);
+  });
+
+  // The review of the twenty-fifth round: the day's card stands beside the panels, and with Finance dragged to the right at 922×576
+  // it stood over the Contracts chip's middle, above the chips even as they come up, where a key on the chip waits. Shown failing
+  // (TS-04) with no hold on the chips: Contracts opened under the card.
+  test('presses no chip under the day’s card', async ({ page }) => {
+    test.setTimeout(150_000);
+    await lateGame(page);
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    await drag(page, 'finance', 420 - (await page.locator('[data-movable="finance"]').boundingBox())!.x, 0);
+    await page.getByTestId('play').click();
+    await expect(page.getByTestId('day-card')).toBeVisible({ timeout: 30_000 });
+    const chip = page.getByTestId('contracts-chip');
+    await tabOnto(page, chip);
+    expect(await over(chip)).toBe('day-card');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId('contracts')).toHaveCount(0);
   });
 });

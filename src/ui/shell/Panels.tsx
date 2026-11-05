@@ -716,6 +716,10 @@ export function Panels({
       const to = cut ? { x: stands.x, y: stands.y } : place(e.clientX, e.clientY);
       put(box, to);
       dragged.current.set(id, to);
+      // A list opened by its key as the drag held still, the panel brought in, stood beside a button the release took back off the
+      // window; told of the release as of a move, the list goes with its button there, or closes (the review of the twenty-fifth
+      // round).
+      box.dispatchEvent(new Event(MOVED));
       // And the panels it is left lying over, which a resize leaves so, each from where it lies: kept whole from where it opened,
       // one a change of size had moved went back there at the next, piled with a third and was placed afresh, 452 px from the
       // panel dragged onto it (the review of the nineteenth round).
@@ -751,7 +755,12 @@ export function Panels({
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
             onFocus={(e) => {
-              reveal(e.currentTarget, e.target, id);
+              // But for a focus that comes as a pointer drags the panel, which puts it back under the pointer at its next move: a
+              // list's button given the focus back as a drag took it off the window brought Finance 82 px in from under the pointer,
+              // where it stood while the pointer held still, 4 runs of 4 (the systems audit's twenty-fifth round). A key still
+              // brings it in as the drag holds still: let the drag hold off every key, ArrowDown on a fare off the window opened its
+              // list 234 px from it, where Enter set the fare (the round's review).
+              if (!e.currentTarget.classList.contains("dragging")) reveal(e.currentTarget, e.target, id);
               if (e.target instanceof Element && e.target.matches(":focus-visible") && lifts(coverOf(e.currentTarget, e.target))) raise(id);
             }}
             onClickCapture={(e) => {
