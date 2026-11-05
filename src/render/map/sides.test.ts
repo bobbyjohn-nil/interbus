@@ -269,15 +269,21 @@ describe('a ribbon carried from run to run', () => {
       const bridges = bridgesOf(route, runs);
       return { ...linkShape(route, runs, bridges, 1, zoom), pieces: bridges.map((b) => [b.side, b.points.length]) };
     };
-    // A place or more over from the middle, on along the street or round the corner away from its side: a corner piece in the
-    // middle, then any steps, and the ribbon at least half its width all through, 4.8 px at zoom 16 where it steps twice round the
-    // corner, as a step does there (BRIDGE_M is 4.5 px), and its own width from zoom 17.
-    for (const [route, sides] of [[on, [0, 1]], [on, [0, -1]], [on, [0, 2]], [on, [0, 1.5]], [left, [0, 1]], [left, [0, 2]], [left, [0, 1.5]]] as const) {
-      for (const zoom of [16, 18]) {
+    // A place or more over from the middle, on along the street or round the corner away from its side: half a place first, no
+    // corner piece, and the ribbon at least 6.4 px across at zoom 16, where a corner piece and a step left 4.8, and its own width
+    // from zoom 17. At zoom 18 no wider than two ribbons for a change of up to a place and a half, where the corner piece in the
+    // middle beside the step a place on made it 2.5 ribbons, 17.6 px (the twenty-fourth round: 17.5 px at the 30-line late game's
+    // Line 24), and for two places as wide as its two steps side by side, 2.5 ribbons, where it was 2.8. Shown failing (TS-04)
+    // with a whole place first and the corner piece in the middle.
+    for (const [route, sides] of [[on, [0, 1]], [on, [0, -1]], [on, [0, 2]], [on, [0, 1.5]], [left, [0, 1]], [left, [0, 2]], [left, [0, 1.5]], [right, [0, -1.5]], [right, [0, -2]]] as const) {
+      for (const zoom of [16, 17, 18]) {
         const s = shape(route, [...sides], zoom);
-        expect(s.waist, `${sides} at zoom ${zoom}: the ribbon ${s.waist.toFixed(1)} px across`).toBeGreaterThan(0.5 * ribbonPx(zoom));
-        expect(s.pieces[0], `${sides}`).toEqual([0, 3]);
+        expect(s.waist, `${sides} at zoom ${zoom}: the ribbon ${s.waist.toFixed(1)} px across`).toBeGreaterThan(0.9 * ribbonPx(zoom));
+        expect(s.pieces[0], `${sides}`).toEqual([0.5 * Math.sign(sides[1]), 2]);
+        expect(s.pieces.some(([, n]) => n === 3), `${sides}`).toBe(false);
       }
+      const wide = shape(route, [...sides], 18).breadth / ribbonPx(18);
+      expect(wide, `${sides}: ${wide.toFixed(2)} ribbons across`).toBeLessThanOrEqual(Math.abs(sides[1]) > 1.5 ? 2.52 : 2.01);
     }
     // Round the corner toward its side, from the middle a place over or back to it: no corner piece, the ribbon whole, and the
     // corner as wide as a ribbon's own corner, 9.1 px, where a corner piece made it 14.4 px at zoom 18.

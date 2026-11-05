@@ -223,6 +223,9 @@ test.describe('one press, one command', () => {
     page.on('download', (d) => void downloads.push(d.suggestedFilename()));
     await page.getByTestId('saves-chip').click();
     await doubleClick(page, page.getByRole('button', { name: 'Export this game' }));
+    // The file waits on the worker's answer, which once on CI's runner took longer than the second this test gave it (#208's push
+    // run, which passed on its one re-run); then a second, in which no other comes.
+    await expect.poll(() => downloads.length, { timeout: 10_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(1_000);
     expect(downloads).toHaveLength(1);
 

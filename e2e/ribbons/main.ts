@@ -132,7 +132,9 @@ window.ribbonCase = async ({ zoom, pitch, heading, side, at, show }) => {
                 { points: [a, b], side, first: 1, last: 1 },
               ]
             : [];
-  (map.getSource('names') as GeoJSONSource).setData({ type: 'FeatureCollection', features: nameFeatures({ id: 12, name: 'Line 12' }, runs) });
+  // A route through each run's start in turn, for the words each run's start gives it.
+  const route = runs.length ? [...runs.map((r) => r.points[0]!), runs[runs.length - 1]!.points[1]!] : [];
+  (map.getSource('names') as GeoJSONSource).setData({ type: 'FeatureCollection', features: nameFeatures({ id: 12, name: 'Line 12', route }, runs) });
   count = show === 'bus' ? 1 : 0;
   // A Sparrow-sized glyph in red, so no part of it is the land's colour.
   data.set([p.lng, p.lat, heading, 1, 0, 0, 20, 8, side], 0);
