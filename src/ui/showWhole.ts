@@ -20,13 +20,20 @@ export const SHOWN = 'interbus:shown';
 /**
  * Shows `el` whole in the panel body it sits in (`.panel-body`, under the panel's heading and Close), or in its panel's own box
  * where the panel scrolls whole (`.panel`: Saves, Contracts, a stop's card, Lines here, the route editor and the new line's
- * card), and asks its panel, past the window's edge with the keyboard in it, to come in as far as shows it whole (SHOWN): Close
- * line's ask opened 67% on the window, and came in only as Tab reached Close it (the systems audit's eighteenth round). Shown in a
- * `.panel-body` alone, a key's press on Back to Home scrolled out of Saves went Home unseen, and on slot 2's Save here, under the
- * map's credit, it was held for good (the twenty-third round).
+ * card). Shown in a `.panel-body` alone, a key's press on Back to Home scrolled out of Saves went Home unseen, and on slot 2's
+ * Save here, under the map's credit, it was held for good (the systems audit's twenty-third round).
+ */
+export function showInPanel(el: Element): void {
+  const scroller = el.closest<HTMLElement>('.panel-body, .panel');
+  if (scroller) showWhole(scroller, el);
+}
+
+/**
+ * Shows `el` whole in its panel (showInPanel), and asks its panel, past the window's edge with the keyboard in it, to come in as
+ * far as shows it whole (SHOWN): Close line's ask opened 67% on the window, and came in only as Tab reached Close it (the systems
+ * audit's eighteenth round).
  */
 export function showInBody(el: Element | null): void {
-  const body = el?.closest<HTMLElement>('.panel-body, .panel');
-  if (el && body) showWhole(body, el);
+  if (el) showInPanel(el);
   el?.dispatchEvent(new Event(SHOWN, { bubbles: true }));
 }

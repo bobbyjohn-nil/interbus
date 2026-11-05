@@ -150,8 +150,10 @@ test.describe('a key on a control something lies over', () => {
   // The systems audit's twenty-third round: a key's press waited under the day's card, but the keys a control takes for itself
   // did not: with the debug line and a second, Finance on its Lines dragged 200 px left, Lines and Saves open by the mouse and
   // the day's card over Finance's fare, ArrowDown or ArrowUp on the fare opened its list beside a button no one could see, and
-  // Enter there set Line 1's fare from $2.25 to $2.50, 3 runs of 3. Under a cover no raise lifts, the arrows, Home and End wait
-  // now, as a key's press does. Shown failing (TS-04) with only the press held.
+  // Enter there set Line 1's fare from $2.25 to $2.50, 3 runs of 3; and ArrowRight or End on Lines' tab for Line 1, under the card
+  // too, turned Lines to Line 2 (the fix's review). Under a cover no raise lifts, a control's own keys wait now, as a key's press
+  // does: a list's button's ArrowDown and ArrowUp, and a tab's arrows, Home and End. Shown failing (TS-04) with only the press
+  // held, and with a list's button's keys alone held.
   test('takes no arrow, Home or End for a control under the day’s card', async ({ page }) => {
     test.setTimeout(150_000);
     await game(page, (d) => {
@@ -175,7 +177,7 @@ test.describe('a key on a control something lies over', () => {
     const was = (await fare.textContent()) ?? '';
     await tabOnto(page, fare);
     await expect.poll(() => over(fare)).toBe('day-card');
-    for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End']) {
+    for (const key of ['ArrowDown', 'ArrowUp']) {
       await page.keyboard.press(key);
       await page.waitForTimeout(300);
       await expect(page.getByRole('listbox')).toHaveCount(0);
@@ -184,6 +186,17 @@ test.describe('a key on a control something lies over', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(500);
     await expect(fare).toHaveText(was);
+    const lines = page.getByTestId('inspector');
+    const tab = lines.getByRole('tab', { selected: true });
+    await expect(tab).toContainText('Line 1');
+    await tabOnto(page, tab);
+    await expect.poll(() => over(tab)).toBe('day-card');
+    for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(300);
+      await expect(lines.getByRole('tab', { selected: true })).toContainText('Line 1');
+      await expect(tab).toBeFocused();
+    }
     await expect(card).toBeVisible();
   });
 
@@ -269,5 +282,61 @@ test.describe('a key on a control something lies over', () => {
     await page.keyboard.press('Enter');
     await expect(name).toHaveAttribute('aria-expanded', open === 'true' ? 'false' : 'true');
     expect(await shows()).toBe(true);
+  });
+
+  // The review of the twenty-third round's keyboard fixes: held for every control, and measured where it lay, the arrows, Home and
+  // End found the map, the chips or the dock over a control scrolled out of its panel, with no card on the window: with 30 lines
+  // at 1152×720 and Finance's Lines scrolled back to its top, as a wheel scrolls it with the keyboard left on Line 14's fare,
+  // ArrowDown opened no list, and with the keyboard on Line 1's name, ArrowDown stopped scrolling the body once the name had left
+  // Finance, at 120 to 139 px of 500, and End and Home did nothing. A control's own keys are held only for a control that takes
+  // them now, measured once it shows in its panel, and any other control's scroll its panel. Shown failing (TS-04) with every
+  // control's held as it lay, with a control's own held as it lay, and with every control's held once shown.
+  test('works a control’s own keys scrolled out of its panel, and scrolls the panel by any other’s', async ({ page }) => {
+    test.setTimeout(150_000);
+    const N = 30;
+    await game(page, (d) => {
+      const [first] = d.lines as Record<string, unknown>[];
+      d.lines = [first, ...Array.from({ length: N - 1 }, (_, k) => ({ ...first, id: k + 2, name: `Line ${k + 2}`, colour: LINE_COLOURS[(k + 1) % LINE_COLOURS.length], stopIds: [1, 2] }))];
+      d.nextIds = { ...d.nextIds, line: N + 1 };
+    });
+    await page.getByRole('button', { name: 'Finance', exact: true }).click();
+    const finance = page.getByTestId('finance');
+    await finance.getByTestId('finance-lines').click();
+    const body = finance.getByTestId('finance-body');
+    /** What shows over the middle of `el`: itself, its own panel, or something outside its panel on the window. */
+    const lies = (el: Locator) =>
+      el.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
+        const hit = x >= 0 && y >= 0 && x < innerWidth && y < innerHeight ? document.elementFromPoint(x, y) : null;
+        return !hit ? 'off the window' : e.contains(hit) ? 'itself' : e.closest('[data-movable]')!.contains(hit) ? 'its panel' : 'outside';
+      });
+    const fare = finance.getByRole('button', { name: 'Fare for Line 14', exact: true });
+    await tabOnto(page, fare);
+    await body.evaluate((b) => void (b.scrollTop = 0));
+    await expect(fare).toBeFocused();
+    expect(await lies(fare)).toBe('outside');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox')).toHaveCount(1);
+    expect(await lies(fare)).toBe('itself');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await expect(fare).toBeFocused();
+    // Line 1's name, the body scrolled until the name's middle lies 20 px above Finance, over the chips.
+    const name = finance.getByTestId('line-money-1').locator('button.line-name');
+    await tabOnto(page, name);
+    const from = await name.evaluate((e) => {
+      const scroller = e.closest('.panel-body') as HTMLElement;
+      const r = e.getBoundingClientRect();
+      scroller.scrollTop += r.top + r.height / 2 - (e.closest('[data-movable]')!.getBoundingClientRect().top - 20);
+      return scroller.scrollTop;
+    });
+    await expect(name).toBeFocused();
+    expect(await lies(name)).toBe('outside');
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(() => body.evaluate((b) => b.scrollTop)).toBeGreaterThan(from);
+    await page.keyboard.press('Home');
+    await expect.poll(() => body.evaluate((b) => b.scrollTop)).toBe(0);
+    await expect(name).toBeFocused();
   });
 });
