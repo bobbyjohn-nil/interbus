@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { focusLost } from "../focusLost";
 import { MODIFIERS } from "../focusSource";
 import { giveFocus } from "../giveFocus";
+import { standsFor } from "../heldFocus";
 import { SHOWN } from "../showWhole";
 import { inOpenList } from "../../render/map/tilt";
 
@@ -348,8 +349,9 @@ export function Panels({
   // close of Lines the player's, and the focus fell to the page, where Space played, 15 runs of 15 (the twenty-first round).
   const ownClose = useRef(false);
   useEffect(() => {
+    // An open list's focus is its button's (standsFor), in its button's panel.
     const at = (event: Event) => {
-      lastIn.current = (event.target instanceof Element ? event.target.closest("[data-movable]")?.getAttribute("data-movable") : null) ?? null;
+      lastIn.current = standsFor(event.target)?.closest("[data-movable]")?.getAttribute("data-movable") ?? null;
     };
     const next = (event: Event) => {
       // A modifier alone presses nothing, so the place kept waits on through it for the press the key goes with: Shift pressed as
@@ -589,6 +591,18 @@ export function Panels({
     if (dragged.current.has(id)) dragged.current.set(id, at);
     return true;
   };
+  // Whether another panel lies over the middle of `target`, a control in `box`, where a key pressed what no one could see. Tabbed
+  // to a change's Buy and run, then Finance dragged over it, or raised over it by a press on its heading, Enter bought the change
+  // for $190,000 unseen, 30 runs of 30, and so did Space after a Tab away and back (the systems audit's twenty-second round;
+  // #199's review held only Space straight after the press). The keyboard's control raises its panel there (`raise`): as the
+  // focus comes to it, as a key a control takes goes to it, and at a key's press, which only raises it, so the press shows what
+  // the key is on and the next one works it.
+  const under = (box: HTMLDivElement, target: EventTarget | null) => {
+    if (!(target instanceof Element) || !box.contains(target)) return false;
+    const r = target.getBoundingClientRect();
+    const over = document.elementFromPoint?.(r.left + r.width / 2, r.top + r.height / 2)?.closest("[data-movable]");
+    return !!over && over !== box;
+  };
   const layer = useRef<HTMLDivElement>(null);
   /** The press of a second pointer that ended a drag on its panel (drag's `others`), which starts no drag of its own. */
   const cutBy = useRef<Event | null>(null);
@@ -704,7 +718,10 @@ export function Panels({
             style={{ zIndex: 1 + (clear ? 2 * items.length : lift >= 0 ? items.length + lift : k) }}
             onPointerDownCapture={() => raise(id)}
             onPointerDown={(e) => drag(e, id)}
-            onFocus={(e) => reveal(e.currentTarget, e.target, id)}
+            onFocus={(e) => {
+              reveal(e.currentTarget, e.target, id);
+              if (e.target instanceof Element && e.target.matches(":focus-visible") && under(e.currentTarget, e.target)) raise(id);
+            }}
             onClickCapture={(e) => {
               if (e.detail !== 0) return;
               // A press that closes the panel, as its × does, or Save route and Create as the sim answers, leaves where it was
@@ -712,12 +729,20 @@ export function Panels({
               // next, 398 px from where it was left (the systems audit's eighteenth round), and kept only a task after the
               // press, the route editor and the new line's card still did (the round's review).
               const was = dragged.current.get(id);
-              if (reveal(e.currentTarget, e.target, id) && was) pressedFrom.current = { id, was };
+              const brought = reveal(e.currentTarget, e.target, id);
+              if (under(e.currentTarget, e.target)) {
+                raise(id);
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              if (brought && was) pressedFrom.current = { id, was };
             }}
             onKeyDown={(e) => {
               // But for a tab's keys, which move the focus to the tab they reach, and the focus brings it in: one that reaches no
               // other tab, as Home on the first, moved the panel and worked nothing (the eighteenth round).
               if (e.isDefaultPrevented() && !(e.target instanceof Element && e.target.getAttribute("role") === "tab")) reveal(e.currentTarget, e.target, id);
+              if (e.isDefaultPrevented() && under(e.currentTarget, e.target)) raise(id);
             }}
           >
             {node}

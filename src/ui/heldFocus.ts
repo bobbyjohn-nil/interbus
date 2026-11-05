@@ -30,8 +30,8 @@ export function useHeldFocus(root: RefObject<Element>): MutableRefObject<Element
   const byKey = useContext(FocusByKey);
   useEffect(() => {
     const moved = (event: FocusEvent) => {
-      const at = event.target;
-      held.current = at instanceof Element && root.current?.contains(at) && at.matches(':focus-visible') && byKey() ? at : null;
+      const [focus, at] = [event.target, standsFor(event.target)];
+      held.current = focus instanceof Element && at && root.current?.contains(at) && focus.matches(':focus-visible') && byKey() ? at : null;
     };
     const left = (event: FocusEvent) => {
       const at = event.target;
@@ -55,4 +55,18 @@ export function useHeldFocus(root: RefObject<Element>): MutableRefObject<Element
     };
   }, [root, byKey]);
   return held;
+}
+
+/**
+ * The control a focus stands for: in an open list, the list's button, which names the list (`aria-controls`), as the list is drawn
+ * in the page's main landmark, outside its button's panel (Dropdown.tsx); else the focus itself. Taken as the list's own, a focus
+ * there was in no panel and held for no hand-on, so as Ctrl+Z's answer took a list away, with its line taken back or its fare's row
+ * gone, the focus fell to the page, where Space played, 30 runs of 30 (the systems audit's twenty-second round).
+ */
+export function standsFor(at: EventTarget | null): Element | null {
+  if (!(at instanceof Element)) return null;
+  const list = at.closest('[role="listbox"][id]');
+  if (!list) return at;
+  for (const button of document.querySelectorAll('[aria-controls]')) if (button.getAttribute('aria-controls') === list.id) return button;
+  return at;
 }
